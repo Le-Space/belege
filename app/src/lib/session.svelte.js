@@ -1074,7 +1074,19 @@ async function startBridgeForDevices() {
 		label: deviceLabel(),
 		// `connected` only once the device proved the passkey (device-gate.js).
 		devices: () => (app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId),
-		isProved: (peerId) => Boolean(session?.deviceGate?.isProved(peerId))
+		isProved: (peerId) => Boolean(session?.deviceGate?.isProved(peerId)),
+		// A big answer of the bridge's node, as sealed blocks over bitswap (#578).
+		fetchBlock: async (block) => {
+			const authKey = session?.bridgeAuth.key;
+			if (!session || !authKey) throw new TypeError('the bridge’s key is not known here');
+			const { fetchBridgeBlock } = await import('./bridge/bridge-blocks.js');
+			return fetchBridgeBlock({
+				blockstore: session.blockstore,
+				store: session.localBlockstore,
+				authKey,
+				block
+			});
+		}
 	});
 	bridgeConsumer = consumer;
 	setBridgeTransport(
@@ -3113,6 +3125,19 @@ function installE2EHooks() {
 			if (!session || !blobs) return null;
 			const fileCid = await blobs.put(new Uint8Array(bytes));
 			return session.store.receipts.put({ ...r, fileCid });
+		},
+		// The receipts with a file, each file's size and SHA-256 (a big Paperless original over blocks, #578).
+		receiptFiles: async () => {
+			const blobs = currentBlobs();
+			if (!session || !blobs) return [];
+			const { sha256Hex } = await import('./receipts/blob-store.js');
+			const out = [];
+			for (const r of await session.store.receipts.list()) {
+				if (!r.fileCid) continue;
+				const bytes = await blobs.get(r.fileCid);
+				out.push({ source: r.source, size: bytes.length, sha256: await sha256Hex(bytes) });
+			}
+			return out;
 		},
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),

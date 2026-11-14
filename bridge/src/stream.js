@@ -25,8 +25,10 @@
 // attachment, a Paperless original) goes base64 while it fits UCEP's limit –
 // 1 MiB on a direct connection or through a relay that grants at least 32 MiB
 // (the books' own), 64 KiB through one that grants less (js-libp2p's default
-// 128 KiB) – and is refused `TOO_LARGE` above it, before it is encoded; bigger
-// files become blocks in M2 too.
+// 128 KiB). Above it, on an armed node, the bytes are sealed as blocks and the
+// answer names their CID: the device fetches them over bitswap through the
+// proved connection (blocks.js, #578). Without that, `TOO_LARGE`, before
+// anything is encoded.
 
 import { LIMITS, UcepError } from '@le-space/ucep';
 import { checkArgs, commandInput, command as protocolCommand } from '@le-space/bridge-protocol';
@@ -57,9 +59,12 @@ const ENVELOPE = 512;
 export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body !== 'bytes';
 
 /**
- * @typedef {{ status: number, contentType: string, json?: unknown, base64?: string }} StreamAnswer
- *   what `request` answers: JSON as it is, bytes as base64 with their mime type
+ * @typedef {{ status: number, contentType: string, json?: unknown, base64?: string, block?: { cid: string, size: number } }} StreamAnswer
+ *   what `request` answers: JSON as it is, bytes as base64 with their mime type – or, too big for
+ *   that, as sealed blocks to fetch over bitswap (blocks.js, #578): the root CID and the bytes' size
  */
+
+/** @typedef {(bytes: Uint8Array) => Promise<{ cid: string, size: number }>} Shelve */
 
 /**
  * One request onto the table.
@@ -68,6 +73,7 @@ export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body
  * @param {import('./commands.js').Command[]} p.commands the table (commands.js)
  * @param {Record<string, unknown> | null} p.args `{ method, path, body? }` as the device sent them
  * @param {boolean} p.limited the connection is relayed with a data limit below 32 MiB: UCEP allows 64 KiB, not 1 MiB
+ * @param {Shelve} [p.shelve] bytes too big for the answer, sealed as blocks for the caller (node.js, armed)
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize] may the caller run
  *   this command? Throws the UCEP error that says why not (grants.js)
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent] the command's
@@ -79,6 +85,7 @@ export async function answerRequest({
 	commands,
 	args,
 	limited,
+	shelve,
 	authorize = async () => {},
 	spent = () => {},
 	log = () => {}
@@ -111,6 +118,7 @@ export async function answerRequest({
 		command,
 		input: { query: url.searchParams, params, body },
 		limited,
+		shelve,
 		authorize,
 		spent,
 		log
@@ -127,12 +135,21 @@ export async function answerRequest({
  * @param {import('./commands.js').Command} p.command a command of the table, offered over the stream
  * @param {unknown} p.args the arguments as the device sent them
  * @param {boolean} p.limited
+ * @param {Shelve} [p.shelve]
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
  * @returns {Promise<StreamAnswer>}
  */
-export async function answerNamed({ command, args, limited, authorize, spent, log = () => {} }) {
+export async function answerNamed({
+	command,
+	args,
+	limited,
+	shelve,
+	authorize,
+	spent,
+	log = () => {}
+}) {
 	const problems = checkArgs(command.name, args ?? {});
 	if (problems.length) {
 		log(`${command.name} over the stream: refused INVALID_ARGUMENTS`);
@@ -155,7 +172,7 @@ export async function answerNamed({ command, args, limited, authorize, spent, lo
 		if (!params) return { status: 404, contentType: JSON_TYPE, json: { error: 'not found' } };
 		input.params = params;
 	}
-	return runCommand({ command, input, limited, authorize, spent, log });
+	return runCommand({ command, input, limited, shelve, authorize, spent, log });
 }
 
 /**
@@ -166,6 +183,7 @@ export async function answerNamed({ command, args, limited, authorize, spent, lo
  * @param {import('./commands.js').Command} p.command
  * @param {Omit<import('./commands.js').Input, 'token'> & { token?: null }} p.input
  * @param {boolean} p.limited
+ * @param {Shelve} [p.shelve]
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
@@ -175,6 +193,7 @@ async function runCommand({
 	command,
 	input,
 	limited,
+	shelve,
 	authorize = async () => {},
 	spent = () => {},
 	log = () => {}
@@ -204,6 +223,12 @@ async function runCommand({
 		if ('bytes' in answer) {
 			const max = limited ? LIMITS.limitedResponse : LIMITS.response;
 			if (Math.ceil(answer.bytes.length / 3) * 4 + ENVELOPE > max) {
+				// Too big for the answer: sealed blocks, fetched over bitswap (#578).
+				if (shelve) {
+					const block = await shelve(answer.bytes);
+					log(`${command.name} over the stream: ${block.size} bytes as blocks`);
+					return { status: answer.status, contentType: answer.mime, block };
+				}
 				throw new UcepError(
 					'TOO_LARGE',
 					limited ? 'open a direct connection first' : 'too big for a stream'

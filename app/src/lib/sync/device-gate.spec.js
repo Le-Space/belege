@@ -205,9 +205,16 @@ describe('the bridge’s own key (#575)', () => {
 		const deviceGate = createDeviceGate({
 			keyFor: (peer) => (peer === bridgePeer ? bridgeKey : deviceKey),
 			limited: (peer) => peer === bridgePeer,
+			// The bridge's big answers come over Bitswap (#578): that one protocol only.
+			limitedMay: (protocol) => protocol.startsWith('/ipfs/bitswap/'),
 			waitMs: 800
 		});
 		const d = await node('gate-d', deviceGate);
+		// A stand-in for Bitswap's handler on the device: the bridge reaches it, nothing else.
+		await d.handle('/ipfs/bitswap/1.2.0', async (/** @type {any} */ stream) => {
+			await lpStream(stream).write(new TextEncoder().encode('blocks'));
+			await stream.close();
+		});
 		const plain = createDeviceGate({ authKey: deviceKey, waitMs: 800 });
 		const e = await node('gate-e', plain);
 		try {
@@ -218,6 +225,12 @@ describe('the bridge’s own key (#575)', () => {
 			);
 			// Proved, but limited: no books from the device, and not in its gossipsub.
 			await expect(askBooks(bridge, d)).rejects.toThrow();
+			// Bitswap, though, it reaches.
+			const swap = await bridge.dialProtocol(d.peerId, '/ipfs/bitswap/1.2.0', {
+				signal: AbortSignal.timeout(3000)
+			});
+			const got = await lpStream(swap).read({ signal: AbortSignal.timeout(3000) });
+			expect(new TextDecoder().decode(got.subarray())).toBe('blocks');
 			await wait(1000);
 			expect(
 				d.services.pubsub.getPeers().some((/** @type {any} */ p) => p.equals(bridge.peerId))

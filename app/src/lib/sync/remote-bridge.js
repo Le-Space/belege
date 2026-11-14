@@ -39,6 +39,7 @@
 
 import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
 import { COMMANDS, checkArgs, httpRequest } from '@le-space/bridge-protocol';
+import { isBlockAnswer } from '../bridge/bridge-blocks.js';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
@@ -319,12 +320,15 @@ export async function askPeer({ call, peerId, input, init, pathOnly }) {
  * @param {() => string[]} p.devices the own devices connected now
  * @param {(peerId: string) => boolean} [p.isProved] the device gate's word on a peer (device-gate.js)
  * @param {string} [p.label]
+ * @param {(block: { cid: string, size: number }) => Promise<Uint8Array>} [p.fetchBlock] a big answer's bytes,
+ *   as sealed blocks over bitswap from the bridge's node (bridge/bridge-blocks.js, #578)
  */
 export async function startBridgeConsumer({
 	libp2p,
 	devices,
 	isProved = () => true,
-	label = 'Belege'
+	label = 'Belege',
+	fetchBlock
 }) {
 	const consumer = createConsumer({ libp2p, label });
 	await consumer.start?.();
@@ -397,6 +401,24 @@ export async function startBridgeConsumer({
 				status: refusal.status,
 				headers: { 'content-type': 'application/json' }
 			});
+		}
+		// Too big for the stream: the bytes wait as sealed blocks on the bridge's
+		// node (#578). Fetched over bitswap, then let go there, fetched or not.
+		if (answer.block !== undefined) {
+			if (!fetchBlock || !isBlockAnswer(answer.block)) {
+				throw new TypeError('the bridge answered with blocks this device cannot fetch');
+			}
+			try {
+				const bytes = await fetchBlock(answer.block);
+				return new Response(/** @type {BodyInit} */ (/** @type {unknown} */ (bytes)), {
+					status: answer.status,
+					headers: { 'content-type': answer.contentType || 'application/octet-stream' }
+				});
+			} finally {
+				await consumer
+					.call(peerId, EXTENSION, 'blocks.release', { cid: answer.block.cid })
+					.catch(() => {});
+			}
 		}
 		const payload =
 			answer.base64 !== undefined ? fromBase64(answer.base64) : JSON.stringify(answer.json ?? {});

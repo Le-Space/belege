@@ -106,7 +106,7 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     (#587): Aleph's API is asked for that key's INSTANCEs.
 // 50: the hosted bridge asks api.aleph.im when api2.aleph.im does not answer,
 //     and keeps Aleph's public SEV-SNP runtime in this browser's cache (#587).
-export const CONSENT_VERSION = '50';
+export const CONSENT_VERSION = '51';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

@@ -208,6 +208,7 @@ const relayPeerOf = (addr) => /\/p2p\/(12D3KooW[1-9A-HJ-NP-Za-km-z]{44})/.exec(a
  * @property {(peerId: unknown, scopes: unknown) => Promise<string[]>} setScopes one device's scopes (grants.js)
  * @property {() => Promise<void>} stop
  * @property {any} libp2p
+ * @property {(() => { answers: number, bytes: number }) | null} blocks big answers waiting for their device (blocks.js); null unarmed
  */
 
 /**
@@ -302,6 +303,60 @@ export async function startBridgeNode({
 				: { identify: quietIdentify(), identifyPush: quietIdentifyPush() })
 		}
 	});
+
+	// Big answers as sealed blocks over bitswap (#578), armed only: bitswap is
+	// registered after the gate, so its handler is behind the device proof like
+	// every other protocol (device-gate.js wraps the registrar). An in-memory
+	// blockstore, no routers: nothing is provided or looked up, the node only
+	// answers the wants of proved devices for what it shelved for them.
+	/** @type {any} */
+	let helia = null;
+	/** @type {Awaited<ReturnType<typeof import('./blocks.js').createBlockShelf>> | null} */
+	let shelf = null;
+	/** @type {ReturnType<typeof setInterval> | undefined} */
+	let sweeper;
+	if (armed) {
+		try {
+			// Loaded only here: an unarmed node, and every test that starts one, does without.
+			const [dagCbor, { createHeliaLight }, { withBitswap }, { withLibp2p }, { createBlockShelf }] =
+				await Promise.all([
+					import('@ipld/dag-cbor'),
+					import('helia'),
+					import('@helia/bitswap'),
+					import('@helia/libp2p'),
+					import('./blocks.js')
+				]);
+			const { MemoryBlockstore } = await import('blockstore-core');
+			// The store itself, held here: Helia's own `delete` asks the routers to stop
+			// providing first and, with none, deletes nothing. The shelf puts and
+			// deletes here directly; Bitswap reads from it through Helia.
+			const blockstore = new MemoryBlockstore();
+			helia = await withBitswap(
+				withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore }), libp2p),
+				{ runOnLimitedConnections: true }
+			).start();
+			shelf = await createBlockShelf({
+				blockstore,
+				authKey: /** @type {Uint8Array} */ (authKey)
+			});
+			sweeper = setInterval(() => shelf?.sweep().catch(() => {}), 60_000);
+			sweeper.unref?.();
+		} catch (error) {
+			await helia?.stop().catch(() => {});
+			await libp2p.stop().catch(() => {});
+			throw error;
+		}
+	}
+	/**
+	 * Bytes too big for a stream answer, shelved for the device that asked.
+	 *
+	 * @param {string} peerId
+	 * @returns {((bytes: Uint8Array) => Promise<{ cid: string, size: number }>) | undefined}
+	 */
+	const shelveFor = (peerId) =>
+		shelf
+			? (bytes) => /** @type {NonNullable<typeof shelf>} */ (shelf).put(bytes, peerId)
+			: undefined;
 
 	/**
 	 * The caller is a device of the books: the node is armed, the peer proved
@@ -475,6 +530,7 @@ export async function startBridgeNode({
 								commands,
 								args: argsJson,
 								limited,
+								shelve: shelveFor(peerId),
 								authorize: (command) => authorizeCall(peerId, command),
 								spent: (command, json) => {
 									if (command.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
@@ -484,7 +540,19 @@ export async function startBridgeNode({
 						}
 					}
 				}
-			: {})
+			: {}),
+		'blocks.release': {
+			// A big answer's blocks (#578): the device that got them has the
+			// bytes, they go. Another device's, or an unknown CID, stays.
+			description: 'Let the blocks of a big answer go, once the device has them',
+			handler: async ({ argsJson, peerId }) => {
+				assertDevice(peerId);
+				const released = shelf ? await shelf.release(argsJson?.cid, peerId) : false;
+				// Counts only: how many big answers still wait, never which.
+				if (released && shelf) log(`blocks.release: ${shelf.held().answers} answer(s) waiting`);
+				return { released };
+			}
+		}
 	};
 
 	// Each command of the table by its name (`bank.transactions`), the
@@ -502,6 +570,7 @@ export async function startBridgeNode({
 					command,
 					args: argsJson,
 					limited,
+					shelve: shelveFor(peerId),
 					authorize: (c) => authorizeCall(peerId, c),
 					spent: (c, json) => {
 						if (c.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
@@ -533,6 +602,8 @@ export async function startBridgeNode({
 		});
 		await provider.start();
 	} catch (error) {
+		clearInterval(sweeper);
+		await helia?.stop().catch(() => {});
 		await libp2p.stop().catch(() => {});
 		throw error;
 	}
@@ -581,8 +652,12 @@ export async function startBridgeNode({
 			log(`device.scopes: a device holds ${now.length} scope(s) now`);
 			return now;
 		},
+		blocks: shelf ? () => /** @type {NonNullable<typeof shelf>} */ (shelf).held() : null,
 		async stop() {
+			clearInterval(sweeper);
 			await provider.stop().catch(() => {});
+			await shelf?.clear().catch(() => {});
+			await helia?.stop().catch(() => {});
 			await libp2p.stop();
 			await deviceGrants.flush();
 		}

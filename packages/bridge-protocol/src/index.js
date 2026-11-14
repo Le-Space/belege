@@ -9,6 +9,13 @@ import { check } from './schema.js';
 export { COMMANDS, DEVICE_SCOPES, PROTOCOL_VERSION, command } from './catalogue.js';
 export { check } from './schema.js';
 export { commandInput, httpRequest, pathParams, toQuery } from './http.js';
+export {
+	BLOCK_CHUNK_BYTES,
+	BLOCK_KEY_INFO,
+	BLOCK_VERSION,
+	MAX_BLOCK_ANSWER,
+	bridgeBlockKey
+} from './blocks.js';
 
 /**
  * The problems of a call's arguments; [] when they fit. An unknown command

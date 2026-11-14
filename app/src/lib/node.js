@@ -167,6 +167,8 @@ export class ReadOnlyError extends Error {
  * @property {string[]} relays
  * @property {import('./sync/network-mode.js').NetworkMode} mode where devices meet, as the node was built (#148)
  * @property {any} libp2p the node under Helia and OrbitDB
+ * @property {any} blockstore Helia's blockstore: sealed blocks only; online, a block this device lacks is asked of its peers over bitswap
+ * @property {any} localBlockstore the store under it, in this browser: what is here, and where a block is deleted (Helia's own delete deletes nothing without routers)
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
  * @property {(label: string, role?: 'bookkeeping' | 'reader', options?: { bridge?: boolean }) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611), by role and whether they may use the bridge (#641)
@@ -416,6 +418,8 @@ export async function startSession(
 				keyFor: (peer) =>
 					peer === bridgeAuth.peerId && bridgeAuth.key ? bridgeAuth.key : deviceAuthKey,
 				limited: (peer) => peer === bridgeAuth.peerId,
+				// … but Bitswap: the bridge's big answers come as sealed blocks (#578).
+				limitedMay: (protocol) => protocol.startsWith('/ipfs/bitswap/'),
 				// The proof is offered to devices, never to a relay this node dials.
 				offer: (peer) => !relayPeers.has(peer),
 				admit: firstContactPolicy({
@@ -433,8 +437,11 @@ export async function startSession(
 		: await createOfflineLibp2p(peerKey);
 	// The code exchange builds its connections on this node (qr-link.js).
 	if (deviceGate && (mode === 'qr' || mode === 'both')) attachQrSession(libp2p);
+	// Over a relayed circuit too: a phone reaches the bridge's node through the
+	// books' relay, and its big answers come over Bitswap (#578).
 	const helia = await withBitswap(
-		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
+		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p),
+		{ runOnLimitedConnections: true }
 	).start();
 
 	try {
@@ -900,6 +907,8 @@ export async function startSession(
 			relays,
 			mode,
 			libp2p,
+			blockstore: helia.blockstore,
+			localBlockstore: blockstore,
 			deviceGate,
 			bridgeAuthBase,
 			bridgeAuth,

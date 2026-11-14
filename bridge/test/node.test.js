@@ -15,6 +15,12 @@ import { memory } from '@libp2p/memory';
 import { createLibp2p } from 'libp2p';
 import { createDeviceGate, gatedIdentify } from '@belege/device-gate';
 import { createConsumer } from '@le-space/ucep';
+import * as dagCbor from '@ipld/dag-cbor';
+import { CID } from 'multiformats/cid';
+import { createHeliaLight } from 'helia';
+import { withBitswap } from '@helia/bitswap';
+import { withLibp2p } from '@helia/libp2p';
+import { bridgeBlockKey } from '@le-space/bridge-protocol';
 
 import { PAIR_SCOPE, fileStore, parseHandover, startBridgeNode } from '../src/node.js';
 import { emptyCommands } from './support/commands.js';
@@ -440,6 +446,141 @@ describe('the bridge’s node', () => {
 			await other.stop();
 			await unlisted.stop();
 			await stranger.stop();
+		}
+	});
+});
+
+describe('big answers as blocks (#578)', () => {
+	/** @type {string} */
+	let dir;
+	before(async () => {
+		dir = await mkdtemp(join(tmpdir(), 'belege-node-blocks-'));
+	});
+	after(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	test('a Paperless original too big for the stream: sealed blocks over bitswap, then gone', async () => {
+		// Made-up bytes, 3 MiB and a bit: three chunks of 1 MiB and one more.
+		const original = new Uint8Array(3 * 1024 * 1024 + 4321);
+		for (let i = 0; i < original.length; i++) original[i] = (i * 31 + 7) & 0xff;
+		const own = await device(AUTH_KEY);
+		const other = await device(AUTH_KEY);
+		// The device's own blockstore with bitswap, as the app's (node.js).
+		const helia = await withBitswap(
+			withLibp2p(createHeliaLight({ codecs: [dagCbor] }), own.libp2p)
+		).start();
+		/** @type {Awaited<ReturnType<typeof startBridgeNode>> | null} */
+		let node = null;
+		const lines = /** @type {string[]} */ ([]);
+		try {
+			node = await startBridgeNode({
+				dir: join(dir, 'node'),
+				authKey: AUTH_KEY,
+				relays: [],
+				devices: [own.peerId, other.peerId],
+				commands: emptyCommands({
+					paperless: {
+						document: async () => ({
+							bytes: original,
+							mime: 'application/pdf',
+							variant: 'original'
+						})
+					}
+				}),
+				transports: [memory()],
+				listen: ['/memory/bridge-blocks'],
+				log: (line) => lines.push(line)
+			});
+			const addr = `/memory/bridge-blocks/p2p/${node.peerId}`;
+			const { multiaddr } = /** @type {any} */ (await import('@multiformats/multiaddr'));
+			await own.libp2p.dial(multiaddr(addr));
+			assert.equal(await waitFor(() => own.gate?.isProved(node.peerId) === true), true);
+
+			const answer = await own.consumer.call(node.peerId, 'belege-bridge', 'paperless.document', {
+				id: 12
+			});
+			assert.equal(answer.status, 200);
+			assert.equal(answer.contentType, 'application/pdf');
+			assert.equal(answer.base64, undefined, 'not through the stream');
+			assert.equal(answer.block.size, original.length);
+			assert.deepEqual(node.blocks?.(), { answers: 1, bytes: original.length + 28 });
+			assert.ok(
+				lines.some((l) => /paperless\.document over the stream: \d+ bytes as blocks/.test(l))
+			);
+
+			// Fetched over bitswap through the proved connection, checked by CID.
+			const get = async (/** @type {CID} */ cid) => {
+				const got = await helia.blockstore.get(cid, { signal: AbortSignal.timeout(10_000) });
+				if (got instanceof Uint8Array) return got;
+				const parts = [];
+				for await (const part of got) parts.push(part);
+				return Buffer.concat(parts);
+			};
+			const root = /** @type {any} */ (dagCbor.decode(await get(CID.parse(answer.block.cid))));
+			assert.equal(root.v, 1);
+			assert.equal(root.chunks.length, 4);
+			const sealed = Buffer.concat(
+				await Promise.all(root.chunks.map((/** @type {CID} */ c) => get(c)))
+			);
+			assert.equal(sealed.length, root.size);
+			// Nothing in the clear: the blocks are sealed with the bridge's block key.
+			assert.equal(sealed.includes(Buffer.from(original.subarray(0, 64))), false);
+			const key = await crypto.subtle.importKey(
+				'raw',
+				await bridgeBlockKey(AUTH_KEY),
+				'AES-GCM',
+				false,
+				['decrypt']
+			);
+			const opened = new Uint8Array(
+				await crypto.subtle.decrypt(
+					{ name: 'AES-GCM', iv: sealed.subarray(0, 12) },
+					key,
+					sealed.subarray(12)
+				)
+			);
+			assert.deepEqual(opened, original);
+
+			// A stranger with another key reaches the node but not its bitswap: the gate is in front of it.
+			const stranger = await device(OTHER_KEY);
+			const theirs = await withBitswap(
+				withLibp2p(createHeliaLight({ codecs: [dagCbor] }), stranger.libp2p)
+			).start();
+			try {
+				await stranger.libp2p.dial(multiaddr(addr)).catch(() => {});
+				await assert.rejects(async () => {
+					const got = await theirs.blockstore.get(CID.parse(answer.block.cid), {
+						signal: AbortSignal.timeout(1500)
+					});
+					if (!(got instanceof Uint8Array)) for await (const _ of got);
+				});
+			} finally {
+				await theirs.stop().catch(() => {});
+				await stranger.stop().catch(() => {});
+			}
+
+			// Another device cannot let them go; the device that got them can, once.
+			await other.libp2p.dial(multiaddr(addr));
+			assert.equal(await waitFor(() => other.gate?.isProved(node.peerId) === true), true);
+			const foreign = await other.consumer.call(node.peerId, 'belege-bridge', 'blocks.release', {
+				cid: answer.block.cid
+			});
+			assert.equal(foreign.released, false);
+			const released = await own.consumer.call(node.peerId, 'belege-bridge', 'blocks.release', {
+				cid: answer.block.cid
+			});
+			assert.equal(released.released, true);
+			assert.deepEqual(node.blocks?.(), { answers: 0, bytes: 0 });
+			const again = await own.consumer.call(node.peerId, 'belege-bridge', 'blocks.release', {
+				cid: answer.block.cid
+			});
+			assert.equal(again.released, false);
+		} finally {
+			await helia.stop().catch(() => {});
+			await node?.stop();
+			await own.stop();
+			await other.stop();
 		}
 	});
 });

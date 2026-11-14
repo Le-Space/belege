@@ -215,8 +215,10 @@ no books.
 - **The bridge's own key:** a device derives it from the books' root for this bridge and one
   generation of its pairing, and hands it over at pairing. The books' device key never leaves the
   browser. Devices prove themselves with the bridge's key toward this one peer only and let it
-  reach none of their own protocols (no gossipsub, no Bitswap), so a copy of the key opens no
-  device. "Kopplung lösen" moves the books to the next generation: the old key is then worth
+  reach none of their own protocols but Bitswap (no gossipsub, no OrbitDB heads), so a copy of
+  the key opens no device. Bitswap is open to it for big answers (below); through it the bridge
+  could ask a device for blocks, which are sealed with keys the bridge does not have, and it
+  learns which blocks a device is looking for. "Kopplung lösen" moves the books to the next generation: the old key is then worth
   nothing (#575).
 - **Pairing by invitation:** until a device has handed the bridge's key over, the node is
   *unarmed* and offers one thing, pairing (UCEP): `pnpm bridge` prints an invitation,
@@ -245,9 +247,18 @@ no books.
   table as HTTP (`src/commands.js`), with the same body limit per command and the same answer, so
   a device sees over the stream what it would see over HTTP. Not over the stream: `/pair`,
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
-  out (a mail attachment, a Paperless original) go base64 while they fit UCEP's limit – 1 MiB on
-  a direct connection or through a relay that grants at least 32 MiB, 64 KiB through one that
-  grants less – and are refused `TOO_LARGE` above it. Each command needs
+  out (a mail attachment, a raw mail, a Paperless original) go base64 while they fit UCEP's
+  limit – 1 MiB on a direct connection or through a relay that grants at least 32 MiB, 64 KiB
+  through one that grants less. Above it they go as **sealed blocks** (#578, `src/blocks.js`):
+  sealed with AES-256-GCM under a key derived from the bridge's own key (HKDF, info
+  `belege/bridge-blocks/v1`, `@le-space/bridge-protocol`), cut into 1 MiB blocks under a
+  dag-cbor root – the format of the app's receipt files – and kept in memory, never on disk. The
+  answer is `{ status, contentType, block: { cid, size } }`; the device fetches the blocks over
+  Bitswap through the proved connection (behind the device gate like every other protocol;
+  no routers, nothing provided or looked up), checks the size, and sends `blocks.release`, which
+  only the device the answer was for may; the device deletes what it fetched, and only that. Unfetched blocks go after ten minutes; at most 512 MiB
+  wait at once, and an answer may be at most 256 MiB. Through a relay, an answer must fit what
+  the relay lets through on one connection (the books' own: 32 MiB). Each command needs
   its scope (below).
 - **Taking the settings to a hosted bridge (#728):** `settings.export` answers the accounts a
   hosted bridge reads (mail, Kraken, Paperless, Enable Banking with its file

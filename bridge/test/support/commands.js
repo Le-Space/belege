@@ -3,8 +3,11 @@
 // single service behind it. Made-up config; nothing is called.
 import { createCommands } from '../../src/commands.js';
 
-/** @param {{ node?: any }} [o] the node's handle (index.js), for `device.scopes` */
-export function emptyCommands({ node = null } = {}) {
+/**
+ * @param {{ node?: any, paperless?: any }} [o] the node's handle (index.js), for `device.scopes`;
+ *   a made-up Paperless, for an answer of bytes
+ */
+export function emptyCommands({ node = null, paperless = null } = {}) {
 	return createCommands({
 		node,
 		config: /** @type {any} */ ({
@@ -26,7 +29,7 @@ export function emptyCommands({ node = null } = {}) {
 		shares: /** @type {any} */ ({ read: () => null, list: () => [], revoke: () => false }),
 		rates: null,
 		kraken: null,
-		paperless: null,
+		paperless,
 		enablebanking: null,
 		enablebankingLinks: null,
 		wallets: null,

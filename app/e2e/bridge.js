@@ -26,6 +26,7 @@ export const BRIDGE_SPECS = [
 	'backup-restore',
 	'bank-import',
 	'books-identity',
+	'bridge-blocks',
 	'bridge-node',
 	'bridge-scopes',
 	'enablebanking',
