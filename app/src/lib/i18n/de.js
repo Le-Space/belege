@@ -1712,6 +1712,9 @@ export default {
 			connected: 'Andere Geräte verbunden: {connected} von {count}',
 			none: 'Noch kein anderes Gerät – eins kommt unter „Erweitert“ dazu.'
 		},
+		newScopes: 'Was ein neues Gerät an der Bridge darf',
+		newScopesText:
+			'Gilt für das nächste Gerät, das du hier hinzufügst – per QR-Code, per ID oder wenn du es hereinlässt. Später änderst du es pro Gerät unten unter „Darf an der Bridge“.',
 		advanced: 'Erweitert',
 		off: 'Auf diesem Gerät ist die Synchronisation aus. Einschalten im Hinweis „Datenschutz & Technik“ unter „Eigene Geräte synchronisieren“; sie gilt ab dem nächsten Entsperren.',
 		openConsent: 'Hinweis öffnen',

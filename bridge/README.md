@@ -267,7 +267,10 @@ no books.
   can do the same over HTTP with the token (`POST /node/scopes`). A set is a subset of the scopes
   the node offers (`settable` in `grants`); an unknown name is refused, not dropped. It is kept
   in `device-grants.json` until it is set again: the device list told again by peer ids alone
-  keeps it, and only a device new to the list gets every scope. `bridge:settings:export` and
+  keeps it, and only a device new to the list gets every scope. A device added in the app
+  carries in its record what was ticked for it then; the app lists it as
+  `{ peerId, initial }`, and the bridge gives a device new to it exactly those (never one only
+  the holder holds), while one it knows keeps what it holds. `bridge:settings:export` and
   `bridge:grants:manage` belong to the device that paired the bridge whatever a list says, so it
   cannot lock itself out of managing the bridge, and no other device can widen its own set. A device that has not
   used the bridge for 90 days is refused `GRANT_EXPIRED` until the device that paired the bridge
@@ -348,7 +351,7 @@ The node's own commands, beside those of the table:
 |---|---|---|
 | `help` | any peer that reaches the extension | the commands, armed or not, the protocol version, the requests offered with their scopes, and the scopes |
 | `handover` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), unarmed only | the bridge's key, relays and devices; the node restarts armed |
-| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (what it holds; every scope for a new device) or `{ peerId, scopes }` |
+| `devices` | the device that paired by invitation; any other proved device of the books only to take devices off (never the one that paired) | the books' device list: each a peer id (what it holds; every scope for a new device), `{ peerId, scopes }`, or `{ peerId, initial }` (those for a device new to the bridge) |
 | `grants` | a proved device of the books | per device its scopes, last use, when they lapse, and its calls per command (`usage`: name, let through, refused, last time) – every device's for the device that paired the bridge, its own for any other; `settable`: what a set is made of |
 | `renew` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | a device whose scopes lapsed counts from now again |
 | `unpair` | the device that paired by invitation (UCEP scope `belege-bridge:pairing:manage`), proved | the key leaves the keychain; the node runs unarmed with a new invitation |

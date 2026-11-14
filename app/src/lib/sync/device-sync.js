@@ -137,7 +137,8 @@ const deviceOf = (peerId, label) => ({
 	changedAt: '',
 	bridge: false,
 	addrs: [],
-	hosted: null
+	hosted: null,
+	bridgeScopes: null
 });
 
 const QR_PREFIX = 'belege-device:';
@@ -295,12 +296,30 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 export const isPeerId = (id) => /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/.test(String(id ?? ''));
 
 /**
- * @typedef {{ peerId: string, label: string, addedAt: string, removed: boolean, changedAt: string, bridge: boolean, addrs: string[], hosted: { host: string } | null }} Device
+ * @typedef {{ peerId: string, label: string, addedAt: string, removed: boolean, changedAt: string, bridge: boolean, addrs: string[], hosted: { host: string } | null, bridgeScopes: string[] | null }} Device
  *   `bridge`: the bridge's own node (remote-bridge.js, #573) – a device of the books that holds no books,
- *   so no replication is expected of it; `addrs`: where it listens besides the relays (its WebSocket on the
+ *   so no replication is expected of it; `bridgeScopes`: what the person ticked for it at the bridge when
+ *   adding it (#579) – the bridge gives these to a device new to it; null: every scope, as before; `addrs`: where it listens besides the relays (its WebSocket on the
  *   machine it runs on), from its invitation; `hosted`: a bridge in a confidential VM, paired with the
  *   unlock after this browser attested it (integrations/hosted-bridge.js, #585), and the VM's name
  */
+
+/** A bridge scope's name (@le-space/bridge-protocol). */
+const SCOPE_NAME = /^bridge:[a-z]+(:[a-z]+)?$/;
+
+/**
+ * The bridge scopes a device record carries: names only, at most 32; null
+ * when it carries none (every scope, as before #579).
+ *
+ * @param {unknown} raw
+ * @returns {string[] | null}
+ */
+export function bridgeScopesOf(raw) {
+	if (!Array.isArray(raw)) return null;
+	return [...new Set(raw.filter((s) => typeof s === 'string' && SCOPE_NAME.test(s)))]
+		.slice(0, 32)
+		.sort();
+}
 
 /**
  * Every device the books have a record of – its latest record, since two
@@ -337,7 +356,8 @@ export function deviceRecords(settingsRecords) {
 			hosted:
 				r.value?.bridge && typeof r.value?.hosted?.host === 'string'
 					? { host: r.value.hosted.host.slice(0, 253) }
-					: null
+					: null,
+			bridgeScopes: bridgeScopesOf(r.value?.bridgeScopes)
 		}))
 		.filter((d) => isPeerId(d.peerId));
 }
@@ -400,9 +420,13 @@ export async function startDeviceSync({
 	 *
 	 * @param {string} peerId
 	 * @param {string} name
-	 * @param {{ bridge?: boolean, addrs?: string[], hosted?: { host: string } | null }} [how] the bridge's node (no books on it), where it listens, and the VM it runs in
+	 * @param {{ bridge?: boolean, addrs?: string[], hosted?: { host: string } | null, bridgeScopes?: string[] | null }} [how] the bridge's node (no books on it), where it listens, and the VM it runs in; what the person ticked for it at the bridge (#579)
 	 */
-	async function writeDevice(peerId, name, { bridge = false, addrs = [], hosted = null } = {}) {
+	async function writeDevice(
+		peerId,
+		name,
+		{ bridge = false, addrs = [], hosted = null, bridgeScopes = null } = {}
+	) {
 		const key = `${DEVICE_PREFIX}${peerId}`;
 		const latest = (await all())
 			.filter((r) => r.key === key)
@@ -415,7 +439,8 @@ export async function startDeviceSync({
 				label: name || latest?.value?.label || '',
 				addedAt: now(),
 				...(bridge ? { bridge: true, addrs: addrs.slice(0, 8) } : {}),
-				...(bridge && hosted ? { hosted: { host: hosted.host } } : {})
+				...(bridge && hosted ? { hosted: { host: hosted.host } } : {}),
+				...(!bridge && bridgeScopes ? { bridgeScopes: bridgeScopesOf(bridgeScopes) } : {})
 			},
 			deleted: false
 		});
@@ -751,11 +776,15 @@ export async function startDeviceSync({
 		 *
 		 * @param {string} peerId
 		 * @param {string} [otherLabel]
-		 * @param {{ bridge?: boolean, addrs?: string[], hosted?: { host: string } | null }} [how] the bridge's node, where it listens besides the relays, and the VM it runs in
+		 * @param {{ bridge?: boolean, addrs?: string[], hosted?: { host: string } | null, bridgeScopes?: string[] | null }} [how] the bridge's node, where it listens besides the relays, and the VM it runs in; what the person ticked for it at the bridge (#579)
 		 */
-		async addDevice(peerId, otherLabel = '', { bridge = false, addrs = [], hosted = null } = {}) {
+		async addDevice(
+			peerId,
+			otherLabel = '',
+			{ bridge = false, addrs = [], hosted = null, bridgeScopes = null } = {}
+		) {
 			if (!isPeerId(peerId) || peerId === self) throw new Error(t('messages.sync.notDeviceId'));
-			await writeDevice(peerId, otherLabel, { bridge, addrs, hosted });
+			await writeDevice(peerId, otherLabel, { bridge, addrs, hosted, bridgeScopes });
 			blocked.delete(peerId);
 			known.add(peerId);
 			knownPeers.add(peerId);

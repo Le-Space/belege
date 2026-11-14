@@ -5,8 +5,10 @@
 // Scopes. Every command of commands.js names the scope it needs
 // (`bridge:bank:read`, `bridge:llm`, …). A device holds a set of them. A
 // device the books list without saying which scopes – every device paired
-// before #579, and every device the app tells today – holds all of them: what
-// it could do before, it can do now. Nothing more is granted by itself; a
+// before #579, and one added without a choice – holds all of them: what it
+// could do before, it can do now. A device added in the app with boxes ticked
+// comes as `{ peerId, initial }`: a device new to the bridge gets those, one
+// it knows keeps what it holds. Nothing more is granted by itself; a
 // device that is not on the books' list holds nothing. The device that paired
 // the bridge, or the bridge's owner over HTTP, sets one device's scopes
 // (`device.scopes`, commands.js): a subset of those offered, kept until set
@@ -118,18 +120,20 @@ export const scopesOf = (commands) =>
 
 /**
  * The books' device list as a device sends it: a peer id alone (what the
- * device holds; all scopes for a new one, as before #579), or
- * `{ peerId, scopes }`.
+ * device holds; all scopes for a new one, as before #579),
+ * `{ peerId, scopes }` (exactly these), or `{ peerId, initial }` (what the
+ * device was given when it was added to the books: these for a device new
+ * to the bridge, what it holds for one it knows).
  *
  * @param {unknown} list
  * @param {string[]} all the scopes the bridge offers
- * @returns {Map<string, string[] | null>} peer id → scopes; null: as held, all for a new device
+ * @returns {Map<string, Wanted>} peer id → what it is to hold
  */
 export function parseDevices(list, all) {
 	if (!Array.isArray(list) || list.length > 64) {
 		throw new UcepError('INVALID_ARGUMENTS', 'devices must be up to 64 entries');
 	}
-	/** @type {Map<string, string[] | null>} */
+	/** @type {Map<string, Wanted>} */
 	const out = new Map();
 	for (const entry of list) {
 		if (typeof entry === 'string' && PEER_ID.test(entry)) {
@@ -137,7 +141,8 @@ export function parseDevices(list, all) {
 			continue;
 		}
 		const peerId = /** @type {any} */ (entry)?.peerId;
-		const scopes = /** @type {any} */ (entry)?.scopes;
+		const initial = /** @type {any} */ (entry)?.initial;
+		const scopes = initial ?? /** @type {any} */ (entry)?.scopes;
 		if (
 			typeof peerId !== 'string' ||
 			!PEER_ID.test(peerId) ||
@@ -145,13 +150,27 @@ export function parseDevices(list, all) {
 			scopes.length > 32 ||
 			!scopes.every((s) => typeof s === 'string' && SCOPE.test(s))
 		) {
-			throw new UcepError('INVALID_ARGUMENTS', 'a device is a peer id or { peerId, scopes }');
+			throw new UcepError(
+				'INVALID_ARGUMENTS',
+				'a device is a peer id, { peerId, scopes } or { peerId, initial }'
+			);
 		}
-		// A scope the bridge does not offer is dropped, not kept for later.
-		out.set(peerId, [...new Set(scopes)].filter((s) => all.includes(s)).sort());
+		// A scope the bridge does not offer is dropped, not kept for later. What
+		// a device starts with never holds what only the holder holds.
+		const offered = initial ? settableOf(all) : all;
+		const kept = [...new Set(scopes)].filter((s) => offered.includes(s)).sort();
+		out.set(peerId, initial ? { initial: kept } : kept);
 	}
 	return out;
 }
+
+/**
+ * What a device is to hold: these scopes; null: as held, all for a new
+ * device; `{ initial }`: these for a device new to the bridge, as held for one
+ * it knows.
+ *
+ * @typedef {string[] | null | { initial: string[] }} Wanted
+ */
 
 /**
  * @typedef {object} Use
@@ -297,9 +316,10 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 		 * whose scopes changed is granted anew, one that is gone loses its grant.
 		 * A device whose scopes are unchanged keeps its times – telling the list
 		 * again renews nothing. A device without scopes (null) keeps what it
-		 * holds; a new one gets every scope.
+		 * holds; a new one gets every scope. `{ initial }` is for a new device
+		 * only: one the bridge knows keeps what it holds.
 		 *
-		 * @param {Map<string, string[] | null>} devices
+		 * @param {Map<string, Wanted>} devices
 		 */
 		async set(devices) {
 			await load();
@@ -312,8 +332,8 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 			}
 			for (const [peer, wanted] of devices) {
 				const had = grants.get(peer);
-				if (had && wanted === null) continue;
-				const scopes = wanted ?? [...all];
+				if (had && (wanted === null || !Array.isArray(wanted))) continue;
+				const scopes = wanted === null ? [...all] : Array.isArray(wanted) ? wanted : wanted.initial;
 				if (had && had.scopes.join(' ') === scopes.join(' ')) continue;
 				grants.set(peer, {
 					scopes,
