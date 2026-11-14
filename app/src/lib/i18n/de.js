@@ -392,6 +392,8 @@ export default {
 			creditsOff: 'Le Space Credits sind aus. Unter Integrationen → Aleph einschalten.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
+			alephDown:
+				'Aleph antwortet gerade nicht ({detail}). Das liegt bei Aleph, nicht an deinen Büchern: Die VM läuft weiter, später noch einmal entsperren.',
 			startupFailed:
 				'Der Knoten hat die VM {attempts}-mal nicht hochbekommen ({code}). Bitte „Stoppen“ und auf einem anderen Knoten neu starten.',
 			deviceLabel: 'Gehostete Bridge (Aleph)'
@@ -965,7 +967,7 @@ export default {
 				name: 'Gehostete Bridge (Aleph Cloud, vertrauliche VM, AMD)',
 				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge startest oder entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
 				leaves:
-					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits oder, mit einem Paket, von Le Spaces Konto nur für diese Bücher – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. Mit einem Paket an credits.le-space.de (Le Space): die unterschriebene Bitte, den Schlüssel der Bücher für dieses Konto freizugeben, und die Wahl des Pakets, bezahlt vom Guthaben. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst (Mail, Kraken, Paperless, Alchemy, Enable Banking und, nur wenn es in LibertAIs attestierter Enklave läuft, das Sprachmodell mit seinem Schlüssel; Integrationen → Bridge), unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
+					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im, antwortet sie nicht: api.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits oder, mit einem Paket, von Le Spaces Konto nur für diese Bücher – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. Mit einem Paket an credits.le-space.de (Le Space): die unterschriebene Bitte, den Schlüssel der Bücher für dieses Konto freizugeben, und die Wahl des Pakets, bezahlt vom Guthaben. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE und nach Alephs SEV-SNP-Laufzeit; die Laufzeit (öffentlich, etwa 15 MB) bleibt danach im Cache dieses Browsers. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst (Mail, Kraken, Paperless, Alchemy, Enable Banking und, nur wenn es in LibertAIs attestierter Enklave läuft, das Sprachmodell mit seinem Schlüssel; Integrationen → Bridge), unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
 				technical:
 					'Vor dem Senden prüft der Browser: Die INSTANCE ist vom Aleph-Schlüssel der Bücher bezahlt oder von Le Spaces Konto für diese Bücher (das der Schlüssel der Bücher in dessen security-Aggregat vertritt), startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Schlüssels der Bücher berechnet – auch wenn Le Space zahlt, nennt die Messung ihn, und nur er entsperrt. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
@@ -4577,6 +4579,11 @@ export default {
 			stop: 'Stoppen',
 			stopped: 'Gestoppt {date}',
 			resume: 'Entsperren',
+			download: {
+				of: '{received} von {total} MB · {seconds} s · {host}',
+				some: '{received} MB · {seconds} s · {host}',
+				slow: 'Aleph liefert gerade langsam. Das liegt bei Aleph, nicht an deinen Büchern; die VM läuft so lange weiter.'
+			},
 			resumeHint:
 				'Der Browser prüft erst die Attestierung der VM; die Passphrase wird nirgends gespeichert. Startet die VM nicht, hier stoppen und auf einem anderen Knoten neu starten.',
 			locked:
@@ -4589,8 +4596,9 @@ export default {
 				network: 'Der Knoten startet die VM, Port 443 …',
 				boot: 'Die VM startet noch, versuche es gleich wieder …',
 				instance: 'Frage Aleph nach der INSTANCE …',
-				runtime: 'Lade Alephs SEV-SNP-Laufzeit …',
-				bundle: 'Lade Alephs SEV-SNP-Laufzeit …',
+				runtime: 'Frage Aleph nach seiner SEV-SNP-Laufzeit …',
+				bundle:
+					'Lade Alephs SEV-SNP-Laufzeit (etwa 15 MB, nach dem ersten Mal aus diesem Browser) …',
 				measure: 'Berechne die erwartete Messung …',
 				attest: 'Prüfe die Attestierung der VM …',
 				wait: 'Die VM antwortet noch nicht, warte …',

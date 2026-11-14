@@ -88,8 +88,41 @@
 		return () => clearInterval(timer);
 	});
 
-	/** @param {{ phase: string }} p */
-	const onProgress = ({ phase }) => {
+	/** What is downloading from Aleph, and how far (#587). */
+	let download = $state('');
+	/** Aleph has been slow for a while: say it is Aleph. */
+	let slow = $state(false);
+
+	/** @param {number} bytes */
+	const mb = (bytes) =>
+		(bytes / 1_000_000).toLocaleString(intlLocale(), {
+			minimumFractionDigits: 1,
+			maximumFractionDigits: 1
+		});
+
+	/** @param {{ phase: string, detail?: string, received?: number, total?: number | null, ms?: number }} p */
+	const onProgress = ({ phase, detail = '', received = 0, total = null, ms = 0 }) => {
+		if (phase === 'bytes') {
+			// Small answers (messages, the manifest) are not worth a line.
+			if (received < 200_000 && !total) return;
+			const host = (() => {
+				try {
+					return new URL(detail).host;
+				} catch {
+					return detail;
+				}
+			})();
+			download = t(
+				total
+					? 'integrationen.hostedBridge.download.of'
+					: 'integrationen.hostedBridge.download.some',
+				{ received: mb(received), total: mb(total ?? 0), seconds: Math.round(ms / 1000), host }
+			);
+			slow = ms > 20_000;
+			return;
+		}
+		download = '';
+		slow = false;
 		const key = `integrationen.hostedBridge.phase.${phase}`;
 		const text = t(key);
 		if (text !== key) progress = text;
@@ -100,6 +133,8 @@
 		busy = true;
 		error = null;
 		progress = '';
+		download = '';
+		slow = false;
 		try {
 			const result = await run();
 			if (result?.peerId) {
@@ -111,6 +146,8 @@
 		} finally {
 			busy = false;
 			progress = '';
+			download = '';
+			slow = false;
 			await reload();
 		}
 	}
@@ -353,6 +390,14 @@
 		{/if}
 		{#if busy && progress}
 			<p class="mt-2 text-sm text-text" data-testid="hosted-bridge-progress">{progress}</p>
+			{#if download}
+				<p class="mt-1 text-xs text-faint" data-testid="hosted-bridge-download">{download}</p>
+			{/if}
+			{#if slow}
+				<p class="mt-1 text-xs text-warning" role="status" data-testid="hosted-bridge-slow">
+					{t('integrationen.hostedBridge.download.slow')}
+				</p>
+			{/if}
 		{/if}
 
 		<details class="mt-4 text-sm" data-testid="hosted-bridge-existing">

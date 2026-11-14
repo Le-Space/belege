@@ -1384,6 +1384,42 @@ export async function takeOverBridgeSettings() {
 }
 
 /**
+ * The `fetch` for the hosted bridge's calls to Aleph (#587): progress of a
+ * download as an `onProgress` phase 'bytes', a second Aleph host when the
+ * first fails, and the runtime kept in the browser's cache once fetched.
+ *
+ * @param {string} apiHost
+ * @param {(p: { phase: string, detail: string, received?: number, total?: number | null, ms?: number }) => void} onProgress
+ */
+async function alephFetchFor(apiHost, onProgress) {
+	const { alephFetch, ALEPH_API_HOSTS } = await import('./integrations/aleph-fetch.js');
+	const own = ALEPH_API_HOSTS.some((h) => new URL(h).origin === new URL(apiHost).origin);
+	return alephFetch({
+		hosts: own ? ALEPH_API_HOSTS : [apiHost],
+		onDownload: ({ host, received, total, ms }) =>
+			onProgress({ phase: 'bytes', detail: host, received, total, ms })
+	});
+}
+
+/**
+ * An Aleph that did not answer, said as that (#587); anything else unchanged.
+ *
+ * @param {unknown} error
+ */
+function alephSaid(error) {
+	const tried =
+		/** @type {any} */ (error)?.name === 'AlephUnavailable' && /** @type {any} */ (error).tried;
+	if (!tried) return error;
+	const detail = tried
+		.map(
+			(/** @type {{ host: string, outcome: string }} */ t) =>
+				`${new URL(t.host).host}: ${t.outcome}`
+		)
+		.join(', ');
+	return new Error(t('messages.hostedBridge.alephDown', { detail }));
+}
+
+/**
  * "Gehostete Bridge" (Integrationen → Bridge, #585): attest the bridge's VM
  * from this browser and unlock it, paired in the same step
  * (integrations/hosted-bridge.js). The VM is the books' Aleph key's: the
@@ -1425,7 +1461,12 @@ export async function unlockHostedBridge({ instance, passphrase, payer, onProgre
 	if (!relayUrl) throw new Error(t('messages.hostedBridge.noRelay'));
 
 	onProgress({ phase: 'instance', detail: hash });
-	const { content, crn, vcpus } = await hosted.fetchInstance(hash, { apiHost });
+	const alephGet = await alephFetchFor(apiHost, onProgress);
+	const { content, crn, vcpus } = await hosted
+		.fetchInstance(hash, { apiHost, fetch: alephGet })
+		.catch((e) => {
+			throw alephSaid(e);
+		});
 	// Paid by another account than the books' key: Le Space's sub-account for these books, or none.
 	const payers = [owner];
 	if (payer) payers.push(payer);
@@ -1456,7 +1497,16 @@ export async function unlockHostedBridge({ instance, passphrase, payer, onProgre
 	}
 	if (!published) {
 		const { confidentialTrustedExecution } = await import('@le-space/attest-wasm/instance');
-		published = await confidentialTrustedExecution({ wasm, owner, vcpus, apiHost, onProgress });
+		published = await confidentialTrustedExecution({
+			wasm,
+			owner,
+			vcpus,
+			apiHost,
+			fetch: alephGet,
+			onProgress
+		}).catch((e) => {
+			throw alephSaid(e);
+		});
 	}
 
 	// The bridge's own peer key: the one made for this VM before, or a new one.
@@ -1728,7 +1778,10 @@ export async function startHostedBridge({
 			owner,
 			vcpus: vm.HOSTED_VM.vcpus,
 			apiHost,
+			fetch: await alephFetchFor(apiHost, onProgress),
 			onProgress
+		}).catch((e) => {
+			throw alephSaid(e);
 		});
 	}
 
