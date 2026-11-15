@@ -46,6 +46,24 @@ export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
 /** The bridge's own pairing and unpairing, over HTTP only (bridge/src/stream.js HTTP_ONLY). */
 const HTTP_ONLY_PATH = /^\/(pair|unpair)$/;
+/**
+ * What a call says when it went to HTTP only because the bridge's node was
+ * not connected, and this device holds no HTTP token (paired by invitation):
+ * the bridge would answer 401, which is not "unknown device" here.
+ */
+export const NODE_UNREACHABLE = 'BRIDGE_NODE_UNREACHABLE';
+
+/** The stream had no connection to the bridge's node (streamFetch), not some other failure. @param {unknown} error */
+const notConnected = (error) =>
+	error instanceof TypeError && /not connected|no bridge node is known/.test(error.message);
+
+/** @returns {Response} */
+const nodeUnreachable = () =>
+	new Response(
+		JSON.stringify({ error: 'the bridge’s node is not connected', code: NODE_UNREACHABLE }),
+		{ status: 503, headers: { 'content-type': 'application/json' } }
+	);
+
 /** How long a call without a token waits for the bridge's node after an unlock. */
 export const STREAM_WAIT_MS = 20_000;
 /** How long a block answer may take to arrive: a 15 MB original through a relay (#578). */
@@ -734,19 +752,24 @@ export function bridgeFetch({
 			delete headers.Authorization;
 			const path = new URL(String(input instanceof Request ? input.url : input)).pathname;
 			const over = HTTP_ONLY_PATH.test(path) ? null : stream();
+			// The node was meant to answer and was not connected, with no token for HTTP:
+			// whatever HTTP says then is about the token, not about this device.
+			let nodeMissing = false;
 			if (over) {
 				try {
 					const res = await over(input, { ...init, headers }, { waitMs: hasToken ? 0 : waitMs });
 					onRoute('stream');
 					return res;
-				} catch {
+				} catch (error) {
 					// Not connected, or the answer too big for the stream: HTTP, when there is one.
+					nodeMissing = !hasToken && notConnected(error);
 				}
 			}
 			/** @type {Response | null} */
 			let gone = null;
 			try {
 				const res = await local(input, init);
+				if (nodeMissing && res.status === 401 && !remote()) return nodeUnreachable();
 				// A bridge since #580 serves this over its node only: another device's may still.
 				if (res.status !== 410) {
 					onRoute('local');
@@ -754,7 +777,10 @@ export function bridgeFetch({
 				}
 				gone = res;
 			} catch (error) {
-				if (!remote()) throw error;
+				if (!remote()) {
+					if (nodeMissing) return nodeUnreachable();
+					throw error;
+				}
 			}
 			const through = remote();
 			if (!through) {

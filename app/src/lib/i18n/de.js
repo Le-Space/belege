@@ -416,6 +416,10 @@ export default {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			nodeUnreachable:
+				'Der Knoten der Bridge ist über das Netz gerade nicht erreichbar. Neu koppeln ist nicht nötig: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist, und lade sonst die Seite neu.',
+			outdated:
+				'Deine Bridge ist älter als diese App und kennt diese Funktion noch nicht. Bitte aktualisieren: git pull, pnpm install, dann pnpm bridge neu starten.',
 			needsSync:
 				'Zum Koppeln über Einladung muss die Gerätesynchronisation auf diesem Gerät an sein (Integrationen → Eigene Geräte).',
 			deviceLabel: 'Bridge',

@@ -397,6 +397,10 @@ export default {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
 			unknownDevice: 'The bridge does not know this device (pair again).',
+			nodeUnreachable:
+				'The bridge’s node cannot be reached over the network right now. No need to pair again: check in the “Network” menu at the top whether a Le Space relay can be reached, and otherwise reload the page.',
+			outdated:
+				'Your bridge is older than this app and does not know this function yet. Please update it: git pull, pnpm install, then restart pnpm bridge.',
 			needsSync:
 				'Pairing by invitation needs device sync switched on on this device (Integrations → Own devices).',
 			deviceLabel: 'Bridge',
