@@ -1673,6 +1673,19 @@ export default {
 		}
 	},
 	devices: {
+		files: {
+			title: 'Receipt files on this device',
+			checking: 'Checking the receipt files …',
+			allHere: 'All {total} receipt files are on this device.',
+			none: 'No receipt files yet.',
+			summary: '{here} of {total} receipt files are on this device.',
+			fetching: '{count} are being fetched from an own device right now.',
+			listToggle: 'Receipts whose file is still missing here ({count})',
+			stateFetching: 'being fetched',
+			stateWaiting: 'waiting for an own device that has it',
+			stateLarge: 'large – comes when opened',
+			unnamed: 'Receipt without a name'
+		},
 		title: 'Own devices',
 		what: 'The same books on your phone or a second computer: both devices need the same passkey (synced via the keychain) and sync switched on.',
 		status: {

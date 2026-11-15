@@ -74,10 +74,16 @@ export const app = $state({
 	 * from an own device (receipts/prefetch.js): root CIDs.
 	 */
 	files: {
+		/** whether this device has looked at every file yet: off without device sync */
+		checked: false,
+		/** files the receipts name */
+		total: 0,
 		/** @type {string[]} */
 		missing: [],
 		/** @type {string[]} */
-		fetching: []
+		fetching: [],
+		/** @type {string[]} missing, too large to fetch unasked: they come when opened */
+		tooLarge: []
 	},
 	/** Device sync (#123): off, or this device's id and the devices it knows. */
 	sync: {
@@ -1093,8 +1099,8 @@ async function startFilePrefetch(deviceSyncOn) {
 		blobs: open.blobs,
 		receipts: () => open.store.receipts.list(),
 		canFetch: () => !networkPause() && deviceSyncOn() && ownDevicesConnected() > 0,
-		onState: ({ missing, fetching }) => {
-			app.files = { missing, fetching };
+		onState: (state) => {
+			app.files = state;
 		}
 	});
 	open.store.receipts.onChange(() => filePrefetch?.kick());
@@ -3243,6 +3249,8 @@ function installE2EHooks() {
 		// Whether a receipt's file is whole on this device (receipts/prefetch.js).
 		fileHere: (/** @type {string} */ cid) => currentBlobs()?.has(cid) ?? false,
 		filesState: () => ({ missing: [...app.files.missing], fetching: [...app.files.fetching] }),
+		// Ask the prefetch to look now (receipts/prefetch.js), as unlock does.
+		filesCheck: () => filePrefetch?.run(),
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.

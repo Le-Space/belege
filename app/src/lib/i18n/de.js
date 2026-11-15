@@ -1708,6 +1708,19 @@ export default {
 		}
 	},
 	devices: {
+		files: {
+			title: 'Belegdateien auf diesem Gerät',
+			checking: 'Die Belegdateien werden geprüft …',
+			allHere: 'Alle {total} Belegdateien sind auf diesem Gerät.',
+			none: 'Noch keine Belegdateien.',
+			summary: '{here} von {total} Belegdateien sind auf diesem Gerät.',
+			fetching: '{count} werden gerade von einem eigenen Gerät geholt.',
+			listToggle: 'Belege, deren Datei hier noch fehlt ({count})',
+			stateFetching: 'wird geholt',
+			stateWaiting: 'wartet auf ein eigenes Gerät, das sie hat',
+			stateLarge: 'groß – kommt beim Öffnen',
+			unnamed: 'Beleg ohne Namen'
+		},
 		title: 'Eigene Geräte',
 		what: 'Dieselben Bücher auf deinem Telefon oder einem zweiten Rechner: Beide Geräte brauchen denselben Passkey (über den Schlüsselbund synchronisiert) und die eingeschaltete Synchronisation.',
 		status: {

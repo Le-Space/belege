@@ -22,6 +22,7 @@
 	import QrExchange from './QrExchange.svelte';
 	import QrScan from './QrScan.svelte';
 	import BridgeAccess from './BridgeAccess.svelte';
+	import FilesStatus from './FilesStatus.svelte';
 	import NewDeviceScopes from './NewDeviceScopes.svelte';
 	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
 	import { bridgeShareOn, setBridgeShare } from './remote-bridge.js';
@@ -334,6 +335,7 @@
 			<p class="mt-2 text-sm text-danger" role="alert">{error ?? app.sync.error}</p>
 		{/if}
 		{@render deviceList(state)}
+		<FilesStatus />
 		<details
 			class="mt-4 border-t border-border pt-3 text-sm"
 			open={advancedOpen}
