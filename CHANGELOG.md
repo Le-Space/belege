@@ -9,11 +9,17 @@ All notable changes to Le Space Belege. The format follows
 ### Added
 
 - A tiny info icon beside every AI button (✦) shows, on hover, focus or tap, what one press will roughly take: tokens in and out, and the cost at the bridge's provider (#566). The tokens are the average of the last calls of the same kind in the Verlauf, or a rough figure until there are any; the price comes from DeepSeek's or LibertAI's published table, bundled with the app (LibertAI's from its Aleph aggregate, read on 2026-11-15). A model on the bridge's own computer costs nothing; a hosted bridge paid from a Le Space plan shows "im Paket enthalten". It says it is an estimate, and nothing is billed by it.
+- Einstellungen → Kontenplan: the ⓘ beside the title opens on hover, focus or a tap (it was a mouse-only title before) and says which files are read – DATEV Kontenbeschriftungen, or a CSV or text file with an account number and a name column, the headings recognised, separators and character sets – with an example and the example as a file made in the browser (#801). The AI cost hint shares its behaviour.
 
 ### Changed
 
-- The hosted bridge's card says when an unlocked VM has not come up: when its bridge's node has not reached this device three minutes after the unlock. Most often the image's passphrase was wrong – Aleph's agent takes it with the secrets, but the disk stays closed and nothing in the VM starts. The card says so and offers to unlock the same VM again, which costs nothing extra.
+- The hosted bridge's card says when an unlocked VM has not come up: when its bridge's node has not reached this device three minutes after the unlock (#797). Most often the image's passphrase was wrong – Aleph's agent takes it with the secrets, but the disk stays closed and nothing in the VM starts. The card says so and offers to unlock the same VM again, which costs nothing extra.
 - The bridge's HTTP routes for its functions are gone (#580): they answer `410 HTTP_GONE` (with the token; `401` without, as before). The app calls them over the bridge's node, from another device and on the same machine alike; a desktop that shares its bridge with own devices forwards over its node too, and needs no token for it. HTTP keeps `/pair`, `/unpair`, `/node/invitation`, `/health`, `/lan-relay`, the shares, the backup upload and the portals. `pnpm bridge --no-node` is gone; `"node": { "enabled": false }` now runs the node on 127.0.0.1 only, without relays. A bridge paired by code is paired over 127.0.0.1 too when device sync is on, gets no relays and does not go online itself; a desktop that shares it checks the asking device's own scopes and forwards to no third device. Unpaired on purpose, a node is not paired again unasked.
+
+### Fixed
+
+- Reading a chart of accounts took the wrong column as the account number when a program's export headed it "Nummer" and had a column of repeated type codes beside it: every account got the code instead. "Nummer", "Nr" and "Kto-Nr" are known headings now, and without a known heading the column with the most different numbers wins (#800). A chart read in with wrong numbers needs to be read in again.
+- "✦ Konto vorschlagen" can suggest an account the books learned for a vendor even when the chart lacks it, and the learned accounts of the payment's vendor are sent first (#800). Personal accounts of a chart (customers and vendors, longer numbers than its ledger accounts) are no longer sent to the model.
 
 ## [0.33.0] – 2026-11-15
 
