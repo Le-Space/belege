@@ -3356,6 +3356,7 @@ export default {
 			'Noch nicht übernommen – ohne übernommenes Konto kann dieser Monat nicht exportiert werden.',
 		invalidAccount: 'Ein Konto hat 4 bis 8 Ziffern.',
 		invalidKey: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
+		aiLearnedAccount: 'bisher gebucht für {vendors}',
 		catalogueNote:
 			'Die Kontenliste ist ein Ausgangspunkt nach SKR 03 – welches Konto richtig ist, entscheidest du mit deiner Steuerberatung.',
 		technical: [

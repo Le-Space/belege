@@ -101,7 +101,9 @@ export function parseChart(text) {
 	// Columns: by heading when there is one, else by what the values look like.
 	const head = rows[0].map((h) => h.toLowerCase());
 	let numberCol = head.findIndex((h) =>
-		/^(konto|kontonummer|konto-?nr\.?|sachkonto|account)$/.test(h)
+		/^(konto|kontonummer|konto-?nr\.?|kto-?nr\.?|nummer|nr\.?|sachkonto|account|account ?number)$/.test(
+			h
+		)
 	);
 	let nameCol = head.findIndex((h) =>
 		/^(kontenbeschriftung|beschriftung|bezeichnung|kontobezeichnung|kontenbezeichnung|name|kontoname|description)$/.test(
@@ -113,12 +115,16 @@ export function parseChart(text) {
 	const sample = data.slice(0, 50);
 	const width = Math.max(0, ...sample.map((r) => r.length));
 	if (numberCol === -1) {
-		// The column most often holding a 4–8 digit number.
-		let bestHits = 0;
+		// The column holding the most *different* 4–8 digit numbers: every
+		// account has its own number, while a type or group code column repeats
+		// a few values (a 7-digit "Typ" beside the 4-digit "Nummer" once won).
+		let bestDistinct = 0;
 		for (let c = 0; c < width; c++) {
-			const hits = sample.filter((r) => NUMBER.test(r[c] ?? '')).length;
-			if (hits > bestHits) {
-				bestHits = hits;
+			const distinct = new Set(
+				data.map((r) => (r[c] ?? '').replace(/\s/g, '')).filter((v) => NUMBER.test(v))
+			).size;
+			if (distinct > bestDistinct) {
+				bestDistinct = distinct;
 				numberCol = c;
 			}
 		}
@@ -191,4 +197,21 @@ export function chartKind(number) {
 	if (c === '3' || c === '4') return 'expense';
 	if (c === '8') return 'income';
 	return 'neutral';
+}
+
+/**
+ * The length of the chart's ledger accounts (Sachkonten): the shortest length
+ * that a tenth of the chart has. DATEV gives personal accounts (Debitoren,
+ * Kreditoren) one digit more – 4-digit ledger, 5-digit personal accounts.
+ * Longer numbers are personal accounts, often with an address in the name.
+ *
+ * @param {{ number: string }[]} accounts
+ * @returns {number}
+ */
+export function ledgerLength(accounts) {
+	/** @type {Map<number, number>} */
+	const byLength = new Map();
+	for (const a of accounts) byLength.set(a.number.length, (byLength.get(a.number.length) ?? 0) + 1);
+	const lengths = [...byLength.keys()].sort((a, b) => a - b);
+	return lengths.find((l) => (byLength.get(l) ?? 0) >= accounts.length / 10) ?? lengths[0] ?? 4;
 }

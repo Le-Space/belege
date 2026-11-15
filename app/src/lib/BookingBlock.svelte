@@ -11,6 +11,7 @@
 	import { cleanMatchingSettings } from './matching/classify.js';
 	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
+	import { accountsForAssist, learnedForAssist } from './booking/assist-input.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
 		accountLabel,
@@ -119,6 +120,11 @@
 			const receipt = receipts[0] ?? null;
 			const ex = /** @type {Record<string, any>} */ (receipt?.extraction ?? {});
 			const own = app.accounts.find((a) => a.id === tx.accountId);
+			const learned = learnedForAssist(app.partners ?? [], [
+				tx.counterparty,
+				tx.purpose,
+				receipt?.vendor ?? ex.vendor
+			]);
 			const r = await client.bookingAssist({
 				booking: {
 					direction: income ? 'in' : 'out',
@@ -145,13 +151,10 @@
 								.slice(0, 20)
 						}
 					: null,
-				learned: (app.partners ?? [])
-					.filter((p) => isAccountNumber(p.account) && String(p.name ?? '').trim())
-					.slice(0, 80)
-					.map((p) => ({ vendor: String(p.name).slice(0, 200), account: String(p.account) })),
-				accounts: catalogue
-					.slice(0, 600)
-					.map((a) => ({ number: a.number, name: a.name.slice(0, 120) }))
+				learned,
+				accounts: accountsForAssist(catalogue, learned, chart, (vendors) =>
+					t('booking.aiLearnedAccount', { vendors })
+				)
 			});
 			aiResult = { picks: r.picks ?? [], sent: r.llm?.sent ?? [] };
 			await recordEvent(currentStore()?.events, 'booking-assist', {
