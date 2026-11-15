@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.33.0] – 2026-11-15
+
 ### Added
 
 - Receipt files reach every own device in the background (#790): a device fetches the files its receipts name and it lacks from the own devices connected directly – at unlock, when a receipt comes by sync, when a device connects or turns direct. Two at a time, up to 32 MiB per file (a larger one when it is opened), a failed one again after a doubling wait; nothing while the network is paused or device sync is off, never from the bridge, never through a relay. The blocks stay sealed. Before, a file stayed on the device that added it until another opened it, and was nowhere else once that device was offline. The preview says when a file is not on this device yet instead of failing; the consent screen and `docs/device-proof.md` say so.
