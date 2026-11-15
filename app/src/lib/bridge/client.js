@@ -314,8 +314,11 @@ export function createBridgeClient({
 } = {}) {
 	const base = url.replace(/\/+$/, '');
 
-	/** @param {string} path @param {RequestInit} [init] @param {boolean} [binary] */
-	async function call(path, init = {}, binary = false) {
+	/**
+	 * @param {string} path @param {RequestInit} [init] @param {boolean} [binary]
+	 * @param {string} [name] the catalogue's command this is
+	 */
+	async function call(path, init = {}, binary = false, name = '') {
 		let res;
 		try {
 			res = await f(`${base}${path}`, {
@@ -334,6 +337,15 @@ export function createBridgeClient({
 		if (binary && res.ok) return new Uint8Array(await res.arrayBuffer());
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) {
+			// Sent only because the bridge's node was not connected (sync/remote-bridge.js).
+			if (res.status === 503 && body?.code === 'BRIDGE_NODE_UNREACHABLE') {
+				throw failed(t('messages.bridge.nodeUnreachable'), 503, body);
+			}
+			// The bridge answers "not found" for a route it does not have: a command the
+			// app's catalogue knows and this bridge not yet – older code than this app.
+			if (res.status === 404 && body?.error === 'not found' && name && specOf(name)) {
+				throw failed(t('messages.bridge.outdated'), 404, { ...body, code: 'BRIDGE_OUTDATED' });
+			}
 			const messages = /** @type {Record<number, string>} */ ({
 				401: t('messages.bridge.unknownDevice'),
 				403:
@@ -432,7 +444,8 @@ export function createBridgeClient({
 						: {}),
 				...(named ? { command: { name, args } } : {})
 			}),
-			binary
+			binary,
+			name
 		);
 	}
 

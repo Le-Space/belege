@@ -8,6 +8,7 @@ import {
 	DEVICE_COMMANDS,
 	allowed,
 	askPeer,
+	NODE_UNREACHABLE,
 	bridgeFetch,
 	commandOf,
 	bridgeNodePeer,
@@ -456,5 +457,72 @@ describe('by name (#577)', () => {
 			remote: () => null
 		});
 		expect((await alone('http://127.0.0.1:8765/llm/status', {})).status).toBe(410);
+	});
+});
+
+describe('a call when the bridge’s node is not connected', () => {
+	const notConnected = () => async () => {
+		throw new TypeError('the bridge’s node is not connected');
+	};
+
+	it('without a token: the node is not reachable – not HTTP’s 401 “unknown device”', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: notConnected,
+			remote: () => null,
+			onRoute: (r) => routes.push(r),
+			waitMs: 0
+		});
+		const res = await f('http://127.0.0.1:8765/booking/assist', { method: 'POST' });
+		expect(res.status).toBe(503);
+		expect((await res.json()).code).toBe(NODE_UNREACHABLE);
+		expect(routes).toEqual([]);
+	});
+
+	it('without a token and no bridge on this machine either: the same, not “Failed to fetch”', async () => {
+		const f = bridgeFetch({
+			local: async () => {
+				throw new TypeError('Failed to fetch');
+			},
+			stream: notConnected,
+			remote: () => null,
+			waitMs: 0
+		});
+		expect((await (await f('http://127.0.0.1:8765/health')).json()).code).toBe(NODE_UNREACHABLE);
+	});
+
+	it('with a token, HTTP’s answer stands: a 401 there means this token is unknown', async () => {
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: notConnected,
+			remote: () => null
+		});
+		const res = await f('http://127.0.0.1:8765/health', {
+			headers: { Authorization: 'Bearer old' }
+		});
+		expect(res.status).toBe(401);
+	});
+
+	it('a stream that failed otherwise (an answer too big): HTTP’s answer stands', async () => {
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: () => async () => {
+				throw new Error('TOO_LARGE');
+			},
+			remote: () => null,
+			waitMs: 0
+		});
+		expect((await f('http://127.0.0.1:8765/health')).status).toBe(401);
+	});
+
+	it('no node known at all: HTTP’s answer stands', async () => {
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: () => null,
+			remote: () => null
+		});
+		expect((await f('http://127.0.0.1:8765/health')).status).toBe(401);
 	});
 });
