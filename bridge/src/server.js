@@ -67,9 +67,34 @@ import http from 'node:http';
 import { createShares } from './shares.js';
 import { handlePortalRequest } from './portals/routes.js';
 import { ALEPH_API } from '@le-space/chains/aleph';
+import { command as protocolCommand } from '@le-space/bridge-protocol';
 import { MAX_BODY, createCommands, errorJson, findCommand, statusOf } from './commands.js';
 
 export const LOOPBACK = '127.0.0.1';
+
+/**
+ * HTTP shrinks (#580, M3.1 of #567): a route whose command the bridge's node
+ * serves over the stream (`via: 'both'` in @le-space/bridge-protocol) is
+ * deprecated here – it answers as before, with a `Deprecation` header (RFC
+ * 9745) and a link to why. What HTTP keeps: pairing and unpairing, `/health`,
+ * `/lan-relay`, the shares an assistant reads, the backup upload (bytes in)
+ * and the portals. The routes go away once the app reaches the bridge over a
+ * stream on this machine with device sync off, too.
+ */
+export const HTTP_KEPT = new Set(['bridge.health', 'lanRelay.status']);
+/** Since when (RFC 9745: `@` and seconds since the epoch): 2026-11-15. */
+export const DEPRECATED_SINCE = '@1794700800';
+export const DEPRECATION_LINK =
+	'<https://github.com/Le-Space/belege/issues/580>; rel="deprecation"';
+
+/**
+ * Whether a command's HTTP route is deprecated.
+ *
+ * @param {{ name: string }} command
+ */
+export function deprecatedOverHttp(command) {
+	return !HTTP_KEPT.has(command.name) && protocolCommand(command.name)?.via === 'both';
+}
 
 /**
  * @param {object} options
@@ -304,6 +329,11 @@ export function createBridgeServer({
 			if (!command.public && !pairing.verify(token)) {
 				return send(res, 401, { error: 'unauthorized' });
 			}
+			// Its answer, an error too, says the route goes (#580).
+			if (deprecatedOverHttp(command)) {
+				res.setHeader('Deprecation', DEPRECATED_SINCE);
+				res.setHeader('Link', DEPRECATION_LINK);
+			}
 			const kind = command.body ?? (command.method === 'GET' ? 'none' : 'json');
 			const body =
 				kind === 'json'
@@ -341,6 +371,8 @@ export function createBridgeServer({
 			}
 			res.setHeader('Access-Control-Allow-Origin', origin);
 			res.setHeader('Vary', 'Origin');
+			// The app may read whether a route is deprecated (#580).
+			res.setHeader('Access-Control-Expose-Headers', 'Deprecation, Link');
 		}
 
 		if (req.method === 'OPTIONS') {
