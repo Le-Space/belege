@@ -93,6 +93,11 @@ test('a receipt’s file reaches the other device before it is opened, and stays
 		expect(
 			await phone.page.evaluate(() => /** @type {any} */ (window).__belegeE2E.filesState())
 		).toEqual({ missing: [], fetching: [] });
+		// The devices card says so.
+		await openIntegration(phone.page, 'geraete');
+		await expect(phone.page.getByTestId('files-summary')).toContainText(
+			'Alle 1 Belegdateien sind auf diesem Gerät.'
+		);
 
 		// The Mac goes away. The phone opens the file from what it holds.
 		await mac.context.close();
@@ -128,6 +133,23 @@ test('a receipt’s file reaches the other device before it is opened, and stays
 		await expect(hint).toContainText('noch nicht auf diesem Gerät');
 		await expect(hint).toContainText('sobald ein eigenes Gerät online ist');
 		await expect(phone.page.getByText('Die Vorschau ließ sich nicht erzeugen.')).toHaveCount(0);
+
+		// The devices card: one of two files here, and which receipt lacks its file.
+		await openIntegration(phone.page, 'geraete');
+		const summary = phone.page.getByTestId('files-summary');
+		await expect(summary).toContainText('1 von 2 Belegdateien sind auf diesem Gerät.');
+		const list = phone.page.getByTestId('files-missing');
+		await list.locator('summary').click();
+		const item = list.getByTestId('files-missing-item');
+		await expect(item).toHaveCount(1);
+		await expect(item).toContainText(NOWHERE);
+		await expect(item.getByTestId('files-missing-state')).toHaveAttribute('data-state', 'waiting');
+		// Its link opens the receipt.
+		await item.getByTestId('files-missing-link').click();
+		await expect(phone.page).toHaveURL(/\/belege\?receipt=/);
+		await expect(
+			phone.page.getByTestId('receipt-detail').getByTestId('file-not-here')
+		).toHaveAttribute('data-state', 'missing', { timeout: 45_000 });
 	} finally {
 		await mac.context.close().catch(() => {});
 		await phone.context.close();

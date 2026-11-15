@@ -2,7 +2,7 @@
 // when it waits, and that it brings nothing while it may not.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { backoff, createFilePrefetcher, filesOf } from './prefetch.js';
+import { backoff, createFilePrefetcher, filesOf, missingReceipts } from './prefetch.js';
 
 /**
  * Blobs in small: `here` is what this device holds, `there` what the own
@@ -53,6 +53,34 @@ describe('filesOf', () => {
 	});
 });
 
+describe('missingReceipts', () => {
+	it('the receipts whose files are not all here, each with what holds it up', () => {
+		const receipts = [
+			{ id: 'a', fileCid: 'f1' },
+			{ id: 'b', fileCid: 'f2', xmlCid: 'x2' },
+			{ id: 'c', fileCid: 'f3' },
+			{ id: 'd', fileCid: 'f4' },
+			{ id: 'e', fileCid: 'f5', deleted: true }
+		];
+		const list = missingReceipts(receipts, {
+			missing: ['f2', 'x2', 'f3', 'f4', 'f5'],
+			fetching: ['x2'],
+			tooLarge: ['f4']
+		});
+		expect(list.map((m) => [m.receipt.id, m.cids, m.fetching, m.tooLarge])).toEqual([
+			['b', ['f2', 'x2'], true, false],
+			['c', ['f3'], false, false],
+			['d', ['f4'], false, true]
+		]);
+	});
+
+	it('nothing missing: an empty list', () => {
+		expect(
+			missingReceipts([{ id: 'a', fileCid: 'f1' }], { missing: [], fetching: [], tooLarge: [] })
+		).toEqual([]);
+	});
+});
+
 describe('backoff', () => {
 	it('doubles from the first wait, up to the most', () => {
 		expect([1, 2, 3, 4, 10].map((n) => backoff(n, 30, 200))).toEqual([30, 60, 120, 200, 200]);
@@ -87,7 +115,13 @@ describe('file prefetch', () => {
 		await settle();
 		await run;
 		expect(blobs.fetched.sort()).toEqual(['cid-2', 'cid-3']);
-		expect(states.at(-1)).toEqual({ missing: [], fetching: [] });
+		expect(states.at(-1)).toEqual({
+			checked: true,
+			total: 3,
+			missing: [],
+			fetching: [],
+			tooLarge: []
+		});
 		expect(states.some((s) => s.missing.includes('cid-2'))).toBe(true);
 		prefetch.stop();
 	});
@@ -126,6 +160,9 @@ describe('file prefetch', () => {
 		await prefetch.run();
 		expect(blobs.fetched).toEqual([]);
 		expect(last.missing).toEqual(['cid-1']);
+		// Looked at, though nothing may be fetched: the count is told.
+		expect(last.checked).toBe(true);
+		expect(last.total).toBe(1);
 		// An own device connected.
 		allowed = true;
 		prefetch.retryAll();
@@ -183,6 +220,12 @@ describe('file prefetch', () => {
 		await prefetch.run();
 		expect(blobs.fetched).toEqual([]);
 		expect(last.missing).toEqual(['cid-1']);
+		expect(last.tooLarge).toEqual(['cid-1']);
+		// Opened since: it is here, and no longer missing.
+		blobs.held.add('cid-1');
+		await prefetch.run();
+		expect(last.missing).toEqual([]);
+		expect(last.tooLarge).toEqual([]);
 		prefetch.stop();
 	});
 
