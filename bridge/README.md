@@ -232,6 +232,13 @@ no books.
   device may only take devices off it, so a device removed in the app is refused here too. The app's bridge client prefers the stream, falls back to HTTP on
   this machine (also when an answer is too big for the stream, e.g. a mail attachment above UCEP's
   limit), and to another device's bridge last (`app/src/lib/sync/remote-bridge.js`).
+- **Paired by code, device sync off (#580):** the app on this machine reaches the node too. After
+  the code it fetches the node's invitation (`POST /node/invitation`, with the token) and pairs the
+  node with it over a WebSocket on 127.0.0.1, from a small libp2p node of its own that dials this
+  machine only, listens nowhere and holds no books (`app/src/lib/sync/loopback-bridge.js`). It
+  names no relays then, so the bridge keeps its own. From then on its calls go over that stream;
+  HTTP keeps pairing, `/health`, the shares, the backup upload and the portals. A node already
+  paired with other books is left alone, and the app stays on HTTP for it.
 - **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
   then runs over HTTP only, as before. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
   the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
@@ -316,6 +323,7 @@ scope (#579, above); a public command needs none. `test/readme.test.js` keeps th
 | `share.revoke` | `DELETE /share/<id>` | `bridge:share` | no: HTTP only |
 | `session.unpair` | `POST /unpair` | the token | no: HTTP only |
 | `settings.export` | `GET /settings/export` | `bridge:settings:export` | **only** over the stream, and only for the device that paired the bridge; over HTTP it is not there (404) |
+| `node.invite` | `POST /node/invitation` | `bridge:grants:manage` | no: HTTP only – the node's invitation while it is unarmed, so the app on this machine, paired by code, pairs the node over a stream on 127.0.0.1 (#580); 409 `NODE_ARMED` once it is paired |
 | `device.scopes` | `POST /node/scopes` | `bridge:grants:manage` | yes, but only for the device that paired the bridge; over HTTP the token (the owner on this machine) |
 | `bank.accounts` | `GET /hibiscus/accounts` | `bridge:bank:read` | yes |
 | `bank.transactions` | `GET /hibiscus/transactions` | `bridge:bank:read` | yes |

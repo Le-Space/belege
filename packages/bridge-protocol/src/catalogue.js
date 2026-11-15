@@ -894,6 +894,20 @@ export const COMMANDS = [
 		description: 'What a hosted bridge may take over: settings and secrets (#728)'
 	},
 	{
+		name: 'node.invite',
+		version: 1,
+		scope: 'bridge:grants:manage',
+		method: 'POST',
+		path: '/node/invitation',
+		args: 'none',
+		answer: 'json',
+		via: 'http',
+		request: none,
+		response: answerWith(['invitation']),
+		description:
+			'The node’s invitation while it is unarmed, for the app on this machine to pair it over a stream on 127.0.0.1 (#580)'
+	},
+	{
 		name: 'device.scopes',
 		version: 1,
 		scope: 'bridge:grants:manage',

@@ -169,7 +169,8 @@ export class ReadOnlyError extends Error {
  * @property {import('./sync/network-mode.js').NetworkMode} mode where devices meet, as the node was built (#148)
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
- * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key (online only), in memory only (database-keys.js)
+ * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key, in memory only (database-keys.js)
+ * @property {any} devicePeerKey this device's own peer key, in memory only: the books' node's when online, else the one the node to the bridge on this machine uses (#580)
  * @property {(label: string, role?: 'bookkeeping' | 'reader', options?: { bridge?: boolean }) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611), by role and whether they may use the bridge (#641)
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
  * @property {(writer: string) => Promise<{ devices: string[], settings: string[] }>} removeWriter a member taken out of every collection's access list (#614): the devices only they wrote, the settings whose newest value is theirs
@@ -392,9 +393,14 @@ export async function startSession(
 	const relayPeers = new Set(
 		[...relays, lanRelayAddr()].map((addr) => relayPeerOf(addr)).filter(Boolean)
 	);
-	const peerKey = online
-		? await generateKeyPairFromSeed('Ed25519', await deriveDevicePeerSeed(ownRoot, deviceSalt()))
-		: await createEphemeralPeerKey();
+	// This device's own peer key: the books' node goes online with it; offline
+	// it stays for the node that reaches the bridge on this machine (#580,
+	// sync/loopback-bridge.js), and the books' node gets a key of this session.
+	const devicePeerKey = await generateKeyPairFromSeed(
+		'Ed25519',
+		await deriveDevicePeerSeed(ownRoot, deviceSalt())
+	);
+	const peerKey = online ? devicePeerKey : await createEphemeralPeerKey();
 	// Only a device that proves it holds the passkey gets the books (device-gate.js).
 	// In "Beides" a device the books do not know yet comes in over the own network only.
 	// The bridge's node proves with a key of its own (#575), only as the peer the
@@ -402,11 +408,10 @@ export async function startSession(
 	// the device key never leaves the browser. Set once the books are open.
 	/** @type {{ peerId: string | null, key: Uint8Array | null }} */
 	const bridgeAuth = { peerId: null, key: null };
-	const bridgeAuthBase = !online
-		? null
-		: bundleKeys
-			? (bundleKeys.bridgeAuth ?? null)
-			: await fromRoot(deriveBridgeAuthBase);
+	// Online or not: the bridge on this machine is reached over a stream either way (#580).
+	const bridgeAuthBase = bundleKeys
+		? (bundleKeys.bridgeAuth ?? null)
+		: await fromRoot(deriveBridgeAuthBase);
 	const deviceAuthKey = !online
 		? null
 		: bundleKeys
@@ -905,6 +910,7 @@ export async function startSession(
 			libp2p,
 			deviceGate,
 			bridgeAuthBase,
+			devicePeerKey,
 			bridgeAuth,
 			/**
 			 * What a member of these books gets (#610, #611): the keys to read,

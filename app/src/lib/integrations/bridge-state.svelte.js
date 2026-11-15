@@ -5,6 +5,7 @@
 import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 import {
 	app,
+	bridgeOnThisMachine,
 	currentStore,
 	forgetBridgeNode,
 	pairBridgeNode,
@@ -176,6 +177,8 @@ export async function pairBridge(code) {
 			pairedAt: now().toISOString()
 		});
 		bridge.token = token;
+		// With device sync off: its node paired over this machine, its calls over the stream (#580).
+		await bridgeOnThisMachine().catch(() => {});
 		await checkBridge();
 		// Not awaited: whether the AI hints may say "geschwärzt" (ai-text.js).
 		refreshLlmRedaction();
