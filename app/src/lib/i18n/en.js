@@ -3334,6 +3334,7 @@ export default {
 		notConfirmed: 'Not confirmed yet – without a confirmed account this month cannot be exported.',
 		invalidAccount: 'An account has 4 to 8 digits.',
 		invalidKey: 'A BU key has up to 4 digits.',
+		aiLearnedAccount: 'booked so far for {vendors}',
 		catalogueNote:
 			'The account list is a starting point based on SKR 03 – which account is right is for you to decide with your tax advisor.',
 		technical: [

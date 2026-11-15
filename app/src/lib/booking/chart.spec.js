@@ -2,7 +2,7 @@
 // encodings, and what the suggestions make of it. Synthetic accounts only.
 import { describe, expect, it } from 'vitest';
 
-import { cleanChart, decodeChartBytes, parseChart } from './chart.js';
+import { cleanChart, decodeChartBytes, ledgerLength, parseChart } from './chart.js';
 import { accountLabel, catalogueAccount, searchAccounts } from './skr03.js';
 
 const DATEV = [
@@ -53,6 +53,36 @@ describe('parseChart', () => {
 			{ number: '4000', name: '40 Jahre' },
 			{ number: '4930', name: 'Bürobedarf' }
 		]);
+	});
+
+	it('a program export headed "Nummer", with a 7-digit type code column: the account numbers win', () => {
+		const p = parseChart(
+			[
+				'Firma_id\tNummer\tBezeichnung\tTyp',
+				'f1\t4920\tTelefon\t2110160',
+				'f1\t4922\tKI-Dienste\t2110160',
+				'f1\t4930\tBürobedarf\t2110160',
+				'f1\t70001\tWolkenfabrik Hosting GmbH, Musterweg 1, 12345 Musterstadt\t5000000'
+			].join('\n')
+		);
+		expect(p.accounts.map((a) => a.number)).toEqual(['4920', '4922', '4930', '70001']);
+		expect(p.accounts[1].name).toBe('KI-Dienste');
+	});
+
+	it('the same without headings: the column with the most different numbers', () => {
+		const p = parseChart(
+			['1110100\t4920\tTelefon', '1110100\t4922\tKI-Dienste', '1110100\t4930\tBürobedarf'].join(
+				'\n'
+			)
+		);
+		expect(p.accounts.map((a) => a.number)).toEqual(['4920', '4922', '4930']);
+	});
+
+	it('ledgerLength: the ledger accounts, not the longer personal accounts', () => {
+		const n = (/** @type {string[]} */ xs) => xs.map((number) => ({ number }));
+		expect(ledgerLength(n(['1200', '4920', '4930', '8400', '70001']))).toBe(4);
+		expect(ledgerLength(n(['70001', '70002', '70003', '1200', '4920']))).toBe(4);
+		expect(ledgerLength([])).toBe(4);
 	});
 
 	it('nothing to read: no accounts', () => {
