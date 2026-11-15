@@ -67,7 +67,7 @@ jobs:
       # A production build: no test hooks, no "Testbuchung anlegen".
       - run: pnpm run build
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.6
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.7
       - name: Publish to Aleph IPFS
         id: publish
         env:
@@ -126,7 +126,7 @@ jobs:
       contents: write # the CID goes onto the release
     steps:
       - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.6
+        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.7
       - name: Link the custom domain
         env:
           ALEPH_VM_MODE: site-domain-link
