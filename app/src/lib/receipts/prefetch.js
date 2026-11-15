@@ -43,9 +43,40 @@ export const backoff = (n, baseMs, maxMs) => Math.min(maxMs, baseMs * 2 ** Math.
 
 /**
  * @typedef {object} PrefetchState
+ * @property {boolean} checked this device has looked at every file its receipts name
+ * @property {number} total files the receipts name
  * @property {string[]} missing files a receipt names that are not on this device (yet)
  * @property {string[]} fetching files on their way now
+ * @property {string[]} tooLarge missing files left for when they are opened
  */
+
+/**
+ * The receipts whose files are not all here, for the list of what is missing:
+ * each with its missing files, and whether they wait until opened (too large)
+ * or are on their way now.
+ *
+ * @param {Record<string, any>[]} receipts
+ * @param {Pick<PrefetchState, 'missing' | 'fetching' | 'tooLarge'>} state
+ * @returns {{ receipt: Record<string, any>, cids: string[], tooLarge: boolean, fetching: boolean }[]}
+ */
+export function missingReceipts(receipts, { missing, fetching, tooLarge }) {
+	const gone = new Set(missing);
+	const coming = new Set(fetching);
+	const big = new Set(tooLarge);
+	/** @type {{ receipt: Record<string, any>, cids: string[], tooLarge: boolean, fetching: boolean }[]} */
+	const out = [];
+	for (const receipt of receipts) {
+		const cids = filesOf(receipt).filter((cid) => gone.has(cid));
+		if (cids.length === 0) continue;
+		out.push({
+			receipt,
+			cids,
+			tooLarge: cids.every((cid) => big.has(cid)),
+			fetching: cids.some((cid) => coming.has(cid))
+		});
+	}
+	return out;
+}
 
 /**
  * @param {object} p
@@ -92,7 +123,16 @@ export function createFilePrefetcher({
 	let again = false;
 	let stopped = false;
 
-	const report = () => onState({ missing: [...missing], fetching: [...fetching] });
+	let checked = false;
+	let total = 0;
+	const report = () =>
+		onState({
+			checked,
+			total,
+			missing: [...missing],
+			fetching: [...fetching],
+			tooLarge: [...skipped].filter((cid) => missing.has(cid))
+		});
 
 	/** Look again after `ms`; an earlier look wins. @param {number} ms */
 	function schedule(ms) {
@@ -138,10 +178,15 @@ export function createFilePrefetcher({
 		for (const cid of [...missing]) if (!named.has(cid)) missing.delete(cid);
 		for (const cid of named) {
 			if (stopped) return;
-			if (present.has(cid) || missing.has(cid)) continue;
-			if (await blobs.has(cid)) present.add(cid);
-			else missing.add(cid);
+			if (present.has(cid)) continue;
+			// Missing before: it may have come since – opened, or by an earlier fetch.
+			if (await blobs.has(cid)) {
+				present.add(cid);
+				missing.delete(cid);
+			} else missing.add(cid);
 		}
+		total = named.size;
+		checked = true;
 		report();
 		const due = [...missing].filter(
 			(cid) => !skipped.has(cid) && (failed.get(cid)?.next ?? 0) <= now()
