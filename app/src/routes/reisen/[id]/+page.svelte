@@ -18,6 +18,7 @@
 	import { euroCents } from '$lib/outlays/outlays.js';
 	import { perEuro } from '$lib/assets/rate-display.js';
 	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
 	import { aiText } from '$lib/ai-text.js';
 	import { extractOne, extractRun } from '$lib/receipts/extract-queue.svelte.js';
 	import { extractable, rereadable } from '$lib/receipts/extract.js';
@@ -999,6 +1000,11 @@
 																? t('zahlungen.detail.privateImporting')
 																: t('reise.mail.take')}</button
 														>
+														<AiCostHint
+															kind="extract"
+															per="receipt"
+															testid="reise-mail-take-cost"
+														/>
 													{/if}
 												</li>
 											{/each}
@@ -1036,6 +1042,7 @@
 						data-testid="reise-review-run"
 						><AiMark />{reviewing ? t('reise.review.running') : t('reise.review.run')}</button
 					>
+					<AiCostHint kind="travel-assist" testid="reise-review-run-cost" />
 				</div>
 				<p class="mt-1 text-xs text-faint">{aiText('reise.review.hint')}</p>
 				{#if reviewError}
@@ -1407,6 +1414,7 @@
 							})
 						: t('reise.reread', { count: rereadIds.length })}</button
 				>
+				<AiCostHint kind="extract" per="receipt" testid="reise-reread-cost" />
 			{/if}
 		</div>
 		{#if rereadResult}

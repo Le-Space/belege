@@ -9,7 +9,7 @@
 	import { integer } from '$lib/receipts/how.js';
 	import { describeMoment } from '$lib/moment.js';
 	import { app, hostedSettingsView } from '$lib/session.svelte.js';
-	import { redactionFromStatus } from '$lib/llm-redaction.js';
+	import { llmFromStatus, redactionFromStatus } from '$lib/llm-redaction.js';
 	import { currentLocale, list, t } from '$lib/i18n/index.js';
 	import { docUrl } from '$lib/help/integration-help.js';
 	import { bridge, bridgeClient, bridgePaired, checkBridge } from './bridge-state.svelte.js';
@@ -75,6 +75,7 @@
 			rechecked = false;
 			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
 			app.llmRedaction = redactionFromStatus(llmStatus);
+			app.llmModel = llmFromStatus(llmStatus);
 		} catch (error) {
 			llmStatus = null;
 			llmError = error instanceof Error ? error.message : String(error);

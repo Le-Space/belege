@@ -18,3 +18,20 @@ export function redactionFromStatus(status) {
 	if (r?.active === false && r?.local === true) return false;
 	return null;
 }
+
+/**
+ * The bridge's model as the cost hints beside the AI buttons price it
+ * (stats/ai-estimate.js): the host it asks, the model, and whether it runs on
+ * the bridge's own computer. Null without a model set up.
+ *
+ * @param {any} status what `/llm/status` answered
+ * @returns {{ provider: string | null, model: string | null, local: boolean } | null}
+ */
+export function llmFromStatus(status) {
+	if (!status?.configured) return null;
+	return {
+		provider: typeof status.provider === 'string' ? status.provider : null,
+		model: typeof status.models?.primary === 'string' ? status.models.primary : null,
+		local: status.redaction?.local === true
+	};
+}

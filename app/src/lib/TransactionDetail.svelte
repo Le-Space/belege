@@ -19,6 +19,7 @@
 	import CopyButton from './CopyButton.svelte';
 	import { transferFields } from './matching/transfer-fields.js';
 	import AiMark from './AiMark.svelte';
+	import AiCostHint from './AiCostHint.svelte';
 	import { recordEvent } from './activity/events.js';
 	import NewPortal from './portals/NewPortal.svelte';
 	import OutlayRepayment from './outlays/OutlayRepayment.svelte';
@@ -1497,6 +1498,7 @@
 			data-testid="tx-upload-input"
 		/>
 	</label>
+	<AiCostHint kind="extract" per="receipt" testid="tx-upload-label-cost" />
 	{#if hasFolder}
 		<button
 			type="button"
@@ -2718,6 +2720,7 @@
 											data-testid="tx-link-transfer-ai"
 											><AiMark />{t('zahlungen.detail.linkTransferAi')}</button
 										>
+										<AiCostHint kind="transfer-assist" testid="tx-link-transfer-ai-cost" />
 									{/if}
 									{#if linkAi}
 										<div
@@ -2887,6 +2890,7 @@
 												? t('zahlungen.detail.aiChoiceBusy')
 												: t('zahlungen.detail.aiChoice')}</button
 										>
+										<AiCostHint kind="match-assist" testid="tx-ai-choice-ask-cost" />
 										{#if aiEmpty}
 											<p class="mt-1 text-sm text-faint" data-testid="tx-ai-choice-empty">
 												{t(`zahlungen.detail.aiChoiceEmpty.${aiEmpty}`)}
@@ -3138,6 +3142,11 @@
 																? t('zahlungen.detail.privateImporting')
 																: t('zahlungen.detail.privateImport')}</button
 														>
+														<AiCostHint
+															kind="extract"
+															per="receipt"
+															testid="tx-private-import-cost"
+														/>
 													</li>
 												{/each}
 											</ul>
@@ -3183,6 +3192,7 @@
 													? t('zahlungen.detail.aiSearching')
 													: t('zahlungen.detail.aiSearch')}
 											</button>
+											<AiCostHint kind="mail-assist" testid="tx-private-ai-cost" />
 											<p class="mt-1 text-xs text-faint">{t('zahlungen.detail.aiSearchHint')}</p>
 										{/if}
 									{/if}
@@ -3340,6 +3350,7 @@
 													? t('zahlungen.detail.vendor.fetching')
 													: t('zahlungen.detail.vendor.fetch', { name: vendorPortal.name })}</button
 											>
+											<AiCostHint kind="extract" per="receipt" testid="tx-vendor-fetch-cost" />
 										{/if}
 									</div>
 								{:else if recordingVendor && bridgeAt}

@@ -2437,6 +2437,24 @@ export default {
 	},
 	ai: {
 		mark: 'KI',
+		// The info icon beside an AI button (AiCostHint.svelte, #566): an estimate only.
+		cost: {
+			label: 'Geschätzte Tokens und Kosten',
+			title: {
+				call: 'Geschätzt für einen Aufruf',
+				receipt: 'Geschätzt je Beleg',
+				booking: 'Geschätzt je Buchung'
+			},
+			tokens: '≈ {prompt} Tokens hinein, {completion} heraus',
+			priced: '≈ {cost} bei {model}',
+			included: 'Im Paket enthalten (Le Space)',
+			local: 'Kostenlos: Das Modell läuft auf dem Rechner der Bridge.',
+			unknown: 'Kosten unbekannt: Für dieses Modell ist kein Preis hinterlegt.',
+			measured: 'Mittel der letzten {count} Aufrufe im Verlauf.',
+			measuredOne: 'Nach dem letzten Aufruf im Verlauf.',
+			fallback: 'Noch nichts gemessen: eine grobe Annahme.',
+			note: 'Nur eine Schätzung; abgerechnet wird danach nichts.'
+		},
 		extract:
 			'Mit KI: Die Bridge schickt den Text des Belegs – geschwärzt, nie die Datei – an das Sprachmodell, das du eingestellt hast, und bekommt Anbieter, Betrag, Datum und Nummern zurück.',
 		extractLocal:

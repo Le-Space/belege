@@ -2396,6 +2396,24 @@ export default {
 	},
 	ai: {
 		mark: 'AI',
+		// The info icon beside an AI button (AiCostHint.svelte, #566): an estimate only.
+		cost: {
+			label: 'Estimated tokens and cost',
+			title: {
+				call: 'Estimate for one call',
+				receipt: 'Estimate per receipt',
+				booking: 'Estimate per booking'
+			},
+			tokens: '≈ {prompt} tokens in, {completion} out',
+			priced: '≈ {cost} with {model}',
+			included: 'Included in the plan (Le Space)',
+			local: 'Free: the model runs on the bridge’s computer.',
+			unknown: 'Cost unknown: no price is known for this model.',
+			measured: 'Average of the last {count} calls in History.',
+			measuredOne: 'From the last call in History.',
+			fallback: 'Nothing measured yet: a rough assumption.',
+			note: 'An estimate only; nothing is billed by it.'
+		},
 		extract:
 			'With AI: the bridge sends the receipt’s text – redacted, never the file – to the language model you have set, and gets back vendor, amount, date and numbers.',
 		extractLocal:

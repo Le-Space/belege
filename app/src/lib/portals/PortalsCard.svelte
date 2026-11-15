@@ -21,6 +21,7 @@
 	import { btn } from '$lib/ui/styles.js';
 	import TechnicalNote from '../TechnicalNote.svelte';
 	import AiMark from '../AiMark.svelte';
+	import AiCostHint from '../AiCostHint.svelte';
 	import MonthPicker from '../MonthPicker.svelte';
 	import NewPortal from './NewPortal.svelte';
 	import RecordingReview from './RecordingReview.svelte';
@@ -393,6 +394,7 @@
 										? t('portals.fetching')
 										: t('portals.fetch')}</button
 								>
+								<AiCostHint kind="extract" per="receipt" testid="portal-fetch-cost" />
 								<button
 									type="button"
 									class="text-sm text-text underline hover:text-heading disabled:opacity-50"

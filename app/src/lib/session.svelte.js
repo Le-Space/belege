@@ -8,7 +8,7 @@ import {
 import { getSetting, setSetting } from './store/settings.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
-import { redactionFromStatus } from './llm-redaction.js';
+import { llmFromStatus, redactionFromStatus } from './llm-redaction.js';
 import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
 import { buildMatchingContext } from './matching/context.js';
 import { cleanChart } from './booking/chart.js';
@@ -46,6 +46,12 @@ export const app = $state({
 	 * @type {boolean | 'enclave' | null}
 	 */
 	llmRedaction: null,
+	/**
+	 * The paired bridge's model, for the cost hints beside the AI buttons
+	 * (stats/ai-estimate.js): host, model, on its own computer. null: not known.
+	 * @type {{ provider: string | null, model: string | null, local: boolean } | null}
+	 */
+	llmModel: null,
 	/**
 	 * The books' passkeys (#406): one slot each in the vault, this browser's
 	 * name for it, and whether it is the one that unlocked. `indexOn`: the
@@ -823,7 +829,9 @@ export async function refreshLlmRedaction() {
 	try {
 		const client = await pairedClient();
 		if (!client) return;
-		app.llmRedaction = redactionFromStatus(await client.llmStatus());
+		const status = await client.llmStatus();
+		app.llmRedaction = redactionFromStatus(status);
+		app.llmModel = llmFromStatus(status);
 	} catch {
 		// Offline or an older bridge: the cautious wording stays.
 	}
