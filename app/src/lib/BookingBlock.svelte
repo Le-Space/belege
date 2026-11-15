@@ -21,6 +21,7 @@
 	import { matchesOfTx } from './matching/view.js';
 	import { formatDate, formatMoney } from './bank/format.js';
 	import AiMark from './AiMark.svelte';
+	import AiCostHint from './AiCostHint.svelte';
 	import { recordEvent } from './activity/events.js';
 	import { eventCalls } from './stats/usage.js';
 	import { list, t } from './i18n/index.js';
@@ -359,6 +360,7 @@
 				data-testid="tx-booking-ai-ask"
 				><AiMark />{aiBusy ? t('booking.ai.asking') : t('booking.ai.ask')}</button
 			>
+			<AiCostHint kind="booking-assist" testid="tx-booking-ai-ask-cost" />
 			{#if aiResult}
 				{#if aiResult.picks.length}
 					<ul class="mt-2 flex flex-col gap-1" data-testid="tx-booking-ai-picks">

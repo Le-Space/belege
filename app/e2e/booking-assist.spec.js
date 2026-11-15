@@ -127,6 +127,33 @@ test('the model suggests an account from the chart; the person puts it in', asyn
 	const booking = page.getByTestId('tx-booking');
 	await expect(booking.getByTestId('tx-booking-suggestion')).toContainText('Kein Vorschlag');
 
+	// The info icon beside ✦ (#566): an estimate before the first call, from the
+	// code's figures, priced as the bridge's model; hover, focus and a tap open it,
+	// Escape closes it.
+	const info = booking.getByTestId('tx-booking-ai-ask-cost');
+	const tip = booking.getByTestId('tx-booking-ai-ask-cost-tip');
+	await expect(tip).toBeHidden();
+	await info.hover();
+	await expect(tip).toBeVisible();
+	await expect(tip).toContainText('Geschätzt für einen Aufruf');
+	await expect(tip).toContainText('≈ 1.800 Tokens hinein, 600 heraus');
+	await expect(tip).toContainText('bei deepseek-flash');
+	await expect(tip).toContainText('Noch nichts gemessen');
+	await expect(tip).toContainText('Nur eine Schätzung');
+	await expect(info).toHaveAttribute('aria-describedby', /^ai-cost-/);
+	expect(await tip.getAttribute('id')).toBe(await info.getAttribute('aria-describedby'));
+	await page.mouse.move(0, 0);
+	await expect(tip).toBeHidden();
+	await info.focus();
+	await expect(tip).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(tip).toBeHidden();
+	await info.click();
+	await page.mouse.move(0, 0);
+	await expect(tip).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(tip).toBeHidden();
+
 	await booking.getByTestId('tx-booking-ai-ask').click();
 	const picks = booking.getByTestId('tx-booking-ai-picks');
 	await expect(picks).toContainText('4964 Software-Abos');
@@ -138,6 +165,11 @@ test('the model suggests an account from the chart; the person puts it in', asyn
 	await booking.getByTestId('tx-booking-ai-take').click();
 	await expect(booking.getByTestId('tx-booking-account')).toHaveValue('4964');
 	await expect(booking.getByTestId('tx-booking-account-name')).toHaveText('Software-Abos');
+
+	// After the call, the estimate goes by what the Verlauf measured.
+	await info.click();
+	await expect(tip).toContainText('Nach dem letzten Aufruf im Verlauf.');
+	await page.keyboard.press('Escape');
 
 	const sent = booking.getByTestId('tx-booking-ai-sent');
 	await sent.locator('summary').click();

@@ -23,6 +23,7 @@
 	import { scamContext, scamSigns } from '$lib/receipts/scam.js';
 	import MonthPicker from '$lib/MonthPicker.svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
 	import PaperlessCard from '$lib/paperless/PaperlessCard.svelte';
 	import { cleanPaperlessSettings, loadPaperlessSettings } from '$lib/paperless/import.js';
 	import ReceiptPeek from '$lib/ReceiptPeek.svelte';
@@ -809,15 +810,19 @@
 						>{fetching ? t('belege.mailFetching') : t('belege.mailFetch')}</button
 					>
 				</div>
-				<label class="mt-2 flex items-center gap-2 text-sm text-text">
-					<input
-						type="checkbox"
-						checked={readAfterFetch}
-						onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
-						data-testid="mail-read-after"
-					/>
-					<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span>
-				</label>
+				<div class="mt-2 flex items-center gap-1">
+					<label class="flex items-center gap-2 text-sm text-text">
+						<input
+							type="checkbox"
+							checked={readAfterFetch}
+							onchange={(e) => setReadAfterFetch(e.currentTarget.checked)}
+							data-testid="mail-read-after"
+						/>
+						<span class="inline-flex items-center gap-1"><AiMark />{t('belege.mailReadAfter')}</span
+						>
+					</label>
+					<AiCostHint kind="extract" per="receipt" testid="mail-read-after-cost" />
+				</div>
 				{#if fetchResult}
 					<p class="mt-2 text-sm text-heading" role="status" data-testid="mail-result">
 						{fetchResult}
@@ -943,6 +948,7 @@
 									})
 								: t('belege.extractAll', { count: todo.length })}</button
 						>
+						<AiCostHint kind="extract" per="receipt" testid="extract-all-cost" />
 						{#if extractRun.progress}
 							<button
 								type="button"
@@ -1560,6 +1566,7 @@
 										? t('belege.extractAgain')
 										: t('belege.extract')}</button
 							>
+							<AiCostHint kind="extract" per="receipt" testid="extract-cost" />
 							{#if bridgeInfo && !bridgeInfo.llm}
 								<p class="mt-2 text-xs text-danger">{t('belege.llmNotSetUp')}</p>
 							{/if}

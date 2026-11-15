@@ -19,6 +19,7 @@
 	import { recordEvent } from '$lib/activity/events.js';
 	import { eventCalls } from '$lib/stats/usage.js';
 	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
 
 	let name = $derived(page.url.searchParams.get('name') ?? '');
 	let year = $derived(String(shownYear()));
@@ -235,6 +236,7 @@
 				onclick={explain}
 				data-testid="vendor-account-explain"><AiMark />{t('vendorAccount.explain')}</button
 			>
+			<AiCostHint kind="vendor-assist" testid="vendor-account-explain-cost" />
 			<button
 				type="button"
 				class={button}

@@ -9,6 +9,7 @@
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18n/index.js';
 	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
 	import {
 		ACCEPT,
 		fromFiles,
@@ -174,16 +175,20 @@
 				data-testid="receipt-upload"
 			/>
 			{#if upload.llm}
-				<label class="mt-3 flex items-center gap-2 text-sm text-text">
-					<input
-						type="checkbox"
-						checked={upload.readAfter}
-						onchange={(e) => setReadAfter(e.currentTarget.checked)}
-						data-testid="upload-read-after"
-					/>
-					<span class="inline-flex items-center gap-1"><AiMark />{t('belege.uploadReadAfter')}</span
-					>
-				</label>
+				<div class="mt-3 flex items-center gap-1">
+					<label class="flex items-center gap-2 text-sm text-text">
+						<input
+							type="checkbox"
+							checked={upload.readAfter}
+							onchange={(e) => setReadAfter(e.currentTarget.checked)}
+							data-testid="upload-read-after"
+						/>
+						<span class="inline-flex items-center gap-1"
+							><AiMark />{t('belege.uploadReadAfter')}</span
+						>
+					</label>
+					<AiCostHint kind="extract" per="receipt" testid="upload-read-after-cost" />
+				</div>
 			{/if}
 			{#if upload.result}
 				<p class="mt-3 text-sm text-heading" role="status">

@@ -12,6 +12,7 @@
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { onMount } from 'svelte';
 	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
 	import { openTravelQuestions } from '$lib/travel/proposals.js';
 	import { getSetting } from '$lib/store/settings.js';
 	import { refreshNow } from '$lib/session.svelte.js';
@@ -253,6 +254,7 @@
 					data-testid="ai-all-open"
 					><AiMark />{t('rueckfragen.ai.button', { count: eligible.length })}</button
 				>
+				<AiCostHint kind="match-assist" per="booking" testid="ai-all-open-cost" />
 			{/if}
 			{#if sureOnes.length && !aiRun.progress}
 				<button
