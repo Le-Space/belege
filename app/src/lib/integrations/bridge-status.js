@@ -139,3 +139,26 @@ export function llmAttested(status) {
 	if (typeof tee.verifiedAt !== 'string' || Number.isNaN(Date.parse(tee.verifiedAt))) return null;
 	return { model: String(status.models?.primary ?? ''), verifiedAt: tee.verifiedAt };
 }
+
+/** How long a VM may take after the unlock before the card says it did not come up. */
+export const NOT_UP_AFTER_MS = 3 * 60_000;
+
+/**
+ * The VM was unlocked from here, but its bridge's node has not reached this
+ * device since: most often the image's passphrase was wrong. Aleph's agent
+ * takes the passphrase with the secrets and confirms both, but the disk stays
+ * closed, so nothing in the VM starts (no Caddy, no bridge, no node).
+ *
+ * @param {object} f
+ * @param {any} f.kept the VM unlocked last (hostedBridgeRecord)
+ * @param {any} f.vm the VM the books started (hostedVmRecord), or none
+ * @param {boolean} f.reached its node was connected to this device since the unlock
+ * @param {number} f.now
+ * @param {number} [f.afterMs]
+ */
+export function hostedNotUp({ kept, vm, reached, now, afterMs = NOT_UP_AFTER_MS }) {
+	if (!kept?.instance || reached) return false;
+	if (vm && (vm.stoppedAt || vm.instance !== kept.instance)) return false;
+	const at = Date.parse(kept.attestedAt ?? '');
+	return Number.isFinite(at) && now - at >= afterMs;
+}

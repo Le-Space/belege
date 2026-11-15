@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- The hosted bridge's card says when an unlocked VM has not come up: when its bridge's node has not reached this device three minutes after the unlock. Most often the image's passphrase was wrong – Aleph's agent takes it with the secrets, but the disk stays closed and nothing in the VM starts. The card says so and offers to unlock the same VM again, which costs nothing extra.
 - The bridge's HTTP routes for its functions are gone (#580): they answer `410 HTTP_GONE` (with the token; `401` without, as before). The app calls them over the bridge's node, from another device and on the same machine alike; a desktop that shares its bridge with own devices forwards over its node too, and needs no token for it. HTTP keeps `/pair`, `/unpair`, `/node/invitation`, `/health`, `/lan-relay`, the shares, the backup upload and the portals. `pnpm bridge --no-node` is gone; `"node": { "enabled": false }` now runs the node on 127.0.0.1 only, without relays. A bridge paired by code is paired over 127.0.0.1 too when device sync is on, gets no relays and does not go online itself; a desktop that shares it checks the asking device's own scopes and forwards to no third device. Unpaired on purpose, a node is not paired again unasked.
 
 ## [0.33.0] – 2026-11-15

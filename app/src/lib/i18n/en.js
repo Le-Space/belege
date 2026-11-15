@@ -4579,6 +4579,9 @@ export default {
 				'The browser checks the VM’s attestation first; the passphrase is stored nowhere. If the VM does not come up, stop it here and start again on another node.',
 			locked:
 				'The VM is running at Aleph but still locked: it has neither the passphrase nor its key, so it does not answer yet. Type the image’s passphrase and unlock it.',
+			notUp:
+				'The VM has not come up since the unlock: its bridge has not reached this device. Most often the image’s passphrase was wrong – the VM accepts it but cannot open its disk with it. Copy the passphrase afresh and unlock the same VM again; that costs nothing extra, it is running anyway. If that does not help, stop it here and start again.',
+			unlockAgain: 'Unlock again',
 			existing: 'Unlock a VM that is already running',
 			instanceHash: 'INSTANCE:',
 			copy: 'Copy',
