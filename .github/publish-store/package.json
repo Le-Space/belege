@@ -1,0 +1,11 @@
+{
+	"name": "publish-store",
+	"private": true,
+	"description": "What the bridge image workflow needs to put the plain image on Aleph (relay-button's publish-store.mjs): pinned here with a lockfile, because the step holds the key that signs and pays.",
+	"type": "module",
+	"license": "AGPL-3.0-or-later",
+	"dependencies": {
+		"ethers": "6.13.4",
+		"ipfs-unixfs-importer": "17.1.1"
+	}
+}
