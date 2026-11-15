@@ -176,6 +176,7 @@ describe('bridge server', () => {
 			'backup.put',
 			'bridge.health',
 			'lanRelay.status',
+			'node.invite',
 			'session.pair',
 			'session.unpair',
 			'settings.export',

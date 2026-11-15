@@ -44,6 +44,7 @@ import { MAX_BODY, errorJson, findCommand, statusOf } from './commands.js';
 export const HTTP_ONLY = new Set([
 	'session.pair',
 	'session.unpair',
+	'node.invite',
 	'share.read',
 	'share.create',
 	'share.list',

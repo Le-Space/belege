@@ -104,7 +104,9 @@ export async function pairBridge(page, { code, out, port = Number(process.env.E2
 export async function expectPaired(page) {
 	const status = page.getByTestId('bridge-status');
 	if (!viaStream) {
-		await expect(status).toContainText('dieses Gerät ist gekoppelt');
+		// Paired by code; with device sync off its node is paired over 127.0.0.1
+		// and the card may say so instead (#580): paired either way.
+		await expect(status).toHaveAttribute('data-paired', 'true', { timeout: 30_000 });
 		return;
 	}
 	await expect

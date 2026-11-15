@@ -430,6 +430,13 @@ export function createBridgeClient({
 		/** @returns {Promise<{ ok: boolean, paired: boolean, pairingOpen: boolean, hibiscus: { configured: boolean }, mail?: { configured: boolean, accountingAddress: string | null }, llm?: { configured: boolean, models: string[] }, kraken?: { configured: boolean }, paperless?: { configured: boolean }, enablebanking?: { configured: boolean }, backup?: { aleph: boolean }, wallets?: { available: boolean } }>} */
 		health: () => command('bridge.health'),
 		/**
+		 * The bridge node's invitation while it is unarmed (#580): the app on
+		 * this machine pairs the node with it over a stream on 127.0.0.1.
+		 *
+		 * @returns {Promise<string>} `web+ucep:pair?…`
+		 */
+		nodeInvite: async () => (await command('node.invite')).invitation,
+		/**
 		 * What a hosted bridge may take over from this bridge (#728): the accounts
 		 * it reads and the integrations' settings. Over the stream only, and only
 		 * for the device that paired the bridge; over HTTP it is not there.

@@ -109,7 +109,11 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 51: receipt files go to every own device in the background, not only when
 //     one is opened: each device fetches the sealed blocks it lacks over
 //     Bitswap from the own devices connected directly (never via a relay).
-export const CONSENT_VERSION = '51';
+// 52: with device sync off, a node of its own reaches the bridge's node on this
+//     computer over a WebSocket on 127.0.0.1 and pairs it by its invitation
+//     (#580); the bridge reaches the devices' Bitswap for its big answers, on
+//     a protocol of its own (#578), which the text now says.
+export const CONSENT_VERSION = '52';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

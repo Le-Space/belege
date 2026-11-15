@@ -1109,6 +1109,100 @@ function stopFilePrefetch() {
 /** @type {Awaited<ReturnType<typeof import('./sync/remote-bridge.js').startBridgeConsumer>> | null} */
 let bridgeConsumer = null;
 
+/** This device's own peer id (node.js `devicePeerKey`): what the bridge lists it as. */
+async function devicePeerId() {
+	if (!session?.devicePeerKey) return /** @type {string} */ (session?.peerId);
+	const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+	return peerIdFromPrivateKey(session.devicePeerKey).toString();
+}
+
+/** @type {{ libp2p: any, gate: any } | null} the node to the bridge on this machine (#580) */
+let loopback = null;
+/** Dial the bridge's node on this machine again; set while `loopback` runs. @type {(() => Promise<void>) | null} */
+let loopbackDial = null;
+
+/**
+ * The bridge on this machine over a stream, with device sync off (#580,
+ * sync/loopback-bridge.js): a node of its own that dials 127.0.0.1 only. A
+ * bridge paired by code over HTTP whose node is not armed yet is paired here
+ * by its invitation (`node.invite`), as "Über Einladung koppeln" does over the
+ * relays; from then on its functions go over the stream, and HTTP keeps
+ * pairing, health, shares and the backup upload. Without a node (`--no-node`)
+ * or a bridge the books do not know, calls go over HTTP as before.
+ */
+/** The bridge on this machine over a stream, right after it was paired by code (#580). */
+export async function bridgeOnThisMachine() {
+	await startLoopbackBridge();
+}
+
+async function startLoopbackBridge() {
+	if (!session || session.online || loopback || !session.devicePeerKey) return;
+	const settings = session.store.settings;
+	const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+	if (!saved?.token && !saved?.peerId) return;
+	const { createBridgeClient, setBridgeTransport } = await import('./bridge/client.js');
+	const http = createBridgeClient({
+		...(saved?.url ? { url: saved.url } : {}),
+		token: saved?.token ?? null,
+		fetch
+	});
+	/** @type {any} */
+	const health = await http.health().catch(() => null);
+	const { loopbackAddr, startLoopbackNode } = await import('./sync/loopback-bridge.js');
+	const addr = loopbackAddr(health?.node?.addrs);
+	if (!health?.node?.enabled || !addr || typeof health.node.peerId !== 'string') return;
+	// A node already paired, but not with these books: theirs is not ours to call.
+	if (health.node.armed && saved?.peerId !== health.node.peerId) return;
+
+	const { startBridgeConsumer, bridgeFetch, setBridgeNode } = await import(
+		'./sync/remote-bridge.js'
+	);
+	const { multiaddr } = await import('@multiformats/multiaddr');
+	const nodePeer = health.node.peerId;
+	session.bridgeAuth.peerId = nodePeer;
+	await loadBridgeAuth().catch(() => {});
+	session.bridgeAuth.peerId = nodePeer;
+	loopback = await startLoopbackNode({
+		privateKey: session.devicePeerKey,
+		bridge: session.bridgeAuth
+	});
+	const node = loopback;
+	loopbackDial = async () => {
+		await node.libp2p.dial(multiaddr(`${addr}/p2p/${nodePeer}`), {
+			signal: AbortSignal.timeout(5000)
+		});
+	};
+	// The bridge's node restarts when it is paired, or with the bridge: dialled again.
+	node.libp2p.addEventListener('peer:disconnect', (/** @type {any} */ e) => {
+		if (String(e.detail) !== nodePeer || loopback !== node) return;
+		setTimeout(() => loopbackDial?.().catch(() => {}), 2000);
+	});
+	const consumer = await startBridgeConsumer({
+		libp2p: node.libp2p,
+		label: deviceLabel(),
+		devices: () => [],
+		isProved: (peerId) => Boolean(node.gate.isProved(peerId))
+	});
+	bridgeConsumer = consumer;
+	setBridgeTransport(
+		bridgeFetch({
+			stream: () => consumer.streamFetch,
+			remote: () => null,
+			onRoute: (r) => (app.sync.bridgeRoute = r)
+		})
+	);
+	if (health.node.armed) {
+		setBridgeNode({ peerId: nodePeer });
+		await loopbackDial().catch(() => {});
+		return;
+	}
+	// Paired by code only: pair the node by its invitation, over this machine.
+	if (!saved?.token) return;
+	await loopbackDial().catch(() => {});
+	const invitation = await http.nodeInvite().catch(() => null);
+	if (invitation) await pairBridgeNode(invitation);
+}
+
 /**
  * The bridge over the stream (#573, #575): the bridge's own node, a device of
  * the books, first; the bridge between own devices (issue #142) after – this
@@ -1216,7 +1310,7 @@ const keyGenerationOf = (saved) =>
  * before device sync dials anyone, and again when the settings change.
  */
 async function loadBridgeAuth() {
-	if (!session?.online || !session.bridgeAuthBase) return;
+	if (!session?.bridgeAuthBase) return;
 	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
 	const { bridgeAuthKeyOf } = await import('./database-keys.js');
 	const peerId = typeof saved?.peerId === 'string' ? saved.peerId : null;
@@ -1237,7 +1331,8 @@ async function loadBridgeAuth() {
  * @returns {Promise<{ peerId: string }>} the bridge's node
  */
 export async function pairBridgeNode(invitation) {
-	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
+	// Online through device sync, or – with it off – over the stream on this machine (#580).
+	if (!session?.bridgeAuthBase || !bridgeConsumer || (session.online && !deviceSync)) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
 	const { knownDevices } = await import('./sync/device-sync.js');
@@ -1258,7 +1353,7 @@ export async function pairBridgeNode(invitation) {
 		invitation,
 		authKey: key,
 		relays: session.relays,
-		devices: [session.peerId, ...own]
+		devices: [await devicePeerId(), ...own]
 	});
 	// Known as the books' bridge at once – the gate proves with its key toward it –
 	// and in the books (settings `bridge`), for the other devices.
@@ -1276,6 +1371,14 @@ export async function pairBridgeNode(invitation) {
 	const label = t('messages.bridge.deviceLabel');
 	const until = Date.now() + 45_000;
 	await new Promise((r) => setTimeout(r, 1500)); // the node restarts armed
+	if (!deviceSync) {
+		// Device sync off: the node on this machine, dialled again until it proves (#580).
+		while (!bridgeConsumer.streamServer() && Date.now() < until) {
+			await loopbackDial?.().catch(() => {});
+			if (!bridgeConsumer.streamServer()) await new Promise((r) => setTimeout(r, 1000));
+		}
+		return { peerId };
+	}
 	await deviceSync.addDevice(peerId, label, { bridge: true, addrs });
 	while (!bridgeConsumer.streamServer() && Date.now() < until) {
 		await new Promise((r) => setTimeout(r, 2000));
@@ -2647,8 +2750,9 @@ async function unlockWith(
 	{
 		// The bridge's calls wait until device sync has set up the stream to its node (#575).
 		const { holdBridgeTransport } = await import('./bridge/client.js');
-		const release = session?.online ? holdBridgeTransport() : () => {};
-		startDeviceSyncIfOn()
+		const release = holdBridgeTransport();
+		// With device sync off, the bridge on this machine over a stream of its own (#580).
+		(session?.online ? startDeviceSyncIfOn() : startLoopbackBridge())
 			.finally(release)
 			.then(watchQrConnections)
 			.then(dialAfterNewKeys)

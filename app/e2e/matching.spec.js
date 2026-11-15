@@ -33,7 +33,7 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, viaStream } from './bridge.js';
+import { pairBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -297,13 +297,12 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// request leaves what is not done for "Weitermachen" on Home, which starts
 	// nothing by itself.
 	llm.setDelay(5000);
-	// The reload comes while the first request is out: over HTTP as the page sends it, over
-	// the stream (e2e/bridge.js) as it reaches the model – not once the model has answered.
-	const inFlight = viaStream ? null : page.waitForRequest((r) => r.url().endsWith('/match/assist'));
+	// The reload comes while the first request is out, as it reaches the model – not once
+	// the model has answered. Over HTTP or the stream alike: since #580 a bridge paired by
+	// code is called over a stream on 127.0.0.1 too, so the page sends no HTTP request.
 	await page.getByTestId('ai-all-start').click();
 	await expect(page.getByTestId('tab-suggest-progress')).toHaveText(/^[01]\/2$/);
-	if (inFlight) await inFlight;
-	else await expect.poll(() => llm.arrived(), { intervals: [50] }).toBeGreaterThan(arrivedBefore);
+	await expect.poll(() => llm.arrived(), { intervals: [50] }).toBeGreaterThan(arrivedBefore);
 	await page.reload();
 	llm.setDelay(0);
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();

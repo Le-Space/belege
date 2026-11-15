@@ -392,7 +392,8 @@ export async function startBridge({
 			...(nodeListen ? { listen: nodeListen } : {}),
 			onHandover: async ({ authKey, relays, devices }) => {
 				await bridgeAuthKeychain.write(Buffer.from(authKey).toString('hex'));
-				config.node.relays = relays;
+				// A device on this machine with device sync off names no relays (#580): the bridge keeps its own.
+				if (relays.length) config.node.relays = relays;
 				config.node.devices = devices;
 				await saveConfig(config, configPath);
 				await node?.stop().catch(() => {});
@@ -433,6 +434,12 @@ export async function startBridge({
 					devices: node ? node.devices().size : 0
 				}),
 				disarm: () => disarmNode(),
+				/**
+				 * The node's invitation while it is unarmed (`node.invite`, #580): the
+				 * app on this machine, paired by code over HTTP, pairs the node with it
+				 * over a stream on 127.0.0.1. Null once it is armed.
+				 */
+				invite: async () => (node && !node.armed ? node.invite() : null),
 				/** One device's scopes (`device.scopes`): over HTTP with the token, or from the device that paired the bridge. @param {unknown} peerId @param {unknown} scopes */
 				setScopes: async (peerId, scopes) => {
 					if (!node)

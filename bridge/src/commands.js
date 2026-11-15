@@ -245,7 +245,7 @@ export function errorJson(error) {
  * @param {any} deps.alephBackup
  * @param {{ addr: string | null, stats: () => object } | null} deps.lanRelay
  * @param {any} [deps.portals] the portal connector, for /health only (its routes stay in portals/routes.js)
- * @param {{ status: () => object, disarm: () => Promise<void>, setScopes?: (peerId: unknown, scopes: unknown) => Promise<string[]> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
+ * @param {{ status: () => object, disarm: () => Promise<void>, invite?: () => Promise<string | null>, setScopes?: (peerId: unknown, scopes: unknown) => Promise<string[]> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
  * @param {(() => Promise<{ config: object, secrets: Record<string, string> }>) | null} [deps.settingsExport]
  *   what a hosted bridge may take over (#728)
  * @param {(message: string) => void} deps.log
@@ -1337,6 +1337,29 @@ export function createCommands({
 					`extracted with ${result.model} (${result.attempts.length} attempt(s), ${result.ms} ms, ${result.redactions.total} redaction(s))`
 				);
 				return json(200, result);
+			}
+		},
+		{
+			// The node's invitation, for the app on this machine (#580): paired by
+			// code over HTTP, it pairs the bridge's node over a stream on
+			// 127.0.0.1 and calls it there from then on, with device sync off too.
+			// The token holds the bridge already; the invitation adds nothing it
+			// could not do. HTTP only, like the pairing it is part of.
+			name: 'node.invite',
+			method: 'POST',
+			path: '/node/invitation',
+			scope: 'bridge:grants:manage',
+			body: 'none',
+			run: async () => {
+				if (!node?.invite) {
+					return json(503, { error: 'the bridge’s node is off', code: 'NODE_OFF' });
+				}
+				const invitation = await node.invite();
+				if (!invitation) {
+					return json(409, { error: 'the bridge’s node is paired already', code: 'NODE_ARMED' });
+				}
+				log('node.invite: the invitation went to the app on this machine');
+				return json(200, { invitation });
 			}
 		},
 		{
