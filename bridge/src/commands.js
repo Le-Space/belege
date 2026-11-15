@@ -1364,8 +1364,8 @@ export function createCommands({
 		},
 		{
 			// What one device may call over the stream (#579): the device that
-			// paired the bridge (grants.js HOLDER_ONLY), or the owner here over
-			// HTTP with the token. A subset of the scopes offered; an unknown
+			// paired the bridge (grants.js HOLDER_ONLY), over the stream – over
+			// HTTP it is gone since #580. A subset of the scopes offered; an unknown
 			// name is refused. Peer ids and scope names, nothing else.
 			name: 'device.scopes',
 			method: 'POST',

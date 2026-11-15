@@ -1122,26 +1122,73 @@ let loopback = null;
 let loopbackDial = null;
 
 /**
- * The bridge on this machine over a stream, with device sync off (#580,
- * sync/loopback-bridge.js): a node of its own that dials 127.0.0.1 only. A
- * bridge paired by code over HTTP whose node is not armed yet is paired here
- * by its invitation (`node.invite`), as "Über Einladung koppeln" does over the
- * relays; from then on its functions go over the stream, and HTTP keeps
- * pairing, health, shares and the backup upload. A bridge from before #580
- * without a node, or one paired with other books, is not reached this way:
- * its calls go to HTTP, which a current bridge answers 410.
+ * Whether these books may pair the bridge's node by its invitation on their
+ * own (#580): a bridge paired by code whose node these books never paired.
+ * One they paired before and that is unarmed now was unpaired on purpose –
+ * "Kopplung lösen", or on its own machine – and is not paired again unasked.
+ *
+ * @param {any} saved settings `bridge`
  */
-/** The bridge on this machine over a stream, right after it was paired by code (#580). */
-export async function bridgeOnThisMachine() {
-	await startLoopbackBridge();
+const mayPairNodeByCode = (saved) => Boolean(saved?.token) && !saved?.nodePairedAt;
+
+/**
+ * Pair the node of a bridge paired by code, when these books may (above):
+ * its invitation over HTTP with the token (`node.invite`), then
+ * `pairBridgeNode` over whichever node reaches it – device sync's, or the one
+ * on this machine. Quietly nothing when the bridge has no node or it is
+ * armed already.
+ *
+ * @param {{ health: () => Promise<any>, nodeInvite: () => Promise<string> }} http
+ * @param {any} saved settings `bridge`
+ */
+async function pairNodeByCode(http, saved) {
+	if (!mayPairNodeByCode(saved)) return;
+	/** @type {any} */
+	const health = await http.health().catch(() => null);
+	if (!health?.node?.enabled || health.node.armed) return;
+	const invitation = await http.nodeInvite().catch(() => null);
+	// No relays: paired by code, the bridge does not go online itself.
+	if (invitation) await pairBridgeNode(invitation, { relays: [] });
 }
 
+/**
+ * The bridge on this machine over a stream, with device sync off (#580,
+ * sync/loopback-bridge.js): a node of its own that dials 127.0.0.1 only. A
+ * bridge paired by code whose node these books never paired is paired here by
+ * its invitation (`pairNodeByCode`); from then on its functions go over the
+ * stream, and HTTP keeps pairing, health, shares and the backup upload. Not
+ * while the network is paused. A bridge whose node is paired with other books,
+ * or unpaired on purpose, is not reached this way; HTTP answers its functions
+ * 410 then, and the card says so.
+ */
 async function startLoopbackBridge() {
 	if (!session || session.online || loopback || !session.devicePeerKey) return;
+	if (networkPause()) return;
 	const settings = session.store.settings;
 	const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
 	if (!saved?.token && !saved?.peerId) return;
-	const { createBridgeClient, setBridgeTransport } = await import('./bridge/client.js');
+	const { createBridgeClient, setBridgeTransport, holdBridgeTransport } = await import(
+		'./bridge/client.js'
+	);
+	// Calls wait until the stream is the bridge's transport: over HTTP they
+	// would only get 410 (a page opened right after pairing by code). From
+	// then on each call waits for the node itself (`waitMs` below).
+	const release = holdBridgeTransport(30_000);
+	try {
+		await startLoopbackBridgeHeld(saved, createBridgeClient, setBridgeTransport, release);
+	} finally {
+		release();
+	}
+}
+
+/**
+ * @param {any} saved settings `bridge`
+ * @param {typeof import('./bridge/client.js').createBridgeClient} createBridgeClient
+ * @param {typeof import('./bridge/client.js').setBridgeTransport} setBridgeTransport
+ * @param {() => void} release lets the held calls go
+ */
+async function startLoopbackBridgeHeld(saved, createBridgeClient, setBridgeTransport, release) {
+	if (!session) return;
 	const http = createBridgeClient({
 		...(saved?.url ? { url: saved.url } : {}),
 		token: saved?.token ?? null,
@@ -1154,13 +1201,14 @@ async function startLoopbackBridge() {
 	if (!health?.node?.enabled || !addr || typeof health.node.peerId !== 'string') return;
 	// A node already paired, but not with these books: theirs is not ours to call.
 	if (health.node.armed && saved?.peerId !== health.node.peerId) return;
+	// Unpaired on purpose: not paired again unasked.
+	if (!health.node.armed && !mayPairNodeByCode(saved)) return;
 
 	const { startBridgeConsumer, bridgeFetch, setBridgeNode } = await import(
 		'./sync/remote-bridge.js'
 	);
 	const { multiaddr } = await import('@multiformats/multiaddr');
 	const nodePeer = health.node.peerId;
-	session.bridgeAuth.peerId = nodePeer;
 	await loadBridgeAuth().catch(() => {});
 	session.bridgeAuth.peerId = nodePeer;
 	loopback = await startLoopbackNode({
@@ -1173,10 +1221,27 @@ async function startLoopbackBridge() {
 			signal: AbortSignal.timeout(5000)
 		});
 	};
-	// The bridge's node restarts when it is paired, or with the bridge: dialled again.
+	// Dialled until it is there and proved, with growing pauses: the bridge
+	// may start after the page, or take its time to restart (a pairing, an
+	// update). One loop at a time; none while the network is paused.
+	let dialling = false;
+	const keepDialling = async () => {
+		if (dialling) return;
+		dialling = true;
+		try {
+			for (let pause = 1000; loopback === node && !node.gate.isProved(nodePeer); ) {
+				if (!networkPause()) await loopbackDial?.().catch(() => {});
+				if (node.gate.isProved(nodePeer)) break;
+				await new Promise((r) => setTimeout(r, pause));
+				pause = Math.min(pause * 2, 30_000);
+			}
+		} finally {
+			dialling = false;
+		}
+	};
 	node.libp2p.addEventListener('peer:disconnect', (/** @type {any} */ e) => {
 		if (String(e.detail) !== nodePeer || loopback !== node) return;
-		setTimeout(() => loopbackDial?.().catch(() => {}), 2000);
+		setTimeout(() => keepDialling().catch(() => {}), 1000);
 	});
 	const consumer = await startBridgeConsumer({
 		libp2p: node.libp2p,
@@ -1187,21 +1252,48 @@ async function startLoopbackBridge() {
 	bridgeConsumer = consumer;
 	setBridgeTransport(
 		bridgeFetch({
-			stream: () => consumer.streamFetch,
+			// HTTP no longer carries the bridge's functions: a call waits a while for
+			// the node (a restart, a dial still on its way) rather than go there.
+			stream: () => (input, init) => consumer.streamFetch(input, init, { waitMs: 45_000 }),
 			remote: () => null,
 			onRoute: (r) => (app.sync.bridgeRoute = r)
 		})
 	);
+	// The node's peer id is the same before and after its pairing: calls wait for it from now on.
+	setBridgeNode({ peerId: nodePeer });
+	release();
 	if (health.node.armed) {
-		setBridgeNode({ peerId: nodePeer });
-		await loopbackDial().catch(() => {});
+		keepDialling().catch(() => {});
 		return;
 	}
-	// Paired by code only: pair the node by its invitation, over this machine.
-	if (!saved?.token) return;
 	await loopbackDial().catch(() => {});
-	const invitation = await http.nodeInvite().catch(() => null);
-	if (invitation) await pairBridgeNode(invitation);
+	await pairNodeByCode(http, saved);
+	keepDialling().catch(() => {});
+}
+
+/**
+ * The bridge on this machine over a stream (#580): right after it was paired
+ * by code, and whenever the card finds it answering while this device has no
+ * stream to it yet (it started after the page, say).
+ */
+export async function bridgeOnThisMachine() {
+	if (!session?.online) {
+		await startLoopbackBridge();
+		return;
+	}
+	// Device sync on: its node is paired over device sync's node, as at an unlock.
+	if (!bridgeConsumer || !deviceSync) return;
+	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	if (saved?.peerId) return;
+	const { createBridgeClient } = await import('./bridge/client.js');
+	await pairNodeByCode(
+		createBridgeClient({
+			...(saved?.url ? { url: saved.url } : {}),
+			token: saved?.token ?? null,
+			fetch
+		}),
+		saved
+	);
 }
 
 /**
@@ -1241,6 +1333,22 @@ async function startBridgeForDevices() {
 			onRoute: (r) => (app.sync.bridgeRoute = r)
 		})
 	);
+	// Paired by code with device sync on: its node is paired by its invitation
+	// too (#580) – HTTP no longer carries the bridge's functions. Not awaited:
+	// the pairing waits for the node to come back armed.
+	(async () => {
+		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		if (saved?.peerId) return;
+		const { createBridgeClient } = await import('./bridge/client.js');
+		await pairNodeByCode(
+			createBridgeClient({
+				...(saved?.url ? { url: saved.url } : {}),
+				token: saved?.token ?? null,
+				fetch
+			}),
+			saved
+		);
+	})().catch((e) => console.warn('bridge node:', e));
 	// The books' device list to the bridge's node whenever it changes, from any
 	// device that is connected to it: a device removed here is refused there.
 	let toldDevices = '';
@@ -1270,7 +1378,9 @@ async function startBridgeForDevices() {
 	});
 	app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
-	const { bridgeTransportFetch, DEFAULT_BRIDGE_URL } = await import('./bridge/client.js');
+	const { DEFAULT_BRIDGE_URL } = await import('./bridge/client.js');
+	const { UcepError } = await import('@le-space/ucep');
+	const { command: specOf } = await import('@le-space/bridge-protocol');
 	/** @type {{ url: string, token: string } | null} */
 	let own = null;
 	const readOwn = async () => {
@@ -1285,11 +1395,39 @@ async function startBridgeForDevices() {
 	settings.onChange(() => {
 		readOwn().catch(() => {});
 	});
+	/** The bridge's grants, asked at most every 30 s. @type {{ at: number, value: any } | null} */
+	let grantsKept = null;
+	const grantsNow = async (fresh = false) => {
+		if (!fresh && grantsKept && Date.now() - grantsKept.at < 30_000) return grantsKept.value;
+		const value = await consumer.bridgeGrants().catch(() => null);
+		grantsKept = value ? { at: Date.now(), value } : null;
+		return value;
+	};
 	await startBridgeProvider({
 		libp2p,
 		bridge: () => own,
-		// Its own bridge over the bridge's node, as this page calls it (#580): its HTTP routes are gone.
-		fetch: bridgeTransportFetch,
+		// Its own bridge over the bridge's node (#580): its HTTP routes are gone.
+		// Never on to another device: a call that came from one goes no further.
+		fetch: bridgeFetch({ stream: () => consumer.streamFetch, remote: () => null }),
+		// What the asking device may call there (#579): its own scopes, as the
+		// bridge keeps them – not this desktop's. Only the device that paired
+		// the bridge sees every device's; another desktop forwards nothing.
+		mayCall: async (/** @type {string} */ peerId, /** @type {string} */ name) => {
+			const scope = specOf(name)?.scope ?? '';
+			// A command without a scope (`bridge.health`) is for every device of the books.
+			if (!scope) return;
+			const find = (/** @type {any} */ g) =>
+				g?.devices?.find((/** @type {any} */ d) => d.peerId === peerId);
+			let grants = await grantsNow();
+			// A device the kept answer does not know yet (added since): asked again, once.
+			if (grants && !find(grants)) grants = await grantsNow(true);
+			if (!grants) throw new UcepError('UNAVAILABLE', 'the bridge’s node is not connected');
+			const device = find(grants);
+			if (!device || !device.scopes.includes(scope)) throw new UcepError('SCOPE_MISSING', scope);
+			if (device.expiresAt !== null && device.expiresAt < Date.now()) {
+				throw new UcepError('GRANT_EXPIRED', scope);
+			}
+		},
 		// A device the books know and that proved the passkey on this connection:
 		// an id typed in by mistake is known, and still gets nothing.
 		isOwnDevice: async (peerId) => {
@@ -1336,9 +1474,11 @@ async function loadBridgeAuth() {
  * so the next call goes over the stream.
  *
  * @param {string} invitation `web+ucep:pair?…`
+ * @param {{ relays?: string[] }} [options] the relays it gets: the books' by default; none for a
+ *   bridge paired by code, which stays on this machine (#580)
  * @returns {Promise<{ peerId: string }>} the bridge's node
  */
-export async function pairBridgeNode(invitation) {
+export async function pairBridgeNode(invitation, { relays } = {}) {
 	// Online through device sync, or – with it off – over the stream on this machine (#580).
 	if (!session?.bridgeAuthBase || !bridgeConsumer || (session.online && !deviceSync)) {
 		throw new Error(t('messages.bridge.needsSync'));
@@ -1360,7 +1500,7 @@ export async function pairBridgeNode(invitation) {
 	const { peerId, addrs } = await bridgeConsumer.pairBridge({
 		invitation,
 		authKey: key,
-		relays: session.relays,
+		relays: relays ?? session.relays,
 		devices: [await devicePeerId(), ...own]
 	});
 	// Known as the books' bridge at once – the gate proves with its key toward it –

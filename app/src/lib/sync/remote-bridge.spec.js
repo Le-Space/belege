@@ -9,6 +9,7 @@ import {
 	allowed,
 	askPeer,
 	bridgeFetch,
+	commandOf,
 	bridgeNodePeer,
 	grantRefusal,
 	serveNamed,
@@ -409,5 +410,51 @@ describe('by name (#577)', () => {
 			init: /** @type {any} */ ({ method: 'GET', command: { name: 'bank.accounts', args: {} } })
 		});
 		expect(asked.every(([, a]) => !a.$accept)).toBe(true);
+	});
+
+	it('the desktop forwards what the asking device may call, by its own scopes (#579, #580)', async () => {
+		const b = fakeBridge(json({ accounts: [] }));
+		/** @type {[string, string][]} */
+		const asked = [];
+		const mayCall = async (/** @type {string} */ peer, /** @type {string} */ name) => {
+			asked.push([peer, name]);
+			if (name === 'bank.accounts') throw new UcepError('SCOPE_MISSING', 'bridge:bank:read');
+		};
+		const base = { peerId: OWN, isOwnDevice, bridge, fetch: b.fetch, mayCall };
+		await expect(serveNamed({ ...base, name: 'bank.accounts', args: {} })).rejects.toMatchObject({
+			code: 'SCOPE_MISSING'
+		});
+		// As `request` too: the path's command decides.
+		await expect(
+			serveRequest({ ...base, args: { method: 'GET', path: '/hibiscus/accounts' } })
+		).rejects.toMatchObject({ code: 'SCOPE_MISSING' });
+		expect(b.calls).toHaveLength(0);
+		await serveNamed({ ...base, name: 'llm.status', args: {} });
+		expect(b.calls).toHaveLength(1);
+		expect(asked.map(([, n]) => n)).toEqual(['bank.accounts', 'bank.accounts', 'llm.status']);
+		expect(commandOf('POST', '/nyx/wallet')).toBe('chains.wallet');
+		expect(commandOf('GET', '/nope')).toBe(null);
+	});
+
+	it('HTTP that answers 410 is no way to the bridge: another device’s is asked (#580)', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		const gone = new Response(JSON.stringify({ code: 'HTTP_GONE' }), { status: 410 });
+		const fetchLike = bridgeFetch({
+			local: async () => gone.clone(),
+			stream: () => null,
+			remote: () => async () => json({ ok: true }),
+			onRoute: (r) => routes.push(r)
+		});
+		const res = await fetchLike('http://127.0.0.1:8765/llm/status', {});
+		expect(res.status).toBe(200);
+		expect(routes).toEqual(['device']);
+		// No other device: the 410 itself, for the client's message.
+		const alone = bridgeFetch({
+			local: async () => gone.clone(),
+			stream: () => null,
+			remote: () => null
+		});
+		expect((await alone('http://127.0.0.1:8765/llm/status', {})).status).toBe(410);
 	});
 });

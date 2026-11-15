@@ -340,7 +340,9 @@ export function createBridgeClient({
 					body?.error === 'origin not allowed'
 						? t('messages.bridge.originNotAllowed')
 						: t('messages.bridge.wrongCode'),
-				410: t('messages.bridge.noCode'),
+				// Gone over HTTP since #580: the bridge's node was not reached for it.
+				410:
+					body?.code === 'HTTP_GONE' ? t('messages.bridge.httpGone') : t('messages.bridge.noCode'),
 				503:
 					body?.code === 'MAIL_NOT_SET_UP'
 						? t('messages.bridge.mailNotSetUp')

@@ -328,14 +328,18 @@
 				if (y !== null && y !== shownYear()) chooseYear(y);
 			}
 		}
+		// The bridge's client first: what loads below may wait for the bridge (#580),
+		// and a receipt opened meanwhile already asks through it.
+		const saved = await getSetting(store.settings, 'bridge');
+		const c = pairedWith(saved)
+			? createBridgeClient({ url: saved.url, token: saved.token ?? null })
+			: null;
+		client = c;
 		folderHandle = await savedFolder();
 		readAfterFetch = (await getSetting(store.settings, 'mailFetch'))?.readAfterFetch !== false;
 		paperless = await loadPaperlessSettings(store.settings);
 		await loadUpload();
-		const saved = await getSetting(store.settings, 'bridge');
-		if (!pairedWith(saved)) return;
-		const c = createBridgeClient({ url: saved.url, token: saved.token ?? null });
-		client = c;
+		if (!c) return;
 		// Customer portals are HTTP's only (bridge/src/stream.js): with the token alone.
 		bridgeAt = saved.token ? { url: saved.url, token: saved.token } : null;
 		if (bridgeAt) {

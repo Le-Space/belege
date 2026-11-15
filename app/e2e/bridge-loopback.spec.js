@@ -55,7 +55,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	bridge?.kill('SIGTERM');
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
+	if (dir) await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 test('paired by code, device sync off: the bridge’s node is paired over 127.0.0.1 and every call goes over the stream', async ({

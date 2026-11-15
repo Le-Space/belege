@@ -29,6 +29,8 @@ export const KEEP_MS = 10 * 60_000;
 /** How long one block may take before it is asked for again, and how often. */
 const BLOCK_TRY_MS = 20_000;
 const BLOCK_TRIES = 3;
+/** The nonce, the GCM tag and the root block on top of an answer's bytes. */
+const SEAL_OVERHEAD = 64 * 1024;
 /** What the bridge holds at most, all answers together. */
 export const MAX_HELD_BYTES = 96 * 1024 * 1024;
 
@@ -85,12 +87,14 @@ async function bytesOf(got) {
  * @param {string} [p.protocol]
  * @param {number} [p.keepMs]
  * @param {number} [p.maxHeldBytes]
+ * @param {(root: string) => void} [p.onDrop] an answer's blocks went: fetched and done, or expired
  */
 export async function createBlockExchange({
 	libp2p,
 	protocol = BLOCKS_PROTOCOL,
 	keepMs = KEEP_MS,
-	maxHeldBytes = MAX_HELD_BYTES
+	maxHeldBytes = MAX_HELD_BYTES,
+	onDrop = () => {}
 }) {
 	const blockstore = new MemoryBlockstore();
 	/** @type {any} */
@@ -175,6 +179,7 @@ export async function createBlockExchange({
 		const entry = offered.get(root);
 		if (!entry) return false;
 		offered.delete(root);
+		onDrop(root);
 		clearTimeout(entry.timer);
 		held -= entry.bytes;
 		for (const cid of entry.cids) await blockstore.delete(cid).catch(() => {});
@@ -193,17 +198,25 @@ export async function createBlockExchange({
 		 * @returns {Promise<BlockAnswer>}
 		 */
 		async offer(bytes) {
-			if (held + bytes.length > maxHeldBytes) throw new RangeError('the bridge holds too much now');
-			const { root, size, key, blocks } = await sealBlocks(bytes);
-			const total = blocks.reduce((n, b) => n + b.bytes.length, 0);
-			for (const block of blocks) await blockstore.put(block.cid, block.bytes);
-			for (const block of blocks) await broker.announce(block.cid).catch(() => {});
-			const id = root.toString();
-			const timer = setTimeout(() => drop(id).catch(() => {}), keepMs);
-			timer?.unref?.();
-			offered.set(id, { cids: blocks.map((b) => b.cid), bytes: total, timer });
-			held += total;
-			return { cid: id, size, key: toBase64(key) };
+			// Reserved before anything is awaited: answers made side by side count together.
+			const reserved = bytes.length + SEAL_OVERHEAD;
+			if (held + reserved > maxHeldBytes) throw new RangeError('the bridge holds too much now');
+			held += reserved;
+			try {
+				const { root, size, key, blocks } = await sealBlocks(bytes);
+				const total = blocks.reduce((n, b) => n + b.bytes.length, 0);
+				for (const block of blocks) await blockstore.put(block.cid, block.bytes);
+				for (const block of blocks) await broker.announce(block.cid).catch(() => {});
+				const id = root.toString();
+				const timer = setTimeout(() => drop(id).catch(() => {}), keepMs);
+				timer?.unref?.();
+				offered.set(id, { cids: blocks.map((b) => b.cid), bytes: total, timer });
+				held += total - reserved;
+				return { cid: id, size, key: toBase64(key) };
+			} catch (error) {
+				held -= reserved;
+				throw error;
+			}
 		},
 		/** The device has the answer: its blocks go. @param {string} root */
 		drop,

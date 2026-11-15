@@ -136,6 +136,9 @@ export async function checkBridge() {
 	try {
 		const health = await createBridgeClient({ url: bridge.url }).health();
 		bridge.state = health.ok ? 'online' : 'offline';
+		// It answers: with device sync off, its node on this machine over a stream,
+		// if this page has none yet – the bridge may have started after it (#580).
+		if (health.ok && (bridge.token || bridge.peerId)) bridgeOnThisMachine().catch(() => {});
 		bridge.paired = health.paired;
 		bridge.health = {
 			hibiscus: health.hibiscus?.configured ?? false,

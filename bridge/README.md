@@ -239,10 +239,12 @@ no books.
   names no relays then, so the bridge keeps its own. From then on its calls go over that stream;
   HTTP keeps pairing, `/health`, the shares, the backup upload and the portals. A node already
   paired with other books is left alone; the app cannot use that bridge until it is unpaired.
-- **Always on (#580):** `--no-node` and `"node": { "enabled": false }` are gone – the bridge's
-  functions are called over its node only. A bridge that should never go online itself is paired
-  by code: its node then has no relays (`node.relays` in `bridge.json` stays empty) and listens on
-  127.0.0.1 only. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
+- **Always on (#580):** `--no-node` is gone – the bridge's functions are called over its node
+  only. `"node": { "enabled": false }` in `bridge.json` now means: the node runs on 127.0.0.1
+  only, without relays, whatever `node.relays` says. A bridge paired by code gets no relays
+  either, with device sync on or off, so it does not go online itself; to reach it from other
+  devices, pair it by invitation, or let a desktop share it ("Bridge dieses Rechners für eigene
+  Geräte freigeben"). `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
   the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
   build before #575 kept under `device-auth` is removed at start.
 - **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – every command
@@ -326,7 +328,7 @@ scope (#579, above); a public command needs none. `test/readme.test.js` keeps th
 | `session.unpair` | `POST /unpair` | the token | no: HTTP only |
 | `settings.export` | `GET /settings/export` | `bridge:settings:export` | **only** over the stream, and only for the device that paired the bridge; over HTTP it is not there (404) |
 | `node.invite` | `POST /node/invitation` | `bridge:grants:manage` | no: HTTP only – the node's invitation while it is unarmed, so the app on this machine, paired by code, pairs the node over a stream on 127.0.0.1 (#580); 409 `NODE_ARMED` once it is paired |
-| `device.scopes` | `POST /node/scopes` | `bridge:grants:manage` | yes, but only for the device that paired the bridge; over HTTP the token (the owner on this machine) |
+| `device.scopes` | `POST /node/scopes` | `bridge:grants:manage` | yes, but only for the device that paired the bridge; not over HTTP since #580 |
 | `bank.accounts` | `GET /hibiscus/accounts` | `bridge:bank:read` | yes |
 | `bank.transactions` | `GET /hibiscus/transactions` | `bridge:bank:read` | yes |
 | `mail.messages` | `GET /mail/messages` | `bridge:mail:read` | yes |

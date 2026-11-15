@@ -367,7 +367,9 @@ export async function startBridge({
 	// `node: false` is for tests that call the commands over HTTP (`legacyRoutes`).
 	const nodeOn = nodeWanted;
 	if (config.node.enabled === false) {
-		log('bridge.json: "node": { "enabled": false } is no longer honoured – the node runs (#580).');
+		log(
+			'bridge.json: "node": { "enabled": false } – the node runs since #580, on 127.0.0.1 only, without relays.'
+		);
 	}
 	// A build before #575 kept the books' device key here: it goes, unread.
 	if (nodeOn) await legacyDeviceAuthKeychain?.remove?.().catch(() => {});
@@ -388,7 +390,8 @@ export async function startBridge({
 		node = await startBridgeNode({
 			dir: nodeDir,
 			authKey: await bridgeAuthKey(),
-			relays: config.node.relays,
+			// `"enabled": false` from before #580: the node runs, on this machine only.
+			relays: config.node.enabled === false ? [] : config.node.relays,
 			devices: config.node.devices,
 			limits: config.node.limits,
 			// The same table as HTTP: `request { method, path, body? }` over the stream (stream.js).
@@ -403,8 +406,7 @@ export async function startBridge({
 				if (relays.length) config.node.relays = relays;
 				config.node.devices = devices;
 				await saveConfig(config, configPath);
-				await node?.stop().catch(() => {});
-				await startNode();
+				await restartNode();
 				print(`Paired with the books: the node is armed, peer ${node?.peerId ?? '?'}.`);
 			},
 			onDevices: async (devices) => {
@@ -427,8 +429,22 @@ export async function startBridge({
 		await bridgeAuthKeychain.remove?.().catch(() => {});
 		config.node.devices = [];
 		await saveConfig(config, configPath);
-		await node?.stop().catch(() => {});
-		await startNode();
+		await restartNode();
+	}
+	/**
+	 * The node again, with what was just saved. While it restarts there is
+	 * none: nothing in between reaches a stopped node (an invitation, a
+	 * device's scopes). A start that fails is logged, and the node stays off.
+	 */
+	async function restartNode() {
+		const old = node;
+		node = null;
+		await old?.stop().catch(() => {});
+		try {
+			await startNode();
+		} catch (/** @type {any} */ error) {
+			log(`the node did not start again: ${String(error?.message ?? error).slice(0, 200)}`);
+		}
 	}
 	/** What the HTTP front door tells, and does, about the node. */
 	const nodeHandle = nodeOn
@@ -447,7 +463,7 @@ export async function startBridge({
 				 * over a stream on 127.0.0.1. Null once it is armed.
 				 */
 				invite: async () => (node && !node.armed ? node.invite() : null),
-				/** One device's scopes (`device.scopes`): over HTTP with the token, or from the device that paired the bridge. @param {unknown} peerId @param {unknown} scopes */
+				/** One device's scopes (`device.scopes`): from the device that paired the bridge, over the stream (#580: no longer over HTTP). @param {unknown} peerId @param {unknown} scopes */
 				setScopes: async (peerId, scopes) => {
 					if (!node)
 						throw Object.assign(new Error('the bridge’s node is not running'), {

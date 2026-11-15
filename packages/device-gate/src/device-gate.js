@@ -109,8 +109,16 @@ export function createDeviceGate({
 	limited = () => false,
 	reach = []
 }) {
-	/** Whether a limited peer reaches this protocol. @param {string} protocol */
-	const reachable = (protocol) => reach.some((p) => String(protocol).startsWith(p));
+	/**
+	 * Whether a limited peer reaches this protocol: every one of them, when a
+	 * handler or topology names several at once.
+	 *
+	 * @param {string | string[]} protocol
+	 */
+	const reachable = (protocol) =>
+		(Array.isArray(protocol) ? protocol : [protocol]).every(
+			(one) => typeof one === 'string' && one !== '' && reach.some((p) => one.startsWith(p))
+		);
 	if (!authKey && !chosen) throw new Error('A device gate needs a key.');
 	/** @type {(peer: string) => Uint8Array} */
 	const keyFor = chosen ?? (() => /** @type {Uint8Array} */ (authKey));

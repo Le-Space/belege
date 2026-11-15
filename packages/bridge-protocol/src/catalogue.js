@@ -925,7 +925,7 @@ export const COMMANDS = [
 		),
 		response: answerWith(['peerId', 'scopes']),
 		description:
-			'What one device may call over the stream: the device that paired the bridge, or its owner over HTTP (#579)'
+			'What one device may call over the stream: only the device that paired the bridge sets it (#579; no longer over HTTP, #580)'
 	}
 ];
 

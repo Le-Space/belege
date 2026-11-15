@@ -10,7 +10,7 @@
 // comes as `{ peerId, initial }`: a device new to the bridge gets those, one
 // it knows keeps what it holds. Nothing more is granted by itself; a
 // device that is not on the books' list holds nothing. The device that paired
-// the bridge, or the bridge's owner over HTTP, sets one device's scopes
+// the bridge sets one device's scopes over the stream (HTTP no longer, #580)
 // (`device.scopes`, commands.js): a subset of those offered, kept until set
 // again – telling the device list again keeps them.
 //
@@ -371,8 +371,7 @@ export function createGrants({ file, scopes: all, limits = DEFAULT_LIMITS, now =
 		},
 
 		/**
-		 * One device's scopes, as the device that paired the bridge or the
-		 * owner over HTTP ticked them: a subset of those offered, the holder's
+		 * One device's scopes, as the device that paired the bridge ticked them: a subset of those offered, the holder's
 		 * own (HOLDER_ONLY) not among them. An unknown name is refused, not
 		 * dropped: the caller should know it set less than it asked.
 		 *
