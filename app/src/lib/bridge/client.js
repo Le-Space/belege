@@ -269,6 +269,15 @@ export function setBridgeTransport(fetchLike) {
 	transport = fetchLike;
 }
 
+/**
+ * How this page reaches its own bridge now: the transport the session set
+ * (the bridge's node over a stream first), else plain fetch. The desktop's
+ * forwarding to own devices calls its bridge this way (#580).
+ *
+ * @type {typeof fetch}
+ */
+export const bridgeTransportFetch = (input, init) => (transport ?? fetch)(input, init);
+
 /** Resolved while no transport is being set up; calls wait on it. */
 let transportReady = Promise.resolve();
 

@@ -290,6 +290,22 @@ describe('by name (#577)', () => {
 			'http://127.0.0.1:8765/hibiscus/transactions?account=a1&since=2026-01-01'
 		);
 		expect(b.calls[0].init.headers.Authorization).toBe('Bearer desktop-token');
+		// By name to its own bridge too: the transport goes over the bridge's node (#580).
+		expect(b.calls[0].init.command).toEqual({
+			name: 'bank.transactions',
+			args: { account: 'a1', since: '2026-01-01' }
+		});
+		// A desktop paired by invitation only has no token: none goes along.
+		const noToken = fakeBridge(json({ ok: true }));
+		await serveNamed({
+			name: 'bridge.health',
+			args: {},
+			peerId: OWN,
+			isOwnDevice,
+			bridge: () => ({ url: 'http://127.0.0.1:8765', token: '' }),
+			fetch: noToken.fetch
+		});
+		expect(noToken.calls[0].init.headers.Authorization).toBeUndefined();
 		const refused = (/** @type {any} */ p) =>
 			serveNamed({ peerId: OWN, isOwnDevice, bridge, fetch: b.fetch, ...p });
 		await expect(refused({ name: 'mail.trash', args: { id: 'm1' } })).rejects.toMatchObject({

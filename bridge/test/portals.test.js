@@ -408,6 +408,7 @@ describe('portal endpoints', () => {
 		);
 		const keychain = memoryKeychain(FAKE_PORTAL_PASSWORD);
 		bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,

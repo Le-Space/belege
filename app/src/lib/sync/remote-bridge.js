@@ -25,7 +25,8 @@
 // to the books as a device – from then on every device of the books reaches
 // it through the relays, with no desktop browser open, and keeps its device
 // list current (`devices`). The desktop forwarding above stays as the last
-// resort for a bridge that runs with `--no-node`.
+// resort for a bridge that does not go online itself (paired by code, no
+// relays); the desktop calls it over its node on 127.0.0.1 (#580).
 //
 // On a device, `bridgeFetch` stands in for fetch in the bridge client
 // (bridge/client.js): the bridge's own node first when it is connected and
@@ -157,10 +158,12 @@ export function setBridgeShare(on) {
  * @param {string} p.peerId the caller, authenticated by the secure channel
  * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
  * @param {() => { url: string, token: string } | null} p.bridge this desktop's pairing
- * @param {typeof fetch} [p.fetch]
+ * @param {typeof fetch} [p.fetch] how this desktop reaches its own bridge: since #580 over its
+ *   node (bridge/client.js `bridgeTransportFetch`), with the token for the way over HTTP
+ * @param {{ name: string, args: Record<string, unknown> }} [p.named] the command, when it came by name
  * @returns {Promise<{ status: number, contentType: string, json?: unknown, base64?: string }>}
  */
-export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f = fetch }) {
+export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f = fetch, named }) {
 	if (!(await isOwnDevice(peerId))) throw new UcepError('PAIRING_REQUIRED', 'not an own device');
 	const method = String(args?.method ?? '');
 	const target = String(args?.path ?? '');
@@ -176,10 +179,11 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
 		res = await f(`${own.url.replace(/\/+$/, '')}${url.pathname}${url.search}`, {
 			method,
 			headers: {
-				Authorization: `Bearer ${own.token}`,
+				...(own.token ? { Authorization: `Bearer ${own.token}` } : {}),
 				...(args?.body !== undefined ? { 'Content-Type': 'application/json' } : {})
 			},
 			...(args?.body !== undefined ? { body: JSON.stringify(args.body) } : {}),
+			...(named ? { command: named } : {}),
 			cache: 'no-store',
 			credentials: 'omit'
 		});
@@ -210,6 +214,7 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
  * @param {typeof fetch} [p.fetch]
  */
 export async function serveNamed({ name, args, ...rest }) {
+	const named = { name, args: /** @type {Record<string, unknown>} */ (args ?? {}) };
 	if (!DEVICE_COMMANDS.includes(name)) throw new UcepError('UNKNOWN_COMMAND', name);
 	const problems = checkArgs(name, args ?? {});
 	if (problems.length) throw new UcepError('INVALID_ARGUMENTS', problems.join('; '));
@@ -219,7 +224,8 @@ export async function serveNamed({ name, args, ...rest }) {
 	);
 	return serveRequest({
 		...rest,
-		args: { method, path, ...(body !== null ? { body: JSON.parse(body) } : {}) }
+		args: { method, path, ...(body !== null ? { body: JSON.parse(body) } : {}) },
+		named
 	});
 }
 
@@ -230,9 +236,16 @@ export async function serveNamed({ name, args, ...rest }) {
  * @param {any} p.libp2p the device-sync node
  * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
  * @param {() => { url: string, token: string } | null} p.bridge
+ * @param {typeof fetch} [p.fetch] how this desktop reaches its own bridge: over its node since #580
  * @param {(line: string) => void} [p.log] counts only
  */
-export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = () => {} }) {
+export async function startBridgeProvider({
+	libp2p,
+	isOwnDevice,
+	bridge,
+	fetch: f = fetch,
+	log = () => {}
+}) {
 	const provider = createProvider({
 		libp2p,
 		manifest: {
@@ -245,7 +258,13 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 			request: {
 				description: 'One bridge call: { method, path, body? } → { status, json | base64 }',
 				handler: async ({ argsJson, peerId }) => {
-					const answer = await serveRequest({ args: argsJson, peerId, isOwnDevice, bridge });
+					const answer = await serveRequest({
+						args: argsJson,
+						peerId,
+						isOwnDevice,
+						bridge,
+						fetch: f
+					});
 					log(`bridge for a device: ${String(argsJson?.method)} → ${answer.status}`);
 					return answer;
 				}
@@ -259,6 +278,7 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 							const answer = await serveNamed({
 								name,
 								args: argsJson,
+								fetch: f,
 								peerId,
 								isOwnDevice,
 								bridge

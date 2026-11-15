@@ -552,6 +552,7 @@ describe('Alchemy refusals: a clear code, and never the key', () => {
 		});
 		let key = /** @type {string | null} */ (null);
 		const bridge = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [] },
 			pairing,
 			hibiscus: null,
@@ -724,7 +725,7 @@ describe('test mode', () => {
 			process.execPath,
 			[CLI, '--test-mode', '--config', join(dir, 'bridge.json'), '--port', '0'],
 			{
-				env: { ...process.env, ...env },
+				env: { ...process.env, BELEGE_BRIDGE_TEST_LEGACY_ROUTES: '1', ...env },
 				stdio: ['ignore', 'pipe', 'pipe']
 			}
 		);

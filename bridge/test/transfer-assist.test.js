@@ -72,6 +72,7 @@ describe('/transfer/assist', () => {
 			ownDomains: ['le-space.de']
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,

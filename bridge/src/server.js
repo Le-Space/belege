@@ -73,13 +73,17 @@ import { MAX_BODY, createCommands, errorJson, findCommand, statusOf } from './co
 export const LOOPBACK = '127.0.0.1';
 
 /**
- * HTTP shrinks (#580, M3.1 of #567): a route whose command the bridge's node
+ * HTTP shrank (#580, M3.1 of #567): a route whose command the bridge's node
  * serves over the stream (`via: 'both'` in @le-space/bridge-protocol) is
- * deprecated here – it answers as before, with a `Deprecation` header (RFC
- * 9745) and a link to why. What HTTP keeps: pairing and unpairing, `/health`,
- * `/lan-relay`, the shares an assistant reads, the backup upload (bytes in)
- * and the portals. The routes go away once the app reaches the bridge over a
- * stream on this machine with device sync off, too.
+ * gone here – `410 HTTP_GONE`, with a `Deprecation` header (RFC 9745) and a
+ * link to why. The app calls those over the stream, from another device and
+ * on this machine alike (app sync/loopback-bridge.js). What HTTP keeps:
+ * pairing and unpairing, the node's invitation, `/health`, `/lan-relay`, the
+ * shares an assistant reads, the backup upload (bytes in) and the portals.
+ *
+ * `legacyRoutes` keeps the gone routes answering, for the bridge's own tests
+ * of what a command does: an option of `createBridgeServer` and `startBridge`
+ * only, not of the command line or bridge.json.
  */
 export const HTTP_KEPT = new Set(['bridge.health', 'lanRelay.status']);
 /** Since when (RFC 9745: `@` and seconds since the epoch): 2026-11-15. */
@@ -167,6 +171,7 @@ export function createBridgeServer({
 	lanRelay = null,
 	node = null,
 	settingsExport = null,
+	legacyRoutes = false,
 	log = () => {}
 }) {
 	const allowedOrigins = new Set(config.appOrigins.map((o) => o.replace(/\/$/, '')));
@@ -329,10 +334,16 @@ export function createBridgeServer({
 			if (!command.public && !pairing.verify(token)) {
 				return send(res, 401, { error: 'unauthorized' });
 			}
-			// Its answer, an error too, says the route goes (#580).
+			// Gone: over the stream now (#580). Said only to who holds the token.
 			if (deprecatedOverHttp(command)) {
 				res.setHeader('Deprecation', DEPRECATED_SINCE);
 				res.setHeader('Link', DEPRECATION_LINK);
+				if (!legacyRoutes) {
+					return send(res, 410, {
+						error: `${command.name} is called over the bridge's node now, not over HTTP`,
+						code: 'HTTP_GONE'
+					});
+				}
 			}
 			const kind = command.body ?? (command.method === 'GET' ? 'none' : 'json');
 			const body =

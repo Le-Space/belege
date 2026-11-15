@@ -257,6 +257,7 @@ describe('/aleph on the bridge', () => {
 			}
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [] },
 			pairing,
 			hibiscus: null,

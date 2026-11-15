@@ -209,6 +209,7 @@ test('the routes: behind the token, 503 until set up, and a whole link through t
 		}
 		/** @type {string[]} */ const printed = [];
 		const bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,

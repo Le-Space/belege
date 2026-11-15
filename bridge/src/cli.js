@@ -207,8 +207,9 @@ try {
 		lanRelayLoopback: testMode,
 		port,
 		forcePairingCode: args.includes('--pair'),
-		// --no-node: HTTP only, no libp2p node (node.js, #573).
-		node: !args.includes('--no-node'),
+		// The bridge's own tests that start it from here and call a command over
+		// HTTP: only together with --test-mode, never in a real bridge (#580).
+		legacyRoutes: testMode && process.env.BELEGE_BRIDGE_TEST_LEGACY_ROUTES === '1',
 		// For a TEE quote's report data (#696): the node key's hash next to it.
 		publishKeyHash: hosted,
 		llmEnclaveOnly: hosted,

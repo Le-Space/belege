@@ -88,6 +88,7 @@ describe('/booking/assist', () => {
 			ownDomains: []
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,

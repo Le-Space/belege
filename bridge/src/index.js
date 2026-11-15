@@ -101,7 +101,8 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  *   asks for a portal's password on this Mac ("Zugangsdaten speichern"); tests hand in a fake
  * @param {boolean} [options.lanRelayLoopback] the LAN relay may listen on 127.0.0.1 (tests only)
  * @param {boolean} [options.forcePairingCode] issue a code even when already paired
- * @param {boolean} [options.node] the bridge's own libp2p node (node.js, #573); false: HTTP only
+ * @param {boolean} [options.node] the bridge's own libp2p node (node.js, #573); false: tests only
+ * @param {boolean} [options.legacyRoutes] tests only: the HTTP routes gone with #580 answer again
  * @param {import('./keychain.js').Keychain} [options.bridgeAuthKeychain] the bridge's own key, from the handover (#575)
  * @param {import('./keychain.js').Keychain | null} [options.legacyDeviceAuthKeychain] where a build before #575 kept the books' device key: removed at start
  * @param {any[]} [options.nodeTransports] tests: the memory transport
@@ -146,6 +147,7 @@ export async function startBridge({
 	lanRelayLoopback = false,
 	forcePairingCode = false,
 	node: nodeWanted = true,
+	legacyRoutes = false,
 	bridgeAuthKeychain = systemKeychain({ account: BRIDGE_AUTH_ACCOUNT }),
 	legacyDeviceAuthKeychain = systemKeychain({ account: LEGACY_DEVICE_AUTH_ACCOUNT }),
 	nodeTransports,
@@ -361,7 +363,12 @@ export async function startBridge({
 	/** @type {import('./node.js').BridgeNode | null} */
 	let node = null;
 	const nodeDir = join(dirname(configPath), 'node');
-	const nodeOn = nodeWanted && config.node.enabled;
+	// Always, since #580: the bridge's functions are called over its node only.
+	// `node: false` is for tests that call the commands over HTTP (`legacyRoutes`).
+	const nodeOn = nodeWanted;
+	if (config.node.enabled === false) {
+		log('bridge.json: "node": { "enabled": false } is no longer honoured – the node runs (#580).');
+	}
 	// A build before #575 kept the books' device key here: it goes, unread.
 	if (nodeOn) await legacyDeviceAuthKeychain?.remove?.().catch(() => {});
 	/** The key as the keychain holds it, or null. */
@@ -527,6 +534,7 @@ export async function startBridge({
 		config,
 		settingsExport,
 		node: nodeHandle,
+		legacyRoutes,
 		lanRelay: lanRelay
 			? { addr: lanRelay.addr, stats: lanRelay.stats }
 			: config.lanRelay.host

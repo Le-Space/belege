@@ -367,6 +367,7 @@ describe('/chains and /<chain>/wallet', () => {
 			}
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [] },
 			pairing,
 			hibiscus: null,

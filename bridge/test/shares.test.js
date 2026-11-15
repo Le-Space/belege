@@ -29,6 +29,7 @@ describe('read shares', () => {
 			}
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [APP] },
 			pairing,
 			hibiscus: null,

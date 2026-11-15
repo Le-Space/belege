@@ -60,8 +60,8 @@ Bridge ist, und öffnet keine Bücher.
 - **Was hinausgeht:** Die Bridge verbindet sich selbst mit den Relays deiner Bücher. Was sie mit
   deinen Geräten austauscht, ist verschlüsselt.
 
-**Über den offenen Rechner.** Du willst, dass die Bridge nie selbst ins Netz geht? Dann startest
-du sie mit `pnpm bridge --no-node`. Am Rechner schaltest du unter Eigene Geräte → Erweitert „Bridge dieses
+**Über den offenen Rechner.** Du willst, dass die Bridge nie selbst ins Netz geht? Dann koppelst
+du sie am Rechner per Code: Ihr Knoten hat dann keine Relays und lauscht nur auf 127.0.0.1. Am Rechner schaltest du unter Eigene Geräte → Erweitert „Bridge dieses
 Rechners für eigene Geräte freigeben“ ein. Dein Telefon fragt dann den Belege-Tab am Rechner, und
 der fragt die Bridge. Das geht nur, solange dieser Tab offen und entsperrt ist. Das Telefon
 darf nur lesen und fragen, nichts einrichten oder löschen. Diesen Weg nutzen nur deine eigenen

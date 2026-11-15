@@ -56,8 +56,8 @@ books.
 - **What leaves:** the bridge connects to your books' relays itself. What it exchanges with your
   devices is encrypted.
 
-**Through the open computer.** You want the bridge never to go online itself? Start it with
-`pnpm bridge --no-node`. On the computer, switch on "Bridge dieses Rechners für eigene Geräte
+**Through the open computer.** You want the bridge never to go online itself? Pair it by code on
+the computer: its node then has no relays and listens on 127.0.0.1 only. On the computer, switch on "Bridge dieses Rechners für eigene Geräte
 freigeben" under Eigene Geräte → Erweitert. Your phone then asks the Belege tab on the computer, and that tab
 asks the bridge. This works only while that tab is open and unlocked, and the phone may only read
 and ask, never set up or delete. Only your own devices use this way, not the devices of members.

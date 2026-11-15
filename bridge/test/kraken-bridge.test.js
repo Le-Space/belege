@@ -139,6 +139,7 @@ describe('/kraken routes', () => {
 		/** @type {string[]} */ const printed = [];
 		/** @type {string[]} */ const logged = [];
 		const bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,
@@ -197,6 +198,7 @@ describe('/kraken routes', () => {
 		await saveConfig({ ...defaultConfig(), appOrigins: [APP] }, configPath);
 		/** @type {string[]} */ const printed = [];
 		const bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,

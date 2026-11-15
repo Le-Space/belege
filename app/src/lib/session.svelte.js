@@ -1127,8 +1127,9 @@ let loopbackDial = null;
  * bridge paired by code over HTTP whose node is not armed yet is paired here
  * by its invitation (`node.invite`), as "Über Einladung koppeln" does over the
  * relays; from then on its functions go over the stream, and HTTP keeps
- * pairing, health, shares and the backup upload. Without a node (`--no-node`)
- * or a bridge the books do not know, calls go over HTTP as before.
+ * pairing, health, shares and the backup upload. A bridge from before #580
+ * without a node, or one paired with other books, is not reached this way:
+ * its calls go to HTTP, which a current bridge answers 410.
  */
 /** The bridge on this machine over a stream, right after it was paired by code (#580). */
 export async function bridgeOnThisMachine() {
@@ -1269,11 +1270,16 @@ async function startBridgeForDevices() {
 	});
 	app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
+	const { bridgeTransportFetch, DEFAULT_BRIDGE_URL } = await import('./bridge/client.js');
 	/** @type {{ url: string, token: string } | null} */
 	let own = null;
 	const readOwn = async () => {
 		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
-		own = saved?.url && saved?.token ? { url: saved.url, token: saved.token } : null;
+		// Paired by code or by invitation: over the node it needs no token (#580).
+		own =
+			saved?.token || saved?.peerId
+				? { url: saved.url ?? DEFAULT_BRIDGE_URL, token: saved.token ?? '' }
+				: null;
 	};
 	await readOwn();
 	settings.onChange(() => {
@@ -1282,6 +1288,8 @@ async function startBridgeForDevices() {
 	await startBridgeProvider({
 		libp2p,
 		bridge: () => own,
+		// Its own bridge over the bridge's node, as this page calls it (#580): its HTTP routes are gone.
+		fetch: bridgeTransportFetch,
 		// A device the books know and that proved the passkey on this connection:
 		// an id typed in by mistake is known, and still gets nothing.
 		isOwnDevice: async (peerId) => {

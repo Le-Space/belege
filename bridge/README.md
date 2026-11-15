@@ -238,9 +238,11 @@ no books.
   machine only, listens nowhere and holds no books (`app/src/lib/sync/loopback-bridge.js`). It
   names no relays then, so the bridge keeps its own. From then on its calls go over that stream;
   HTTP keeps pairing, `/health`, the shares, the backup upload and the portals. A node already
-  paired with other books is left alone, and the app stays on HTTP for it.
-- **Off:** `pnpm bridge --no-node`, or `"node": { "enabled": false }` in `bridge.json`; the bridge
-  then runs over HTTP only, as before. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
+  paired with other books is left alone; the app cannot use that bridge until it is unpaired.
+- **Always on (#580):** `--no-node` and `"node": { "enabled": false }` are gone – the bridge's
+  functions are called over its node only. A bridge that should never go online itself is paired
+  by code: its node then has no relays (`node.relays` in `bridge.json` stays empty) and listens on
+  127.0.0.1 only. `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
   the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
   build before #575 kept under `device-auth` is removed at start.
 - **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – every command
@@ -386,15 +388,15 @@ is never offered the proof, so it does not learn which app is behind the peer id
 All JSON, `127.0.0.1:8765` by default. Everything except `/health` and `/pair` needs
 `Authorization: Bearer <token>`.
 
-**HTTP shrinks (#580).** A route whose command the bridge's node serves over the stream is
-deprecated here: it answers as before, with `Deprecation: @1794700800` (RFC 9745, since
-2026-11-15) and `Link: <https://github.com/Le-Space/belege/issues/580>; rel="deprecation"`,
-readable by the app (`Access-Control-Expose-Headers`). The app already goes over the stream when
-it can and uses HTTP only without one: with device sync off, or a bridge run with `--no-node`.
-What HTTP keeps, without the header: `/pair`, `/unpair`, `/health`, `/lan-relay`, the shares an
-assistant reads (`/share…`), the backup upload (`POST /backup/aleph`, bytes in) and the portals
-(`server.js` `HTTP_KEPT`, `deprecatedOverHttp`). The deprecated routes go once the app reaches
-the bridge over a stream on this machine with device sync off, too.
+**HTTP shrank (#580).** A route whose command the bridge's node serves over the stream is gone
+here: `410 HTTP_GONE`, with `Deprecation: @1794700800` (RFC 9745, since 2026-11-15) and
+`Link: <https://github.com/Le-Space/belege/issues/580>; rel="deprecation"` – said only with the
+token; without it, `401` as before. The app calls those over the bridge's node, from another
+device and on this machine alike (with device sync off over a WebSocket on 127.0.0.1). What HTTP
+keeps: `/pair`, `/unpair`, `/node/invitation`, `/health`, `/lan-relay`, the shares an assistant
+reads (`/share…`), the backup upload (`POST /backup/aleph`, bytes in) and the portals (`server.js`
+`HTTP_KEPT`, `deprecatedOverHttp`). The table below still lists every command with its route:
+the command's name and arguments are what the stream carries.
 
 |                                                                                                                              |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
