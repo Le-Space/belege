@@ -126,3 +126,24 @@ export async function expectPaired(page) {
 		)
 		.toBe('true/online/stream');
 }
+
+/**
+ * Stops a bridge a spec started and waits until it has exited, so that a
+ * spec's `rm` of the bridge's directory does not race the bridge (and its
+ * node) still writing into it. A bridge that has not exited after
+ * `graceMs` is killed.
+ *
+ * @param {import('node:child_process').ChildProcess | null | undefined} child
+ * @param {{ graceMs?: number }} [options]
+ */
+export async function stopBridge(child, { graceMs = 10_000 } = {}) {
+	if (!child || child.exitCode !== null || child.signalCode !== null) return;
+	const exited = new Promise((resolve) => child.once('exit', resolve));
+	child.kill('SIGTERM');
+	const timer = setTimeout(() => child.kill('SIGKILL'), graceMs);
+	try {
+		await exited;
+	} finally {
+		clearTimeout(timer);
+	}
+}

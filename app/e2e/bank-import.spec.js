@@ -20,7 +20,7 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { expectPaired, pairBridge, viaStream } from './bridge.js';
+import { expectPaired, pairBridge, viaStream, stopBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -112,7 +112,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-	bridge?.kill('SIGTERM');
+	await stopBridge(bridge);
 	await hibiscus?.close();
 	await llm?.close();
 	if (dir) await rm(dir, { recursive: true, force: true });
