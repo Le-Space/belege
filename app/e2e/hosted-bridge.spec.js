@@ -202,6 +202,8 @@ test('a device attests and unlocks the hosted bridge, which comes up paired: hos
 		'answers'
 	);
 	await expect(mac.page.getByTestId('bridge-overall-local')).toHaveAttribute('data-state', 'none');
+	// It came up: no notice that it did not.
+	await expect(mac.page.getByTestId('hosted-bridge-not-up')).toHaveCount(0);
 });
 
 test('a VM on another runtime gets nothing, and the card says why', async ({ browser }) => {

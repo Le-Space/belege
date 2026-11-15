@@ -4641,6 +4641,9 @@ export default {
 				'Der Browser prüft erst die Attestierung der VM; die Passphrase wird nirgends gespeichert. Startet die VM nicht, hier stoppen und auf einem anderen Knoten neu starten.',
 			locked:
 				'Die VM läuft bei Aleph, ist aber noch gesperrt: Sie hat weder die Passphrase noch ihren Schlüssel und antwortet deshalb noch nicht. Gib die Passphrase des Images ein und entsperre sie.',
+			notUp:
+				'Die VM ist seit dem Entsperren nicht hochgekommen: Ihre Bridge hat sich bei diesem Gerät nicht gemeldet. Meist war die Passphrase des Images falsch – die VM nimmt sie an, öffnet ihre Platte damit aber nicht. Kopiere die Passphrase frisch und entsperre dieselbe VM noch einmal; das kostet nichts zusätzlich, sie läuft ohnehin. Hilft das nicht, hier stoppen und neu starten.',
+			unlockAgain: 'Noch einmal entsperren',
 			existing: 'Eine schon laufende VM entsperren',
 			instanceHash: 'INSTANCE:',
 			copy: 'Kopieren',

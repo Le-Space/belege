@@ -29,6 +29,7 @@
 	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
 	import { nodeHistoryOf, preferredNode } from './hosted-nodes.js';
+	import { hostedNotUp } from './bridge-status.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { isCancelled, reasonOf } from './hosted-unlock.js';
 	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
@@ -72,6 +73,19 @@
 	/** A start Aleph has, not yet unlocked from here. */
 	const halfway = $derived(running && /** @type {any} */ (kept)?.instance !== vm?.instance);
 	const used = $derived(usage(vm, vm?.stoppedAt ? Date.parse(vm.stoppedAt) : now));
+	/** The unlocked VM whose node reached this device while the page was open. */
+	let reachedFor = $state('');
+	$effect(() => {
+		const peerId = /** @type {any} */ (kept)?.peerId;
+		const devices = app.sync.state?.devices ?? [];
+		if (peerId && devices.some((d) => d.peerId === peerId && d.connected)) {
+			reachedFor = /** @type {any} */ (kept).instance;
+		}
+	});
+	/** Unlocked, but nothing in the VM started: most often a wrong passphrase. */
+	const notUp = $derived(
+		hostedNotUp({ kept, vm, reached: reachedFor === /** @type {any} */ (kept)?.instance, now })
+	);
 
 	async function reload() {
 		[kept, vm, history] = await Promise.all([
@@ -377,6 +391,22 @@
 			{t('integrationen.hostedBridge.measurement')}
 			{kept.measurement}
 		</p>
+		{#if notUp && app.sync.online && !busy}
+			<div
+				class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+				role="status"
+				data-testid="hosted-bridge-not-up"
+			>
+				<p>{t('integrationen.hostedBridge.notUp')}</p>
+				<button
+					type="button"
+					class="hover:bg-surface-muted mt-2 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text"
+					onclick={() => pick(/** @type {any} */ (kept).instance)}
+					data-testid="hosted-bridge-unlock-again"
+					>{t('integrationen.hostedBridge.unlockAgain')}</button
+				>
+			</div>
+		{/if}
 	{/if}
 
 	{#if app.sync.online}

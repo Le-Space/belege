@@ -3,6 +3,7 @@ import {
 	bridgeStatusRows,
 	expectedBridge,
 	hostedBridgeOf,
+	hostedNotUp,
 	hostedVmRunning,
 	llmAttested
 } from './bridge-status.js';
@@ -171,5 +172,33 @@ describe('llmAttested', () => {
 		expect(llmAttested({ configured: true, tee: null })).toBe(null);
 		expect(llmAttested({ configured: true, tee: { ...tee, verifiedAt: 'yes' } })).toBe(null);
 		expect(llmAttested(null)).toBe(null);
+	});
+});
+
+describe('hostedNotUp', () => {
+	const attestedAt = '2026-01-01T10:00:00.000Z';
+	const kept = { instance: HASH, attestedAt };
+	const vm = { instance: HASH, stoppedAt: null };
+	const at = (/** @type {number} */ minutes) => Date.parse(attestedAt) + minutes * 60_000;
+
+	it('unlocked, never reached, three minutes on: did not come up', () => {
+		expect(hostedNotUp({ kept, vm, reached: false, now: at(3) })).toBe(true);
+		expect(hostedNotUp({ kept, vm: null, reached: false, now: at(10) })).toBe(true);
+	});
+
+	it('still booting, or reached once: no such notice', () => {
+		expect(hostedNotUp({ kept, vm, reached: false, now: at(2) })).toBe(false);
+		expect(hostedNotUp({ kept, vm, reached: true, now: at(30) })).toBe(false);
+	});
+
+	it('another VM, a stopped one, or none unlocked: nothing to say', () => {
+		expect(
+			hostedNotUp({ kept, vm: { instance: 'b'.repeat(64) }, reached: false, now: at(9) })
+		).toBe(false);
+		expect(
+			hostedNotUp({ kept, vm: { ...vm, stoppedAt: attestedAt }, reached: false, now: at(9) })
+		).toBe(false);
+		expect(hostedNotUp({ kept: null, vm, reached: false, now: at(9) })).toBe(false);
+		expect(hostedNotUp({ kept: { instance: HASH }, vm, reached: false, now: at(9) })).toBe(false);
 	});
 });
