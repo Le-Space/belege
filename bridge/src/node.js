@@ -326,7 +326,8 @@ export async function startBridgeNode({
 	const owners = new Map();
 	if (armed) {
 		try {
-			blocks = await createBlockExchange({ libp2p });
+			// An answer's blocks that went – fetched and done, or expired – take their owner along.
+			blocks = await createBlockExchange({ libp2p, onDrop: (root) => owners.delete(root) });
 		} catch (error) {
 			await libp2p.stop().catch(() => {});
 			throw error;
@@ -609,8 +610,7 @@ export async function startBridgeNode({
 		devices: () => new Set(known),
 		/**
 		 * One device's scopes (`device.scopes`, commands.js): the caller is the
-		 * device that paired the bridge (grants.js HOLDER_ONLY) or the owner
-		 * over HTTP with the token.
+		 * device that paired the bridge (grants.js HOLDER_ONLY), over the stream.
 		 *
 		 * @param {unknown} peer
 		 * @param {unknown} scopes

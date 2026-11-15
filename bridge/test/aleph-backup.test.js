@@ -226,6 +226,7 @@ describe('/backup', () => {
 		/** @type {string[]} */ const printed = [];
 		/** @type {string[]} */ const logged = [];
 		const bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,

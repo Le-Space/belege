@@ -84,6 +84,7 @@ describe('/extract', () => {
 			ownDomains: ['le-space.de']
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,
@@ -536,7 +537,7 @@ test('/llm/status without an LLM: not configured, no key, the host of the config
 			hashes = h;
 		}
 	});
-	const bridge = createBridgeServer({ config, pairing, hibiscus: null });
+	const bridge = createBridgeServer({ legacyRoutes: true, config, pairing, hibiscus: null });
 	const { port } = await bridge.listen({ port: 0 });
 	try {
 		const token = await pairing.pair(pairing.issueCode());

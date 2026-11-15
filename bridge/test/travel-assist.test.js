@@ -97,6 +97,7 @@ describe('/travel/assist', () => {
 			ownDomains: []
 		});
 		const bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,

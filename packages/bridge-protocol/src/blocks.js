@@ -90,6 +90,10 @@ export async function openBlocks(get, root, key, { size, lanes = 4 } = {}) {
 		throw new Error('not a block answer');
 	}
 	if (node.size > MAX_BLOCK_ANSWER + NONCE_BYTES + 16) throw new RangeError('too big');
+	// No more chunks than the size needs: a root from whoever answered may name any number.
+	if (node.chunks.length > Math.ceil(node.size / CHUNK_BYTES) + 1) {
+		throw new Error('not a block answer');
+	}
 	/** @type {CID[]} */
 	const chunks = node.chunks.map((/** @type {unknown} */ c) => {
 		const cid = CID.asCID(c);
@@ -99,11 +103,18 @@ export async function openBlocks(get, root, key, { size, lanes = 4 } = {}) {
 	/** @type {Uint8Array[]} */
 	const parts = new Array(chunks.length);
 	let next = 0;
+	let total = 0;
 	await Promise.all(
 		Array.from({ length: Math.min(lanes, chunks.length) }, async () => {
 			while (next < chunks.length) {
 				const i = next++;
-				parts[i] = await checked(get, chunks[i]);
+				const part = await checked(get, chunks[i]);
+				// Never more than the root said, a chunk never bigger than one block.
+				total += part.length;
+				if (part.length > CHUNK_BYTES || total > node.size) {
+					throw new Error('the blocks do not add up');
+				}
+				parts[i] = part;
 			}
 		})
 	);

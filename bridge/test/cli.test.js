@@ -22,7 +22,7 @@ after(() => rm(dir, { recursive: true, force: true }));
 /** @param {string[]} args @param {Record<string, string>} env */
 function run(args, env = {}) {
 	const child = spawn(process.execPath, [CLI, ...args], {
-		env: { ...process.env, ...env },
+		env: { ...process.env, BELEGE_BRIDGE_TEST_LEGACY_ROUTES: '1', ...env },
 		stdio: ['ignore', 'pipe', 'pipe']
 	});
 	let stdout = '';

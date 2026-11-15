@@ -44,6 +44,7 @@ describe('bridge server', () => {
 			configPath
 		);
 		bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,
@@ -66,6 +67,7 @@ describe('bridge server', () => {
 	test('listens on 127.0.0.1 and nowhere else', async () => {
 		assert.equal(bridge.address.host, '127.0.0.1');
 		const other = createBridgeServer({
+			legacyRoutes: true,
 			config: defaultConfig(),
 			pairing: createPairing({ getHashes: () => [], saveHashes: async () => {} }),
 			hibiscus: null
@@ -166,6 +168,44 @@ describe('bridge server', () => {
 		const refused = await request(port(), '/hibiscus/accounts', { headers: { origin: APP } });
 		assert.equal(refused.status, 401);
 		assert.equal(refused.headers.deprecation, undefined);
+	});
+
+	test('a real bridge: the routes the stream serves are gone, 410 – what HTTP keeps answers (#580)', async () => {
+		const token = 'a'.repeat(43);
+		const real = createBridgeServer({
+			config: { ...defaultConfig(), appOrigins: [APP] },
+			pairing: {
+				verify: (/** @type {any} */ t) => t === token,
+				isPaired: () => true,
+				hasPendingCode: () => false
+			},
+			hibiscus: null
+		});
+		await real.listen({ host: '127.0.0.1', port: 0 });
+		try {
+			const at = real.server.address().port;
+			const headers = { origin: APP, authorization: `Bearer ${token}` };
+			for (const path of ['/hibiscus/accounts', '/mail/messages?since=2026-01-01', '/llm/status']) {
+				const gone = await request(at, path, { headers });
+				assert.equal(gone.status, 410, path);
+				assert.equal(gone.json.code, 'HTTP_GONE', path);
+				assert.equal(gone.headers.deprecation, DEPRECATED_SINCE);
+			}
+			const posted = await request(at, '/extract', {
+				method: 'POST',
+				headers,
+				body: { text: 'x' }
+			});
+			assert.equal(posted.status, 410);
+			// Without the token nothing is said about the route.
+			const refused = await request(at, '/hibiscus/accounts', { headers: { origin: APP } });
+			assert.equal(refused.status, 401);
+			// What HTTP keeps still answers.
+			assert.equal((await request(at, '/health', { headers: { origin: APP } })).status, 200);
+			assert.notEqual((await request(at, '/share', { headers })).status, 410);
+		} finally {
+			await real.close();
+		}
 	});
 
 	test('what HTTP keeps: pairing, health, lan-relay, shares, the backup upload (#580)', () => {

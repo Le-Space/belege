@@ -64,6 +64,7 @@ describe('mail endpoints', () => {
 			}
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,
@@ -401,6 +402,7 @@ describe('mail endpoints', () => {
 			}
 		});
 		const other = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [APP] },
 			pairing,
 			hibiscus: null,

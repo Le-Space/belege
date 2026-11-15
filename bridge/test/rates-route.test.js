@@ -34,6 +34,7 @@ describe('GET /rates', () => {
 		const token = 'paired-token-for-the-rates-test';
 		const { fetch } = fakeFetch({ 'https://api.coingecko.com/': coingecko(3.5, 4) });
 		const bridge = createBridgeServer({
+			legacyRoutes: true,
 			config: { ...defaultConfig(), appOrigins: [] },
 			pairing: createPairing({
 				getHashes: () => [{ hash: hashToken(token), createdAt: '2026-09-01T00:00:00Z' }],

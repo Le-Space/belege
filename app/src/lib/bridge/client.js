@@ -269,6 +269,15 @@ export function setBridgeTransport(fetchLike) {
 	transport = fetchLike;
 }
 
+/**
+ * How this page reaches its own bridge now: the transport the session set
+ * (the bridge's node over a stream first), else plain fetch. The desktop's
+ * forwarding to own devices calls its bridge this way (#580).
+ *
+ * @type {typeof fetch}
+ */
+export const bridgeTransportFetch = (input, init) => (transport ?? fetch)(input, init);
+
 /** Resolved while no transport is being set up; calls wait on it. */
 let transportReady = Promise.resolve();
 
@@ -331,7 +340,9 @@ export function createBridgeClient({
 					body?.error === 'origin not allowed'
 						? t('messages.bridge.originNotAllowed')
 						: t('messages.bridge.wrongCode'),
-				410: t('messages.bridge.noCode'),
+				// Gone over HTTP since #580: the bridge's node was not reached for it.
+				410:
+					body?.code === 'HTTP_GONE' ? t('messages.bridge.httpGone') : t('messages.bridge.noCode'),
 				503:
 					body?.code === 'MAIL_NOT_SET_UP'
 						? t('messages.bridge.mailNotSetUp')

@@ -100,6 +100,7 @@ describe('/mail/assist and /mail/search?from=', () => {
 			ownDomains: ['le-space.de']
 		});
 		bridge = createBridgeServer({
+			legacyRoutes: true,
 			config,
 			pairing,
 			hibiscus: null,

@@ -441,6 +441,7 @@ describe('new portal endpoints', () => {
 		const configPath = join(dir, 'bridge.json');
 		await saveConfig({ ...defaultConfig(), appOrigins: [APP] }, configPath);
 		bridge = await startBridge({
+			legacyRoutes: true,
 			// Not the node: it would ask this machine's keychain (node.test.js covers it).
 			node: false,
 			configPath,

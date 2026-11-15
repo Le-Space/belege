@@ -65,7 +65,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	await stopBridge(bridge);
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
+	if (dir) await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 /**
@@ -92,6 +92,12 @@ async function device(browser, { share = false, noBridge = false }) {
 			blocked.push(new URL(route.request().url()).pathname);
 			return route.abort('connectionrefused');
 		});
+		// …nor the bridge node's WebSocket there (#580): only the test relay is reached on 127.0.0.1.
+		const relayPort = String(process.env.E2E_RELAY_PORT || 4393);
+		await context.routeWebSocket(
+			(url) => url.hostname === '127.0.0.1' && url.port !== relayPort,
+			(ws) => ws.close()
+		);
 	}
 	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);
@@ -168,6 +174,13 @@ test('the phone reaches the bridge through the desktop', async ({ browser }) => 
 		);
 		await phone.page.getByTestId('devices-add-input').fill(macId);
 		await phone.page.getByTestId('devices-add').click();
+		// Since its bridge's node is a device of the books (paired by code, #580),
+		// the books are no longer new: the Mac lets the phone in, as a person would.
+		const phoneId = String(await phone.page.getByTestId('devices-self-value').textContent()).trim();
+		await openIntegration(mac.page, 'geraete');
+		const asking = mac.page.getByTestId('devices-asking-item').filter({ hasText: phoneId });
+		await expect(asking).toBeVisible({ timeout: 120_000 });
+		await asking.getByTestId('devices-asking-yes').click();
 		await expect(
 			phone.page
 				.getByTestId('devices-item')

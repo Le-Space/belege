@@ -25,7 +25,8 @@
 // to the books as a device – from then on every device of the books reaches
 // it through the relays, with no desktop browser open, and keeps its device
 // list current (`devices`). The desktop forwarding above stays as the last
-// resort for a bridge that runs with `--no-node`.
+// resort for a bridge that does not go online itself (paired by code, no
+// relays); the desktop calls it over its node on 127.0.0.1 (#580).
 //
 // On a device, `bridgeFetch` stands in for fetch in the bridge client
 // (bridge/client.js): the bridge's own node first when it is connected and
@@ -108,6 +109,24 @@ const ALLOWED = /** @type {const} */ ([
 export const allowed = (method, path) => ALLOWED.some(([m, re]) => m === method && re.test(path));
 
 /**
+ * The catalogue's command for a method and path, for a call that came as
+ * `request`: its scope decides, as for one by name.
+ *
+ * @param {string} method
+ * @param {string} path without query
+ */
+export function commandOf(method, path) {
+	const found = COMMANDS.find(
+		(c) =>
+			c.method === method &&
+			new RegExp(
+				`^${c.path.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{[a-zA-Z]+\\?\}/g, '[^/]+')}$`
+			).test(path)
+	);
+	return found?.name ?? null;
+}
+
+/**
  * The same calls by their names (@le-space/bridge-protocol, #577): every
  * command whose route is in the list above and that may go over a stream.
  */
@@ -157,10 +176,22 @@ export function setBridgeShare(on) {
  * @param {string} p.peerId the caller, authenticated by the secure channel
  * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
  * @param {() => { url: string, token: string } | null} p.bridge this desktop's pairing
- * @param {typeof fetch} [p.fetch]
+ * @param {typeof fetch} [p.fetch] how this desktop reaches its own bridge: since #580 over its
+ *   node (bridge/client.js `bridgeTransportFetch`), with the token for the way over HTTP
+ * @param {{ name: string, args: Record<string, unknown> }} [p.named] the command, when it came by name
+ * @param {(peerId: string, command: string) => Promise<void>} [p.mayCall] throws when the asking
+ *   device may not make this call (its own scopes at the bridge, #579)
  * @returns {Promise<{ status: number, contentType: string, json?: unknown, base64?: string }>}
  */
-export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f = fetch }) {
+export async function serveRequest({
+	args,
+	peerId,
+	isOwnDevice,
+	bridge,
+	fetch: f = fetch,
+	named,
+	mayCall = async () => {}
+}) {
 	if (!(await isOwnDevice(peerId))) throw new UcepError('PAIRING_REQUIRED', 'not an own device');
 	const method = String(args?.method ?? '');
 	const target = String(args?.path ?? '');
@@ -169,6 +200,9 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
 	}
 	const url = new URL(target, 'http://bridge');
 	if (!allowed(method, url.pathname)) throw new UcepError('INVALID_ARGUMENTS', 'not allowed');
+	const name = named?.name ?? commandOf(method, url.pathname);
+	if (!name) throw new UcepError('INVALID_ARGUMENTS', 'not allowed');
+	await mayCall(peerId, name);
 	const own = bridge();
 	if (!own) throw new UcepError('UNAVAILABLE', 'no bridge paired here');
 	let res;
@@ -176,10 +210,11 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
 		res = await f(`${own.url.replace(/\/+$/, '')}${url.pathname}${url.search}`, {
 			method,
 			headers: {
-				Authorization: `Bearer ${own.token}`,
+				...(own.token ? { Authorization: `Bearer ${own.token}` } : {}),
 				...(args?.body !== undefined ? { 'Content-Type': 'application/json' } : {})
 			},
 			...(args?.body !== undefined ? { body: JSON.stringify(args.body) } : {}),
+			...(named ? { command: named } : {}),
 			cache: 'no-store',
 			credentials: 'omit'
 		});
@@ -208,8 +243,10 @@ export async function serveRequest({ args, peerId, isOwnDevice, bridge, fetch: f
  * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
  * @param {() => { url: string, token: string } | null} p.bridge
  * @param {typeof fetch} [p.fetch]
+ * @param {(peerId: string, command: string) => Promise<void>} [p.mayCall]
  */
 export async function serveNamed({ name, args, ...rest }) {
+	const named = { name, args: /** @type {Record<string, unknown>} */ (args ?? {}) };
 	if (!DEVICE_COMMANDS.includes(name)) throw new UcepError('UNKNOWN_COMMAND', name);
 	const problems = checkArgs(name, args ?? {});
 	if (problems.length) throw new UcepError('INVALID_ARGUMENTS', problems.join('; '));
@@ -219,7 +256,8 @@ export async function serveNamed({ name, args, ...rest }) {
 	);
 	return serveRequest({
 		...rest,
-		args: { method, path, ...(body !== null ? { body: JSON.parse(body) } : {}) }
+		args: { method, path, ...(body !== null ? { body: JSON.parse(body) } : {}) },
+		named
 	});
 }
 
@@ -230,9 +268,18 @@ export async function serveNamed({ name, args, ...rest }) {
  * @param {any} p.libp2p the device-sync node
  * @param {(peerId: string) => boolean | Promise<boolean>} p.isOwnDevice
  * @param {() => { url: string, token: string } | null} p.bridge
+ * @param {typeof fetch} [p.fetch] how this desktop reaches its own bridge: over its node since #580
+ * @param {(peerId: string, command: string) => Promise<void>} [p.mayCall] the asking device's own scopes
  * @param {(line: string) => void} [p.log] counts only
  */
-export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = () => {} }) {
+export async function startBridgeProvider({
+	libp2p,
+	isOwnDevice,
+	bridge,
+	fetch: f = fetch,
+	mayCall = async () => {},
+	log = () => {}
+}) {
 	const provider = createProvider({
 		libp2p,
 		manifest: {
@@ -245,7 +292,14 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 			request: {
 				description: 'One bridge call: { method, path, body? } → { status, json | base64 }',
 				handler: async ({ argsJson, peerId }) => {
-					const answer = await serveRequest({ args: argsJson, peerId, isOwnDevice, bridge });
+					const answer = await serveRequest({
+						args: argsJson,
+						peerId,
+						isOwnDevice,
+						bridge,
+						fetch: f,
+						mayCall
+					});
 					log(`bridge for a device: ${String(argsJson?.method)} → ${answer.status}`);
 					return answer;
 				}
@@ -259,6 +313,8 @@ export async function startBridgeProvider({ libp2p, isOwnDevice, bridge, log = (
 							const answer = await serveNamed({
 								name,
 								args: argsJson,
+								fetch: f,
+								mayCall,
 								peerId,
 								isOwnDevice,
 								bridge
@@ -318,8 +374,12 @@ export async function askPeer({
 			try {
 				return await call(named.name, { ...(named.args ?? {}), $accept: ['blocks'] });
 			} catch (error) {
-				// A bridge from before #578 checks `$accept` as an argument it does not know.
-				if (/** @type {any} */ (error)?.code !== 'INVALID_ARGUMENTS') throw error;
+				// A bridge from before #578 checks `$accept` as an argument it does not know:
+				// only that refusal turns blocks off for the peer, not any argument's.
+				const e = /** @type {any} */ (error);
+				if (e?.code !== 'INVALID_ARGUMENTS' || !String(e.message ?? '').includes('$accept')) {
+					throw error;
+				}
 				noBlocks.add(peerId);
 			}
 		}
@@ -683,17 +743,27 @@ export function bridgeFetch({
 					// Not connected, or the answer too big for the stream: HTTP, when there is one.
 				}
 			}
+			/** @type {Response | null} */
+			let gone = null;
 			try {
 				const res = await local(input, init);
-				onRoute('local');
-				return res;
+				// A bridge since #580 serves this over its node only: another device's may still.
+				if (res.status !== 410) {
+					onRoute('local');
+					return res;
+				}
+				gone = res;
 			} catch (error) {
-				const through = remote();
-				if (!through) throw error;
-				const res = await through(input, { ...init, headers });
-				onRoute('device');
-				return res;
+				if (!remote()) throw error;
 			}
+			const through = remote();
+			if (!through) {
+				onRoute('local');
+				return /** @type {Response} */ (gone);
+			}
+			const res = await through(input, { ...init, headers });
+			onRoute('device');
+			return res;
 		}
 	);
 }
