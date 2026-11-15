@@ -2671,6 +2671,21 @@ export default {
 			hint: 'Lies den Kontenplan deiner Buchhaltung ein: Dann schlägt „Konto“ an jeder Zahlung deine Konten mit deinen Bezeichnungen vor statt der allgemeinen SKR-03-Liste.',
 			infoTitle:
 				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (in der Buchhaltung meist unter „Export DATEV“) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
+			formats: {
+				label: 'Welche Dateien gehen?',
+				title: 'Das liest Belege',
+				items: [
+					'DATEV-„Kontenbeschriftungen“ (Datei beginnt mit „EXTF“) – aus jedem Programm mit DATEV-Export.',
+					'CSV oder Textdatei mit einer Spalte Kontonummer (4–8 Ziffern) und einer Spalte Bezeichnung; weitere Spalten werden übergangen.',
+					'Überschriften wie „Konto“, „Kontonummer“ oder „Sachkonto“ und „Bezeichnung“ oder „Kontenbeschriftung“ werden erkannt; ohne Überschrift sucht Belege die Spalten selbst.',
+					'Getrennt durch Semikolon, Komma oder Tab; UTF-8, Windows- oder Mac-Zeichensatz.'
+				],
+				exampleTitle: 'Beispiel:',
+				example: 'Konto;Bezeichnung\n4920;Telefon\n4922;KI-Dienste\n4930;Bürobedarf',
+				exampleFile: 'kontenplan-beispiel.csv',
+				download: 'Beispieldatei herunterladen',
+				check: 'Prüfe nach dem Einlesen die Vorschau: Stehen dort deine Kontonummern?'
+			},
 			howTitle: 'Wie komme ich an die Datei?',
 			how: [
 				'In deiner Buchhaltung den DATEV-Export der „Kontenbeschriftungen“ aufrufen (auf Wunsch nur ein Kontenbereich), die CSV-Datei speichern und hier einlesen. Die Menüs heißen je nach Programm anders.',

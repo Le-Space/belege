@@ -26,6 +26,7 @@
 	import { catalogueAccount, isAccountNumber } from './booking/skr03.js';
 	import { aliasLabel } from './matching/partners.js';
 	import { list, t } from './i18n/index.js';
+	import InfoHint from './InfoHint.svelte';
 
 	let companyText = $state('');
 	let ownNamesText = $state('');
@@ -118,6 +119,19 @@
 	/** @type {string | null} */
 	let chartError = $state(null);
 	let chart = $derived(cleanChart(app.chart));
+
+	// The example from the hint as a file, made here: nothing is fetched.
+	function downloadChartExample() {
+		const blob = new Blob([`${t('anweisungen.chart.formats.example')}\n`], {
+			type: 'text/csv;charset=utf-8'
+		});
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = t('anweisungen.chart.formats.exampleFile');
+		a.click();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
 
 	/** @param {Event} event */
 	async function readChart(event) {
@@ -618,11 +632,34 @@
 		<fieldset class="scroll-mt-4 text-sm" id="kontenplan" data-testid="chart">
 			<legend class="flex items-center gap-1.5 font-medium text-heading">
 				{t('anweisungen.chart.title')}
-				<span
-					class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-border text-[10px] leading-none text-faint"
-					title={t('anweisungen.chart.infoTitle')}
-					aria-hidden="true">i</span
+				<InfoHint
+					label={t('anweisungen.chart.formats.label')}
+					testid="chart-formats"
+					idPrefix="chart-formats"
+					interactive
+					width="w-80"
 				>
+					<span class="block font-semibold text-heading"
+						>{t('anweisungen.chart.formats.title')}</span
+					>
+					<ul class="mt-1 flex list-disc flex-col gap-1 pl-4">
+						{#each list('anweisungen.chart.formats.items') as line (line)}
+							<li>{line}</li>
+						{/each}
+					</ul>
+					<span class="mt-2 block text-faint">{t('anweisungen.chart.formats.exampleTitle')}</span>
+					<pre
+						class="mt-0.5 overflow-x-auto rounded bg-surface-2 px-2 py-1 font-mono text-[11px] leading-snug"
+						data-testid="chart-formats-example">{t('anweisungen.chart.formats.example')}</pre>
+					<button
+						type="button"
+						class="mt-1.5 text-faint underline hover:text-heading"
+						onclick={downloadChartExample}
+						data-testid="chart-formats-download">{t('anweisungen.chart.formats.download')}</button
+					>
+					<span class="mt-1.5 block text-faint">{t('anweisungen.chart.formats.check')}</span>
+					<span class="mt-1.5 block text-faint">{t('anweisungen.chart.infoTitle')}</span>
+				</InfoHint>
 			</legend>
 			<p class="mt-1 text-xs text-faint">{t('anweisungen.chart.hint')}</p>
 			<details class="mt-1 text-xs text-text" data-testid="chart-how">

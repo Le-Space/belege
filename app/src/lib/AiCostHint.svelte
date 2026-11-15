@@ -4,7 +4,6 @@
 	import { DEFAULT_PRICES, cleanPrices } from './stats/usage.js';
 
 	const shared = $state({ deepseek: DEFAULT_PRICES, loaded: false });
-	let hintIds = 0;
 </script>
 
 <script>
@@ -17,18 +16,15 @@
 	import { estimateCall } from './stats/ai-estimate.js';
 	import { hosted, booksBridgeHosted, loadAleph } from './integrations/hosted-status.svelte.js';
 	import { intlLocale, t } from './i18n/index.js';
+	import InfoHint from './InfoHint.svelte';
 
 	/**
 	 * @type {{ kind: string, per?: 'receipt' | 'booking' | null, testid?: string }}
 	 */
 	let { kind, per = null, testid = 'ai-cost' } = $props();
 
-	const id = `ai-cost-${++hintIds}`;
+	/** Set once the hint is first opened: the estimate is worked out from then on. */
 	let open = $state(false);
-	/** Opened by a tap or click: stays until closed, not only while hovered. */
-	let pinned = $state(false);
-	/** @type {HTMLElement | undefined} */
-	let root = $state();
 
 	// A hosted bridge on Aleph paid from the books' Le Space plan.
 	let included = $derived.by(() => {
@@ -81,108 +77,50 @@
 		}
 	}
 
-	function show() {
+	function opened() {
 		open = true;
 		load();
 	}
-	function hide() {
-		if (!pinned) open = false;
-	}
-	function close() {
-		open = false;
-		pinned = false;
-	}
-
-	/** @param {MouseEvent} e */
-	function outside(e) {
-		if (open && root && !e.composedPath().includes(root)) close();
-	}
-	/**
-	 * Escape closes an open hint, and only the hint: taken before the panel
-	 * around it (a payment's detail closes on Escape too) sees it.
-	 *
-	 * @param {KeyboardEvent} e
-	 */
-	function escape(e) {
-		if (!open || e.key !== 'Escape') return;
-		e.stopPropagation();
-		close();
-	}
 </script>
 
-<svelte:window onclick={outside} onkeydowncapture={escape} />
-
-<span
-	class="relative inline-flex align-middle"
-	bind:this={root}
-	onmouseenter={show}
-	onmouseleave={hide}
-	role="presentation"
+<InfoHint
+	label={t('ai.cost.label')}
+	{testid}
+	idPrefix="ai-cost"
+	mode={estimate?.mode ?? ''}
+	onopen={opened}
 >
-	<button
-		type="button"
-		class="inline-flex h-5 w-5 items-center justify-center rounded-full text-faint outline-none hover:text-heading focus-visible:ring-2 focus-visible:ring-cyan-500"
-		aria-label={t('ai.cost.label')}
-		aria-describedby={id}
-		aria-expanded={open}
-		data-testid={testid}
-		onfocus={show}
-		onblur={hide}
-		onclick={(e) => {
-			e.stopPropagation();
-			if (pinned) close();
-			else {
-				pinned = true;
-				show();
-			}
-		}}
-	>
-		<svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-			<circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3" />
-			<path d="M8 7v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-			<circle cx="8" cy="4.8" r="0.9" fill="currentColor" />
-		</svg>
-	</button>
-	<span
-		{id}
-		role="tooltip"
-		hidden={!open}
-		class="absolute top-full left-0 z-40 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-surface p-2.5 text-left text-xs font-normal whitespace-normal text-text shadow-lg"
-		data-testid="{testid}-tip"
-		data-mode={estimate?.mode ?? ''}
-	>
-		<span class="block font-semibold text-heading">
-			{t(per ? `ai.cost.title.${per}` : 'ai.cost.title.call')}
-		</span>
-		{#if estimate}
-			<span class="mt-1 block" data-testid="{testid}-tokens">
-				{t('ai.cost.tokens', {
-					prompt: tokens(estimate.prompt),
-					completion: tokens(estimate.completion)
-				})}
-			</span>
-			<span class="mt-0.5 block" data-testid="{testid}-cost">
-				{#if estimate.mode === 'priced' && estimate.cost !== null}
-					{t('ai.cost.priced', {
-						cost: money(estimate.cost, estimate.currency),
-						model: estimate.model
-					})}
-				{:else if estimate.mode === 'included'}
-					{t('ai.cost.included')}
-				{:else if estimate.mode === 'local'}
-					{t('ai.cost.local')}
-				{:else}
-					{t('ai.cost.unknown')}
-				{/if}
-			</span>
-			<span class="mt-1 block text-faint" data-testid="{testid}-basis">
-				{estimate.samples === 0
-					? t('ai.cost.fallback')
-					: estimate.samples === 1
-						? t('ai.cost.measuredOne')
-						: t('ai.cost.measured', { count: estimate.samples })}
-				{t('ai.cost.note')}
-			</span>
-		{/if}
+	<span class="block font-semibold text-heading">
+		{t(per ? `ai.cost.title.${per}` : 'ai.cost.title.call')}
 	</span>
-</span>
+	{#if estimate}
+		<span class="mt-1 block" data-testid="{testid}-tokens">
+			{t('ai.cost.tokens', {
+				prompt: tokens(estimate.prompt),
+				completion: tokens(estimate.completion)
+			})}
+		</span>
+		<span class="mt-0.5 block" data-testid="{testid}-cost">
+			{#if estimate.mode === 'priced' && estimate.cost !== null}
+				{t('ai.cost.priced', {
+					cost: money(estimate.cost, estimate.currency),
+					model: estimate.model
+				})}
+			{:else if estimate.mode === 'included'}
+				{t('ai.cost.included')}
+			{:else if estimate.mode === 'local'}
+				{t('ai.cost.local')}
+			{:else}
+				{t('ai.cost.unknown')}
+			{/if}
+		</span>
+		<span class="mt-1 block text-faint" data-testid="{testid}-basis">
+			{estimate.samples === 0
+				? t('ai.cost.fallback')
+				: estimate.samples === 1
+					? t('ai.cost.measuredOne')
+					: t('ai.cost.measured', { count: estimate.samples })}
+			{t('ai.cost.note')}
+		</span>
+	{/if}
+</InfoHint>

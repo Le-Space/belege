@@ -36,6 +36,29 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 	await expect(chart.getByTestId('chart-how')).toContainText('Kontenbeschriftungen');
 	await expect(chart.getByTestId('chart-how')).toContainText('auf Anfrage');
 
+	// The ⓘ beside the title: what is read, an example, and the example as a file.
+	const info = chart.getByTestId('chart-formats');
+	const layer = chart.getByTestId('chart-formats-tip');
+	await expect(layer).toBeHidden();
+	await info.hover();
+	await expect(layer).toBeVisible();
+	await expect(layer).toContainText('EXTF');
+	await expect(chart.getByTestId('chart-formats-example')).toContainText('4922;KI-Dienste');
+	await page.mouse.move(0, 0);
+	await expect(layer).toBeHidden();
+	await info.click();
+	await expect(layer).toBeVisible();
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		chart.getByTestId('chart-formats-download').click()
+	]);
+	expect(download.suggestedFilename()).toBe('kontenplan-beispiel.csv');
+	const fs = await import('node:fs/promises');
+	const example = await fs.readFile(/** @type {string} */ (await download.path()), 'utf8');
+	expect(example).toBe('Konto;Bezeichnung\n4920;Telefon\n4922;KI-Dienste\n4930;Bürobedarf\n');
+	await page.keyboard.press('Escape');
+	await expect(layer).toBeHidden();
+
 	await chart.getByTestId('chart-file').setInputFiles({
 		name: 'EXTF_Kontenbeschriftungen.csv',
 		mimeType: 'text/csv',
