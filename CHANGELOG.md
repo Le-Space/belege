@@ -6,11 +6,23 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Receipt files reach every own device in the background (#790): a device fetches the files its receipts name and it lacks from the own devices connected directly – at unlock, when a receipt comes by sync, when a device connects or turns direct. Two at a time, up to 32 MiB per file (a larger one when it is opened), a failed one again after a doubling wait; nothing while the network is paused or device sync is off, never from the bridge, never through a relay. The blocks stay sealed. Before, a file stayed on the device that added it until another opened it, and was nowhere else once that device was offline. The preview says when a file is not on this device yet instead of failing; the consent screen and `docs/device-proof.md` say so.
+- Integrationen → Eigene Geräte shows how many receipt files are on this device and, foldable, the receipts whose file is still missing here – with a link and why: being fetched, waiting for an own device that has it, or large and fetched when opened (#791).
+- The bridge image workflow can publish the plain image the hosted bridge is sealed from, as an Aleph STORE of its own with build provenance; `bridge-image.json` names it under `sealable` (#777). It holds no secret.
+
 ### Changed
 
+- Integrationen → KI with a hosted bridge: no settings of a bridge on a computer and no terminal advice, but where the hosted bridge's model is set and that the VM needs a restart for it; the bridge row and the settings card name the hosted bridge (#786).
+- Deploys use `@le-space/node` 0.12.7: a CAR upload to Aleph that hangs moves on to the next host instead of waiting (#793).
 - With device sync off, the app reaches the bridge on the same machine over a stream too (#580): after pairing by code it fetches the node's invitation (`POST /node/invitation`, new, with the token), pairs the node over a WebSocket on 127.0.0.1 from a small node of its own that dials this machine only, and calls the bridge's functions over that stream. HTTP keeps pairing, health, shares, the backup upload and the portals. The consent screen says so, and that the bridge reaches the devices' Bitswap for its big answers on a protocol of its own (#578); version 52.
 - The bridge's HTTP routes that its node also serves over the stream answer with a `Deprecation` header (RFC 9745) and a link to #580; nothing changes in what they answer. `/pair`, `/unpair`, `/health`, `/lan-relay`, the shares, the backup upload and the portals stay on HTTP without it. The routes go once the app reaches the bridge over a stream on the same machine with device sync off, too (#580).
 - The bridge hands over big answers as blocks (#578): a mail attachment, a raw mail or a Paperless original that does not fit one stream answer (1 MiB, 64 KiB through a relay) reaches a device over the bridge's own node as sealed blocks – AES-256-GCM under a key made for that answer, fetched over a Bitswap of its own (`/le-space/bridge-blocks/1.0.0`, `@le-space/bridge-protocol/exchange`) on the proved connection, relayed too, each block checked against its CID. The device's gate lets the bridge reach that one protocol and still none of the books' own; the bridge keeps the blocks in memory until the device has them, at most ten minutes. A phone without HTTP to the bridge now gets originals of any size up to 32 MB.
+
+### Fixed
+
+- A hosted bridge node whose attestation cannot be checked (no AMD certificate for its processor's firmware) is said so plainly – nothing was sent to the VM, start on another node – remembered per books in the sealed settings, and no longer preselected (#788).
 
 ## [0.32.7] – 2026-11-14
 
