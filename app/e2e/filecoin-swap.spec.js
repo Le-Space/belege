@@ -16,7 +16,7 @@ import { fakeMessageCid, startFakeFilfox, toFilecoinAddress } from '@belege/brid
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge } from './bridge.js';
+import { pairBridge, stopBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -80,7 +80,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-	bridge?.kill('SIGTERM');
+	await stopBridge(bridge);
 	await filfox?.close();
 	if (dir) await rm(dir, { recursive: true, force: true });
 });

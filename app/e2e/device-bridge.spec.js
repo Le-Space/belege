@@ -16,6 +16,7 @@ import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
+import { stopBridge } from './bridge.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -62,7 +63,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-	bridge?.kill('SIGTERM');
+	await stopBridge(bridge);
 	await llm?.close();
 	if (dir) await rm(dir, { recursive: true, force: true });
 });
