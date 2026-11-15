@@ -2626,6 +2626,21 @@ export default {
 			hint: 'Import your bookkeeping’s chart of accounts: then “Account” on each payment suggests your accounts with your names instead of the general SKR 03 list.',
 			infoTitle:
 				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, in the bookkeeping usually under “Export DATEV”) or a CSV with account number and name. It stays encrypted in your books in this browser.',
+			formats: {
+				label: 'Which files work?',
+				title: 'What Belege reads',
+				items: [
+					'DATEV “Kontenbeschriftungen” (account labels; the file starts with “EXTF”) – from any program with a DATEV export.',
+					'A CSV or text file with an account number column (4–8 digits) and a name column; other columns are skipped.',
+					'Headings such as “Account”, “Konto”, “Kontonummer” and “Description”, “Bezeichnung” are recognised; without headings Belege finds the columns itself.',
+					'Separated by semicolon, comma or tab; UTF-8, Windows or Mac character set.'
+				],
+				exampleTitle: 'Example:',
+				example: 'Account;Description\n4920;Telephone\n4922;AI services\n4930;Office supplies',
+				exampleFile: 'chart-of-accounts-example.csv',
+				download: 'Download the example file',
+				check: 'After reading it in, check the preview: are those your account numbers?'
+			},
 			howTitle: 'How do I get the file?',
 			how: [
 				'In your bookkeeping, open the DATEV export of the “Kontenbeschriftungen” (optionally just a range of accounts), save the CSV file and import it here. The menus are named differently from program to program.',
