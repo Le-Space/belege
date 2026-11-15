@@ -10,7 +10,8 @@ import {
 	deriveBridgeAuthBase,
 	deriveDatabaseKey,
 	deriveDatabaseName,
-	deriveDeviceAuthKey
+	deriveDeviceAuthKey,
+	deriveImagePassphrase
 } from './database-keys.js';
 
 const prf = () => crypto.getRandomValues(new Uint8Array(32));
@@ -97,5 +98,54 @@ describe('database-keys', () => {
 		expect(blob).toBe('cff696c08bd035566a96fc18e80679a6bb0875a7fbef13840e7665c2a816f360');
 		expect(blob).not.toBe(hex(await deriveDatabaseKey(output)));
 		await expect(deriveBlobKey(new Uint8Array(8))).rejects.toThrow(/PRF output/);
+	});
+
+	it('derives the image passphrase per books and per plain image, the same at every unlock (#777)', async () => {
+		const image = 'ab'.repeat(32);
+		// Node: crypto.hkdfSync(sha256, 32 × 0x07, empty salt,
+		// "belege/image-passphrase/v1/" + image, 32), base64url.
+		const root = new Uint8Array(32).fill(7);
+		const passphrase = await deriveImagePassphrase(root, image);
+		expect(passphrase).toBe('ffsaLLCeg6t2oUtzh4nnFL1dS9Ah1iLTluCS9vxAulU');
+		// What goes to cryptsetup and into a signed injection: one line, URL-safe.
+		expect(passphrase).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		expect(await deriveImagePassphrase(Uint8Array.from(root), image)).toBe(passphrase);
+
+		// Other books, and the same books after new keys, have another root.
+		const others = new Set([passphrase]);
+		for (let i = 0; i < 8; i++) others.add(await deriveImagePassphrase(prf(), image));
+		expect(others.size).toBe(9);
+		// Another plain image is sealed with another passphrase.
+		expect(await deriveImagePassphrase(root, 'cd'.repeat(32))).not.toBe(passphrase);
+	});
+
+	it('gives the image passphrase a label of its own: no other key of the books is it', async () => {
+		const root = prf();
+		const image = 'ab'.repeat(32);
+		const bytes = Buffer.from(await deriveImagePassphrase(root, image), 'base64url');
+		expect(bytes).toHaveLength(32);
+		const base = await deriveBridgeAuthBase(root);
+		for (const other of [
+			await deriveDatabaseKey(root),
+			await deriveBlobKey(root),
+			await deriveDeviceAuthKey(root),
+			base,
+			await bridgeAuthKeyOf(base, 1)
+		]) {
+			expect(hex(bytes)).not.toBe(hex(other));
+		}
+	});
+
+	it('refuses an image passphrase without the books’ root or the plain image’s SHA-256', async () => {
+		const root = prf();
+		await expect(deriveImagePassphrase(new Uint8Array(8), 'ab'.repeat(32))).rejects.toThrow(
+			/PRF output/
+		);
+		for (const not of ['', 'latest', 'AB'.repeat(32), 'ab'.repeat(31), `${'ab'.repeat(32)}/x`]) {
+			await expect(deriveImagePassphrase(root, not)).rejects.toThrow(/SHA-256/);
+		}
+		await expect(deriveImagePassphrase(root, /** @type {any} */ (undefined))).rejects.toThrow(
+			/SHA-256/
+		);
 	});
 });
