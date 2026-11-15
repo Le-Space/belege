@@ -268,6 +268,104 @@ describe('a VM of the books’ key', () => {
 	});
 });
 
+// An image of its own per set of books (#777) is the same plain image sealed
+// with another passphrase: another STORE. The pins are computed from Aleph's
+// runtime and the owner; the image is no input, so they stay the same.
+describe('the launch measurement and the image', () => {
+	const OTHER_IMAGE = 'f'.repeat(64);
+	const runtime = {
+		itemHash: 'a'.repeat(64),
+		manifest: {
+			boot: { cmdline_template: 'console=ttyS0 owner={owner}', cpu_models: ['EPYC-v4'] }
+		},
+		ovmf: new Uint8Array([1]),
+		kernel: new Uint8Array([2]),
+		initrd: new Uint8Array([3])
+	};
+	/**
+	 * A stand-in for the WASM that records what it is asked to measure and
+	 * answers with a digest of exactly that (the real one needs AMD's firmware).
+	 */
+	const recording = () => {
+		/** @type {any[][]} */
+		const asked = [];
+		const digest = (/** @type {any[]} */ parts) => {
+			let h = 0x811c9dc5;
+			for (const c of JSON.stringify(parts.map((x) => (x instanceof Uint8Array ? [...x] : x)))) {
+				h = Math.imul(h ^ c.charCodeAt(0), 0x01000193) >>> 0;
+			}
+			return h.toString(16).padStart(8, '0').repeat(12);
+		};
+		return {
+			asked,
+			instanceCmdline: (/** @type {string} */ template, /** @type {string} */ who) => {
+				asked.push(['instanceCmdline', template, who]);
+				return template.replace('{owner}', who);
+			},
+			launchMeasurements: (/** @type {any[]} */ ...args) => {
+				asked.push(['launchMeasurements', ...args]);
+				return args[5].map((/** @type {string} */ vcpuType) => ({
+					vcpuType,
+					launch: digest(args)
+				}));
+			}
+		};
+	};
+
+	it('is computed from the runtime, the owner and the vCPUs, and nothing else', async () => {
+		const { trustedExecution } = await import('@le-space/attest-wasm/runtime');
+		const wasm = recording();
+		const tee = trustedExecution({ wasm, runtime, owner, vcpus: 2 });
+		expect(wasm.asked).toEqual([
+			['instanceCmdline', 'console=ttyS0 owner={owner}', owner],
+			[
+				'launchMeasurements',
+				runtime.ovmf,
+				runtime.kernel,
+				runtime.initrd,
+				`console=ttyS0 owner=${owner}`,
+				2,
+				['EPYC-v4']
+			]
+		]);
+		// Another owner or another kernel is another measurement.
+		const other = alephAddressOf(newAlephKey());
+		expect(trustedExecution({ wasm: recording(), runtime, owner: other, vcpus: 2 })).not.toEqual(
+			tee
+		);
+		expect(
+			trustedExecution({
+				wasm: recording(),
+				runtime: { ...runtime, kernel: new Uint8Array([9]) },
+				owner,
+				vcpus: 2
+			})
+		).not.toEqual(tee);
+		// The same once more, as for a VM from a re-sealed image: the same pins.
+		expect(trustedExecution({ wasm: recording(), runtime, owner, vcpus: 2 })).toEqual(tee);
+	});
+
+	it('is pinned unchanged in an INSTANCE that boots a re-sealed image', () => {
+		const of = (/** @type {string} */ image) =>
+			instanceContent({
+				payer: owner,
+				image,
+				crn: FAKE_CRN,
+				trustedExecution: pins,
+				name: 'belege-bridge-test',
+				now: 1
+			});
+		const shared = of(HOSTED_IMAGE);
+		const own = of(OTHER_IMAGE);
+		expect(own.environment.trusted_execution).toEqual(shared.environment.trusted_execution);
+		expect(own.rootfs.parent.ref).toBe(OTHER_IMAGE);
+		expect({
+			...own,
+			rootfs: { ...own.rootfs, parent: { ...own.rootfs.parent, ref: HOSTED_IMAGE } }
+		}).toEqual(shared);
+	});
+});
+
 describe('usage', () => {
 	it('counts hours and credits since the start', () => {
 		const startedAt = '2026-11-11T10:00:00.000Z';
