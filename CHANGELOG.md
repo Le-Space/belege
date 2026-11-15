@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The bridge's HTTP routes for its functions are gone (#580): they answer `410 HTTP_GONE` (with the token; `401` without, as before). The app calls them over the bridge's node, from another device and on the same machine alike; a desktop that shares its bridge with own devices forwards over its node too, and needs no token for it. HTTP keeps `/pair`, `/unpair`, `/node/invitation`, `/health`, `/lan-relay`, the shares, the backup upload and the portals. `pnpm bridge --no-node` is gone; `"node": { "enabled": false }` now runs the node on 127.0.0.1 only, without relays. A bridge paired by code is paired over 127.0.0.1 too when device sync is on, gets no relays and does not go online itself; a desktop that shares it checks the asking device's own scopes and forwards to no third device. Unpaired on purpose, a node is not paired again unasked.
+
 ## [0.33.0] – 2026-11-15
 
 ### Added
@@ -16,7 +20,6 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
-- The bridge's HTTP routes for its functions are gone (#580): they answer `410 HTTP_GONE` (with the token; `401` without, as before). The app calls them over the bridge's node, from another device and on the same machine alike; a desktop that shares its bridge with own devices forwards over its node too, and needs no token for it. HTTP keeps `/pair`, `/unpair`, `/node/invitation`, `/health`, `/lan-relay`, the shares, the backup upload and the portals. `pnpm bridge --no-node` is gone; `"node": { "enabled": false }` now runs the node on 127.0.0.1 only, without relays. A bridge paired by code is paired over 127.0.0.1 too when device sync is on, gets no relays and does not go online itself; a desktop that shares it checks the asking device's own scopes and forwards to no third device. Unpaired on purpose, a node is not paired again unasked.
 - Integrationen → KI with a hosted bridge: no settings of a bridge on a computer and no terminal advice, but where the hosted bridge's model is set and that the VM needs a restart for it; the bridge row and the settings card name the hosted bridge (#786).
 - Deploys use `@le-space/node` 0.12.7: a CAR upload to Aleph that hangs moves on to the next host instead of waiting (#793).
 - With device sync off, the app reaches the bridge on the same machine over a stream too (#580): after pairing by code it fetches the node's invitation (`POST /node/invitation`, new, with the token), pairs the node over a WebSocket on 127.0.0.1 from a small node of its own that dials this machine only, and calls the bridge's functions over that stream. HTTP keeps pairing, health, shares, the backup upload and the portals. The consent screen says so, and that the bridge reaches the devices' Bitswap for its big answers on a protocol of its own (#578); version 52.
