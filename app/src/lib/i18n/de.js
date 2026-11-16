@@ -1139,7 +1139,8 @@ export default {
 				settings: 'Einstellungen',
 				matches: 'Zuordnungen',
 				questions: 'Rückfragen',
-				events: 'Verlauf'
+				events: 'Verlauf',
+				travel: 'Reisen'
 			}
 		}
 	},
