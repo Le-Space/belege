@@ -13,6 +13,7 @@
 
 	const APP_MAIL = 'belege@le-space.de';
 	const BILLING_MAIL = 'support@le-space.de';
+	const SECURITY_MAIL = 'security@le-space.de';
 
 	/** @type {{ onclose: () => void }} */
 	let { onclose } = $props();
@@ -100,6 +101,10 @@
 	</p>
 	<p class="mt-2 text-xs">
 		{t('support.security')}
+		<a class="underline" href="mailto:{SECURITY_MAIL}" data-testid="support-security-mail"
+			>{SECURITY_MAIL}</a
+		>
+		{t('support.securityPolicy')}
 		<a
 			class="underline"
 			href="{SOURCE_URL}/blob/main/SECURITY.md"

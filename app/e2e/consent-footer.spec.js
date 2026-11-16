@@ -272,6 +272,10 @@ test('"Hilfe & Support" in the footer, before any unlock: the addresses, the war
 	);
 	await expect(panel.getByTestId('support-never')).toContainText('Wiederherstellungswörtern');
 	await expect(panel.getByTestId('support-security')).toHaveAttribute('href', /SECURITY\.md$/);
+	await expect(panel.getByTestId('support-security-mail')).toHaveAttribute(
+		'href',
+		'mailto:security@le-space.de'
+	);
 	const diagnosis = panel.getByTestId('support-diagnosis');
 	await expect(diagnosis).toContainText('status: locked');
 	await panel.getByTestId('support-copy').click();

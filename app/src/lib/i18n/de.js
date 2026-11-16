@@ -695,8 +695,8 @@ export default {
 		send: 'Was hilft: was du tun wolltest, was stattdessen passiert ist, und die Diagnose unten. Bildschirmfotos bitte nur ohne echte Buchungen, Beträge, Namen, IBANs oder Belegtexte – lieber mit Beispieldaten.',
 		never:
 			'Le Space fragt nie nach deinen Wiederherstellungswörtern, deinem Passkey, Schlüsseln, Tokens oder Passwörtern. Wer danach fragt, ist nicht Le Space – schick sie niemandem.',
-		security:
-			'Eine Sicherheitslücke gefunden? Bitte nicht per Mail und nicht öffentlich melden, sondern wie beschrieben in',
+		security: 'Eine Sicherheitslücke gefunden? Bitte nicht öffentlich melden, sondern an',
+		securityPolicy: '– wie es weitergeht, steht in',
 		diagnosisTitle: 'Diagnose',
 		diagnosisHint:
 			'Version, wo die App gerade steht, die letzte Fehlermeldung (Zahlen, Adressen und Zitiertes entfernt) und der Browser – nichts aus deinen Büchern. Lies sie vor dem Senden durch.',
