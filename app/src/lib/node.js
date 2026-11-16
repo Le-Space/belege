@@ -60,6 +60,7 @@ import {
 	deriveBooksSecret,
 	deriveDatabaseKey,
 	deriveBridgeAuthBase,
+	deriveImageBase,
 	deriveDeviceAuthKey,
 	deriveSealedDatabaseName,
 	deriveDevicePeerSeed,
@@ -170,6 +171,7 @@ export class ReadOnlyError extends Error {
  * @property {any} libp2p the node under Helia and OrbitDB
  * @property {ReturnType<typeof createDeviceGate> | null} deviceGate which peers proved the passkey (online only)
  * @property {Uint8Array | null} bridgeAuthBase the base of the bridge's own key, in memory only (database-keys.js)
+ * @property {Uint8Array | null} imageBase the base of the passphrases of the books' own bridge images (#777), in memory only; null on a member's device
  * @property {any} devicePeerKey this device's own peer key, in memory only: the books' node's when online, else the one the node to the bridge on this machine uses (#580)
  * @property {(label: string, role?: 'bookkeeping' | 'reader', options?: { bridge?: boolean }) => Promise<import('./members/member-vault.js').MemberBundle>} memberBundle what a member gets (#611), by role and whether they may use the bridge (#641)
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
@@ -412,6 +414,9 @@ export async function startSession(
 	const bridgeAuthBase = bundleKeys
 		? (bundleKeys.bridgeAuth ?? null)
 		: await fromRoot(deriveBridgeAuthBase);
+	// The books' own bridge image opens with a passphrase made from this (#777).
+	// A member's bundle carries none: the owner's devices build and unlock it.
+	const imageBase = bundleKeys ? null : await fromRoot(deriveImageBase);
 	const deviceAuthKey = !online
 		? null
 		: bundleKeys
@@ -910,6 +915,7 @@ export async function startSession(
 			libp2p,
 			deviceGate,
 			bridgeAuthBase,
+			imageBase,
 			devicePeerKey,
 			bridgeAuth,
 			/**

@@ -1812,8 +1812,9 @@ function alephSaid(error) {
  * (integrations/hosted-bridge.js). The VM is the books' Aleph key's: the
  * measurement names it and it signs the unlock. It is paid by that key or by
  * `payer` (Le Space's sub-account for these books; asked of Le Space Credits
- * when not given and they are switched on). The passphrase is the image's,
- * typed here and kept nowhere. The bridge's peer key is made here once per VM
+ * when not given and they are switched on). The passphrase is the image's:
+ * typed here for the shared image, derived here for a VM started from the
+ * books' own image (#777); kept nowhere either way. The bridge's peer key is made here once per VM
  * and kept in the sealed settings, so a restart unlocks the same bridge again.
  *
  * `attempts` is how often the guest is asked before giving up (attest-wasm's
@@ -1821,7 +1822,7 @@ function alephSaid(error) {
  * An error trying again will not help with is marked `fatal`
  * (integrations/hosted-unlock.js).
  *
- * @param {{ instance: string, passphrase: string, payer?: string, attempts?: number, signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string }) => void }} p
+ * @param {{ instance: string, passphrase?: string, payer?: string, attempts?: number, signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string }) => void }} p
  * @returns {Promise<{ peerId: string, host: string, measurement: string }>}
  */
 export async function unlockHostedBridge({
@@ -1850,8 +1851,17 @@ export async function unlockHostedBridge({
 
 	const hash = instance.trim();
 	if (!hosted.isInstanceHash(hash)) throw fatal(t('messages.hostedBridge.notInstance'));
-	if (!passphrase) throw fatal(t('messages.hostedBridge.noPassphrase'));
 	const settings = session.store.settings;
+	// Started here from the books' own image (#777): that image, and its passphrase derived, not typed.
+	const started = await hostedVmRecord();
+	const ownImage =
+		started?.instance === hash &&
+		typeof started?.image === 'string' &&
+		typeof started?.plainSha256 === 'string'
+			? { store: started.image, plainSha256: started.plainSha256 }
+			: null;
+	if (ownImage) passphrase = await ownImagePassphrase(ownImage.plainSha256);
+	if (!passphrase) throw fatal(t('messages.hostedBridge.noPassphrase'));
 	// The books' key, made on the owner's device as for the backup; a member's device waits for it (#613).
 	const ownerKey = await ensureBackupKey(settings, { create: !app.member });
 	if (!ownerKey) throw fatal(t('messages.hostedBridge.noAlephKey'));
@@ -1957,7 +1967,7 @@ export async function unlockHostedBridge({
 		.unlockHosted({
 			instance: content,
 			published,
-			image: hosted.HOSTED_IMAGE,
+			image: ownImage?.store ?? hosted.HOSTED_IMAGE,
 			owner,
 			payers,
 			wasm,
@@ -2048,6 +2058,173 @@ export async function hostedVmRecord() {
 	const { VM_SETTING } = await import('./integrations/hosted-vm.js');
 	const kept = /** @type {any} */ (await getSetting(session.store.settings, VM_SETTING));
 	return typeof kept?.instance === 'string' ? kept : null;
+}
+
+/**
+ * The books' own image of the hosted bridge (#777), as built from this
+ * browser: its STORE and the plain image it was made from; null while there
+ * is none. Its passphrase is in no record: it is derived when needed.
+ */
+export async function hostedOwnImage() {
+	if (!session?.store) return null;
+	const { IMAGE_SETTING, ownImageOf } = await import('./integrations/hosted-image.js');
+	return ownImageOf(await getSetting(session.store.settings, IMAGE_SETTING));
+}
+
+/** The passphrase of the books' own image made from `plainSha256`, derived here, never kept. @param {string} plainSha256 */
+async function ownImagePassphrase(plainSha256) {
+	if (!session?.imageBase) throw new Error(t('messages.hostedBridge.ownImageOwnerOnly'));
+	const { deriveImagePassphrase } = await import('./database-keys.js');
+	return deriveImagePassphrase(session.imageBase, plainSha256);
+}
+
+/** The books' key as the app key the shared VM code signs with. @param {Uint8Array} key @param {string} owner */
+async function alephAppKey(key, owner) {
+	const { alephSign } = await import('./backup/aleph-signer.js');
+	return {
+		address: owner,
+		signMessage: async (/** @type {{ message: string }} */ { message }) => alephSign(key, message)
+	};
+}
+
+/**
+ * A builder a window closed during a build left on Aleph (#777): forgotten
+ * now, so it costs no longer than until the card opens again. Quiet: a
+ * device that may not write the settings leaves it to the next one.
+ */
+export async function forgetLeftHostedBuilder() {
+	if (!session?.store || !session.online || app.member) return;
+	const { BUILDER_SETTING, forgetLeftBuilder } = await import('./integrations/hosted-image.js');
+	const left = /** @type {any} */ (await getSetting(session.store.settings, BUILDER_SETTING));
+	if (!left?.vprogram) return;
+	const { alephEndpoints } = await import('./backup/keeper.js');
+	const { poster } = await import('@le-space/aleph-vm');
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const forgotten = await forgetLeftBuilder({
+		app: await alephAppKey(key, owner),
+		payer: typeof left.payer === 'string' ? left.payer : owner,
+		vprogram: left.vprogram,
+		post: poster({ api: apiHost })
+	}).catch(() => false);
+	if (forgotten) await setSetting(session.store.settings, BUILDER_SETTING, null).catch(() => {});
+}
+
+/**
+ * "Bridge-Image bauen" (#777): the books' own image of the hosted bridge,
+ * sealed by an attested builder with a passphrase derived here, stored on
+ * Aleph as a STORE of the books' key and paid by it. Only with the books' own
+ * key as payer: a build through Le Space's plan is not offered yet. The next
+ * start uses this image and unlocks it without a typed passphrase.
+ *
+ * @param {{ signal?: AbortSignal, onProgress?: (p: { phase: string, detail?: string, received?: number, total?: number | null }) => void }} [p]
+ */
+export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
+	if (!session?.online || !session.store) throw new Error(t('messages.bridge.needsSync'));
+	if (!session.imageBase || app.member)
+		throw new Error(t('messages.hostedBridge.ownImageOwnerOnly'));
+	const vm = await import('./integrations/hosted-vm.js');
+	const hosted = await import('./integrations/hosted-bridge.js');
+	const image = await import('./integrations/hosted-image.js');
+	const { alephEndpoints } = await import('./backup/keeper.js');
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const settings = session.store.settings;
+	const running = await hostedVmRecord();
+	await forgetLeftHostedBuilder();
+
+	const first = hosted.attestUrlOf(session.relays ?? []);
+	/** @type {string[]} */
+	const relays = [...(first ? [first] : []), ...image.attestUrlsOf(session.relays ?? [])].filter(
+		(u, i, all) => all.indexOf(u) === i
+	);
+	if (!relays.length) throw new Error(t('messages.hostedBridge.noRelay'));
+
+	// Aleph starts the builder only with a day of it in reserve, besides what the key pays for already.
+	const spending =
+		running && !running.stoppedAt && running.payer === owner
+			? Number(running.creditsPerHour) || 0
+			: 0;
+	const needed = image.creditsNeededForBuild({ spendingPerHour: spending });
+	const credits = await vm.creditsOf(owner, { apiHost });
+	if (credits < needed) {
+		throw new Error(
+			t('messages.hostedBridge.ownImageFewCredits', {
+				needed: needed.toLocaleString(intlLocale()),
+				credits: Math.floor(credits).toLocaleString(intlLocale())
+			})
+		);
+	}
+
+	const appKey = await alephAppKey(key, owner);
+	signal?.throwIfAborted();
+	/** What went wrong, in the card's words; the package's own message stays for the technical view. */
+	const failed = (/** @type {unknown} */ e) => {
+		const code = String(/** @type {any} */ (e)?.code ?? '');
+		const message = e instanceof Error ? e.message : String(e);
+		const why = /measurement|policy|signature|rejected/i.test(message)
+			? 'attestation'
+			: code === 'refused'
+				? 'refused'
+				: code === 'unreachable' || code === 'no-relay'
+					? 'unreachable'
+					: /^(upload-refused|upload-broken|store-rejected|other-image)$/.test(code)
+						? 'upload'
+						: 'other';
+		const error = new Error(
+			t('messages.hostedBridge.ownImageFailed', {
+				reason: t(`messages.hostedBridge.ownImageWhy.${why}`)
+			})
+		);
+		/** @type {any} */ (error).detail = message;
+		/** @type {any} */ (error).code = code;
+		return error;
+	};
+	const built = await image
+		.buildBridgeImage({
+			imageBase: session.imageBase,
+			app: appKey,
+			relays,
+			apiHost,
+			attest: async () => {
+				const wasm = await import('@le-space/attest-wasm/pkg/relay_button_attest.js');
+				await wasm.default();
+				const { attestGuest, websocketTransport } = await import('@le-space/attest-wasm/ratls');
+				return {
+					attestGuest,
+					wasm,
+					relayTransports:
+						(/** @type {string[]} */ [relay]) =>
+						(/** @type {string} */ route) =>
+							websocketTransport(`${relay}${route}`)
+				};
+			},
+			onStarted: async (/** @type {string} */ vprogram) => {
+				await setSetting(settings, image.BUILDER_SETTING, {
+					vprogram,
+					payer: owner,
+					startedAt: isoNow()
+				});
+			},
+			onForgotten: async () => {
+				await setSetting(settings, image.BUILDER_SETTING, null);
+			},
+			onProgress: ({ step, data = {} }) => {
+				if (step === 'fetch' || step === 'upload') {
+					onProgress({
+						phase: `ownImage.${step}`,
+						detail: String(data.host ?? ''),
+						received: Number(data.got ?? 0),
+						total: Number(data.size ?? 0) || null
+					});
+				} else onProgress({ phase: `ownImage.${step}`, detail: '' });
+			}
+		})
+		.catch((e) => {
+			throw failed(e);
+		});
+	await setSetting(settings, image.IMAGE_SETTING, { ...built, payer: owner });
+	return built;
 }
 
 /** Where Aleph's node list is read: Aleph's, or in an E2E build the fake Aleph's. */
@@ -2182,7 +2359,7 @@ async function authorizeLeSpacePayer(key, owner) {
  * unlock and pair it (`continueHostedStart`). The VM is recorded, sealed, as
  * soon as Aleph has it, so a start that is interrupted carries on from there.
  *
- * @param {{ crn: string, passphrase: string, paidBy?: 'lespace' | 'books', signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string, attempt?: number, tries?: number }) => void }} p
+ * @param {{ crn: string, passphrase?: string, paidBy?: 'lespace' | 'books', signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string, attempt?: number, tries?: number }) => void }} p
  */
 export async function startHostedBridge({
 	crn,
@@ -2194,7 +2371,9 @@ export async function startHostedBridge({
 	if (!session?.online || !session.bridgeAuthBase || !deviceSync) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
-	if (!passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
+	// The books' own image (#777) when they pay themselves and have one; else the shared one.
+	const own = paidBy === 'books' && !app.member ? await hostedOwnImage() : null;
+	if (!own && !passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
 	const vm = await import('./integrations/hosted-vm.js');
 	const hosted = await import('./integrations/hosted-bridge.js');
 	const { alephEndpoints } = await import('./backup/keeper.js');
@@ -2240,7 +2419,7 @@ export async function startHostedBridge({
 
 	const content = vm.instanceContent({
 		payer,
-		image: hosted.HOSTED_IMAGE,
+		image: own?.store ?? hosted.HOSTED_IMAGE,
 		crn,
 		trustedExecution,
 		name: `belege-bridge-${isoNow().slice(0, 16)}`
@@ -2276,7 +2455,8 @@ export async function startHostedBridge({
 		payer,
 		paidBy,
 		startedAt: isoNow(),
-		creditsPerHour: perHour
+		creditsPerHour: perHour,
+		...(own ? { image: own.store, plainSha256: own.plainSha256 } : {})
 	});
 	return continueHostedStart({ passphrase, signal, onProgress });
 }
@@ -2290,7 +2470,7 @@ export async function startHostedBridge({
  * help with (integrations/hosted-unlock.js), ends it: no secret went out.
  * `signal` cancels the waiting; the VM keeps running.
  *
- * @param {{ passphrase: string, signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string, attempt?: number, tries?: number }) => void, patience?: { tries?: number, delayMs?: number } }} p
+ * @param {{ passphrase?: string, signal?: AbortSignal, onProgress?: (p: { phase: string, detail: string, attempt?: number, tries?: number }) => void, patience?: { tries?: number, delayMs?: number } }} p
  */
 export async function continueHostedStart({
 	passphrase,
@@ -2298,7 +2478,6 @@ export async function continueHostedStart({
 	onProgress = () => {},
 	patience = {}
 }) {
-	if (!passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
 	const vm = await import('./integrations/hosted-vm.js');
 	const { pause, reasonOf, unlockVerdict } = await import('./integrations/hosted-unlock.js');
 	const { alephEndpoints } = await import('./backup/keeper.js');
@@ -2306,6 +2485,8 @@ export async function continueHostedStart({
 	const record = await hostedVmRecord();
 	if (!record || record.stoppedAt || !session?.store)
 		throw new Error(t('messages.hostedBridge.noVm'));
+	// A VM of the books' own image opens with the derived passphrase; the shared one with the typed one.
+	if (!record.image && !passphrase) throw new Error(t('messages.hostedBridge.noPassphrase'));
 	const settings = session.store.settings;
 	const { key, owner } = await hostedOwner();
 	const { apiHost } = alephEndpoints();
@@ -2373,7 +2554,7 @@ export async function continueHostedStart({
 		try {
 			const done = await unlockHostedBridge({
 				instance: record.instance,
-				passphrase,
+				passphrase: record.image ? undefined : passphrase,
 				payer,
 				// This loop is the patience: one ask per try, so each try's reason is seen.
 				attempts: 1,
@@ -3455,6 +3636,13 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		/** The record of a built own bridge image (#777), as "Bridge-Image bauen" leaves it. */
+		setOwnImage: async (/** @type {Record<string, any>} */ record) => {
+			const { IMAGE_SETTING } = await import('./integrations/hosted-image.js');
+			if (session?.store) await setSetting(session.store.settings, IMAGE_SETTING, record);
+		},
+		/** The passphrase the books derive for an own image of `plainSha256`, to compare with what a VM got. */
+		ownImagePassphrase: (/** @type {string} */ plainSha256) => ownImagePassphrase(plainSha256),
 		// The books' Aleph key's address (made if there is none yet), for a fake INSTANCE it owns (#585).
 		alephAddress: async () => {
 			if (!session?.store) return null;

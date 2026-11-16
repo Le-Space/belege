@@ -172,6 +172,18 @@ Both images are made by `rootfs/deploy-bridge.sh` from this directory:
   The browser tells the node, forwards 443, then attests, unlocks and pairs as above; a start
   that is interrupted carries on from the sealed record. "Stoppen" sends a FORGET, and the node
   drops the VM. The card shows how long it ran and about what it cost.
+- **An image of the books' own** (#777): "Bridge-Image bauen" on the same card, offered while
+  the books' Aleph key pays (a Le Space plan starts the shared image for now). The browser
+  derives the image's passphrase from the books' keys (`deriveImagePassphrase`, from a base kept in
+  memory like the bridge key's), starts the attested builder Belege pins
+  (`app/src/lib/integrations/hosted-image.js`, one publication per plain image in
+  NiKrause/relay-button's `@le-space/sealed-image`), hands it the passphrase only after its
+  attestation, fetches the sealed image back through Le Space's attest relays, forgets the
+  builder and stores the image as a STORE of the books' key. The next start boots that image and
+  unlocks it with the derived passphrase; nobody types one, and no passphrase Le Space holds
+  opens it. The shared image and its typed passphrase stay for a plan, a member's device and VMs
+  started before. [`rootfs/README.md`](rootfs/README.md) says what the measurement covers in both
+  cases.
 
 ## Where things are kept
 

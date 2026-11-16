@@ -85,11 +85,17 @@ export const SEALED_DB_NAME_INFO = 'belege/db-name/v2';
 export const BOOKS_SECRET_INFO = 'belege/books-secret/v1';
 
 /**
- * The passphrase of the books' own image of the hosted bridge (#777): the
- * plain image, sealed for these books alone. One per plain image
- * (`/<its SHA-256>` after the label), as Le-Space/paperless-anywhere derives
- * its own. Bumping it means every image built so far no longer opens: each
- * has to be built anew.
+ * The base of the passphrases of the books' own images of the hosted bridge
+ * (#777): derived from the books' root at unlock, kept in memory for the
+ * session like the bridge key's base, never written. Bumping it means every
+ * image built so far no longer opens: each has to be built anew.
+ */
+export const IMAGE_BASE_INFO = 'belege/image-base/v1';
+
+/**
+ * The label of an image's passphrase under that base, followed by `/` and the
+ * plain image's SHA-256: the label @le-space/sealed-image's `derivePassphrase`
+ * takes. Bumping it means every image built so far no longer opens.
  */
 export const IMAGE_PASSPHRASE_INFO = 'belege/image-passphrase/v1';
 
@@ -315,26 +321,43 @@ export async function deriveSealedDatabaseName(prfOutput, collection) {
 }
 
 /**
- * The passphrase that seals the books' own copy of the plain image with
- * `plainSha256` (IMAGE_PASSPHRASE_INFO): 43 URL-safe characters, the same at
- * every unlock and on every device of the books, so nobody types it and it is
- * never written anywhere. Derived from the books' root: other books, or the
- * same books after new keys, have another passphrase and need a build of
- * their own. Another plain image has another passphrase too.
- *
- * It leaves the browser only over an attested channel: to the image builder
- * for the build, and to the books' VM with the unlock.
+ * The base of the books' image passphrases (IMAGE_BASE_INFO). Kept in memory
+ * for the session, never written; only a passphrase made from it
+ * (`deriveImagePassphrase`) leaves the browser, over an attested channel.
  *
  * @param {Uint8Array} prfOutput the books' root
+ * @returns {Promise<Uint8Array>} 32 bytes
+ */
+export async function deriveImageBase(prfOutput) {
+	assertPrfOutput(prfOutput);
+	return hkdf(prfOutput, IMAGE_BASE_INFO, KEY_BYTES);
+}
+
+/**
+ * The passphrase that seals the books' own copy of the plain image with
+ * `plainSha256`: 43 URL-safe characters, the same at every unlock and on
+ * every device of the books, so nobody types it and it is never written
+ * anywhere. Other books, or the same books after new keys, have another base
+ * and so another passphrase, and need a build of their own; another plain
+ * image has another passphrase too.
+ *
+ * The same as @le-space/sealed-image's `derivePassphrase(base, { label:
+ * IMAGE_PASSPHRASE_INFO, plainSha256 })`. It leaves the browser only over an
+ * attested channel: to the image builder for the build, and to the books' VM
+ * with the unlock.
+ *
+ * @param {Uint8Array} base from deriveImageBase
  * @param {string} plainSha256 the SHA-256 of the plain image, 64 hex characters
  * @returns {Promise<string>}
  */
-export async function deriveImagePassphrase(prfOutput, plainSha256) {
-	assertPrfOutput(prfOutput);
+export async function deriveImagePassphrase(base, plainSha256) {
+	if (!(base instanceof Uint8Array) || base.length !== KEY_BYTES) {
+		throw new Error('The image passphrase base is 32 bytes.');
+	}
 	if (typeof plainSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(plainSha256)) {
 		throw new Error('The plain image is named by its SHA-256.');
 	}
-	const bytes = await hkdf(prfOutput, `${IMAGE_PASSPHRASE_INFO}/${plainSha256}`, KEY_BYTES);
+	const bytes = await hkdf(base, `${IMAGE_PASSPHRASE_INFO}/${plainSha256}`, KEY_BYTES);
 	return btoa(String.fromCharCode(...bytes))
 		.replaceAll('+', '-')
 		.replaceAll('/', '_')

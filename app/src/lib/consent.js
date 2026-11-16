@@ -116,7 +116,12 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 53: the bridge's functions are no longer served over HTTP (#580); the node
 //     on this computer pairs a bridge's node only if these books never paired
 //     it, and dials nothing while the network is paused.
-export const CONSENT_VERSION = '53';
+// 54: the hosted bridge may build the books' own image (#777): a V-PROGRAM for
+//     an attested build service and its FORGET to Aleph's API, the image's
+//     passphrase to that service through Le Space's relays after its
+//     attestation, the sealed image back, and a STORE of it, paid by the
+//     books' key.
+export const CONSENT_VERSION = '54';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
