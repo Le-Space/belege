@@ -147,8 +147,8 @@ export const INTEGRATION_GROUPS = [
 	{
 		id: 'ai',
 		items: [
-			{ id: 'deepseek', name: 'DeepSeek', logo: 'deepseek' },
-			{ id: 'ollama', name: 'Ollama (lokal)', logo: 'ollama' }
+			{ id: 'ollama', name: 'Ollama (lokal)', logo: 'ollama' },
+			{ id: 'deepseek', name: 'DeepSeek (China)', logo: 'deepseek' }
 		]
 	},
 	{ id: 'portals', items: [{ id: 'vodafone', name: 'Vodafone MeinKabel', logo: 'vodafone' }] },

@@ -303,7 +303,22 @@ export const COMMANDS = [
 		via: 'both',
 		request: none,
 		response: { type: 'object' },
-		description: 'The model’s host and names, and whether a key is there'
+		description:
+			'The model’s host and names, its provider and country, whether a key is there, whether Ollama answers, and the question about the old default'
+	},
+	{
+		name: 'llm.choice',
+		version: 1,
+		scope: 'bridge:llm',
+		method: 'POST',
+		path: '/llm/choice',
+		args: 'json',
+		answer: 'json',
+		via: 'both',
+		request: object({ answer: { enum: ['local', 'keep'] } }, ['answer']),
+		response: answerWith(['answer', 'restartNeeded']),
+		description:
+			'The answer to the question about the old DeepSeek default: switch to Ollama on this computer, or keep DeepSeek on purpose (kept in the bridge’s config)'
 	},
 	{
 		name: 'llm.extract',

@@ -2,7 +2,7 @@
 
 [English](ollama.md)
 
-Mit einem lokalen Modell **verlässt kein Belegtext deinen Rechner**: Die Bridge schickt ihn an [Ollama](https://ollama.com) auf `127.0.0.1` statt an einen Anbieter im Internet. Das kostet nichts außer Zeit und Plattenplatz. Diese Seite richtet es auf einem Mac ein; unter Linux und Windows sind die Schritte dieselben, nur Ollama wird anders gestartet.
+Seit 16.11.2026 ist das die **Voreinstellung** der Bridge. Mit einem lokalen Modell **verlässt kein Belegtext deinen Rechner**: Die Bridge schickt ihn an [Ollama](https://ollama.com) auf `127.0.0.1` statt an einen Anbieter im Internet. Das kostet nichts außer Zeit und Plattenplatz. Diese Seite richtet es auf einem Mac ein; unter Linux und Windows sind die Schritte dieselben, nur Ollama wird anders gestartet.
 
 Was das Modell tut und was gesendet wird, steht in [ai.de.md](ai.de.md).
 
@@ -11,13 +11,14 @@ Was das Modell tut und was gesendet wird, steht in [ai.de.md](ai.de.md).
 1. **Ollama selbst**: [ollama.com/download](https://ollama.com/download) oder `brew install --cask ollama`. Die App einmal starten; sie läuft in der Menüleiste und antwortet unter `http://127.0.0.1:11434`.
 2. **Ein Modell**, das in deinen Arbeitsspeicher passt. Belege braucht ein Modell, das in JSON antwortet, ohne vorher „nachzudenken“ (ein Reasoning-Modell braucht auf dem Prozessor Minuten pro Beleg), und das Deutsch, Englisch und andere Sprachen liest:
 
-   | Dein Rechner                    | Modell                               | Download | Hinweis                                                                                                |
-   | ------------------------------- | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------ |
-   | 32 GB Arbeitsspeicher oder mehr | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Unsere Wahl. Mixture of Experts: Pro Wort arbeiten etwa 3B Parameter, deshalb schnell für seine Größe. |
-   | 16 GB Arbeitsspeicher           | `qwen3:4b-instruct-2507-q4_K_M`      | 2,5 GB   | Schneller, schwächer: Mehrere Steuersätze, lange oder fremdsprachige Belege gehen öfter schief.        |
+   | Dein Rechner                    | Modell                               | Download | Hinweis                                                                                                                                              |
+   | ------------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 32 GB Arbeitsspeicher oder mehr | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Liest am besten. Mixture of Experts: Pro Wort arbeiten etwa 3B Parameter, deshalb schnell für seine Größe.                                           |
+   | 16 GB Arbeitsspeicher           | `qwen3:4b-instruct-2507-q4_K_M`      | 2,5 GB   | **Voreinstellung der Bridge**: passt auf einen normalen Laptop. Schwächer: Mehrere Steuersätze, lange oder fremdsprachige Belege gehen öfter schief. |
 
    ```bash
-   ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M
+   ollama pull qwen3:4b-instruct-2507-q4_K_M          # voreingestellt
+   ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M     # ab 32 GB
    ```
 
    Für das große halte 20 GB auf der Platte frei. Modelle, die du nicht mehr brauchst: `ollama list`, dann `ollama rm <Name>`.
@@ -41,13 +42,17 @@ pnpm setup:llm
 
 | Frage                                        | Antwort                                                                                                                                                                                                                                                        |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLM base URL                                 | `http://127.0.0.1:11434/v1`                                                                                                                                                                                                                                    |
-| Model                                        | der Name aus Schritt 1, z. B. `qwen3:30b-a3b-instruct-2507-q4_K_M`                                                                                                                                                                                             |
-| Model for the retry                          | derselbe Name (oder das kleine Modell, wenn beide geladen sind)                                                                                                                                                                                                |
+| Which one?                                   | Enter (1, Ollama auf diesem Rechner – voreingestellt)                                                                                                                                                                                                          |
+| LLM base URL                                 | Enter (`http://127.0.0.1:11434/v1`)                                                                                                                                                                                                                            |
+| Model                                        | Enter für das voreingestellte `qwen3:4b-instruct-2507-q4_K_M`, oder der Name aus Schritt 1                                                                                                                                                                     |
+| Model for the retry                          | Enter (derselbe Name), oder das kleine Modell, wenn beide geladen sind                                                                                                                                                                                         |
 | Does the model run on this machine itself …? | Enter (ja). Es geht nichts hinaus, also wird nichts geschwärzt ([#423](https://github.com/Le-Space/belege/issues/423)); die Begriffe werden nicht abgefragt und bleiben für später. `n` nur bei einem Proxy auf 127.0.0.1, der an einen Anbieter weiterleitet. |
-| API key                                      | Enter. Ollama braucht keinen; ein Schlüssel für einen anderen Anbieter bleibt für später gespeichert.                                                                                                                                                          |
 
-Dann die Bridge neu starten (`pnpm bridge`). In der App zeigt _Integrationen → KI – Beleg-Auslesen_ den Anbieter `127.0.0.1:11434` und das Modell.
+Ein API-Key wird nicht abgefragt: Ollama braucht keinen, und ein Schlüssel für einen anderen Anbieter bleibt für später gespeichert. Am Ende prüft `setup:llm`, ob Ollama antwortet und das Modell hat, und sagt sonst, was zu tun ist.
+
+Dann die Bridge neu starten (`pnpm bridge`). In der App zeigt _Integrationen → KI – Beleg-Auslesen_ _Ollama – auf diesem Rechner_, `127.0.0.1:11434` und das Modell. Läuft Ollama nicht oder fehlt das Modell, sagt die Bridge das beim Start, und die KI-Karte zeigt die Schritte; stattdessen wird nichts an ein Modell im Internet geschickt.
+
+Eine Bridge, die DeepSeek noch aus der alten Voreinstellung hat, fragt einmal – bei `pnpm setup:llm`, beim Start und auf der KI-Karte –, ob sie hierher wechseln soll; die Antwort steht in `bridge.json`.
 
 ## 4. In Belege
 
@@ -75,4 +80,4 @@ Gemessen am 15.10.2026 auf einem Intel-Mac (i9, 32 GB, nur Prozessor – eine AM
 | Ein Beleg: „no answer within 600 s“            | Der Rechner ist ausgelastet oder der Beleg sehr lang. Später einzeln erneut lesen (_Auslesen_).    |
 | Lange Belege kommen halb gelesen zurück        | `OLLAMA_CONTEXT_LENGTH` ist im laufenden Ollama nicht gesetzt (Schritt 2; mit `ollama ps` prüfen). |
 
-Zurück zu einem Anbieter im Internet: `pnpm setup:llm` erneut mit dessen URL und Modellen, dann die Bridge neu starten.
+Stattdessen bewusst ein Anbieter im Internet: `pnpm setup:llm`, Wahl 3, dessen URL (angezeigt mit dem Land des Anbieters, etwa DeepSeek – China) und Modelle, dann die Bridge neu starten.

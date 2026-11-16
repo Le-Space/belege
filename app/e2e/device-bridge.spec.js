@@ -49,7 +49,13 @@ test.beforeAll(async () => {
 			...defaultConfig(),
 			bridge: { port: BRIDGE_PORT },
 			appOrigins: [APP_ORIGIN],
-			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: llm.url,
+				configured: true
+			}
 		},
 		configPath
 	);

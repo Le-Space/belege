@@ -51,7 +51,13 @@ test.beforeAll(async () => {
 				certSha256: hibiscus.fingerprint,
 				ibanSuffixes: ['4711']
 			},
-			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: llm.url,
+				configured: true
+			}
 		},
 		configPath
 	);

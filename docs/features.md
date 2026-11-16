@@ -57,7 +57,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
   3. _KI-Vorschlag_ for a receipt;
   4. _KI-Vorschlag_ for the other side of an own transfer;
   5. _Ungereimtheiten erklären_ in a vendor account.
-- **Your own model**, set up in the bridge (DeepSeek, Ollama, …). Text is redacted before it is sent – that limits what leaves, it does not make it anonymous; a local model sends nothing. Le Space runs no AI.
+- **Your own model**, set up in the bridge: by default Ollama on your computer; a provider on the internet such as DeepSeek (China) only if you choose it. Text is redacted before it is sent – that limits what leaves, it does not make it anonymous; a local model sends nothing. Le Space runs no AI.
 - **Usage in view:** tokens and cost per day, week, month and receipt. See [ai.md](ai.md).
 
 ## Crypto

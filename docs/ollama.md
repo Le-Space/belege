@@ -2,7 +2,7 @@
 
 [Deutsch](ollama.de.md)
 
-With a local model, **no receipt text leaves your computer**: the bridge sends it to [Ollama](https://ollama.com) on `127.0.0.1` instead of a provider on the internet. It costs nothing but time and disk space. This page sets it up on a Mac; on Linux and Windows the steps are the same, only the way Ollama is started differs.
+Since 2026-11-16 this is the bridge's **default**. With a local model, **no receipt text leaves your computer**: the bridge sends it to [Ollama](https://ollama.com) on `127.0.0.1` instead of a provider on the internet. It costs nothing but time and disk space. This page sets it up on a Mac; on Linux and Windows the steps are the same, only the way Ollama is started differs.
 
 What the model does and what is sent is in [ai.md](ai.md).
 
@@ -11,13 +11,14 @@ What the model does and what is sent is in [ai.md](ai.md).
 1. **Ollama itself**: [ollama.com/download](https://ollama.com/download), or `brew install --cask ollama`. Start the app once; it runs in the menu bar and answers on `http://127.0.0.1:11434`.
 2. **One model** that fits your memory. Belege needs a model that answers in JSON without "thinking" first (a reasoning model spends minutes per receipt on a CPU) and reads German, English and other languages:
 
-   | Your computer        | Model                                | Download | Note                                                                                           |
-   | -------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
-   | 32 GB memory or more | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Our pick. A mixture of experts: about 3B parameters work per word, so it is fast for its size. |
-   | 16 GB memory         | `qwen3:4b-instruct-2507-q4_K_M`      | 2.5 GB   | Faster, weaker: several VAT rates, long or foreign receipts go wrong more often.               |
+   | Your computer        | Model                                | Download | Note                                                                                                                     |
+   | -------------------- | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+   | 32 GB memory or more | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Reads best. A mixture of experts: about 3B parameters work per word, so it is fast for its size.                         |
+   | 16 GB memory         | `qwen3:4b-instruct-2507-q4_K_M`      | 2.5 GB   | **The bridge's default**: fits a normal laptop. Weaker: several VAT rates, long or foreign receipts go wrong more often. |
 
    ```bash
-   ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M
+   ollama pull qwen3:4b-instruct-2507-q4_K_M          # the default
+   ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M     # with 32 GB or more
    ```
 
    Keep 20 GB free on the disk for the larger one. Models you no longer use: `ollama list`, then `ollama rm <name>`.
@@ -41,13 +42,17 @@ pnpm setup:llm
 
 | Question                                     | Answer                                                                                                                                                                                                                                |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLM base URL                                 | `http://127.0.0.1:11434/v1`                                                                                                                                                                                                           |
-| Model                                        | the name from step 1, e.g. `qwen3:30b-a3b-instruct-2507-q4_K_M`                                                                                                                                                                       |
-| Model for the retry                          | the same name (or the small model, if both are downloaded)                                                                                                                                                                            |
+| Which one?                                   | Enter (1, Ollama on this computer – the default)                                                                                                                                                                                      |
+| LLM base URL                                 | Enter (`http://127.0.0.1:11434/v1`)                                                                                                                                                                                                   |
+| Model                                        | Enter for the default `qwen3:4b-instruct-2507-q4_K_M`, or the name from step 1                                                                                                                                                        |
+| Model for the retry                          | Enter (the same name), or the small model if both are downloaded                                                                                                                                                                      |
 | Does the model run on this machine itself …? | Enter (yes). Nothing leaves, so nothing is blacked out ([#423](https://github.com/Le-Space/belege/issues/423)); the terms are not asked and are kept for later. Answer `n` only for a proxy on 127.0.0.1 that forwards to a provider. |
-| API key                                      | Enter. Ollama needs none; a key stored for another provider stays for later.                                                                                                                                                          |
 
-Then restart the bridge (`pnpm bridge`). In the app, _Integrationen → KI – Beleg-Auslesen_ shows the provider `127.0.0.1:11434` and the model.
+No API key is asked: Ollama needs none, and a key stored for another provider stays for later. At the end `setup:llm` checks that Ollama answers and has the model, and says what to do if not.
+
+Then restart the bridge (`pnpm bridge`). In the app, _Integrationen → KI – Beleg-Auslesen_ shows _Ollama – on this computer_, `127.0.0.1:11434` and the model. If Ollama is not running or lacks the model, the bridge says so at its start and the KI card shows the steps; nothing is sent to a model on the internet instead.
+
+A bridge that still had DeepSeek from the old default asks once – in `pnpm setup:llm`, at its start and on the KI card – whether to switch to this; the answer is kept in `bridge.json`.
 
 ## 4. In Belege
 
@@ -75,4 +80,4 @@ Measured 2026-10-15 on an Intel Mac (i9, 32 GB, CPU only – Ollama uses no AMD 
 | A receipt: "no answer within 600 s"            | The computer is busy, or the receipt is very long. Read it again later on its own (_Auslesen_). |
 | Long receipts come back half-read              | `OLLAMA_CONTEXT_LENGTH` is not set in the running Ollama (step 2; check with `ollama ps`).      |
 
-Back to a provider on the internet: `pnpm setup:llm` again with its URL and models, then restart the bridge.
+A provider on the internet instead, on purpose: `pnpm setup:llm`, choice 3, its URL (shown with the provider's country, e.g. DeepSeek – China) and models, then restart the bridge.

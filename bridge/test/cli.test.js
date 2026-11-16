@@ -76,7 +76,13 @@ test('test mode: mail and LLM secrets from the environment; /health says both ar
 			...defaultConfig(),
 			bridge: { port: 0 },
 			mail: { ...defaultConfig().mail, host: '127.0.0.1', port: 1, user: 'u', tls: 'none' },
-			llm: { ...defaultConfig().llm, baseUrl: 'http://127.0.0.1:1', configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: 'http://127.0.0.1:1',
+				configured: true
+			}
 		},
 		configPath
 	);

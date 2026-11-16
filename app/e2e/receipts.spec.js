@@ -84,6 +84,8 @@ test.beforeAll(async () => {
 			},
 			llm: {
 				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName],
 				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out (#423).
@@ -150,9 +152,7 @@ test('mail, preview, extraction, phishing warning, upload, reload, nothing reada
 	await expect(ki.getByTestId('ki-simple')).toContainText('Die KI liest nur Belege aus');
 	await expect(ki.getByTestId('ki-simple')).toContainText('macht die App selbst');
 	// How to read locally with Ollama, and where the whole guide is (docs/ollama.de.md).
-	await expect(ki.getByTestId('ki-ollama')).toContainText(
-		'ollama pull qwen3:30b-a3b-instruct-2507'
-	);
+	await expect(ki.getByTestId('ki-ollama')).toContainText('ollama pull qwen3:4b-instruct-2507');
 	await expect(ki.getByTestId('ki-ollama-doc')).toHaveAttribute(
 		'href',
 		'https://github.com/Le-Space/belege/blob/main/docs/ollama.de.md'

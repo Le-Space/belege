@@ -51,16 +51,32 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
    into the keychain). `IMAP_*` from the repo's `.env` are offered as defaults, `IMAP_PASSWORD`
    once instead of the prompt. It offers one test login that only counts folders.
 7. **LLM** (optional): `pnpm setup:llm` first asks which kind of model (see [LLM](#llm)):
-   - **1, an OpenAI-compatible URL** (DeepSeek, a model on this machine, any other): the base URL
-     (default `https://api.deepseek.com`, https only, `http://localhost` for a local model), the
-     model and the retry model (default `deepseek-flash`, `deepseek-v4-pro`), the terms to black
-     out (your name, family names; `;`-separated) and the API key (hidden prompt, into the
-     keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are offered.
+   - **1, Ollama on this computer** (the default): nothing leaves the computer. The base URL
+     (default `http://127.0.0.1:11434/v1`), the model and the retry model (default
+     `qwen3:4b-instruct-2507-q4_K_M`, 2.5 GB, for a laptop with 16 GB; with 32 GB
+     `qwen3:30b-a3b-instruct-2507-q4_K_M` reads better, see [`docs/ollama.md`](../docs/ollama.md)),
+     and whether the model runs on this machine itself (then nothing is blacked out, #423). No API
+     key. It then checks that Ollama answers and has the model, and if not says what to do:
+     install it from ollama.com/download, `ollama pull <model>`, start it.
    - **2, LibertAI confidential** (#416): the model in LibertAI's attested enclave
      (`qwen3.8-27b-tee`). It looks the enclave up in LibertAI's signed manifest, attests it, shows
      what it pinned (and the source commit to rebuild), and asks for the API key from
      console.libertai.io (hidden prompt, into the keychain; `LIBERTAI_API_KEY` from `.env` is
      offered).
+   - **3, another OpenAI-compatible URL**: a provider on the internet, only on purpose – the URL
+     has no default (https only), and the provider and its country are shown before it is taken
+     (for example _DeepSeek – China_); or another server on this machine (`http://localhost`,
+     LM Studio). The model and the retry model (for DeepSeek `deepseek-flash`, `deepseek-v4-pro`),
+     the terms to black out (your name, family names; `;`-separated) and, for a provider, the API
+     key (hidden prompt, into the keychain). `DEEPSEEK_*` and `REDACT_TERMS` from `.env` are
+     offered.
+
+   Until 2026-11-16 DeepSeek was the default. A config that still has DeepSeek and never said it
+   wants it is asked once – by `pnpm setup:llm`, at the bridge's start (in a terminal; otherwise
+   its log says where to answer), and on the app's KI page – whether to switch to the local model
+   or to keep DeepSeek on purpose. The answer is kept in `bridge.json` (`llm.cloudOnPurpose`),
+   never in the browser; switching takes effect after a restart, and text stays blacked out until
+   `pnpm setup:llm` is told the model runs on this machine.
 8. **Alchemy** (optional, for own EVM wallets): `pnpm setup:alchemy` asks for an Alchemy API key
    in a hidden prompt (Enter keeps a stored one, `-` deletes it), checks it with `eth_chainId` on
    each network (Ethereum, Base, Arbitrum, OP Mainnet, Polygon – enable them for the app in the
@@ -367,6 +383,7 @@ scope (#579, above); a public command needs none. `test/readme.test.js` keeps th
 | `chains.akashDeployments` | `POST /akash/deployments` | `bridge:chains:read` | yes |
 | `chains.wallet` | `POST /<chain>/wallet` | `bridge:chains:read` | yes |
 | `llm.status` | `GET /llm/status` | `bridge:llm` | yes |
+| `llm.choice` | `POST /llm/choice` | `bridge:llm` | yes |
 | `llm.extract` | `POST /extract` | `bridge:llm` | yes |
 
 The node's own commands, beside those of the table:
@@ -411,7 +428,8 @@ the command's name and arguments are what the stream carries.
 | `GET /mail/attachment?id=<id>&part=<n>`                                                                                      | the bytes of one attachment: PDFs and images only (by their bytes), at most 15 MB                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `POST /mail/trash` `{ id }`                                                                                                  | moves that one mail into the mailbox's Trash (MOVE); `404` for a mail the id does not name (any more), `409` without a Trash folder or for a mail already in it. The app asks before it calls this                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `GET /mail/search?text=&amount=&from=&term=…&around=YYYY-MM-DD&days=14`                                                      | the targeted search in the whole mailbox (Junk included, Trash and Drafts not): the same shape plus `matched` (`"text"`, `"term"`, `@domain`, or which amount spelling). `term` (up to 6, each 3–100 of letters, digits and `.,:_-`): more words anywhere in the mail, e.g. a crypto payment's hash, address and quantity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `GET /llm/status`                                                                                                            | `{ configured, provider, models { primary, fallback }, keyConfigured, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`), whether the keychain holds a key (yes/no, never the key), and how many terms are blacked out (a count, never the terms)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `GET /llm/status`                                                                                                            | `{ configured, provider, providerInfo { id, name, country, local }, models { primary, fallback }, keyConfigured, keyRequired, ollama, defaultQuestion, restartNeeded, redactTerms, mail { authServId } }`: the provider's host only (no path, query or `user:password@`) and whose it is with its country (ISO 3166; `local` for this computer), whether the keychain holds a key (yes/no, never the key) and whether one is needed (not for a model on this computer), for Ollama `{ state: running | unreachable | model-missing, model }`, whether the question about the old DeepSeek default is open, and how many terms are blacked out (a count, never the terms) |
+| `POST /llm/choice` `{ answer }` | the answer to the question about the old DeepSeek default, `local` or `keep`: `local` writes Ollama and its default model into `bridge.json` (used after a restart; text stays blacked out until `pnpm setup:llm` is told it runs here), `keep` records that DeepSeek is wanted. `409` when nothing is asked; refused on a hosted bridge |
 | `GET /enablebanking/banks?country=DE`                                                                                        | `{ banks: [{ name, country, psuTypes, maxConsentDays, beta }] }`: the banks Enable Banking offers there, cached an hour. 503 `EB_NOT_SET_UP` until `pnpm setup:enablebanking`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `POST /enablebanking/link` `{ bank, country, psuType? }`                                                                     | `{ url, state, validUntil }`: the bank's page; the bridge keeps `state` for 30 minutes. Consent for the bank's maximum, at most 180 days; `psuType` defaults to `business` where offered                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `POST /enablebanking/finish` `{ code, state }`                                                                               | `{ link }`: the bank's answer becomes a session, sealed with the key. 409 `EB_STATE` for a state this bridge did not start, used already or older than 30 minutes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -481,17 +499,24 @@ Which language model reads, and where it runs:
 
 | Where the bridge runs | Model | What is checked |
 | --- | --- | --- |
-| On your computer | a local model (Ollama, LM Studio), any OpenAI-compatible URL (`setup:llm` 1, DeepSeek by default), or LibertAI confidential (`setup:llm` 2) | LibertAI confidential: the enclave's attestation before every connection (`src/llm/confidential.js`); the others: nothing, the provider sees the redacted text |
+| On your computer | by default Ollama on this computer (`setup:llm` 1, `qwen3:4b-instruct-2507-q4_K_M`); LibertAI confidential (`setup:llm` 2); or, only on purpose, a provider on the internet such as DeepSeek – China, or another local server (`setup:llm` 3) | Ollama: that it answers and has the model, at the start and on the KI page (`src/llm/ollama.js`), never a model elsewhere instead; LibertAI confidential: the enclave's attestation before every connection (`src/llm/confidential.js`); a provider: nothing, it sees the redacted text |
 | Hosted, on Aleph or on Phala through NEAR | only LibertAI confidential, pinned (#754) | the same attestation, from inside the VM; any other model is dropped at the start |
 
 LibertAI confidential: the bridge looks the enclave up in LibertAI's signed manifest, checks AMD's
 signature chain, that the report binds the TLS key it talks to and that the measurement is the
 pinned one. It proves which image runs, not what it does (for that, rebuild
 `Libertai/confidential-inference`, VERIFYING.md); LibertAI still sees the caller's IP address,
-sizes and times. LibertAI's other models (without an enclave) work through `setup:llm` 1 like any
+sizes and times. LibertAI's other models (without an enclave) work through `setup:llm` 3 like any
 OpenAI-compatible URL; the node's operator could read their text. More in
 [`docs/ai.md`](../docs/ai.md).
 
+- Ollama missing: when nothing answers on `127.0.0.1:11434`, or the model is not pulled, the
+  bridge says so at the start with the steps (install, `ollama pull <model>`, start), and the
+  app's KI page shows them; a receipt then fails with "cannot be reached". No provider on the
+  internet is used instead.
+- Provider and country: `src/llm/providers.js` names the provider of a base URL and its country
+  (DeepSeek – China, OpenAI – United States, Mistral AI – France); `setup:llm`, the log and
+  `/llm/status` show it.
 - The bridge redacts, not the browser: every `/extract` goes through `src/llm/redact.js` (the
   phase-0 rules: the terms from `bridge.json`, IBANs with the last four characters kept, SEPA
   creditor ids kept, e-mail addresses of our own domains – from the IMAP user and the accounting
@@ -712,7 +737,8 @@ a token). `POST /portals/new` (`src/portals/local.js`):
 - **What leaves this machine**:
   - to the mail server: the IMAP login (from the keychain) and read-only commands over TLS, plus a MOVE of one mail to the Trash when a person asks for it
     (`tls: none` is refused for anything but a server on this machine);
-  - to the LLM provider (DeepSeek: servers in China): per "Auslesen", the redacted text layer of
+  - with Ollama (the default) nothing: the text goes to 127.0.0.1. To a provider on the internet
+    chosen on purpose (for example DeepSeek: servers in China): per "Auslesen", the redacted text layer of
     one PDF (up to 30 000 characters) or a mail's text excerpt, with the redacted subject, sender
     address and file name, and the API key. Never the file itself, never a mail that was not
     asked for. Redaction is pattern-based: a name not in the terms list, or an address in an

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The bridge's default language model is Ollama on this computer (`qwen3:4b-instruct-2507-q4_K_M`), no longer DeepSeek: no receipt text leaves the computer unless you choose a provider on the internet on purpose. `pnpm setup:llm` offers Ollama first and needs no API key for it; a provider on the internet has to be typed and is shown with its country (for example _DeepSeek – China_) before it is taken. When Ollama is not installed, not running or lacks the model, the bridge and the KI card say so with the steps; no cloud model is used instead. A bridge that still has DeepSeek from the old default asks once – in `pnpm setup:llm`, at its start and on the KI card – whether to switch or keep DeepSeek on purpose, and keeps the answer in `bridge.json`. The consent screen says so (version 54).
+
 ## [0.34.0] – 2026-11-16
 
 ### Added

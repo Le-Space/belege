@@ -54,7 +54,13 @@ test.beforeAll(async () => {
 				tls: 'none',
 				accountingAddress: ACCOUNTING
 			},
-			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: llm.url,
+				configured: true
+			}
 		},
 		configPath
 	);

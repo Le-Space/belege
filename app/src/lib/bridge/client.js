@@ -556,9 +556,22 @@ export function createBridgeClient({
 		 * whether a key is in its keychain (never the key), how many terms it
 		 * blacks out, and the mail server id it trusts for the sender check.
 		 *
-		 * @returns {Promise<{ configured: boolean, provider: string | null, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, redactTerms: number, redaction?: { mode: 'auto' | 'on' | 'off', active: boolean }, mail: { authServId: string | null } }>}
+		 * Since the Ollama default (2026-11-16) also whose model it is and where
+		 * (`providerInfo`), whether a key is needed, whether Ollama answers and
+		 * has the model, and the question about the old DeepSeek default.
+		 *
+		 * @returns {Promise<{ configured: boolean, provider: string | null, providerInfo?: { id: string, name: string, country: string | null, local: boolean }, models: { primary: string | null, fallback: string | null }, keyConfigured: boolean, keyRequired?: boolean, ollama?: { state: 'running' | 'unreachable' | 'model-missing', model: string } | null, defaultQuestion?: boolean, restartNeeded?: boolean, redactTerms: number, redaction?: { mode: 'auto' | 'on' | 'off', active: boolean }, mail: { authServId: string | null } }>}
 		 */
 		llmStatus: () => command('llm.status'),
+		/**
+		 * The answer to the question about the old DeepSeek default: `local`
+		 * switches the bridge to Ollama on its computer (after a restart), `keep`
+		 * keeps DeepSeek on purpose. The bridge keeps it in its config.
+		 *
+		 * @param {'local' | 'keep'} answer
+		 * @returns {Promise<{ answer: string, restartNeeded: boolean }>}
+		 */
+		llmChoice: (answer) => command('llm.choice', { answer }),
 		/**
 		 * What one unit of an asset was worth in EUR on a day, and where that
 		 * number comes from (packages/rates/src/rates.js).

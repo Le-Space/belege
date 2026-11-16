@@ -116,7 +116,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 53: the bridge's functions are no longer served over HTTP (#580); the node
 //     on this computer pairs a bridge's node only if these books never paired
 //     it, and dials nothing while the network is paused.
-export const CONSENT_VERSION = '53';
+// 54: the language model is Ollama on this computer by default, no longer
+//     DeepSeek; a provider on the internet (DeepSeek – China, …) only by
+//     choice, and a bridge that still has the old default asks once.
+export const CONSENT_VERSION = '54';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

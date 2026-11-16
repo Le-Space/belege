@@ -25,7 +25,9 @@ import { ALEPH_API } from '@le-space/chains/aleph';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from '@le-space/chains/http';
 import { withExtraTerms } from './llm/redact.js';
-import { redactionOff, redactionOffForEnclave } from './config.js';
+import { isLoopbackUrl, redactionOff, redactionOffForEnclave } from './config.js';
+import { providerOf } from './llm/providers.js';
+import { needsDefaultQuestion } from './llm/default-choice.js';
 
 export const VERSION = '0.2.0';
 /** A JSON body, unless a command says more. */
@@ -226,6 +228,8 @@ export function errorJson(error) {
  * @param {import('./llm/extract.js').Extractor | null} deps.llm
  * @param {() => Promise<boolean>} deps.llmKeyPresent
  * @param {(() => object) | null} deps.llmTee
+ * @param {(() => Promise<{ state: string, model: string }>) | null} [deps.llmOllama] Ollama there? (llm/ollama.js)
+ * @param {((answer: 'local' | 'keep') => Promise<boolean>) | null} [deps.llmChoice] the old-default question's answer
  * @param {any} deps.assist
  * @param {any} deps.matchAssist
  * @param {any} deps.transferAssist
@@ -259,6 +263,8 @@ export function createCommands({
 	llm,
 	llmKeyPresent,
 	llmTee,
+	llmOllama = null,
+	llmChoice = null,
 	assist,
 	matchAssist,
 	transferAssist,
@@ -283,6 +289,13 @@ export function createCommands({
 	log
 }) {
 	const suffixes = config.hibiscus.ibanSuffixes;
+	// The model the bridge started with: what calls go to until it restarts,
+	// whatever the config says since (the old-default question, `/llm/choice`).
+	const runningLlm = {
+		baseUrl: config.llm.baseUrl,
+		model: config.llm.model,
+		retryModel: config.llm.retryModel
+	};
 
 	/** Allowed accounts only; the rest never leaves this function. */
 	async function allowedAccounts() {
@@ -1259,9 +1272,19 @@ export function createCommands({
 			run: async () => {
 				let provider = null;
 				try {
-					provider = new URL(config.llm.baseUrl).host || null;
+					provider = new URL(runningLlm.baseUrl).host || null;
 				} catch {
 					provider = null;
+				}
+				const who = providerOf(runningLlm.baseUrl);
+				/** @type {{ state: string, model: string } | null} */
+				let ollama = null;
+				if (llmOllama) {
+					try {
+						ollama = await llmOllama();
+					} catch {
+						ollama = null;
+					}
 				}
 				let keyConfigured = false;
 				try {
@@ -1272,14 +1295,26 @@ export function createCommands({
 				return json(200, {
 					configured: Boolean(llm),
 					provider,
+					// Whose model, and where: a provider on the internet with its country
+					// (ISO 3166), or this computer (llm/providers.js).
+					providerInfo: { id: who.id, name: who.name, country: who.country, local: who.local },
 					models: {
-						primary: config.llm.model || null,
+						primary: runningLlm.model || null,
 						fallback:
-							config.llm.retryModel && config.llm.retryModel !== config.llm.model
-								? config.llm.retryModel
+							runningLlm.retryModel && runningLlm.retryModel !== runningLlm.model
+								? runningLlm.retryModel
 								: null
 					},
 					keyConfigured,
+					// A model on this computer needs no key.
+					keyRequired: !isLoopbackUrl(runningLlm.baseUrl),
+					// Ollama: whether it answers and has the model, so the app can say what to do.
+					ollama,
+					// DeepSeek from the old default: the question the app asks once (default-choice.js).
+					defaultQuestion: Boolean(llmChoice) && needsDefaultQuestion(config.llm),
+					// The answer changed the model: it is used after the bridge's restart.
+					restartNeeded:
+						config.llm.baseUrl !== runningLlm.baseUrl || config.llm.model !== runningLlm.model,
 					// The provider's last refusal since the bridge started (#417): no credit, key, …
 					lastRefusal: llm?.lastRefusal?.() ?? null,
 					redactTerms: config.llm.redactTerms.length,
@@ -1296,6 +1331,32 @@ export function createCommands({
 					// A confidential model (#416): the pinned enclave and how its last proof went.
 					tee: llmTee ? llmTee() : null
 				});
+			}
+		},
+		{
+			// The answer to the question about the old DeepSeek default
+			// (llm/default-choice.js): `local` switches to Ollama on this computer
+			// (used after a restart), `keep` keeps DeepSeek on purpose. Kept in
+			// bridge.json; asked only while the config still needs it.
+			name: 'llm.choice',
+			method: 'POST',
+			path: '/llm/choice',
+			scope: 'bridge:llm',
+			bodyLimit: 256,
+			run: async ({ body }) => {
+				const b = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+				const extra = Object.keys(b).filter((k) => k !== 'answer');
+				if (extra.length || (b.answer !== 'local' && b.answer !== 'keep')) {
+					return json(400, { error: "answer is 'local' or 'keep'", code: 'INVALID_ARGUMENTS' });
+				}
+				if (!llmChoice) {
+					return json(409, { error: 'nothing to choose here', code: 'LLM_NO_QUESTION' });
+				}
+				const changed = await llmChoice(b.answer);
+				if (!changed) {
+					return json(409, { error: 'already answered', code: 'LLM_NO_QUESTION' });
+				}
+				return json(200, { answer: b.answer, restartNeeded: b.answer === 'local' });
 			}
 		},
 		{

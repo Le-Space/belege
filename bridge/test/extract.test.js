@@ -56,6 +56,8 @@ describe('/extract', () => {
 			},
 			llm: {
 				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName, 'Beispielkund'],
 				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out.
@@ -385,8 +387,14 @@ describe('/extract', () => {
 		assert.deepEqual(rest, {
 			configured: true,
 			provider: new URL(llm.url).host,
+			// The fake listens on 127.0.0.1 (not Ollama's port): a server on this computer.
+			providerInfo: { id: 'local', name: new URL(llm.url).host, country: null, local: true },
 			models: { primary: 'deepseek-flash', fallback: 'deepseek-v4-pro' },
 			keyConfigured: true,
+			keyRequired: false,
+			ollama: null,
+			defaultQuestion: false,
+			restartNeeded: false,
 			redactTerms: 2,
 			redaction: { mode: 'on', active: true, local: false, enclave: false },
 			mail: { authServId: null },
@@ -525,6 +533,8 @@ test('/llm/status without an LLM: not configured, no key, the host of the config
 		appOrigins: [APP],
 		llm: {
 			...defaultConfig().llm,
+			model: 'deepseek-flash',
+			retryModel: 'deepseek-v4-pro',
 			baseUrl: 'https://user:secret-in-url@api.example.test:8443/v1?key=nope'
 		},
 		mail: { ...defaultConfig().mail, authServId: 'mx.example.test' }
@@ -558,7 +568,12 @@ test('/llm/status without an LLM: not configured, no key, the host of the config
 });
 
 test('the extractor refuses a base URL without https (except on this machine)', () => {
-	const config = { ...defaultConfig().llm, configured: true };
+	const config = {
+		...defaultConfig().llm,
+		model: 'deepseek-flash',
+		retryModel: 'deepseek-v4-pro',
+		configured: true
+	};
 	assert.throws(
 		() =>
 			createExtractor({
@@ -694,6 +709,8 @@ test('travel fields made exact: a kind, times, days, nights; what does not fit i
 test('a provider that cannot be reached is named, a slow answer is not (#417)', async () => {
 	const config = {
 		...defaultConfig().llm,
+		model: 'deepseek-flash',
+		retryModel: 'deepseek-v4-pro',
 		baseUrl: 'http://127.0.0.1:11434/v1',
 		model: 'local-a',
 		retryModel: 'local-b',
@@ -761,6 +778,8 @@ test('a model on this machine gets the text as it is; a provider elsewhere does 
 		createExtractor({
 			config: {
 				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
 				redactTerms: ['Erika Beispielkund'],
 				configured: true,
 				...over
@@ -810,6 +829,8 @@ test('the model request follows no redirect: the text would go along (#431)', as
 	const extractor = createExtractor({
 		config: {
 			...defaultConfig().llm,
+			model: 'deepseek-flash',
+			retryModel: 'deepseek-v4-pro',
 			baseUrl: 'http://127.0.0.1:11434/v1',
 			redaction: 'off',
 			configured: true

@@ -14,6 +14,7 @@
 	import { docUrl } from '$lib/help/integration-help.js';
 	import { bridge, bridgeClient, bridgePaired, checkBridge } from './bridge-state.svelte.js';
 	import { llmAttested } from './bridge-status.js';
+	import { ollamaHelp, providerText } from './llm-provider.js';
 	import {
 		booksExpectedBridge,
 		hostedBridgeAnswers,
@@ -65,6 +66,29 @@
 	// Green only when the bridge itself reports the enclave's attestation as checked.
 	let attested = $derived(llmAttested(llmStatus));
 	let attestedMoment = $derived(attested ? describeMoment(attested.verifiedAt) : null);
+
+	// Whose model, and where ("DeepSeek – China"); Ollama missing, with the steps.
+	let providerLine = $derived(providerText(llmStatus, currentLocale()));
+	let ollamaMissing = $derived(hosted ? null : ollamaHelp(llmStatus));
+	// DeepSeek from the old default: asked once; the bridge keeps the answer (POST /llm/choice).
+	let askDefault = $derived(!hosted && /** @type {any} */ (llmStatus)?.defaultQuestion === true);
+	let restartNeeded = $derived(/** @type {any} */ (llmStatus)?.restartNeeded === true);
+	let choosing = $state(false);
+	/** @type {string | null} */
+	let choiceError = $state(null);
+	/** @param {'local' | 'keep'} answer */
+	async function choose(answer) {
+		choosing = true;
+		choiceError = null;
+		try {
+			await bridgeClient().llmChoice(answer);
+			await loadLlmStatus();
+		} catch (error) {
+			choiceError = error instanceof Error ? error.message : String(error);
+		} finally {
+			choosing = false;
+		}
+	}
 
 	/** The bridge was asked again after a failed status: once, until a status comes. */
 	let rechecked = false;
@@ -154,6 +178,62 @@
 				<p class="mt-1">{t('integrationen.ki.hostedNoModelRestart')}</p>
 			</div>
 		{/if}
+		{#if askDefault}
+			<!-- DeepSeek because it was the default: asked once, the answer kept in bridge.json. -->
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+				role="group"
+				aria-labelledby="ki-default-h"
+				data-testid="ki-default-question"
+			>
+				<p id="ki-default-h" class="font-medium text-heading">
+					{t('integrationen.ki.defaultQuestion.title')}
+				</p>
+				<p class="mt-1">{t('integrationen.ki.defaultQuestion.text')}</p>
+				<div class="mt-2 flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={choosing}
+						onclick={() => choose('local')}
+						data-testid="ki-default-local">{t('integrationen.ki.defaultQuestion.local')}</button
+					>
+					<button
+						type="button"
+						class="min-h-11 rounded-md border border-border px-4 text-sm font-medium text-heading hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={choosing}
+						onclick={() => choose('keep')}
+						data-testid="ki-default-keep">{t('integrationen.ki.defaultQuestion.keep')}</button
+					>
+				</div>
+				{#if choiceError}
+					<p class="mt-2 text-danger" role="alert" data-testid="ki-default-error">
+						{t('integrationen.ki.defaultQuestion.failed', { error: choiceError })}
+					</p>
+				{/if}
+			</div>
+		{/if}
+		{#if restartNeeded}
+			<p class="mt-3 text-sm text-text" role="status" data-testid="ki-restart-needed">
+				{t('integrationen.ki.restartNeeded')}
+			</p>
+		{/if}
+		{#if ollamaMissing}
+			<!-- Ollama is the model and does not answer, or lacks the model: what to do. No model elsewhere instead. -->
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 px-4 py-3 text-sm text-text"
+				role="alert"
+				data-testid="ki-ollama-missing"
+				data-state={llmStatus?.ollama?.state}
+			>
+				<p class="font-medium text-heading">{ollamaMissing.message}</p>
+				<ol class="mt-1 list-decimal space-y-1 pl-5">
+					{#each ollamaMissing.steps as step (step)}
+						<li>{step}</li>
+					{/each}
+				</ol>
+			</div>
+		{/if}
 		{#if attested}
 			<p class="mt-3 text-sm" data-testid="ki-attested">
 				<span
@@ -173,6 +253,11 @@
 			data-testid="ki-status"
 		>
 			{#if !hostedNoModel}
+				{#if providerLine}
+					<!-- Whose model, and where: "DeepSeek – China", "Ollama – on this computer". -->
+					<dt class="text-faint">{t('integrationen.ki.providerWho')}</dt>
+					<dd class="text-heading" data-testid="ki-provider-who">{providerLine}</dd>
+				{/if}
 				<dt class="text-faint">{t('integrationen.ki.provider')}</dt>
 				<dd class="font-mono text-xs break-all text-heading" data-testid="ki-provider">
 					{llmStatus.provider ?? '—'}
@@ -217,13 +302,17 @@
 				</dd>
 				<dt class="text-faint">{t('integrationen.ki.key')}</dt>
 				<dd
-					class={llmStatus.keyConfigured ? 'font-medium text-success' : 'font-medium text-danger'}
+					class={llmStatus.keyConfigured || llmStatus.keyRequired === false
+						? 'font-medium text-success'
+						: 'font-medium text-danger'}
 					data-testid="ki-key"
 					data-configured={llmStatus.keyConfigured ? 'true' : 'false'}
 				>
 					{llmStatus.keyConfigured
 						? t('integrationen.ki.keyOk')
-						: t(hosted ? 'integrationen.ki.keyMissingHosted' : 'integrationen.ki.keyMissing')}
+						: llmStatus.keyRequired === false
+							? t('integrationen.ki.keyNotNeeded')
+							: t(hosted ? 'integrationen.ki.keyMissingHosted' : 'integrationen.ki.keyMissing')}
 				</dd>
 				{#if llmStatus.redaction}
 					<dt class="text-faint">{t('integrationen.ki.redaction')}</dt>
