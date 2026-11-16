@@ -376,6 +376,20 @@ export default {
 		hostedBridge: {
 			notInstance: 'Das ist kein INSTANCE-Hash (64 Hex-Zeichen).',
 			noPassphrase: 'Ohne die Passphrase des Images lässt sich die VM nicht entsperren.',
+			ownImageOwnerOnly:
+				'Ein eigenes Bridge-Image bauen und entsperren können nur die Geräte des Inhabers der Bücher.',
+			ownImageFewCredits:
+				'Für den Build-Dienst verlangt Aleph einen Tag Reserve: {needed} Credits auf dem Aleph-Schlüssel der Bücher, er hat {credits}. Verbraucht wird davon nur etwa eine Viertelstunde.',
+			ownImageFailed: 'Das Bridge-Image wurde nicht gebaut: {reason}',
+			ownImageWhy: {
+				refused: 'Aleph hat den Build-Dienst nicht angenommen.',
+				unreachable: 'Der Build-Dienst kam nicht hoch oder war über die Relays nicht zu erreichen.',
+				attestation:
+					'Der Build-Dienst zeigte nicht die Messung, die die App erwartet. Die Passphrase ging nicht hinaus.',
+				upload:
+					'Aleph hat das versiegelte Image nicht angenommen. Ein neuer Versuch lädt es nur noch einmal hoch, solange dieses Fenster offen ist.',
+				other: 'ein Schritt ist fehlgeschlagen (Einzelheiten unten).'
+			},
 			noAlephKey:
 				'Diese Bücher haben noch keinen eigenen Aleph-Schlüssel (Integrationen → Aleph): Er ist der Besitzer der VM.',
 			noRelay: 'Keiner der Relays dieser Bücher bietet /attest an.',
@@ -995,7 +1009,7 @@ export default {
 				name: 'Gehostete Bridge (Aleph Cloud, vertrauliche VM, AMD)',
 				text: 'Erst wenn du unter Integrationen → Bridge eine gehostete Bridge startest oder entsperrst: die Bridge in einer vertraulichen VM (AMD SEV-SNP) bei Aleph, die dein Browser vorher attestiert.',
 				leaves:
-					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im, antwortet sie nicht: api.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits oder, mit einem Paket, von Le Spaces Konto nur für diese Bücher – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. Mit einem Paket an credits.le-space.de (Le Space): die unterschriebene Bitte, den Schlüssel der Bücher für dieses Konto freizugeben, und die Wahl des Pakets, bezahlt vom Guthaben. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE, nach den VMs, die der Aleph-Schlüssel der Bücher gestartet hat, und nach Alephs SEV-SNP-Laufzeit; die Laufzeit (öffentlich, etwa 15 MB) bleibt danach im Cache dieses Browsers. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst (Mail, Kraken, Paperless, Alchemy, Enable Banking und, nur wenn es in LibertAIs attestierter Enklave läuft, das Sprachmodell mit seinem Schlüssel; Integrationen → Bridge), unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
+					'An Alephs Knotenliste (crns-list.aleph.sh): die Abfrage, welche Knoten eine vertrauliche VM starten können. An Alephs API (api2.aleph.im, antwortet sie nicht: api.aleph.im): beim Starten die INSTANCE und die Freigabe von Port 443, beim Stoppen ein FORGET, alle signiert mit dem Aleph-Schlüssel der Bücher und bezahlt aus seinen Credits oder, mit einem Paket, von Le Spaces Konto nur für diese Bücher – bei Aleph öffentlich, wie jede Aleph-Nachricht, ohne Inhalt deiner Bücher. Mit einem Paket an credits.le-space.de (Le Space): die unterschriebene Bitte, den Schlüssel der Bücher für dieses Konto freizugeben, und die Wahl des Pakets, bezahlt vom Guthaben. An den Knoten, den du wählst (die Adresse seines Betreibers in Alephs Liste): dass er die VM starten soll, und Abfragen nach ihrem Stand. An Alephs API und IPFS (ipfs.aleph.im): Abfragen nach der INSTANCE, nach den VMs, die der Aleph-Schlüssel der Bücher gestartet hat, und nach Alephs SEV-SNP-Laufzeit; die Laufzeit (öffentlich, etwa 15 MB) bleibt danach im Cache dieses Browsers. An AMDs Schlüsseldienst (kdsintf.amd.com): Abfragen nach dem Zertifikat des Prozessors. An den Relay mit /attest: die verschlüsselte Verbindung zur VM, der Relay sieht nur Größen und Zeiten. Nur wenn du mit dem Aleph-Schlüssel der Bücher zahlst und „Bridge-Image bauen“ drückst: an Alephs API ein V-PROGRAM für einen Build-Dienst (bei Aleph öffentlich, wie jede Aleph-Nachricht) und danach sein FORGET, über die Le-Space-Relays mit /attest an diesen Build-Dienst, erst nach bestandener Attestierung, die Passphrase deines eigenen Images, und zurück das damit versiegelte Image (knapp 1 GB, ohne die Passphrase nicht lesbar); das versiegelte Image mit einer STORE-Nachricht an Alephs API, bezahlt vom Aleph-Schlüssel der Bücher. An die VM selbst, erst nach bestandener Attestierung: die Passphrase des Images, der Schlüssel der Bridge, ihre Peer-ID, die Relays und die Geräte dieser Bücher sowie die Konten und Einstellungen, die du für die gehostete Bridge hältst (Mail, Kraken, Paperless, Alchemy, Enable Banking und, nur wenn es in LibertAIs attestierter Enklave läuft, das Sprachmodell mit seinem Schlüssel; Integrationen → Bridge), unterschrieben mit dem Aleph-Schlüssel der Bücher. Danach erreichen deine Geräte die Bridge über die Relays und unter dem Namen der VM bei 2n6.me. Le Space sieht dabei keinen Schlüssel.',
 				technical:
 					'Vor dem Senden prüft der Browser: Die INSTANCE ist vom Aleph-Schlüssel der Bücher bezahlt oder von Le Spaces Konto für diese Bücher (das der Schlüssel der Bücher in dessen security-Aggregat vertritt), startet das veröffentlichte Image (sein STORE) und nagelt die Messung fest, die der Browser selbst aus Alephs veröffentlichter Laufzeit und der Adresse des Schlüssels der Bücher berechnet – auch wenn Le Space zahlt, nennt die Messung ihn, und nur er entsperrt. Dann beweist die VM diese Messung im RA-TLS-Handshake (AMD-Signatur, an ihren TLS-Schlüssel gebunden) und mit einem frischen Bericht zu einer Zufallszahl des Browsers (@le-space/attest-wasm). Die Secrets landen im Speicher der VM, nicht auf ihrer Platte; nach einem Neustart attestiert der Browser wieder. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
@@ -4662,6 +4676,20 @@ export default {
 			attested: 'Gehostet, attestiert',
 			attestedAt: 'zuletzt attestiert {date}',
 			measurement: 'Messung:',
+			ownImage: {
+				title: 'Eigenes Bridge-Image',
+				none: 'Noch keins: Die VM startet das gemeinsame Image von Le Space, dessen Passphrase du eintippst.',
+				built:
+					'Gebaut {date}. Der nächste Start nutzt es, und es entsperrt sich mit einer Passphrase, die nur deine Bücher kennen – du tippst keine ein.',
+				store: 'Image (STORE):',
+				build: 'Bridge-Image bauen',
+				rebuild: 'Neu bauen',
+				hint: 'Etwa 20 Minuten, dieses Fenster offen lassen. Ein geprüfter Build-Dienst (vertrauliche VM, AMD SEV-SNP) versiegelt das Image mit einer Passphrase aus deinen Büchern; danach wird er gelöscht. Bezahlt vom Aleph-Schlüssel der Bücher: der Build-Dienst etwa eine Viertelstunde, das Image (knapp 1 GB) solange es bei Aleph liegt. Aleph verlangt dafür einen Tag des Build-Dienstes als Reserve, etwa 2 Mio. Credits.',
+				packageLater:
+					'Ein eigenes Image gibt es vorerst nur, wenn der Aleph-Schlüssel der Bücher die VM bezahlt. Mit einem Paket von Le Space startet die VM das gemeinsame Image.',
+				startHint:
+					'Die VM startet dein eigenes Bridge-Image; der Browser leitet seine Passphrase aus deinen Büchern ab. Die Messung nennt den Aleph-Schlüssel der Bücher, und nur er entsperrt die VM. Aleph nimmt sie nur mit einem Tag Reserve.'
+			},
 			startTitle: 'Neue VM starten',
 			startHint:
 				'Die VM gehört dem Aleph-Schlüssel der Bücher: Die Messung nennt ihn, und nur er entsperrt sie. Aleph nimmt sie erst mit einem Tag Reserve an.',
@@ -4741,7 +4769,19 @@ export default {
 				measure: 'Berechne die erwartete Messung …',
 				attest: 'Prüfe die Attestierung der VM …',
 				wait: 'Die VM antwortet noch nicht, warte …',
-				unlock: 'Entsperre und kopple …'
+				unlock: 'Entsperre und kopple …',
+				ownImage: {
+					start:
+						'Starte den Build-Dienst (ein V-PROGRAM, signiert mit dem Aleph-Schlüssel der Bücher) …',
+					attest: 'Prüfe die Attestierung des Build-Dienstes …',
+					build: 'Der Build-Dienst versiegelt das Image mit der Passphrase deiner Bücher …',
+					fetch: 'Hole das versiegelte Image ab …',
+					fetchOf: 'Hole das versiegelte Image ab: {received} von {total} MB …',
+					sign: 'Unterschreibe das Image für Aleph …',
+					upload: 'Lade das versiegelte Image zu Aleph hoch …',
+					uploadOf: 'Lade das versiegelte Image zu {host} hoch ({total} MB) …',
+					confirm: 'Warte, bis Aleph das Image bestätigt …'
+				}
 			},
 			band: {
 				title: 'NEAR Hackathon 2026',

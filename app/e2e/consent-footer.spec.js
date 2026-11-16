@@ -48,7 +48,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 		'href',
 		'https://credits.le-space.de/datenschutz'
 	);
-	// What Le Space and Stripe keep is said, not "nothing with us" (version 54).
+	// What Le Space and Stripe keep is said, not "nothing with us" (version 55).
 	const where = dialog.getByTestId('consent-where');
 	await expect(where).toContainText('nie deine Bücher, nie ein Beleg, kein Schlüssel');
 	await expect(where).toContainText('Bei Stripe, nur wenn du mit Karte auflädst');
@@ -159,7 +159,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('54');
+	expect(after['belege.consent']).toBe('55');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();

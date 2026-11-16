@@ -11,8 +11,11 @@ import {
 	deriveDatabaseKey,
 	deriveDatabaseName,
 	deriveDeviceAuthKey,
-	deriveImagePassphrase
+	deriveImageBase,
+	deriveImagePassphrase,
+	IMAGE_PASSPHRASE_INFO
 } from './database-keys.js';
+import { derivePassphrase } from '@le-space/sealed-image/derive';
 
 const prf = () => crypto.getRandomValues(new Uint8Array(32));
 const hex = (/** @type {Uint8Array} */ b) => Buffer.from(b).toString('hex');
@@ -100,30 +103,43 @@ describe('database-keys', () => {
 		await expect(deriveBlobKey(new Uint8Array(8))).rejects.toThrow(/PRF output/);
 	});
 
-	it('derives the image passphrase per books and per plain image, the same at every unlock (#777)', async () => {
+	it('derives the image passphrase from a base per books, per plain image, the same at every unlock (#777)', async () => {
 		const image = 'ab'.repeat(32);
-		// Node: crypto.hkdfSync(sha256, 32 × 0x07, empty salt,
-		// "belege/image-passphrase/v1/" + image, 32), base64url.
+		// Node: crypto.hkdfSync(sha256, 32 × 0x07, empty salt, "belege/image-base/v1", 32).
 		const root = new Uint8Array(32).fill(7);
-		const passphrase = await deriveImagePassphrase(root, image);
+		expect(hex(await deriveImageBase(root))).toBe(
+			'e6a6d8d38cc9751c2584ec76ed183cf89a637c0531429ce8ec100af51d15c86d'
+		);
+		// Node: crypto.hkdfSync(sha256, base, empty salt,
+		// "belege/image-passphrase/v1/" + image, 32), base64url; here with a base of 32 × 0x07.
+		const base = new Uint8Array(32).fill(7);
+		const passphrase = await deriveImagePassphrase(base, image);
 		expect(passphrase).toBe('ffsaLLCeg6t2oUtzh4nnFL1dS9Ah1iLTluCS9vxAulU');
 		// What goes to cryptsetup and into a signed injection: one line, URL-safe.
 		expect(passphrase).toMatch(/^[A-Za-z0-9_-]{43}$/);
-		expect(await deriveImagePassphrase(Uint8Array.from(root), image)).toBe(passphrase);
+		expect(await deriveImagePassphrase(Uint8Array.from(base), image)).toBe(passphrase);
 
-		// Other books, and the same books after new keys, have another root.
+		// Other books, and the same books after new keys, have another root and so another base.
 		const others = new Set([passphrase]);
-		for (let i = 0; i < 8; i++) others.add(await deriveImagePassphrase(prf(), image));
+		for (let i = 0; i < 8; i++) {
+			others.add(await deriveImagePassphrase(await deriveImageBase(prf()), image));
+		}
 		expect(others.size).toBe(9);
 		// Another plain image is sealed with another passphrase.
-		expect(await deriveImagePassphrase(root, 'cd'.repeat(32))).not.toBe(passphrase);
+		expect(await deriveImagePassphrase(base, 'cd'.repeat(32))).not.toBe(passphrase);
 	});
 
-	it('gives the image passphrase a label of its own: no other key of the books is it', async () => {
+	it('gives the same passphrase as @le-space/sealed-image, which the builder gets', async () => {
+		const base = await deriveImageBase(prf());
+		const image = 'ef'.repeat(32);
+		expect(await deriveImagePassphrase(base, image)).toBe(
+			await derivePassphrase(base, { label: IMAGE_PASSPHRASE_INFO, plainSha256: image })
+		);
+	});
+
+	it('gives the image base a label of its own: no other key of the books is it', async () => {
 		const root = prf();
-		const image = 'ab'.repeat(32);
-		const bytes = Buffer.from(await deriveImagePassphrase(root, image), 'base64url');
-		expect(bytes).toHaveLength(32);
+		const imageBase = await deriveImageBase(root);
 		const base = await deriveBridgeAuthBase(root);
 		for (const other of [
 			await deriveDatabaseKey(root),
@@ -132,19 +148,22 @@ describe('database-keys', () => {
 			base,
 			await bridgeAuthKeyOf(base, 1)
 		]) {
-			expect(hex(bytes)).not.toBe(hex(other));
+			expect(hex(imageBase)).not.toBe(hex(other));
 		}
+		const bytes = Buffer.from(await deriveImagePassphrase(imageBase, 'ab'.repeat(32)), 'base64url');
+		expect(hex(bytes)).not.toBe(hex(imageBase));
 	});
 
-	it('refuses an image passphrase without the books’ root or the plain image’s SHA-256', async () => {
-		const root = prf();
+	it('refuses an image passphrase without a base or the plain image’s SHA-256', async () => {
+		const base = await deriveImageBase(prf());
+		await expect(deriveImageBase(new Uint8Array(8))).rejects.toThrow(/PRF output/);
 		await expect(deriveImagePassphrase(new Uint8Array(8), 'ab'.repeat(32))).rejects.toThrow(
-			/PRF output/
+			/32 bytes/
 		);
 		for (const not of ['', 'latest', 'AB'.repeat(32), 'ab'.repeat(31), `${'ab'.repeat(32)}/x`]) {
-			await expect(deriveImagePassphrase(root, not)).rejects.toThrow(/SHA-256/);
+			await expect(deriveImagePassphrase(base, not)).rejects.toThrow(/SHA-256/);
 		}
-		await expect(deriveImagePassphrase(root, /** @type {any} */ (undefined))).rejects.toThrow(
+		await expect(deriveImagePassphrase(base, /** @type {any} */ (undefined))).rejects.toThrow(
 			/SHA-256/
 		);
 	});

@@ -833,3 +833,101 @@ test('a VM that does not answer: the card says which try and why, cancels, lists
 	expect(aleph.instances.get(instance)?.status).toBe('forgotten');
 	await expect(item).toHaveCount(0);
 });
+
+test('a VM from the books’ own image (#777): no passphrase typed, the derived one goes to it after the attestation, and only to that image', async ({
+	browser
+}) => {
+	test.setTimeout(180_000);
+	const OWN = 'b'.repeat(64);
+	// The plain image the pinned builder seals (integrations/hosted-image.js BRIDGE_BUILDER).
+	const PLAIN = '25f03bb56bc7d305790ae90d878a1d8b9cf71871b5899dc179deeac9ede8efa5';
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E eigenes Image');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	const vmAgent = await startFakeAttestAgent({ measurement: PUBLISHED, owner });
+	const vmRelay = await startFakeAttestRelay(vmAgent);
+	aleph.fund(owner, 30 * FAKE_INSTANCE_CREDITS_PER_HOUR);
+	try {
+		await mac.page.evaluate(
+			([url, pins]) => {
+				localStorage.setItem('belege.e2e.attestUrl', url);
+				localStorage.setItem('belege.e2e.hostedPins', pins);
+			},
+			[vmRelay.url, JSON.stringify(published)]
+		);
+		// As "Bridge-Image bauen" leaves it: the STORE and the plain image it was sealed from.
+		await mac.page.evaluate(
+			([store, plainSha256]) =>
+				/** @type {any} */ (window).__belegeE2E.setOwnImage({
+					store,
+					plainSha256,
+					size: 1_000_000_000,
+					builtAt: new Date().toISOString(),
+					measurement: null,
+					builder: null
+				}),
+			[OWN, PLAIN]
+		);
+
+		await openIntegration(mac.page, 'bridge');
+		await mac.page.getByTestId('hosted-bridge-pays-books').check();
+		const ownImage = mac.page.getByTestId('hosted-bridge-own-image');
+		await expect(ownImage.getByTestId('hosted-bridge-own-image-built')).toBeVisible();
+		await expect(ownImage).toContainText(OWN);
+		await expect(ownImage.getByTestId('hosted-bridge-build-image')).toHaveText('Neu bauen');
+		// Nothing to type: the own image's passphrase is derived.
+		await expect(mac.page.getByTestId('hosted-bridge-start-passphrase')).toHaveCount(0);
+		await mac.page.getByTestId('hosted-bridge-start').click();
+		await expect
+			.poll(
+				async () => {
+					const error = mac.page.getByTestId('hosted-bridge-error');
+					if (await error.isVisible())
+						throw new Error(`start failed: ${await error.textContent()}`);
+					return mac.page.getByTestId('hosted-bridge-state').isVisible();
+				},
+				{ timeout: 90_000, intervals: [500] }
+			)
+			.toBe(true);
+
+		// The INSTANCE boots the books' own image, measured for the books' key as before.
+		const [instance, vm] = [...aleph.instances].find(
+			([, v]) =>
+				v.address.toLowerCase() === owner.toLowerCase() && v.content.rootfs?.parent?.ref === OWN
+		) ?? [null, null];
+		expect(instance).toBeTruthy();
+		expect(vm.content.environment.trusted_execution).toEqual(published);
+		// After the attestation: the passphrase the books derive for this image, never typed.
+		const derived = await mac.page.evaluate(
+			(plain) => /** @type {any} */ (window).__belegeE2E.ownImagePassphrase(plain),
+			PLAIN
+		);
+		expect(derived).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		expect(vmAgent.received.luks_passphrase).toBe(derived);
+
+		await mac.page.getByTestId('hosted-bridge-stop').click();
+		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
+			timeout: 60_000
+		});
+
+		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+	} finally {
+		await vmRelay.close();
+		await vmAgent.close();
+	}
+});
