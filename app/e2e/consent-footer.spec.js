@@ -46,8 +46,13 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	await expect(terms.getByTestId('consent-company-privacy')).toHaveAttribute(
 		'href',
-		'https://le-space.de/#datenschutz'
+		'https://credits.le-space.de/datenschutz'
 	);
+	// What Le Space and Stripe keep is said, not "nothing with us" (version 55).
+	const where = dialog.getByTestId('consent-where');
+	await expect(where).toContainText('nie deine Bücher, nie ein Beleg, kein Schlüssel');
+	await expect(where).toContainText('Bei Stripe, nur wenn du mit Karte auflädst');
+	await expect(where).not.toContainText('Bei uns: nichts');
 	// What Belege works with, with logos drawn in the page: no third party is asked.
 	const integrations = dialog.getByTestId('consent-integrations');
 	await integrations.locator('summary').click();
@@ -154,7 +159,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 	);
 	expect(Object.keys(after).filter((key) => !before.includes(key))).toEqual(['belege.consent']);
 	// CONSENT_VERSION in src/lib/consent.js.
-	expect(after['belege.consent']).toBe('54');
+	expect(after['belege.consent']).toBe('56');
 	await expect(page.getByTestId('passkey-onboarding')).toBeVisible();
 
 	await page.reload();
@@ -170,6 +175,10 @@ test('the consent screen can be opened again, from the footer and the header', a
 	await expect(page.getByTestId('imprint-link')).toHaveAttribute(
 		'href',
 		'https://le-space.de/#impressum'
+	);
+	await expect(page.getByTestId('privacy-link')).toHaveAttribute(
+		'href',
+		'https://credits.le-space.de/datenschutz'
 	);
 	await page.getByTestId('consent-reopen').click();
 	await expect(dialog).toBeVisible();

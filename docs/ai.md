@@ -2,7 +2,7 @@
 
 _Deutsch: [ai.de.md](ai.de.md)_
 
-**Le Space runs no AI and sees none of your data.** Belege has no server. The bridge on your own computer calls the language model **you** configure (`pnpm setup:llm`): by default a local one on your machine, Ollama with `qwen3:4b-instruct-2507-q4_K_M` (since 2026-11-16; before, DeepSeek was the default), or another local one such as LM Studio; a public one such as DeepSeek (China) only if you choose it – `setup:llm` shows each provider with its country before it is taken. Any API in the OpenAI format (`/chat/completions`) works: over https, or over http only on `127.0.0.1`/`localhost`/`[::1]`. Without a configured model, none of the steps below runs; everything else keeps working.
+**Le Space runs no AI and sees nothing from your books.** Belege has no server for your books. The bridge on your own computer calls the language model **you** configure (`pnpm setup:llm`): by default a local one on your machine, Ollama with `qwen3:4b-instruct-2507-q4_K_M` (since 2026-11-16; before, DeepSeek was the default), or another local one such as LM Studio; a public one such as DeepSeek (China) only if you choose it – `setup:llm` shows each provider with its country before it is taken. Any API in the OpenAI format (`/chat/completions`) works: over https, or over http only on `127.0.0.1`/`localhost`/`[::1]`. Without a configured model, none of the steps below runs; everything else keeps working.
 
 In the app, every button that calls the model carries the **✦** mark (`app/src/lib/AiMark.svelte`), and its hover says what goes out. The consent screen lists the same, in plain words and under _Technisch_ in detail.
 

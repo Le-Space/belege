@@ -2,7 +2,7 @@
 
 _English: [ai.md](ai.md)_
 
-**Le Space betreibt keine KI und sieht keine deiner Daten.** Belege hat keinen Server. Die Bridge ist ein kleines Programm auf deinem eigenen Rechner. Sie fragt das Sprachmodell, das **du** einstellst (`pnpm setup:llm`). Ein Sprachmodell ist die KI, die Texte liest und beantwortet. Du hast zwei Arten zur Wahl:
+**Le Space betreibt keine KI und sieht nichts aus deinen Büchern.** Belege hat keinen Server für deine Bücher. Die Bridge ist ein kleines Programm auf deinem eigenen Rechner. Sie fragt das Sprachmodell, das **du** einstellst (`pnpm setup:llm`). Ein Sprachmodell ist die KI, die Texte liest und beantwortet. Du hast zwei Arten zur Wahl:
 
 - ein lokales Modell auf deinem eigenen Rechner: voreingestellt Ollama mit `qwen3:4b-instruct-2507-q4_K_M` (seit 16.11.2026; vorher war DeepSeek voreingestellt), oder etwa LM Studio;
 - ein öffentliches Modell im Internet, wie DeepSeek (China) – nur, wenn du es wählst. `setup:llm` zeigt jeden Anbieter mit seinem Land, bevor er übernommen wird.
