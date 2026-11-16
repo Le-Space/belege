@@ -121,7 +121,11 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     passphrase to that service through Le Space's relays after its
 //     attestation, the sealed image back, and a STORE of it, paid by the
 //     books' key.
-export const CONSENT_VERSION = '54';
+// 55: what Le Space and Stripe keep is said instead of "nothing with us": the
+//     Credits ledger under the books' Aleph address, Stripe's customer with
+//     that address, the purchase notices, the hosted bridge's VM; the privacy
+//     policy is the one at credits.le-space.de.
+export const CONSENT_VERSION = '55';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

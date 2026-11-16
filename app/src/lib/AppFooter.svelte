@@ -17,7 +17,7 @@
 	import { builtFrom, releaseName, SOURCE_URL } from './build-info.js';
 	import { consent } from './consent.js';
 	import { t } from './i18n/index.js';
-	import { IMPRINT_URL } from '$lib/legal.js';
+	import { IMPRINT_URL, PRIVACY_URL } from '$lib/legal.js';
 	import { describeMoment } from './moment.js';
 	import { app } from './session.svelte.js';
 	import HelpSupport from './support/HelpSupport.svelte';
@@ -140,6 +140,14 @@
 			class="text-text underline hover:text-heading"
 			onclick={() => consent.reopen()}
 			data-testid="consent-reopen">{t('footer.privacy')}</button
+		>
+		<span aria-hidden="true">·</span>
+		<a
+			href={PRIVACY_URL}
+			target="_blank"
+			rel="noopener noreferrer"
+			class="text-text underline hover:text-heading"
+			data-testid="privacy-link">{t('footer.privacyPolicy')}</a
 		>
 		<span aria-hidden="true">·</span>
 		<a

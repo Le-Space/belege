@@ -702,6 +702,7 @@ export default {
 		releaseAfter: '{count} changes after version {release}, not released yet.',
 		source: 'Source code',
 		privacy: 'Privacy & technology',
+		privacyPolicy: 'Privacy policy',
 		imprint: 'Imprint'
 	},
 	consent: {
@@ -973,7 +974,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Only once you switch it on under Integrations → Aleph: a balance for what Le Space offers for Belege (today the hosted bridge), topped up by card.',
 				leaves:
-					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing country, as Stripe needs them for the payment and the invoice. Never your books, never a receipt.',
+					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing address, as Stripe needs them for the payment, the invoice and the tax; Stripe keeps you as a customer with the address of the Aleph key. Never your books, never a receipt.',
 				technical:
 					'Every request carries X-LS-Address, X-LS-Timestamp and a personal_sign signature (EIP-191) over ls-credits/v1, method, path, product belege, address and time; the service accepts each time once and for five minutes only. The key is the secp256k1 key Belege makes for the backup and keeps sealed in the settings; it does not leave the browser. Stripe’s script does not run on belege.le-space.de: the payment page is on credits.le-space.de (/pay) and only framed here; the client secret is in the address’s fragment and reaches no server log. The page reports “paid” by postMessage; Belege believes only the balance it reads back, signed, afterwards. Paid credits do not expire; Le Space refunds the remaining balance on request.'
 			},
@@ -1051,7 +1052,11 @@ export default {
 				'On your passkey: the only key to everything.',
 				'On this computer outside the browser, only if you set up the bridge: its settings, the Hibiscus password, the IMAP token and the API key in the Keychain.',
 				'On this computer, only if you sign in to a customer portal: its browser profile with the session, and a portal password only if you store it in the Keychain.',
-				'With us: nothing. We run no server and receive no copy.'
+				'With Le Space: never your books, never a receipt, no key. Without Le Space Credits and without a hosted bridge, nothing else either.',
+				'With Le Space, only if you use Le Space Credits: under the address of your books’ Aleph key – no name, no e-mail – your balance, purchases, plans, grants for a hosted bridge and refunds, on a Le Space server in Germany, plus an encrypted backup of it on Aleph. There is no period yet after which this is deleted by itself.',
+				'With Stripe, only if you top up by card: card, e-mail and billing address, together with the address of your books’ Aleph key. Through Stripe this address can therefore be linked to a person; Le Space learns the e-mail only to write to you about your purchase, and does not store it.',
+				'On the first purchase and on a withdrawal the service notifies Le Space by mail and Telegram: product, amount and time, only in the mail also the address of the Aleph key.',
+				'A hosted bridge runs in a confidential VM on Aleph (with a plan, paid by Le Space) or, as a test, at Phala in the USA, created with Le Space’s account. Le Space cannot look inside; on Aleph it is public that your books’ key may start the VM.'
 			],
 			cookies: 'No cookies, no tracking.'
 		},

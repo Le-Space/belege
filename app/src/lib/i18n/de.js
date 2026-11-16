@@ -727,6 +727,7 @@ export default {
 		releaseAfter: '{count} Änderungen nach der Version {release}, noch nicht veröffentlicht.',
 		source: 'Quellcode',
 		privacy: 'Datenschutz & Technik',
+		privacyPolicy: 'Datenschutzerklärung',
 		imprint: 'Impressum'
 	},
 	consent: {
@@ -1000,7 +1001,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Angebote von Le Space für Belege (heute die gehostete Bridge), aufgeladen mit Karte.',
 				leaves:
-					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsland, wie Stripe sie für die Zahlung und die Rechnung braucht. Nie deine Bücher, nie ein Beleg.',
+					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsanschrift, wie Stripe sie für die Zahlung, die Rechnung und die Steuer braucht; Stripe führt dich als Kunden mit der Adresse des Aleph-Schlüssels. Nie deine Bücher, nie ein Beleg.',
 				technical:
 					'Jede Anfrage trägt X-LS-Address, X-LS-Timestamp und eine personal_sign-Signatur (EIP-191) über ls-credits/v1, Methode, Pfad, Produkt belege, Adresse und Zeit; der Dienst nimmt jede Zeit nur einmal und nur fünf Minuten lang an. Der Schlüssel ist der secp256k1-Schlüssel, den Belege für das Backup macht und versiegelt in den Einstellungen hält; er verlässt den Browser nicht. Stripes Skript läuft nicht auf belege.le-space.de: Die Zahlungsseite liegt auf credits.le-space.de (/pay) und wird hier nur eingerahmt; das Client-Secret steht im Fragment der Adresse und erreicht kein Server-Log. Die Seite meldet „bezahlt“ per postMessage; Belege glaubt nur dem Guthaben, das es danach signiert abfragt. Bezahltes Guthaben verfällt nicht; das Restguthaben erstattet Le Space auf Anfrage.'
 			},
@@ -1078,7 +1079,11 @@ export default {
 				'Auf deinem Passkey: der einzige Schlüssel zu allem.',
 				'Auf diesem Rechner außerhalb des Browsers, nur wenn du die Bridge einrichtest: ihre Einstellungen, das Hibiscus-Passwort, das IMAP-Token und der API-Schlüssel im Schlüsselbund.',
 				'Auf diesem Rechner, nur wenn du ein Kundenportal anmeldest: dessen Browserprofil mit der Sitzung, und ein Portal-Passwort nur, wenn du es im Schlüsselbund hinterlegst.',
-				'Bei uns: nichts. Wir betreiben keinen Server und bekommen keine Kopie.'
+				'Bei Le Space: nie deine Bücher, nie ein Beleg, kein Schlüssel. Ohne Le Space Credits und ohne gehostete Bridge auch sonst nichts.',
+				'Bei Le Space, nur wenn du Le Space Credits nutzt: unter der Adresse des Aleph-Schlüssels deiner Bücher – ohne Namen, ohne E-Mail – Guthaben, Käufe, Pakete, Freigaben für eine gehostete Bridge und Erstattungen, auf einem Server von Le Space in Deutschland, dazu eine verschlüsselte Sicherung davon bei Aleph. Eine Frist, nach der das von selbst gelöscht wird, gibt es noch nicht.',
+				'Bei Stripe, nur wenn du mit Karte auflädst: Karte, E-Mail und Rechnungsanschrift, zusammen mit der Adresse des Aleph-Schlüssels deiner Bücher. Über Stripe lässt sich diese Adresse also einer Person zuordnen; Le Space erfährt die E-Mail nur, um dir zu deinem Kauf zu schreiben, und speichert sie nicht.',
+				'Beim ersten Kauf und bei einem Widerruf benachrichtigt der Dienst Le Space per Mail und Telegram: Produkt, Betrag und Zeit, nur in der Mail auch die Adresse des Aleph-Schlüssels.',
+				'Eine gehostete Bridge läuft in einer vertraulichen VM bei Aleph (mit einem Paket bezahlt von Le Space) oder, als Test, bei Phala in den USA, angelegt mit dem Konto von Le Space. Hinein sieht Le Space nicht; bei Aleph steht öffentlich, dass der Schlüssel deiner Bücher die VM starten darf.'
 			],
 			cookies: 'Keine Cookies, kein Tracking.'
 		},

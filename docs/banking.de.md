@@ -94,7 +94,7 @@ Enable Banking erreicht Banken, die Hibiscus nicht abruft, etwa Revolut, Wise un
 
 ### Deine eigene Anwendung
 
-Belege hat keinen Server und verwahrt keinen Schlüssel für dich. Deshalb **legt jede Installation ihre eigene Anwendung bei Enable Banking an**. Ihr privater Schlüssel bleibt in deiner Bridge. Beim Sprachmodell und bei Kraken ist es genauso.
+Belege hat keinen Server für deine Bücher und verwahrt keinen Schlüssel für dich. Deshalb **legt jede Installation ihre eigene Anwendung bei Enable Banking an**. Ihr privater Schlüssel bleibt in deiner Bridge. Beim Sprachmodell und bei Kraken ist es genauso.
 
 **Für die eigenen Konten: Produktion, eingeschränkt.**
 
