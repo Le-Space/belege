@@ -250,3 +250,39 @@ test('the footer credits Le Space and names this repository as the source', asyn
 		/^https:\/\/github\.com\/Le-Space\/belege\/releases\/tag\/v\d+\.\d+\.\d+$/
 	);
 });
+
+test('"Hilfe & Support" in the footer, before any unlock: the addresses, the warning and a diagnosis', async ({
+	page,
+	context
+}) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	await page.goto('/');
+	await acceptConsent(page);
+	const panel = page.getByTestId('support');
+	await expect(panel).toBeHidden();
+	await page.getByTestId('support-link').click();
+	await expect(panel).toBeVisible();
+	await expect(panel.getByTestId('support-mail')).toHaveAttribute(
+		'href',
+		'mailto:belege@le-space.de'
+	);
+	await expect(panel.getByTestId('support-billing')).toHaveAttribute(
+		'href',
+		'mailto:support@le-space.de'
+	);
+	await expect(panel.getByTestId('support-never')).toContainText('Wiederherstellungswörtern');
+	await expect(panel.getByTestId('support-security')).toHaveAttribute('href', /SECURITY\.md$/);
+	await expect(panel.getByTestId('support-security-mail')).toHaveAttribute(
+		'href',
+		'mailto:security@le-space.de'
+	);
+	const diagnosis = panel.getByTestId('support-diagnosis');
+	await expect(diagnosis).toContainText('status: locked');
+	await panel.getByTestId('support-copy').click();
+	await expect(panel.getByTestId('support-copied')).toHaveText('Kopiert.');
+	const copied = await page.evaluate(() => navigator.clipboard.readText());
+	expect(copied).toBe(await diagnosis.textContent());
+	expect(copied).not.toMatch(/did:key/);
+	await panel.getByTestId('support-close').click();
+	await expect(panel).toBeHidden();
+});

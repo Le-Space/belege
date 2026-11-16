@@ -687,6 +687,24 @@ export default {
 			'„Portal aufzeichnen“ merkt sich nur echte Klicks auf Links und Knöpfe als Rolle und Namen (Ziffern als Muster \\d+) und besuchte Seiten als maskierte Pfade. Eingabefelder, Tastendrücke und alles auf Seiten mit Passwortfeld bleiben außen vor; die heruntergeladene Rechnung (ein PDF) wird beim Speichern ein Beleg. Das Rezept liegt als ~/.config/belege/recipes/<portal>.json (0600) auf dem Mac und wird abgelehnt, wenn es eine E-Mail-Adresse, eine IBAN oder fünf Ziffern am Stück enthielte. Der Abruf spielt die Klicks danach ohne Sprachmodell nach.'
 		]
 	},
+	support: {
+		link: 'Hilfe & Support',
+		title: 'Hilfe & Support',
+		contact: 'Fragen und Probleme mit Belege:',
+		billing: 'Zahlung und Credits:',
+		send: 'Was hilft: was du tun wolltest, was stattdessen passiert ist, und die Diagnose unten. Bildschirmfotos bitte nur ohne echte Buchungen, Beträge, Namen, IBANs oder Belegtexte – lieber mit Beispieldaten.',
+		never:
+			'Le Space fragt nie nach deinen Wiederherstellungswörtern, deinem Passkey, Schlüsseln, Tokens oder Passwörtern. Wer danach fragt, ist nicht Le Space – schick sie niemandem.',
+		security: 'Eine Sicherheitslücke gefunden? Bitte nicht öffentlich melden, sondern an',
+		securityPolicy: '– wie es weitergeht, steht in',
+		diagnosisTitle: 'Diagnose',
+		diagnosisHint:
+			'Version, wo die App gerade steht, die letzte Fehlermeldung (Zahlen, Adressen und Zitiertes entfernt) und der Browser – nichts aus deinen Büchern. Lies sie vor dem Senden durch.',
+		copy: 'Diagnose kopieren',
+		copied: 'Kopiert.',
+		copyFailed: 'Kopieren ging nicht – markiere den Text und kopiere ihn selbst.',
+		close: 'Schließen'
+	},
 	footer: {
 		verlauf: 'Verlauf',
 		madeWith: 'Gebaut mit',
