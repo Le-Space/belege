@@ -661,6 +661,24 @@ export default {
 			'“Record portal” only remembers real clicks on links and buttons as role and name (digits as the pattern \\d+) and visited pages as masked paths. Input fields, keystrokes and everything on pages with a password field are left out; the downloaded invoice (a PDF) becomes a receipt when saving. The recipe is stored as ~/.config/belege/recipes/<portal>.json (0600) on the Mac and is rejected if it would contain an email address, an IBAN or five digits in a row. The fetch then replays the clicks without a language model.'
 		]
 	},
+	support: {
+		link: 'Help & support',
+		title: 'Help & support',
+		contact: 'Questions and problems with Belege:',
+		billing: 'Payment and credits:',
+		send: 'What helps: what you wanted to do, what happened instead, and the diagnosis below. Screenshots only without real bookings, amounts, names, IBANs or receipt texts – better with sample data.',
+		never:
+			'Le Space never asks for your recovery words, your passkey, keys, tokens or passwords. Whoever asks for them is not Le Space – send them to no one.',
+		security:
+			'Found a security weakness? Please do not report it by mail or in public, but as described in',
+		diagnosisTitle: 'Diagnosis',
+		diagnosisHint:
+			'The version, where the app is, the last error message (numbers, addresses and quoted text removed) and the browser – nothing of your books. Read it before you send it.',
+		copy: 'Copy diagnosis',
+		copied: 'Copied.',
+		copyFailed: 'Copying did not work – select the text and copy it yourself.',
+		close: 'Close'
+	},
 	footer: {
 		verlauf: 'History',
 		madeWith: 'Built with',

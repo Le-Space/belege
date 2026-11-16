@@ -20,12 +20,14 @@
 	import { IMPRINT_URL } from '$lib/legal.js';
 	import { describeMoment } from './moment.js';
 	import { app } from './session.svelte.js';
+	import HelpSupport from './support/HelpSupport.svelte';
 
 	const build = builtFrom();
 	const release = releaseName();
 	// Formatted here, in the browser: only the reader's browser knows their
 	// locale, clock and zone.
 	const moment = build ? describeMoment(build.when) : null;
+	let help = $state(false);
 </script>
 
 <footer class="mt-10 border-t border-border pt-4 pb-2 text-xs text-faint" data-testid="app-footer">
@@ -147,5 +149,16 @@
 			class="text-text underline hover:text-heading"
 			data-testid="imprint-link">{t('footer.imprint')}</a
 		>
+		<span aria-hidden="true">·</span>
+		<button
+			type="button"
+			class="text-text underline hover:text-heading"
+			aria-expanded={help}
+			onclick={() => (help = !help)}
+			data-testid="support-link">{t('support.link')}</button
+		>
 	</p>
+	{#if help}
+		<HelpSupport onclose={() => (help = false)} />
+	{/if}
 </footer>
