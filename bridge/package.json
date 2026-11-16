@@ -76,7 +76,7 @@
 		"playwright": "1.61.1"
 	},
 	"devDependencies": {
-		"@le-space/attest-wasm": "0.12.4",
+		"@le-space/attest-wasm": "0.12.8",
 		"@libp2p/memory": "2.0.28",
 		"@multiformats/multiaddr": "13.0.3",
 		"hoodiecrow-imap": "2.1.0",
