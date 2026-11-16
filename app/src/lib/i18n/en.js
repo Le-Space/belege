@@ -1110,7 +1110,8 @@ export default {
 				settings: 'settings',
 				matches: 'links',
 				questions: 'questions',
-				events: 'history'
+				events: 'history',
+				travel: 'trips'
 			}
 		}
 	},
