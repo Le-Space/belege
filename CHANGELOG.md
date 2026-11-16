@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.34.0] – 2026-11-16
+
 ### Added
 
 - A tiny info icon beside every AI button (✦) shows, on hover, focus or tap, what one press will roughly take: tokens in and out, and the cost at the bridge's provider (#566). The tokens are the average of the last calls of the same kind in the Verlauf, or a rough figure until there are any; the price comes from DeepSeek's or LibertAI's published table, bundled with the app (LibertAI's from its Aleph aggregate, read on 2026-11-15). A model on the bridge's own computer costs nothing; a hosted bridge paid from a Le Space plan shows "im Paket enthalten". It says it is an estimate, and nothing is billed by it.
