@@ -1,4 +1,4 @@
-// /.well-known/security.txt (RFC 9116): the contact SECURITY.md names, and an
+// /.well-known/security.txt (RFC 9116): the contacts SECURITY.md names, and an
 // Expires that is neither past nor more than a year ahead. This test failing
 // after a year is the reminder to renew it.
 import { readFileSync } from 'node:fs';
@@ -16,8 +16,9 @@ const fields = (name) =>
 		.map((l) => l.slice(name.length + 2).trim());
 
 describe('security.txt', () => {
-	it('names the contact, the policy and itself', () => {
+	it('names both contacts, the policy and itself', () => {
 		expect(fields('Contact')).toEqual([
+			'mailto:security@le-space.de',
 			'https://github.com/Le-Space/belege/security/advisories/new'
 		]);
 		expect(fields('Policy')).toEqual(['https://github.com/Le-Space/belege/blob/main/SECURITY.md']);

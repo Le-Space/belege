@@ -8,9 +8,12 @@ Le Space never asks for your recovery words, your passkey, keys, tokens or passw
 
 **Please report privately. Nothing public until it is fixed:** no issue, pull request, comment, discussion or social media post.
 
+Two ways:
+
+- E-mail to **[security@le-space.de](mailto:security@le-space.de)**
 - GitHub's private reporting: [Report a vulnerability](https://github.com/Le-Space/belege/security/advisories/new)
 
-The same is in [`/.well-known/security.txt`](https://belege.le-space.de/.well-known/security.txt) (RFC 9116).
+The same addresses are in [`/.well-known/security.txt`](https://belege.le-space.de/.well-known/security.txt) (RFC 9116).
 
 ### What to include
 
@@ -31,7 +34,7 @@ The usual time until publication is 90 days from the report, earlier once a fix 
 
 ### Safe harbor (draft)
 
-> **Draft, pending legal review.** If you research in good faith and follow the rules on this page, Le Space will not take legal action against you for it, and will not ask anyone else to. If someone else does, we will make clear that you acted within these rules. If you are unsure whether something is within them, ask us first through the private report above.
+> **Draft, pending legal review.** If you research in good faith and follow the rules on this page, Le Space will not take legal action against you for it, and will not ask anyone else to. If someone else does, we will make clear that you acted within these rules. If you are unsure whether something is within them, ask us first at security@le-space.de.
 
 ### Rules for research
 
