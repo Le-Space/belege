@@ -22,7 +22,8 @@
 //   POST /travel/assist { lang, trip, legs, receipts, questions }  token → up to six notes on a trip; only unredacted, model here or in the enclave
 //   POST /booking/assist { booking, receipt, learned, accounts }  token → up to two accounts of the chart for a payment's "Konto"
 //   POST /transfer/assist { booking, candidates }               token → the LLM's pick of an own transfer's other side
-//   GET  /llm/status                                              token → provider, models, key present?, redaction on/off, the TEE pin and its last proof
+//   GET  /llm/status                                              token → provider (name, country), models, key present?, redaction on/off, the TEE pin and its last proof, Ollama there?, the old-default question
+//   POST /llm/choice { answer: 'local' | 'keep' }                 token → the answer to the question about the old DeepSeek default, kept in bridge.json
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
 //   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
@@ -108,6 +109,10 @@ export function deprecatedOverHttp(command) {
  *   null when Hibiscus is not set up yet
  * @param {import('./mail/imap.js').MailClient | null} [options.mail] null when mail is not set up
  * @param {import('./llm/extract.js').Extractor | null} [options.llm] null when no LLM is set up
+ * @param {(() => Promise<{ state: string, model: string }>) | null} [options.llmOllama] whether Ollama
+ *   answers and has the model (llm/ollama.js); null unless the model is Ollama's
+ * @param {((answer: 'local' | 'keep') => Promise<boolean>) | null} [options.llmChoice] the answer to
+ *   the question about the old DeepSeek default (llm/default-choice.js); null on a hosted bridge
  * @param {(() => object) | null} [options.llmTee] a confidential model's pin and last proof (#416, llm/confidential.js)
  * @param {() => Promise<boolean>} [options.llmKeyPresent] whether the keychain holds an API key;
  *   says yes or no, never hands the key out
@@ -150,6 +155,8 @@ export function createBridgeServer({
 	llm = null,
 	llmKeyPresent = async () => false,
 	llmTee = null,
+	llmOllama = null,
+	llmChoice = null,
 	assist = null,
 	matchAssist = null,
 	transferAssist = null,
@@ -183,6 +190,8 @@ export function createBridgeServer({
 		llm,
 		llmKeyPresent,
 		llmTee,
+		llmOllama,
+		llmChoice,
 		assist,
 		matchAssist,
 		transferAssist,

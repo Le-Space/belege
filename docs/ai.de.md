@@ -4,8 +4,8 @@ _English: [ai.md](ai.md)_
 
 **Le Space betreibt keine KI und sieht nichts aus deinen Büchern.** Belege hat keinen Server für deine Bücher. Die Bridge ist ein kleines Programm auf deinem eigenen Rechner. Sie fragt das Sprachmodell, das **du** einstellst (`pnpm setup:llm`). Ein Sprachmodell ist die KI, die Texte liest und beantwortet. Du hast zwei Arten zur Wahl:
 
-- ein öffentliches Modell im Internet, wie DeepSeek (voreingestellt);
-- ein lokales Modell auf deinem eigenen Rechner, etwa mit Ollama oder LM Studio.
+- ein lokales Modell auf deinem eigenen Rechner: voreingestellt Ollama mit `qwen3:4b-instruct-2507-q4_K_M` (seit 16.11.2026; vorher war DeepSeek voreingestellt), oder etwa LM Studio;
+- ein öffentliches Modell im Internet, wie DeepSeek (China) – nur, wenn du es wählst. `setup:llm` zeigt jeden Anbieter mit seinem Land, bevor er übernommen wird.
 
 Jedes Modell mit einer Schnittstelle im OpenAI-Format (`/chat/completions`) geht. Die Verbindung läuft über https. Unverschlüsseltes http ist nur auf diesem Rechner erlaubt (`127.0.0.1`, `localhost` oder `[::1]`).
 
@@ -25,9 +25,13 @@ Nichts verlässt deinen Rechner.
 - Öfter schief gehen: mehrere Steuersätze, Reverse Charge, lange Texte und Belege in anderen Sprachen und Schriften (Russisch, Arabisch …). Die Prüfungen der Bridge fangen einen Teil davon ab.
 - Die Anweisung an das Modell verlangt Belege in jeder Sprache (#366). Wie gut eine Sprache gelesen wird, hängt am Modell.
 
-**Schritt für Schritt einrichten,** mit Download, Einstellungen und gemessener Geschwindigkeit: [ollama.de.md](ollama.de.md). Kurz gesagt: Auf einem Intel-Mac las `qwen3:30b-a3b-instruct-2507-q4_K_M` unsere erfundenen Belege richtig. Es brauchte etwa zwei Minuten pro Beleg. Auf ein Modell auf diesem Rechner wartet die Bridge bis zu 10 Minuten, auf eines anderswo bis zu 3 Minuten.
+**Schritt für Schritt einrichten,** mit Download, Einstellungen und gemessener Geschwindigkeit: [ollama.de.md](ollama.de.md). Das voreingestellte `qwen3:4b-instruct-2507-q4_K_M` (2,5 GB) antwortet in JSON, ohne vorher zu „denken“, und passt auf einen Laptop mit 16 GB; mit 32 GB liest das 30B-Modell besser. Kurz gesagt: Auf einem Intel-Mac las `qwen3:30b-a3b-instruct-2507-q4_K_M` unsere erfundenen Belege richtig. Es brauchte etwa zwei Minuten pro Beleg. Auf ein Modell auf diesem Rechner wartet die Bridge bis zu 10 Minuten, auf eines anderswo bis zu 3 Minuten.
 
-### Gehostet, ohne TEE (DeepSeek, voreingestellt)
+**Ollama fehlt:** Ist Ollama nicht installiert, läuft nicht oder fehlt das Modell, sagt die Bridge das beim Start, und die KI-Karte zeigt die Schritte (installieren von ollama.com/download, `ollama pull <Modell>`, starten). Bis dahin wird nichts mit KI gelesen; kein Modell im Internet wird stattdessen genommen.
+
+**Eine Bridge, die DeepSeek noch aus der alten Voreinstellung hat,** fragt einmal – bei `pnpm setup:llm`, im Log beim Start (oder im Terminal, in dem sie läuft) und auf der KI-Karte der App –, ob sie zum lokalen Modell wechseln oder DeepSeek bewusst behalten soll. Die Antwort steht in `bridge.json` (`llm.cloudOnPurpose`), nie im Browser. Der Wechsel gilt nach einem Neustart; geschwärzt wird, bis `setup:llm` gesagt wird, dass das Modell auf diesem Rechner läuft.
+
+### Gehostet, ohne TEE (DeepSeek – China, OpenAI – USA, …; nur wenn du es wählst)
 
 Der Anbieter kann lesen, was die Bridge schickt. Die Schwärzung begrenzt das. Anonym macht sie einen Beleg aber nicht (siehe [Schwärzung](#schwärzung) unten).
 

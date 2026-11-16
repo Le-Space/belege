@@ -893,7 +893,7 @@ export default {
 		ai: {
 			title: 'AI: where a language model helps',
 			simple: [
-				'Le Space runs no AI and sees none of it. The bridge on your computer asks the language model you set up yourself: a public one like DeepSeek or a local one on your own computer. If none is set up, none of this runs.',
+				'Le Space runs no AI and sees none of it. The bridge on your computer asks the language model you set up yourself: by default a local one on your own computer (Ollama), from which no text goes out; a public one like DeepSeek (China) only if you choose it. If none is set up, none of this runs.',
 				'AI only helps where a button carries the ✦ sign, and only when you press it. What goes out is shown when you hover over it with the mouse.'
 			],
 			usesHeading: 'With AI',
@@ -911,7 +911,7 @@ export default {
 			check:
 				'You check what the AI delivers: the receipt shows the model and the text sent, an AI suggestion is only applied on your click, and the History lists every call.',
 			technical: [
-				'You set up the language model in the bridge (pnpm setup:llm): any interface in the OpenAI format (/chat/completions) – via https, or via http only on this computer (127.0.0.1, localhost), such as Ollama or LM Studio. The default is deepseek-flash, with deepseek-v4-pro as the second attempt.',
+				'You set up the language model in the bridge (pnpm setup:llm): any interface in the OpenAI format (/chat/completions) – via https, or via http only on this computer (127.0.0.1, localhost), such as Ollama or LM Studio. The default is Ollama on this computer with qwen3:4b-instruct-2507-q4_K_M. A provider on the internet, such as DeepSeek (China), only if you choose it in pnpm setup:llm, which shows the provider and its country first; a bridge that still had DeepSeek from the old default asks you once.',
 				'Before every call the bridge redacts names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains). This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. With a model on this computer, and with LibertAI confidential in the attested enclave, it does not redact – unless you choose so in pnpm setup:llm. For nothing to go out, set a model on this computer (such as Ollama). The responses are JSON and are checked (totals, date formats, candidate numbers); whatever doesn’t fit is discarded.',
 				'The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge’s log records only numbers, never text. The app’s History shows the model, duration and tokens of every call.'
 			]
@@ -995,10 +995,10 @@ export default {
 					'Before the start the browser checks the signature of Phala’s key service (KMS, its key pinned here) over the VM’s env key. The contract checks the VM’s TDX quote (Intel DCAP), the measurements and the compose hash the owner approved, the machine, and the hash of the VM’s intake key in the quote’s report data; only for that key does the browser seal the secrets (X25519, HKDF-SHA256, AES-256-GCM, bound to the books and the start). The VM is in Phala’s US-West region for now. What that proves is which image runs, not what it does; there is no independent audit yet.'
 			},
 			deepseek: {
-				name: 'Language model – DeepSeek by default, or LibertAI confidential (extracting receipts, AI search)',
+				name: 'Language model – Ollama on this computer by default; DeepSeek (China), another provider or LibertAI confidential only if you choose it (extracting receipts, AI search)',
 				text: 'The model you set up in the bridge. Only for buttons with ✦ (see “AI” above).',
 				leaves:
-					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With DeepSeek the servers are outside the EU; a local model does not leave this computer. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees the IP address of this Mac or of the hosted bridge, sizes and times, not the text. A hosted bridge uses only this model, checked as on the Mac. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. The text goes in unredacted, unless you choose redaction in pnpm setup:llm. Our advice for now: a local model, or LibertAI confidential.',
+					'When extracting, the redacted text of a receipt; with “Keep searching with AI”, counterparty and payment reference as well as subject, sender domain and file names of the hits, redacted. With Ollama, the default, nothing leaves this computer. A provider on the internet only if you choose it: with DeepSeek the servers are in China, outside the EU. With LibertAI confidential (TEE) the model runs in an enclave on Aleph Cloud that the bridge checks before every connection (AMD signature, pinned measurement); the text ends only in the enclave, LibertAI sees the IP address of this Mac or of the hosted bridge, sizes and times, not the text. A hosted bridge uses only this model, checked as on the Mac. What that proves is which image runs, not what it does, and confidential GPUs on Aleph have no independent audit yet. The text goes in unredacted, unless you choose redaction in pnpm setup:llm. Our advice for now: a local model, or LibertAI confidential.',
 				technical:
 					'The bridge sends only the text layer of a PDF (or the text of an email) with subject and sender, after redacting names from its list and your company names from Settings, names after a salutation or a label (“Herr”, “Contact:”, also in other languages and scripts, such as “Пассажир:” or “Yolcu:”), passport numbers, IBANs and card numbers except for the last four digits, email addresses (of others the domain remains), phone numbers, dates of birth, tax numbers, streets, postcodes and links (only the host remains) – never the file itself. This limits what goes out; it does not make the text anonymous: a name that is on no list and follows no label gets through, and so do the vendor, amounts, invoice numbers and what the receipt is about. For nothing to go out, set a model on this computer (such as Ollama). DeepSeek runs its servers in China. The API key is kept in the bridge’s macOS Keychain, never in the browser. The bridge extracts emails from senders that did not pass the DKIM/SPF check only after your approval.'
 			},
@@ -4359,7 +4359,7 @@ export default {
 			},
 			ki: {
 				what: 'A language model reads vendor, amount, date and number from receipts and helps in four more places – always only on a click (✦).',
-				how: 'You set up your own model in the bridge, such as DeepSeek or a local one with Ollama. Text is redacted before it is sent, as far as patterns and lists reach; with a local model nothing goes out – which is what we advise for now. Le Space runs no AI.',
+				how: 'By default the bridge uses a local model with Ollama: nothing goes out – which is what we advise. A model on the internet, such as DeepSeek (China), only if you choose it in pnpm setup:llm; text is then redacted before it is sent, as far as patterns and lists reach. Le Space runs no AI.',
 				howHosted:
 					'A hosted bridge answers here. It uses only a model in LibertAI’s attested enclave, whose attestation it checks before every request – no other, and no local one. You enter key, model and the enclave’s pin under Integrations → Bridge → “Settings for the hosted bridge”; they go along at the VM’s next start. Le Space runs no AI.'
 			},
@@ -4954,18 +4954,46 @@ export default {
 				'Key, model and pin are kept sealed in these books and go only to a VM whose attestation holds, at its start. No answer of the bridge contains the key – its status only says “present” or “missing”.'
 			],
 			ollama: {
-				title: 'Guide: reading locally with Ollama – then nothing leaves the computer',
+				title: 'Guide: reading locally with Ollama – the default; nothing leaves the computer',
 				intro:
-					'Instead of a provider on the internet, a model on your computer reads the receipts. Free, but slower: about two minutes per receipt on an Intel Mac.',
+					'By default a model on your computer reads the receipts, not a provider on the internet. Free, but slower: about two minutes per receipt on an Intel Mac.',
 				steps: [
 					'Install Ollama from ollama.com/download and start it.',
-					'Download a model that fits your memory – 32 GB or more: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); with 16 GB: qwen3:4b-instruct-2507-q4_K_M (2.5 GB).',
+					'Download the model – the default, for 16 GB memory: ollama pull qwen3:4b-instruct-2507-q4_K_M (2.5 GB); with 32 GB or more, reading better: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Set a larger context and a longer keep-alive (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 and OLLAMA_KEEP_ALIVE 2h), then restart Ollama.',
-					'pnpm setup:llm: base URL http://127.0.0.1:11434/v1, the model name for both models, Enter for the API key. Then restart the bridge.',
+					'pnpm setup:llm: 1 (Ollama), then Enter for the defaults (or the larger model’s name) – no API key. Then restart the bridge.',
 					'Under Statistik, set the AI requests at once to 1.'
 				],
 				doc: 'The whole guide, with measurements and help when something goes wrong'
 			},
+			ollamaMissing: {
+				unreachable:
+					'Ollama is not installed or not running on this computer. Until it is, nothing is read with AI – and no model on the internet is used instead.',
+				modelMissing: 'Ollama runs, but the model {model} is not downloaded yet.',
+				steps: [
+					'Install Ollama: ollama.com/download (on a Mac also: brew install --cask ollama).',
+					'Download the model: ollama pull {model}',
+					'Start Ollama (the app, or ollama serve), then restart the bridge (pnpm bridge).'
+				],
+				stepsModel: [
+					'Download the model: ollama pull {model}',
+					'Then restart the bridge (pnpm bridge).'
+				]
+			},
+			defaultQuestion: {
+				title: 'DeepSeek (China) reads your receipts – because it was the default until now.',
+				text: 'The default is now a model on this computer (Ollama): no receipt text leaves it. Switch to it, or keep DeepSeek on purpose? The bridge keeps the answer and does not ask again.',
+				local: 'Switch to the local model',
+				keep: 'Keep DeepSeek on purpose',
+				failed: 'The bridge did not take the answer: {error}'
+			},
+			restartNeeded:
+				'Switched to Ollama on this computer – restart the bridge (pnpm bridge) to use it. Text stays blacked out until pnpm setup:llm is told the model runs here.',
+			providerWho: 'Where it runs',
+			providerLocal: '{name} – on this computer',
+			providerCountry: '{name} – {country}',
+			providerCountryUnknown: '{name} – country unknown',
+			keyNotNeeded: 'not needed – the model runs on this computer',
 			noBridge: 'The bridge is not paired: settings only visible after pairing.',
 			silent: 'No bridge answers right now – that is why no status of the reading shows here.',
 			silentWhich: {

@@ -125,7 +125,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     Credits ledger under the books' Aleph address, Stripe's customer with
 //     that address, the purchase notices, the hosted bridge's VM; the privacy
 //     policy is the one at credits.le-space.de.
-export const CONSENT_VERSION = '55';
+// 56: the language model is Ollama on this computer by default, no longer
+//     DeepSeek; a provider on the internet (DeepSeek – China, …) only by
+//     choice, and a bridge that still has the old default asks once.
+export const CONSENT_VERSION = '56';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

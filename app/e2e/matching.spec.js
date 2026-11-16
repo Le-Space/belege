@@ -119,6 +119,8 @@ test.beforeAll(async () => {
 			},
 			llm: {
 				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
 				baseUrl: llm.url,
 				redactTerms: [SECRETS.customerName],
 				// The fake on 127.0.0.1 stands in for a provider elsewhere: text is blacked out (#423).

@@ -16,6 +16,9 @@ import { createMailClient } from './mail/imap.js';
 import { domainOf } from './mail/auth-results.js';
 import { createExtractor } from './llm/extract.js';
 import { createConfidentialFetch } from './llm/confidential.js';
+import { checkOllama, ollamaSteps } from './llm/ollama.js';
+import { isOllamaUrl, providerLabel, providerOf } from './llm/providers.js';
+import { createLlmChoice, needsDefaultQuestion } from './llm/default-choice.js';
 import { createMailAssist } from './llm/assist.js';
 import { createDexRates, createRateService } from '@le-space/rates';
 import { createMatchAssist } from './llm/match-assist.js';
@@ -228,15 +231,43 @@ export async function startBridge({
 		log(
 			`LLM in a confidential VM: every request goes to the attested enclave ${config.llm.tee?.itemHash.slice(0, 12)}…`
 		);
+	// A model on this machine needs no key: a missing one is no error there.
+	const llmLocal = isLoopbackUrl(config.llm.baseUrl);
 	const llm = config.llm.configured
 		? createExtractor({
 				config: config.llm,
-				getKey: () => llmKeychain.read(),
+				getKey: llmLocal ? () => llmKeychain.read().catch(() => '') : () => llmKeychain.read(),
 				ownDomains,
 				...(tee ? { fetch: tee.fetch } : {})
 			})
 		: null;
-	if (!llm) log('No LLM is set up: run `pnpm setup:llm`.');
+	if (!llm)
+		log(
+			llmEnclaveOnly
+				? 'No LLM is set up.'
+				: `No LLM is set up: run \`pnpm setup:llm\` (the default: Ollama on this computer, ${config.llm.model}).`
+		);
+	else log(`LLM: ${providerLabel(providerOf(config.llm.baseUrl))}, ${config.llm.model}.`);
+	if (needsDefaultQuestion(config.llm))
+		log(
+			'DeepSeek (China) is set up because it was the default until now; the default is now Ollama on this computer. Answer once in the app (Integrationen → KI) or with `pnpm setup:llm`: switch, or keep DeepSeek on purpose.'
+		);
+	// Ollama: said at the start whether it is there, with what to do; never a model elsewhere instead.
+	const ollamaCheck =
+		!llmEnclaveOnly && isOllamaUrl(config.llm.baseUrl)
+			? () => checkOllama({ baseUrl: config.llm.baseUrl, model: config.llm.model })
+			: null;
+	if (ollamaCheck && config.llm.configured) {
+		ollamaCheck()
+			.then((check) => {
+				for (const line of ollamaSteps(check)) log(line);
+			})
+			.catch(() => {});
+	}
+	// The answer to the question about the old DeepSeek default, from the app (/llm/choice).
+	const llmChoice = llmEnclaveOnly
+		? null
+		: createLlmChoice({ config, save: () => saveConfig(config, configPath), log });
 	const matchAssist = llm
 		? createMatchAssist({ llm, redaction: { terms: config.llm.redactTerms, ownDomains, off } })
 		: null;
@@ -568,6 +599,8 @@ export async function startBridge({
 		bookingAssist,
 		// Reads the keychain entry to see that there is one; the value stays here.
 		llmTee: tee ? tee.status : null,
+		llmOllama: ollamaCheck,
+		llmChoice,
 		llmKeyPresent: async () => {
 			try {
 				return Boolean(await llmKeychain.read());

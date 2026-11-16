@@ -920,7 +920,7 @@ export default {
 		ai: {
 			title: 'KI: wo ein Sprachmodell hilft',
 			simple: [
-				'Le Space betreibt keine KI und bekommt nichts davon zu sehen. Die Bridge auf deinem Rechner fragt das Sprachmodell, das du selbst einstellst: ein öffentliches wie DeepSeek oder ein lokales auf deinem eigenen Rechner. Ist keins eingestellt, läuft nichts davon.',
+				'Le Space betreibt keine KI und bekommt nichts davon zu sehen. Die Bridge auf deinem Rechner fragt das Sprachmodell, das du selbst einstellst: voreingestellt ein lokales auf deinem eigenen Rechner (Ollama), von dem kein Text hinausgeht; ein öffentliches wie DeepSeek (China) nur, wenn du es wählst. Ist keins eingestellt, läuft nichts davon.',
 				'KI hilft nur dort, wo ein Knopf das Zeichen ✦ trägt, und nur, wenn du ihn drückst. Was dabei hinausgeht, steht beim Darüberfahren mit der Maus.'
 			],
 			usesHeading: 'Mit KI',
@@ -938,7 +938,7 @@ export default {
 			check:
 				'Was die KI liefert, prüfst du: Am Beleg stehen das Modell und der gesendete Text, ein KI-Vorschlag wird erst auf deinen Klick übernommen, und der Verlauf nennt jeden Aufruf.',
 			technical: [
-				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt sind deepseek-flash, mit deepseek-v4-pro als zweitem Versuch.',
+				'Das Sprachmodell stellst du in der Bridge ein (pnpm setup:llm): jede Schnittstelle im OpenAI-Format (/chat/completions) – per https, oder per http nur auf diesem Rechner (127.0.0.1, localhost), etwa Ollama oder LM Studio. Voreingestellt ist Ollama auf diesem Rechner mit qwen3:4b-instruct-2507-q4_K_M. Ein Anbieter im Internet, etwa DeepSeek (China), nur, wenn du ihn bei pnpm setup:llm wählst – das zeigt vorher Anbieter und Land; eine Bridge, die DeepSeek noch aus der alten Voreinstellung hat, fragt dich einmal.',
 				'Vor jedem Aufruf schwärzt die Bridge Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt). Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Bei einem Modell auf diesem Rechner und bei LibertAI vertraulich, in der attestierten Enklave, schwärzt sie nicht – es sei denn, du wählst es bei pnpm setup:llm. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). Die Antworten sind JSON und werden geprüft (Summen, Datumsformate, Kandidatennummern); was nicht passt, wird verworfen.',
 				'Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. Das Protokoll der Bridge nennt nur Zahlen, nie Text. Im Verlauf der App stehen Modell, Dauer und Tokens jedes Aufrufs.'
 			]
@@ -1022,10 +1022,10 @@ export default {
 					'Vor dem Start prüft der Browser die Signatur von Phalas Schlüsseldienst (KMS, sein Schlüssel hier festgenagelt) über den Env-Schlüssel der VM. Der Vertrag prüft das TDX-Quote der VM (Intel DCAP), die Messungen und den Compose-Hash, die der Besitzer freigegeben hat, die Maschine und den Hash des Intake-Schlüssels der VM in den Berichtsdaten des Quotes; nur für diesen Schlüssel versiegelt der Browser die Secrets (X25519, HKDF-SHA256, AES-256-GCM, gebunden an die Bücher und den Start). Die VM steht vorerst in Phalas Region US-West. Geprüft ist damit, welches Abbild läuft, nicht was es tut; ein unabhängiges Audit gibt es noch nicht.'
 			},
 			deepseek: {
-				name: 'Sprachmodell – voreingestellt DeepSeek, oder LibertAI vertraulich (Belege auslesen, KI-Suche)',
+				name: 'Sprachmodell – voreingestellt Ollama auf diesem Rechner; DeepSeek (China), ein anderer Anbieter oder LibertAI vertraulich nur, wenn du es wählst (Belege auslesen, KI-Suche)',
 				text: 'Das Modell, das du in der Bridge einstellst. Nur bei Knöpfen mit ✦ (siehe „KI“ oben).',
 				leaves:
-					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Bei DeepSeek stehen die Server außerhalb der EU; ein lokales Modell verlässt diesen Rechner nicht. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs oder der gehosteten Bridge, Größen und Zeiten, nicht den Text. Eine gehostete Bridge nutzt nur dieses Modell, geprüft wie auf dem Mac. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Der Text geht ungeschwärzt hinein, es sei denn, du wählst bei pnpm setup:llm das Schwärzen. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
+					'Beim Auslesen der geschwärzte Text eines Belegs; bei „Mit KI weitersuchen“ Gegenpartei und Verwendungszweck sowie Betreff, Absender-Domain und Dateinamen der Treffer, geschwärzt. Mit Ollama, der Voreinstellung, verlässt nichts diesen Rechner. Ein Anbieter im Internet nur, wenn du ihn wählst: Bei DeepSeek stehen die Server in China, außerhalb der EU. Mit LibertAI vertraulich (TEE) läuft das Modell in einer Enklave auf Aleph Cloud, die die Bridge vor jedem Verbindungsaufbau prüft (AMD-Signatur, festgenagelte Messung); der Text endet erst in der Enklave, LibertAI sieht die IP-Adresse dieses Macs oder der gehosteten Bridge, Größen und Zeiten, nicht den Text. Eine gehostete Bridge nutzt nur dieses Modell, geprüft wie auf dem Mac. Geprüft ist damit, welches Abbild läuft, nicht was es tut, und für vertrauliche GPUs auf Aleph gibt es noch kein unabhängiges Audit. Der Text geht ungeschwärzt hinein, es sei denn, du wählst bei pnpm setup:llm das Schwärzen. Unser Rat derzeit: ein lokales Modell, oder LibertAI vertraulich.',
 				technical:
 					'Die Bridge schickt nur die Textebene eines PDFs (oder den Text einer E-Mail) mit Betreff und Absender, nachdem sie Namen aus ihrer Liste und deine Firmennamen aus den Einstellungen, Namen nach einer Anrede oder einem Etikett („Herr“, „Ansprechpartner:“, auch in anderen Sprachen und Schriften, etwa „Пассажир:“ oder „Yolcu:“), Passnummern, IBANs und Kartennummern bis auf die letzten vier Stellen, E-Mail-Adressen (von fremden bleibt die Domain), Telefonnummern, Geburtsdaten, Steuernummern, Straßen, Postleitzahlen und Links (nur der Host bleibt) geschwärzt hat – nie die Datei selbst. Das begrenzt, was hinausgeht, anonym macht es den Text nicht: Ein Name, der auf keiner Liste steht und hinter keinem Etikett, geht durch, ebenso Anbieter, Beträge, Rechnungsnummern und worum es im Beleg geht. Soll nichts hinausgehen, stell ein Modell auf diesem Rechner ein (etwa Ollama). DeepSeek betreibt seine Server in China. Der API-Schlüssel liegt im macOS-Schlüsselbund der Bridge, nie im Browser. E-Mails von Absendern ohne bestandene DKIM/SPF-Prüfung liest die Bridge erst nach deiner Freigabe aus.'
 			},
@@ -4417,7 +4417,7 @@ export default {
 			},
 			ki: {
 				what: 'Ein Sprachmodell liest Anbieter, Betrag, Datum und Nummer aus Belegen und hilft an vier weiteren Stellen – immer nur auf Klick (✦).',
-				how: 'Du richtest dein eigenes Modell in der Bridge ein, etwa DeepSeek oder ein lokales mit Ollama. Vor dem Senden wird geschwärzt, soweit Muster und Listen reichen; mit einem lokalen Modell geht nichts hinaus – dazu raten wir derzeit. Le Space betreibt keine KI.',
+				how: 'Voreingestellt nimmt die Bridge ein lokales Modell mit Ollama: Es geht nichts hinaus – dazu raten wir. Ein Modell im Internet, etwa DeepSeek (China), nur, wenn du es bei pnpm setup:llm wählst; dann wird vor dem Senden geschwärzt, soweit Muster und Listen reichen. Le Space betreibt keine KI.',
 				howHosted:
 					'Hier antwortet eine gehostete Bridge. Sie nutzt nur ein Modell in LibertAIs attestierter Enklave, deren Attestierung sie vor jeder Anfrage prüft – kein anderes, auch kein lokales. Schlüssel, Modell und Pin der Enklave trägst du unter Integrationen → Bridge → „Einstellungen für die gehostete Bridge“ ein; sie gehen beim nächsten Start der VM mit. Le Space betreibt keine KI.'
 			},
@@ -5018,18 +5018,47 @@ export default {
 				'Schlüssel, Modell und Pin stehen versiegelt in diesen Büchern und gehen beim Start nur an eine VM, deren Attestierung hält. Keine Antwort der Bridge enthält den Schlüssel – ihr Status sagt nur „da“ oder „fehlt“.'
 			],
 			ollama: {
-				title: 'Anleitung: lokal mit Ollama lesen – dann verlässt nichts den Rechner',
+				title:
+					'Anleitung: lokal mit Ollama lesen – die Voreinstellung; nichts verlässt den Rechner',
 				intro:
-					'Statt eines Anbieters im Internet liest ein Modell auf deinem Rechner die Belege. Kostenlos, aber langsamer: auf einem Intel-Mac etwa zwei Minuten pro Beleg.',
+					'Voreingestellt liest ein Modell auf deinem Rechner die Belege, kein Anbieter im Internet. Kostenlos, aber langsamer: auf einem Intel-Mac etwa zwei Minuten pro Beleg.',
 				steps: [
 					'Ollama von ollama.com/download installieren und starten.',
-					'Ein Modell laden, das in den Arbeitsspeicher passt – ab 32 GB: ollama pull qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB); mit 16 GB: qwen3:4b-instruct-2507-q4_K_M (2,5 GB).',
+					'Das Modell laden – voreingestellt, für 16 GB Arbeitsspeicher: ollama pull qwen3:4b-instruct-2507-q4_K_M (2,5 GB); ab 32 GB, das besser liest: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Größeren Kontext und längeres Vorhalten setzen (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 und OLLAMA_KEEP_ALIVE 2h), dann Ollama neu starten.',
-					'pnpm setup:llm: Basis-URL http://127.0.0.1:11434/v1, der Modellname für beide Modelle, beim API-Key Enter. Dann die Bridge neu starten.',
+					'pnpm setup:llm: 1 (Ollama), dann Enter für die Voreinstellungen (oder der Name des größeren Modells) – kein API-Key. Dann die Bridge neu starten.',
 					'Unter Statistik die gleichzeitigen KI-Anfragen auf 1 stellen.'
 				],
 				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
 			},
+			ollamaMissing: {
+				unreachable:
+					'Ollama ist auf diesem Rechner nicht installiert oder läuft nicht. Bis dahin wird nichts mit KI gelesen – und kein Modell im Internet stattdessen genommen.',
+				modelMissing: 'Ollama läuft, aber das Modell {model} ist noch nicht geladen.',
+				steps: [
+					'Ollama installieren: ollama.com/download (auf dem Mac auch: brew install --cask ollama).',
+					'Das Modell laden: ollama pull {model}',
+					'Ollama starten (die App, oder ollama serve), dann die Bridge neu starten (pnpm bridge).'
+				],
+				stepsModel: [
+					'Das Modell laden: ollama pull {model}',
+					'Dann die Bridge neu starten (pnpm bridge).'
+				]
+			},
+			defaultQuestion: {
+				title: 'DeepSeek (China) liest deine Belege – weil es bisher voreingestellt war.',
+				text: 'Voreingestellt ist jetzt ein Modell auf diesem Rechner (Ollama): Kein Belegtext verlässt ihn. Wechseln, oder DeepSeek bewusst behalten? Die Bridge merkt sich die Antwort und fragt nicht wieder.',
+				local: 'Zum lokalen Modell wechseln',
+				keep: 'DeepSeek bewusst behalten',
+				failed: 'Die Bridge hat die Antwort nicht angenommen: {error}'
+			},
+			restartNeeded:
+				'Auf Ollama auf diesem Rechner umgestellt – die Bridge neu starten (pnpm bridge), damit es gilt. Geschwärzt wird, bis pnpm setup:llm gesagt wird, dass das Modell hier läuft.',
+			providerWho: 'Wo es läuft',
+			providerLocal: '{name} – auf diesem Rechner',
+			providerCountry: '{name} – {country}',
+			providerCountryUnknown: '{name} – Land unbekannt',
+			keyNotNeeded: 'nicht nötig – das Modell läuft auf diesem Rechner',
 			noBridge: 'Die Bridge ist nicht gekoppelt: Einstellungen erst nach dem Koppeln sichtbar.',
 			silent: 'Gerade antwortet keine Bridge – deshalb steht hier kein Status des Auslesens.',
 			silentWhich: {

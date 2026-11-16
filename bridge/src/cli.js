@@ -33,7 +33,15 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { startBridge } from './index.js';
-import { defaultConfigPath } from './config.js';
+import { defaultConfigPath, loadConfig, saveConfig } from './config.js';
+import {
+	DEFAULT_QUESTION,
+	keepCloud,
+	needsDefaultQuestion,
+	switchToLocal
+} from './llm/default-choice.js';
+import { ask, closePrompts } from './prompt.js';
+import { yes } from './setup-secret.js';
 import { memoryKeychain, unlockedKeychain } from './keychain.js';
 import { managePairings } from './pairings.js';
 
@@ -175,6 +183,35 @@ if (hosted) {
 	portalKeychain = (id) => fromUnlock(`portal:${id}`);
 	// Nobody sits at the VM: a portal never asks for a password there.
 	portalPasswordDialog = async () => null;
+}
+
+// DeepSeek from the old default (llm/default-choice.js): asked once, in a
+// terminal only; without one the log says where to answer (the app's KI page).
+if (!testMode && !hosted && !pairingAction && process.stdin.isTTY) {
+	try {
+		const config = await loadConfig(configPath);
+		if (needsDefaultQuestion(config.llm)) {
+			for (const line of DEFAULT_QUESTION) console.log(line);
+			const local = yes(
+				(await ask(
+					'Switch to the local model? [Y/n] (n keeps DeepSeek – China, on purpose; you are not asked again): '
+				)) || 'y'
+			);
+			config.llm = local
+				? switchToLocal(config.llm)
+				: keepCloud(config.llm, new Date().toISOString());
+			await saveConfig(config, configPath);
+			console.log(
+				local
+					? 'Switched to Ollama on this computer. Text stays blacked out until `pnpm setup:llm` is told the model runs here.'
+					: 'Kept DeepSeek on purpose. Change it any time with pnpm setup:llm.'
+			);
+		}
+	} catch (/** @type {any} */ error) {
+		console.error(`The question about the default model was not answered: ${error.message}`);
+	} finally {
+		closePrompts();
+	}
 }
 
 try {

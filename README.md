@@ -41,7 +41,7 @@ Each source is set up once, in the terminal; secrets go into the macOS keychain,
 | `pnpm setup:hibiscus`      | bank accounts from Hibiscus                                                                                                  |
 | `pnpm setup:enablebanking` | optional: banks through Enable Banking, your own application ([docs/banking.md](docs/banking.md))                            |
 | `pnpm setup:mail`          | the accounting mailbox (IMAP)                                                                                                |
-| `pnpm setup:llm`           | your own language model for reading receipts ([docs/ai.md](docs/ai.md); local with Ollama: [docs/ollama.md](docs/ollama.md)) |
+| `pnpm setup:llm`           | your own language model for reading receipts: by default Ollama on this computer ([docs/ollama.md](docs/ollama.md)); a provider on the internet only by choice ([docs/ai.md](docs/ai.md)) |
 | `pnpm setup:portal <id>`   | optional: the login of a customer portal, e.g. `vodafone`                                                                    |
 | `pnpm setup:kraken`        | Kraken, read only                                                                                                            |
 | `pnpm setup:alchemy`       | optional: EVM wallets through Alchemy                                                                                        |

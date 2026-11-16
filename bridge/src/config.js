@@ -102,6 +102,9 @@ export function defaultConfigPath() {
  * @property {boolean} configured set by setup:llm once a key is in the keychain
  * @property {import('./llm/confidential.js').TeePin | null} tee a confidential model (#416): the
  *   enclave setup:llm pinned; every request goes to it, attested, or fails – never to the gateway
+ * @property {string | null} cloudOnPurpose when the person chose a provider on the internet on
+ *   purpose (setup:llm, or the question about the old DeepSeek default: llm/default-choice.js);
+ *   null: never chosen, so a DeepSeek from the old default is asked about once
  */
 
 export const DEFAULT_ACCOUNTING_ADDRESS = 'buchhaltung@le-space.de';
@@ -118,16 +121,63 @@ export function defaultMailConfig() {
 	};
 }
 
+/** Ollama on this machine, OpenAI-compatible (docs/ollama.md): the default model since 2026-11-16. */
+export const OLLAMA_BASE_URL = 'http://127.0.0.1:11434/v1';
+/**
+ * The default model: Qwen3 4B Instruct 2507, 4-bit (2.5 GB). Answers JSON
+ * without "thinking" first, reads German, English and other languages, and
+ * runs on a laptop with 16 GB. The 30B one in docs/ollama.md reads better
+ * but needs 32 GB; setup:llm offers to name it instead.
+ */
+export const OLLAMA_DEFAULT_MODEL = 'qwen3:4b-instruct-2507-q4_K_M';
+
+/** What was the default until 2026-11-16 (DeepSeek, China): a config that still has it is asked once. */
+export const OLD_DEFAULT_LLM = Object.freeze({
+	baseUrl: 'https://api.deepseek.com',
+	model: 'deepseek-flash',
+	retryModel: 'deepseek-v4-pro'
+});
+
 /** @returns {LlmConfig} */
 export function defaultLlmConfig() {
 	return {
-		baseUrl: 'https://api.deepseek.com',
-		model: 'deepseek-flash',
-		retryModel: 'deepseek-v4-pro',
+		baseUrl: OLLAMA_BASE_URL,
+		model: OLLAMA_DEFAULT_MODEL,
+		retryModel: OLLAMA_DEFAULT_MODEL,
 		redactTerms: [],
 		redaction: 'auto',
 		configured: false,
-		tee: null
+		tee: null,
+		cloudOnPurpose: null
+	};
+}
+
+/**
+ * The llm section as stored, with today's defaults. A config never set up
+ * (`configured` false) that still holds the old default (written by a bridge
+ * before 2026-11-16) gets the new one: nobody chose DeepSeek there.
+ *
+ * @param {any} raw the stored `llm` section
+ * @returns {LlmConfig}
+ */
+function llmOf(raw) {
+	const d = defaultLlmConfig();
+	const stored = raw && typeof raw === 'object' ? { ...raw } : {};
+	if (stored.configured !== true && stored.baseUrl === OLD_DEFAULT_LLM.baseUrl) {
+		delete stored.baseUrl;
+		if (stored.model === OLD_DEFAULT_LLM.model) delete stored.model;
+		if (stored.retryModel === OLD_DEFAULT_LLM.retryModel) delete stored.retryModel;
+	}
+	return {
+		...d,
+		...stored,
+		redactTerms: Array.isArray(stored.redactTerms) ? stored.redactTerms.map(String) : [],
+		redaction: ['auto', 'on', 'off'].includes(stored.redaction) ? stored.redaction : 'auto',
+		tee: teePinOf(stored.tee),
+		cloudOnPurpose:
+			typeof stored.cloudOnPurpose === 'string' && stored.cloudOnPurpose
+				? stored.cloudOnPurpose
+				: null
 	};
 }
 
@@ -289,13 +339,7 @@ export function withDefaults(raw) {
 		},
 		pairedTokens: Array.isArray(raw?.pairedTokens) ? raw.pairedTokens : [],
 		mail: { ...d.mail, ...(raw?.mail ?? {}) },
-		llm: {
-			...d.llm,
-			...(raw?.llm ?? {}),
-			redactTerms: Array.isArray(raw?.llm?.redactTerms) ? raw.llm.redactTerms.map(String) : [],
-			redaction: ['auto', 'on', 'off'].includes(raw?.llm?.redaction) ? raw.llm.redaction : 'auto',
-			tee: teePinOf(raw?.llm?.tee)
-		},
+		llm: llmOf(raw?.llm),
 		portals:
 			raw?.portals && typeof raw.portals === 'object' && !Array.isArray(raw.portals)
 				? raw.portals

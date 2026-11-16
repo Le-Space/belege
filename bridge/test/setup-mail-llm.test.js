@@ -150,8 +150,13 @@ test('setup:llm stores URL, models and terms, the key in the keychain; DEEPSEEK_
 		DEEPSEEK_MODEL: 'deepseek-flash',
 		REDACT_TERMS: 'Erika Beispiel; Beispiel ;x'
 	};
-	const { io, hiddenQuestions } = scripted(['', '', '', '', '', '']);
-	assert.equal(await runLlmSetup({ io, keychain, configPath, env }), true);
+	// 3: a provider on the internet, on purpose; the URL and models from .env, confirmed.
+	const { io, hiddenQuestions, out } = scripted(['3', '', 'y', '', '', '', '']);
+	assert.equal(
+		await runLlmSetup({ io, keychain, configPath, env, now: () => '2026-11-16T10:00:00.000Z' }),
+		true
+	);
+	assert.ok(out.some((l) => /DeepSeek – China/.test(l)));
 	assert.equal(await keychain.read(), 'sk-env-key');
 	assert.equal(hiddenQuestions.length, 0);
 	const text = await readFile(configPath, 'utf8');
@@ -165,7 +170,8 @@ test('setup:llm stores URL, models and terms, the key in the keychain; DEEPSEEK_
 		redactTerms: ['Erika Beispiel', 'Beispiel'],
 		redaction: 'on',
 		configured: true,
-		tee: null
+		tee: null,
+		cloudOnPurpose: '2026-11-16T10:00:00.000Z'
 	});
 });
 
@@ -173,7 +179,14 @@ test('setup:llm: a model on this machine is asked about once, and then not black
 	const keychain = memoryKeychain('sk-kept', 'llm');
 	const local = scripted(['1', 'http://127.0.0.1:11434/v1', 'qwen3:8b', 'qwen3:8b', '']);
 	const localPath = join(dir, 'llm-local.json');
-	assert.equal(await runLlmSetup({ io: local.io, keychain, configPath: localPath }), true);
+	const checkOllama = async (/** @type {{ model: string }} */ { model }) => ({
+		state: /** @type {const} */ ('running'),
+		model
+	});
+	assert.equal(
+		await runLlmSetup({ io: local.io, keychain, configPath: localPath, checkOllama }),
+		true
+	);
 	assert.equal((await loadConfig(localPath)).llm.redaction, 'off');
 	assert.ok(local.out.some((l) => /Does the model run on this machine itself/.test(l)));
 	assert.equal(
@@ -183,13 +196,13 @@ test('setup:llm: a model on this machine is asked about once, and then not black
 	);
 
 	// A proxy on 127.0.0.1 that forwards to a provider: blacked out.
-	const proxy = scripted(['1', 'http://127.0.0.1:4000/v1', 'm', 'm', 'n', '-']);
+	const proxy = scripted(['3', 'http://127.0.0.1:4000/v1', 'm', 'm', 'n', '-']);
 	const proxyPath = join(dir, 'llm-proxy.json');
 	assert.equal(await runLlmSetup({ io: proxy.io, keychain, configPath: proxyPath }), true);
 	assert.equal((await loadConfig(proxyPath)).llm.redaction, 'on');
 
 	// A provider elsewhere is never asked.
-	const remote = scripted(['1', 'https://api.deepseek.com', '', '', '-']);
+	const remote = scripted(['3', 'https://api.deepseek.com', 'y', '', '', '-']);
 	const remotePath = join(dir, 'llm-remote.json');
 	assert.equal(await runLlmSetup({ io: remote.io, keychain, configPath: remotePath }), true);
 	assert.equal((await loadConfig(remotePath)).llm.redaction, 'on');
@@ -202,13 +215,16 @@ test('setup:llm: a model on this machine is asked about once, and then not black
 test('setup:llm: a key from the hidden prompt; "-" clears the terms; http is refused', async () => {
 	const configPath = join(dir, 'llm-prompt.json');
 	const keychain = memoryKeychain(null, 'llm');
-	const { io } = scripted(['', '', 'other-flash', 'other-pro', '-'], ['sk-typed']);
+	const { io } = scripted(
+		['3', 'https://api.deepseek.com', 'y', 'other-flash', 'other-pro', '-'],
+		['sk-typed']
+	);
 	assert.equal(await runLlmSetup({ io, keychain, configPath }), true);
 	assert.equal(await keychain.read(), 'sk-typed');
 	const { llm } = await loadConfig(configPath);
 	assert.deepEqual([llm.model, llm.retryModel, llm.redactTerms], ['other-flash', 'other-pro', []]);
 
-	const refused = scripted(['', 'http://api.example']);
+	const refused = scripted(['3', 'http://api.example']);
 	assert.equal(
 		await runLlmSetup({ io: refused.io, keychain, configPath: join(dir, 'llm-http.json') }),
 		false
@@ -251,7 +267,8 @@ test('setup:llm: LibertAI confidential – the enclave verified, shown and pinne
 		redactTerms: ['Erika Beispiel'],
 		redaction: 'on',
 		configured: true,
-		tee: pinOf('a', 'b')
+		tee: pinOf('a', 'b'),
+		cloudOnPurpose: null
 	});
 	assert.equal((await readFile(configPath, 'utf8')).includes('lt-made-up-key'), false);
 
@@ -306,7 +323,7 @@ test('setup:llm: LibertAI confidential – the enclave verified, shown and pinne
 	await assert.rejects(stat(join(dir, 'llm-tee-failed.json')));
 	// Back to a URL: the pin goes.
 	const back = scripted(
-		['1', 'https://api.deepseek.com', 'deepseek-flash', 'deepseek-v4-pro', '-'],
+		['3', 'https://api.deepseek.com', 'y', 'deepseek-flash', 'deepseek-v4-pro', '-'],
 		['']
 	);
 	assert.equal(await runLlmSetup({ io: back.io, keychain, configPath }), true);

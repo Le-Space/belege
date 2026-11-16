@@ -53,6 +53,8 @@ describe('/transfer/assist', () => {
 			appOrigins: [APP],
 			llm: {
 				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
 				baseUrl: llm.url,
 				redactTerms: ['Maria Beispiel'],
 				configured: true

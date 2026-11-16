@@ -47,7 +47,13 @@ describe('/vendor/assist', () => {
 		const config = {
 			...defaultConfig(),
 			appOrigins: [APP],
-			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: llm.url,
+				configured: true
+			}
 		};
 		/** @type {{ hash: string, createdAt: string }[]} */
 		let hashes = [];

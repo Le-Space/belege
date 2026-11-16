@@ -80,7 +80,13 @@ describe('/mail/assist and /mail/search?from=', () => {
 				user: imap.user,
 				tls: /** @type {const} */ ('none')
 			},
-			llm: { ...defaultConfig().llm, baseUrl: llm.url, configured: true }
+			llm: {
+				...defaultConfig().llm,
+				model: 'deepseek-flash',
+				retryModel: 'deepseek-v4-pro',
+				baseUrl: llm.url,
+				configured: true
+			}
 		};
 		/** @type {{ hash: string, createdAt: string }[]} */
 		let hashes = [];
