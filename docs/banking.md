@@ -46,7 +46,7 @@ Hibiscus (in Jameica) fetches your German bank accounts via FinTS. The bridge re
 
 ### Your own application
 
-Belege has no server and keeps no key for you. So **every installation uses its own Enable Banking application**, and its private key stays in your bridge. This is the same pattern as for the language model and Kraken.
+Belege has no server for your books and keeps no key for you. So **every installation uses its own Enable Banking application**, and its private key stays in your bridge. This is the same pattern as for the language model and Kraken.
 
 **For your own accounts: production, restricted.** A _production_ application becomes active in **restricted mode** as soon as you link your own accounts in the Control Panel ("Link accounts"); it then shows as "Active" and "Restricted". In that mode it reaches exactly the accounts linked there, which is what Belege needs; the guides of [Firefly III](https://docs.firefly-iii.org/tutorials/data-importer/eb/) and [Actual Budget](https://actualbudget.org/docs/advanced/bank-sync/enable-banking) describe it as free. Lifting the restriction (other people's accounts) needs Enable Banking's activation and their terms. A _sandbox_ application only reaches test banks with made-up data; it is for trying the flow, not for your books.
 

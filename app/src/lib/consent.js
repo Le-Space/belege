@@ -116,7 +116,11 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 53: the bridge's functions are no longer served over HTTP (#580); the node
 //     on this computer pairs a bridge's node only if these books never paired
 //     it, and dials nothing while the network is paused.
-export const CONSENT_VERSION = '53';
+// 54: what Le Space and Stripe keep is said instead of "nothing with us": the
+//     Credits ledger under the books' Aleph address, Stripe's customer with
+//     that address, the purchase notices, the hosted bridge's VM; the privacy
+//     policy is the one at credits.le-space.de.
+export const CONSENT_VERSION = '54';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
