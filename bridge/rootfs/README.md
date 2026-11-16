@@ -58,7 +58,11 @@ As for paperless-anywhere: the launch measurement covers Aleph's SEV-SNP runtime
 kernel, initrd) and a boot command line that names the owner's address. The browser computes it
 with `@le-space/attest-wasm` (`confidentialTrustedExecution`) from Aleph's published runtime and
 pins it in the INSTANCE. The image itself is named by its STORE hash in the INSTANCE and opens
-only with the image passphrase.
+only with the image passphrase: the shared image's (from `BRIDGE_LUKS_PASSPHRASE`, typed by the
+owner), or for an image of the books' own the passphrase the browser derives from the books
+(below). The measurement is the same for both: `bridge/test/unlock.test.js` and
+`app/src/lib/integrations/hosted-vm.spec.js` show that a re-sealed image changes only the STORE
+the INSTANCE names.
 
 So the unlock (`test/release.mjs`, which `test/attest-live.mjs` runs) sends nothing unless the
 INSTANCE is the owner's, boots the published STORE and pins the measurement computed on the
@@ -78,8 +82,15 @@ own: the image after relay-button's confidential conversion and before the encry
 It holds no secret – no key, no passphrase, no account – and is the first piece of an image of
 its own per set of books (#777), as in
 [Paperless anywhere](https://github.com/Le-Space/paperless-anywhere/blob/main/docs/own-image.md):
-what an attested image builder seals with a passphrase from the books. Nothing in the app uses
-it yet; the hosted bridge still starts the encrypted image above.
+what an attested image builder seals with a passphrase from the books.
+
+The builder for it is published once per plain image from relay-button's
+`packages/sealed-image/builder` (its record: `publications/belege-bridge.json`) and pinned in the
+app (`BRIDGE_BUILDER` in `app/src/lib/integrations/hosted-image.js`): its V-PROGRAM content, node
+and launch measurements, and this plain image's SHA-256. "Bridge-Image bauen" starts a builder
+with exactly that content for each build, sends the passphrase only once the hardware shows one of
+those measurements, and forgets the builder afterwards. A new plain image needs a new builder
+publication and a new `BRIDGE_BUILDER`; images built before keep working with their own record.
 
 `bridge-image.json` names it under `sealable`: the STORE's hash, the SHA-256 and size of the
 image itself (unpacked), the stored size, and GitHub's signed statement that this workflow built

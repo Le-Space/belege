@@ -6,18 +6,23 @@
 	// stop it. A VM that runs already can be unlocked by its hash, or picked
 	// from the books' key's VMs Aleph lists. While a VM boots, the card says
 	// which try of the unlock it is and why the last one failed, and the
-	// waiting can be cancelled. The passphrase is the image's, typed here and
-	// kept nowhere.
+	// waiting can be cancelled. The passphrase is the image's: typed here for
+	// the shared image, kept nowhere; for the books' own image (#777, built
+	// here with "Bridge-Image bauen" when the books' key pays) derived in the
+	// browser and never typed.
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		app,
+		buildHostedImage,
 		chooseHostedPlan,
+		forgetLeftHostedBuilder,
 		continueHostedStart,
 		hostedBridgeRecord,
 		hostedCredits,
 		hostedInstances,
 		hostedNodeHistory,
 		hostedNodes,
+		hostedOwnImage,
 		hostedVmRecord,
 		startHostedBridge,
 		stopHostedBridge,
@@ -65,14 +70,22 @@
 	let nodes = $state(null);
 	let now = $state(Date.now());
 	/** Who pays the VM: Le Space from the books' plan, or the books' key. @type {'lespace' | 'books'} */
-	let paidBy = $state('lespace');
+	let paidBy = $state(/** @type {'lespace' | 'books'} */ ('lespace'));
 	/** @type {Awaited<ReturnType<typeof hostedCredits>> | null} */
 	let credits = $state(null);
+	/** The books' own image (#777), when built. @type {Awaited<ReturnType<typeof hostedOwnImage>>} */
+	let ownImage = $state(null);
+	/** A build of the own image runs: it cannot be cancelled half-way, so no "Abbrechen". */
+	let building = $state(false);
 
 	const running = $derived(Boolean(vm && !vm.stoppedAt));
 	/** A start Aleph has, not yet unlocked from here. */
 	const halfway = $derived(running && /** @type {any} */ (kept)?.instance !== vm?.instance);
 	const used = $derived(usage(vm, vm?.stoppedAt ? Date.parse(vm.stoppedAt) : now));
+	/** The next start uses the books' own image: they pay themselves and have one. */
+	const startsOwn = $derived(!halfway && paidBy === 'books' && Boolean(ownImage) && !app.member);
+	/** The image needs no typed passphrase: the own image's is derived (#777). */
+	const derivedPassphrase = $derived(halfway ? Boolean(vm?.image) : startsOwn);
 	/** The unlocked VM whose node reached this device while the page was open. */
 	let reachedFor = $state('');
 	$effect(() => {
@@ -88,10 +101,11 @@
 	);
 
 	async function reload() {
-		[kept, vm, history] = await Promise.all([
+		[kept, vm, history, ownImage] = await Promise.all([
 			hostedBridgeRecord(),
 			hostedVmRecord(),
-			hostedNodeHistory()
+			hostedNodeHistory(),
+			hostedOwnImage()
 		]);
 		noteAleph(kept, vm);
 	}
@@ -108,6 +122,13 @@
 
 	$effect(() => {
 		if (app.sync.online) reload();
+	});
+	// A builder a closed window left on Aleph is forgotten as soon as the card opens (#777).
+	let leftChecked = false;
+	$effect(() => {
+		if (!app.sync.online || leftChecked) return;
+		leftChecked = true;
+		forgetLeftHostedBuilder().catch(() => {});
 	});
 	$effect(() => {
 		if (kept && !instance) instance = kept.instance;
@@ -183,6 +204,16 @@
 				{ received: mb(received), total: mb(total ?? 0), seconds: Math.round(ms / 1000), host }
 			);
 			slow = ms > 20_000;
+			return;
+		}
+		if ((phase === 'ownImage.fetch' || phase === 'ownImage.upload') && total) {
+			download = '';
+			slow = false;
+			progress = t(`integrationen.hostedBridge.phase.${phase}Of`, {
+				received: mb(received),
+				total: mb(total),
+				host: detail
+			});
 			return;
 		}
 		download = '';
@@ -282,10 +313,20 @@
 		step(() => stopHostedInstance(hash));
 	}
 
+	/** "Bridge-Image bauen" (#777). */
+	async function build() {
+		building = true;
+		try {
+			await step(() => buildHostedImage({ onProgress }));
+		} finally {
+			building = false;
+		}
+	}
+
 	/** @param {SubmitEvent} event */
 	function start(event) {
 		event.preventDefault();
-		const typed = startPassphrase;
+		const typed = derivedPassphrase ? undefined : startPassphrase;
 		startPassphrase = '';
 		step((signal) =>
 			halfway
@@ -482,6 +523,43 @@
 					</div>
 				{/if}
 			{/if}
+			{#if !halfway && !app.member}
+				<div class="mt-4 text-sm" data-testid="hosted-bridge-own-image">
+					<h3 class="font-medium text-heading">
+						{t('integrationen.hostedBridge.ownImage.title')}
+					</h3>
+					{#if paidBy !== 'books'}
+						<p class="mt-1 text-text" data-testid="hosted-bridge-own-image-package">
+							{t('integrationen.hostedBridge.ownImage.packageLater')}
+						</p>
+					{:else}
+						{#if ownImage}
+							<p class="mt-1 text-text" data-testid="hosted-bridge-own-image-built">
+								{t('integrationen.hostedBridge.ownImage.built', {
+									date: ownImage.builtAt ? when(ownImage.builtAt) : '–'
+								})}
+							</p>
+							<p class="mt-1 font-mono text-xs break-all text-faint">
+								{t('integrationen.hostedBridge.ownImage.store')}
+								{ownImage.store}
+							</p>
+						{:else}
+							<p class="mt-1 text-text">{t('integrationen.hostedBridge.ownImage.none')}</p>
+						{/if}
+						<button
+							type="button"
+							class="hover:bg-surface-muted mt-2 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text disabled:opacity-50"
+							disabled={busy}
+							onclick={build}
+							data-testid="hosted-bridge-build-image"
+							>{ownImage
+								? t('integrationen.hostedBridge.ownImage.rebuild')
+								: t('integrationen.hostedBridge.ownImage.build')}</button
+						>
+						<p class="mt-1 text-xs text-faint">{t('integrationen.hostedBridge.ownImage.hint')}</p>
+					{/if}
+				</div>
+			{/if}
 			{#if halfway}
 				<p
 					class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
@@ -518,21 +596,23 @@
 						{/if}
 					</label>
 				{/if}
-				<label class="flex flex-col text-sm">
-					<span class="text-faint">{t('integrationen.hostedBridge.passphrase')}</span>
-					<input
-						class="{field} w-64 max-w-full"
-						type="password"
-						bind:value={startPassphrase}
-						autocomplete="off"
-						data-testid="hosted-bridge-start-passphrase"
-					/>
-				</label>
+				{#if !derivedPassphrase}
+					<label class="flex flex-col text-sm">
+						<span class="text-faint">{t('integrationen.hostedBridge.passphrase')}</span>
+						<input
+							class="{field} w-64 max-w-full"
+							type="password"
+							bind:value={startPassphrase}
+							autocomplete="off"
+							data-testid="hosted-bridge-start-passphrase"
+						/>
+					</label>
+				{/if}
 				<button
 					type="submit"
 					class={primary}
 					disabled={busy ||
-						!startPassphrase ||
+						(!derivedPassphrase && !startPassphrase) ||
 						(!halfway && !crn) ||
 						(!halfway && paidBy === 'lespace' && !credits?.plan)}
 					data-testid="hosted-bridge-start"
@@ -544,7 +624,9 @@
 			<p class="mt-2 text-xs text-faint">
 				{halfway
 					? t('integrationen.hostedBridge.resumeHint')
-					: t('integrationen.hostedBridge.startHint')}
+					: startsOwn
+						? t('integrationen.hostedBridge.ownImage.startHint')
+						: t('integrationen.hostedBridge.startHint')}
 			</p>
 			{#if halfway}
 				<!-- A start Aleph has but that never came up (the node failed it, or the tab closed): stop it here. -->
@@ -567,7 +649,7 @@
 						{progress}
 					</p>
 				{/if}
-				{#if controller}
+				{#if controller && !building}
 					<button
 						type="button"
 						class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text"
