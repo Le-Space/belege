@@ -61,6 +61,20 @@ test('invoices in dollars and pounds link to their euro card payments by themsel
 	await page.getByRole('link', { name: 'Integrationen' }).click();
 	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 	await pairBridge(page, { code: code, out: () => bridgeOut });
+	// The rate is asked for over the bridge's stream (#580); paired by code,
+	// that stream comes up a moment after "gekoppelt". Matching that ran before
+	// it found no rate and did not link the dollar invoice (flaky on CI).
+	const status = page.getByTestId('bridge-status');
+	await expect
+		.poll(
+			async () => {
+				const route = `${await status.getAttribute('data-state')}/${await status.getAttribute('data-route')}`;
+				if (route !== 'online/stream') await page.getByTestId('bridge-check').click();
+				return route;
+			},
+			{ timeout: 90_000, intervals: [1_000, 2_000] }
+		)
+		.toBe('online/stream');
 
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;
