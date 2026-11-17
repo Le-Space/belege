@@ -160,6 +160,7 @@ Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der F
 - EVM: Ethereum, Base, Arbitrum One, OP Mainnet und Polygon PoS;
 - Bitcoin (siehe [Bitcoin](#bitcoin));
 - Filecoin (siehe [Filecoin](#filecoin));
+- NEAR (siehe [NEAR](#near));
 - Monero, als importierte Datei (siehe [Monero](#monero)).
 
 Die Tabelle der Chains steht in `packages/chains/src/registry.js`, die Namen in der App in `app/src/lib/wallets/chains.js`.
@@ -568,6 +569,27 @@ Filfox sieht die Adresse und die IP-Adresse dieses Macs. Eine Adresse mit mehr a
 - Der Router wird nach dem Empfänger der Nachricht benannt (`message/<cid>`, nur bei einem Tausch gefragt). Das geht, wo er aus Sushis eigener Konfiguration bekannt ist: _SushiSwap_ (der Router der Sushi-App), _SushiSwap V2 (Router)_, _WFIL_.
 - Der Euro-Kurs von USDFC kommt von CoinGecko (`usdfc`), sonst aus der anderen Seite des Tauschs. Er wird nie pauschal mit 1 USD ohne Quelle angesetzt.
 - Im crypto-ledger-Export heißt USDFC `eip155:314/erc20:0x80b9…f045`.
+
+### NEAR
+
+**Anlegen:** Ein eigenes NEAR-Konto legst du mit seinem Kontonamen an: ein benanntes (`name.near`) oder ein implizites (64 Hex-Zeichen). Belege hält ihn in Kleinbuchstaben.
+
+**Abrufen:** Die Bridge liest ohne Schlüssel (`packages/chains/src/near-wallet.js`, auf dem Leser aus Eigenbeleg, `near.js`):
+
+- **NearBlocks** (`api.nearblocks.io`, v3): `accounts/<Konto>/txns` für die Transaktionen, die das Konto signiert oder empfangen hat, und `accounts/<Konto>/ft-txns` für seine Token-Bewegungen (NEP-141). Je Seite 25, die ganze Geschichte. Mehr als 5 000 von einer Sorte lehnt die Bridge ab (`WALLET_TOO_LARGE`).
+- **Ein Archivknoten** (`archival-rpc.mainnet.fastnear.com`): `view_account` für den Bestand jetzt (frei plus bei einem Validator gesperrt), `ft_balance_of` für einen gelisteten Token und `EXPERIMENTAL_tx_status` für das, was eine Speicher-Einlage behielt.
+
+Beide sehen den Kontonamen und die IP-Adresse dieses Macs. Für beide kannst du eigene Endpunkte eintragen (`api`, `rpc`).
+
+**Buchungen:** Je Transaktion wird das bewegte NEAR als Ausgang oder Eingang mit dem anderen Konto gebucht. Das Gas einer Transaktion, die das Konto signiert hat, ist eine eigene Gebühr (`<hash>:fee`). Eine gescheiterte Transaktion kostet nur ihre Gebühr. Das eine yoctoNEAR, das eine Token-Überweisung mitschickt, ist keine Zahlung. Von einer Speicher-Einlage wird nur gebucht, was der Vertrag behielt.
+
+**Hash:** Der Hash ist der der Transaktion (base58) – derselbe, den Kraken für eine Auszahlung nennt. So finden eine Auszahlung bei Kraken und der Eingang auf dem Konto als eigene Umbuchung zusammen, und das Detail der Auszahlung nennt NEAR und verlinkt NearBlocks.
+
+**Gebucht werden** NEAR und **USDC** nach Circles eigenem Vertrag (`17208628…36133a1`). Jeder andere Token – das gebrückte USDC.e, USDT, wNEAR und alles Verschenkte – wird gezählt und ausgelassen: Das Symbol eines Tokens ist seine eigene Behauptung. Im Krypto-Ledger-Export ist NEAR `near:mainnet/slip44:397`, USDC `near:mainnet/nep141:<Vertrag>`.
+
+**Noch nicht gelesen:** NEAR, das in den inneren Quittungen einer fremden Transaktion ankommt, etwa die Auszahlung eines Staking-Pools. Der Bestand kommt vom Archivknoten, nicht aus den Buchungen; so eine Lücke zeigt sich als Differenz.
+
+**Grenzen:** NearBlocks begrenzt Abfragen ohne Schlüssel. Der Leser wartet dann und fragt erneut (bis etwa eine halbe Minute je Abfrage). Ein NearBlocks-Schlüssel im Schlüsselbund der Bridge ist noch nicht gebaut.
 
 ### Monero
 

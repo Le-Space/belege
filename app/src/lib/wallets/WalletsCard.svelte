@@ -425,7 +425,9 @@
 									? 'f1… · f410f… · 0x…'
 									: localChain?.kind === 'monero'
 										? '4… · 8…'
-										: `${localChain?.bech32Prefix ?? ''}1…`}
+										: localChain?.kind === 'near'
+											? 'name.near'
+											: `${localChain?.bech32Prefix ?? ''}1…`}
 							data-testid="wallet-address-input"
 						/>
 					</label>

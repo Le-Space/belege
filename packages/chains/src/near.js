@@ -576,6 +576,53 @@ export async function balancesBefore({
 	return { ...block, balances };
 }
 
+/**
+ * What an account holds now (the last final block): NEAR (liquid plus staked
+ * by a validator) and the listed tokens asked for, in base units. An account
+ * that does not exist yet holds nothing.
+ *
+ * @param {{ account: string, network?: 'mainnet' | 'testnet', contracts?: string[], fetch?: typeof fetch, endpoints?: Partial<{ rpc: string }> }} p
+ * @returns {Promise<{ native: bigint, tokens: Record<string, bigint> }>}
+ */
+export async function balancesNow({
+	account,
+	network = 'mainnet',
+	contracts = [],
+	fetch = globalThis.fetch,
+	endpoints
+}) {
+	if (!isAccountId(account)) throw new Error('not a NEAR account id');
+	const url = endpointsOf(network, endpoints).rpc;
+	let native = 0n;
+	try {
+		const a = await rpc(fetch, url, 'query', {
+			request_type: 'view_account',
+			finality: 'final',
+			account_id: account
+		});
+		native = BigInt(a.amount) + BigInt(a.locked ?? '0');
+	} catch (e) {
+		if (!/UNKNOWN_ACCOUNT/.test(String(/** @type {any} */ (e).cause))) throw e;
+	}
+	/** @type {Record<string, bigint>} */
+	const tokens = {};
+	for (const c of contracts) {
+		try {
+			const r = await rpc(fetch, url, 'query', {
+				request_type: 'call_function',
+				finality: 'final',
+				account_id: c,
+				method_name: 'ft_balance_of',
+				args_base64: toBase64(utf8(JSON.stringify({ account_id: account })))
+			});
+			tokens[c] = BigInt(JSON.parse(fromUtf8(Uint8Array.from(r.result))));
+		} catch {
+			tokens[c] = 0n; // not registered with the token yet
+		}
+	}
+	return { native, tokens };
+}
+
 /** `{ native: { asset: 'NEAR', amount } … }` → `{ NEAR: amount … }`. @param {Record<string, { asset: string, amount: string }>} b */
 const bySymbol = (b) => Object.fromEntries(Object.values(b).map((x) => [x.asset, x.amount]));
 

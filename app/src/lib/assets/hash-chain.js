@@ -14,6 +14,7 @@
 //        64 hex                           → Bitcoin for BTC; Nyx for NYM,
 //                                           Akash for AKT
 //        base58, 87–88 characters         → Solana
+//        base58, 43–44 characters         → NEAR for NEAR (a 32-byte hash)
 //   Anything else: not clear, and no link.
 
 /**
@@ -75,6 +76,7 @@ export const HASH_CHAINS = Object.freeze({
 		explorer: 'Mintscan',
 		tx: 'https://www.mintscan.io/akash/transactions/{tx}'
 	},
+	near: { id: 'near', name: 'NEAR', explorer: 'NearBlocks', tx: 'https://nearblocks.io/txns/{tx}' },
 	solana: { id: 'solana', name: 'Solana', explorer: 'Solscan', tx: 'https://solscan.io/tx/{tx}' }
 });
 
@@ -89,6 +91,7 @@ const METHOD_WORDS = /** @type {const} */ ([
 	[/filecoin|\bfil\b/i, 'filecoin'],
 	[/solana|\bspl\b/i, 'solana'],
 	[/akash/i, 'akash'],
+	[/\bnear\b/i, 'near'],
 	[/\bnym\b|\bnyx\b/i, 'nyx'],
 	[/bitcoin|\bbtc\b/i, 'bitcoin'],
 	[/ethereum|\bether\b|erc-?20/i, 'ethereum']
@@ -101,7 +104,8 @@ const HOME = /** @type {Record<string, string>} */ ({
 	NYM: 'nyx',
 	AKT: 'akash',
 	POL: 'polygon',
-	SOL: 'solana'
+	SOL: 'solana',
+	NEAR: 'near'
 });
 
 /**
@@ -134,6 +138,8 @@ export function chainOfHash({ hash, asset = '', method = '', walletChain = null 
 	const home = HOME[String(asset).toUpperCase()];
 	if (form === 'cid') return answer(['filecoin'], 'hash-form');
 	if (form === 'solana') return answer(['solana'], 'hash-form');
+	if (form === 'base58-32')
+		return home === 'near' ? answer(['near'], 'hash-form') : answer([], null);
 	if (form === 'evm') {
 		return home && EVM.includes(home) ? answer([home], 'hash-form') : answer(EVM, 'hash-form');
 	}
@@ -145,12 +151,13 @@ export function chainOfHash({ hash, asset = '', method = '', walletChain = null 
 	return answer([], null);
 }
 
-/** @param {string} h @returns {'cid' | 'evm' | 'hex64' | 'solana' | null} */
+/** @param {string} h @returns {'cid' | 'evm' | 'hex64' | 'solana' | 'base58-32' | null} */
 function formOf(h) {
 	if (/^bafy2bzace[a-z2-7]{40,}$/.test(h)) return 'cid';
 	if (/^0x[0-9a-fA-F]{64}$/.test(h)) return 'evm';
 	if (/^[0-9a-fA-F]{64}$/.test(h)) return 'hex64';
 	if (/^[1-9A-HJ-NP-Za-km-z]{87,88}$/.test(h)) return 'solana';
+	if (/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(h)) return 'base58-32';
 	return null;
 }
 
@@ -158,6 +165,7 @@ function formOf(h) {
 function fits(chain, form) {
 	if (chain === 'filecoin') return form === 'cid';
 	if (chain === 'solana') return form === 'solana';
+	if (chain === 'near') return form === 'base58-32';
 	if (EVM.includes(chain)) return form === 'evm';
 	return form === 'hex64';
 }

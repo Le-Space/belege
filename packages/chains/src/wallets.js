@@ -18,6 +18,7 @@ import { isCosmosAddress } from './bech32.js';
 import { createEvmClient } from './evm.js';
 import { createBitcoinClient } from './bitcoin.js';
 import { createFilecoinClient } from './filecoin.js';
+import { createNearClient } from './near-wallet.js';
 import { checkEndpoint, WalletError } from './http.js';
 
 /**
@@ -50,6 +51,7 @@ export function createWalletService({
 		alchemy: { key: alchemyKey, baseUrl: alchemyBaseUrl }
 	});
 	const filecoin = createFilecoinClient({ fetch: f, timeoutMs, sleep });
+	const near = createNearClient({ fetch: f, timeoutMs });
 	const deployments = createAkashDeploymentsClient({ fetch: f, timeoutMs, sleep });
 	const bitcoin = createBitcoinClient({
 		fetch: f,
@@ -119,30 +121,36 @@ export function createWalletService({
 			const address = typeof request?.address === 'string' ? request.address.trim() : '';
 			const { endpoints, ownEndpoint } = endpointsOf(chain, request);
 			let result =
-				chain.kind === 'filecoin'
-					? await filecoin.history({
+				chain.kind === 'near'
+					? await near.history({
 							chain,
 							address,
-							endpoints: /** @type {{ api: string }} */ (endpoints)
+							endpoints: /** @type {{ api: string, rpc: string }} */ (endpoints)
 						})
-					: chain.kind === 'bitcoin'
-						? await bitcoin.history({
+					: chain.kind === 'filecoin'
+						? await filecoin.history({
 								chain,
 								address,
 								endpoints: /** @type {{ api: string }} */ (endpoints)
 							})
-						: chain.kind === 'cosmos'
-							? await cosmos.history({
+						: chain.kind === 'bitcoin'
+							? await bitcoin.history({
 									chain,
 									address,
-									endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
+									endpoints: /** @type {{ api: string }} */ (endpoints)
 								})
-							: await evm.history({
-									chain,
-									address,
-									endpoints: /** @type {{ api: string }} */ (endpoints),
-									ownEndpoint
-								});
+							: chain.kind === 'cosmos'
+								? await cosmos.history({
+										chain,
+										address,
+										endpoints: /** @type {{ rpc: string, rest: string }} */ (endpoints)
+									})
+								: await evm.history({
+										chain,
+										address,
+										endpoints: /** @type {{ api: string }} */ (endpoints),
+										ownEndpoint
+									});
 			// A pruned node: what it no longer knows, from the chain's indexer. If
 			// that fails, the sync keeps what the node gave and says the history
 			// is short, as without an indexer.

@@ -11,14 +11,14 @@ import { isEthStyle, toFilecoinAddress } from './filecoin-address.js';
 /**
  * @typedef {object} WalletChain
  * @property {string} id
- * @property {'cosmos' | 'evm' | 'bitcoin' | 'filecoin' | 'monero'} kind
+ * @property {'cosmos' | 'evm' | 'bitcoin' | 'filecoin' | 'near' | 'monero'} kind
  * @property {string} name
  * @property {string} shortName
  * @property {string} nativeSymbol
  * @property {string} caip2 the chain as CAIP-2, as the bridge's registry names it
  * @property {number | null} nativeSlip44 the native asset's SLIP-44 coin type, for its CAIP-19 id
  *   (`<caip2>/slip44:<n>`); null where no such id is established (Cosmos denoms, Monero)
- * @property {Readonly<Record<string, string>>} [tokens] evm and filecoin (FEVM): symbol → lower-case contract
+ * @property {Readonly<Record<string, string>>} [tokens] evm, filecoin (FEVM) and near (NEP-141): symbol → lower-case contract
  *   of the tokens the bridge books there (registry.js `tokens`)
  * @property {string} [evmCaip2] filecoin only: the FEVM's CAIP-2, for its tokens' CAIP-19
  * @property {string} [bech32Prefix] cosmos only
@@ -127,6 +127,20 @@ export const WALLET_CHAINS = Object.freeze({
 		tokens: { USDFC: '0x80b98d3aa09ffff255c3ba4a241111ff1262f045' },
 		evmCaip2: 'eip155:314'
 	},
+	// Read by the account id through NearBlocks, the balance from an archival
+	// RPC; a transaction hash is base58, the same an exchange names for a
+	// withdrawal (packages/chains/src/near-wallet.js).
+	near: {
+		id: 'near',
+		kind: 'near',
+		name: 'NEAR',
+		shortName: 'NEAR',
+		nativeSymbol: 'NEAR',
+		caip2: 'near:mainnet',
+		nativeSlip44: 397,
+		// Circle's USDC on NEAR, by its contract.
+		tokens: { USDC: '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1' }
+	},
 	// Not read by address: Monero hides amounts and parties on its chain. The
 	// wallet's own export is imported in the browser (monero-import.js); the
 	// address names the account.
@@ -167,7 +181,7 @@ export const isWalletSource = (source) => walletChain(source) !== null;
 export function normalizeAddress(chain, address) {
 	const a = String(address ?? '').trim();
 	if (chain.kind === 'filecoin') return toFilecoinAddress(a);
-	return chain.kind === 'evm' ? a.toLowerCase() : a;
+	return chain.kind === 'evm' || chain.kind === 'near' ? a.toLowerCase() : a;
 }
 
 /**
@@ -184,11 +198,22 @@ export function looksLikeAddress(chain, address) {
 	if (chain.kind === 'filecoin') {
 		return isEthStyle(a) || /^f(0\d{1,20}|1[a-z2-7]{39}|3[a-z2-7]{84}|410f[a-z2-7]{39})$/.test(a);
 	}
+	// A named account (`name.near`) or an implicit one (64 hex), lower case.
+	if (chain.kind === 'near') return isNearAccountId(a.toLowerCase());
 	// A primary address (4…) or a subaddress (8…), base58, 95 characters.
 	if (chain.kind === 'monero') return /^[48][1-9A-HJ-NP-Za-km-z]{94}$/.test(a);
 	const prefix = chain.bech32Prefix ?? '';
 	return new RegExp(`^${prefix}1[02-9ac-hj-np-z]{38,58}$`).test(a);
 }
+
+/**
+ * A NEAR account id: 2–64 characters, lower-case letters and digits in parts
+ * joined by `.`, `-` or `_` – or the 64 hex characters of an implicit account.
+ *
+ * @param {string} id
+ */
+export const isNearAccountId = (id) =>
+	/^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id);
 
 /**
  * The Cosmos chain an address belongs to, by its bech32 prefix: an IBC
@@ -209,7 +234,8 @@ export const addressTail = (address) => String(address ?? '').slice(-6);
 
 /**
  * `Wallet NYM ···w6d0y`, `Wallet USDC (Base) ···81efcf`: an EVM address is
- * the same on every EVM chain, so the chain is named there.
+ * the same on every EVM chain, so the chain is named there. A named NEAR
+ * account is short and says who it is: `Wallet NEAR wolkenfabrik.near`.
  *
  * @param {WalletChain} chain
  * @param {string} asset
@@ -217,13 +243,16 @@ export const addressTail = (address) => String(address ?? '').slice(-6);
  */
 export function walletAccountName(chain, asset, address) {
 	const where = chain.kind === 'evm' ? ` (${chain.shortName})` : '';
+	const a = String(address ?? '');
+	if (chain.kind === 'near' && a.length <= 32) return `Wallet ${asset} ${a}`;
 	return `Wallet ${asset}${where} ···${addressTail(address)}`;
 }
 
 /**
  * The explorer's page of an address, from the booking's link to its
  * transaction: the same explorer, `/address/<address>` where the link has
- * `/tx/<hash>` or `/message/<hash>` (Filfox). Null when the link has neither.
+ * `/tx/<hash>`, `/message/<hash>` (Filfox) or `/txns/<hash>` (NearBlocks).
+ * Null when the link has none of them.
  *
  * @param {unknown} explorerUrl
  * @param {unknown} hash
@@ -233,8 +262,9 @@ export function addressExplorerUrl(explorerUrl, hash, address) {
 	const url = safeExplorerUrl(explorerUrl);
 	const h = String(hash ?? '');
 	const a = String(address ?? '').trim();
-	if (!url || !h || !a || !/^[A-Za-z0-9]+$/.test(a)) return null;
-	for (const kind of ['tx', 'message']) {
+	// Letters and digits; a NEAR account id also has `.`, `-` and `_`.
+	if (!url || !h || !a || !/^[A-Za-z0-9]+([._-][A-Za-z0-9]+)*$/.test(a)) return null;
+	for (const kind of ['tx', 'message', 'txns']) {
 		const at = url.indexOf(`/${kind}/${h}`);
 		if (at > 0) return `${url.slice(0, at)}/address/${a}`;
 	}
