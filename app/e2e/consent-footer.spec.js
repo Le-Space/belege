@@ -128,7 +128,7 @@ test('the consent screen opens on a first visit, and not after "Verstanden"', as
 		'aktiv, wenn eingerichtet'
 	);
 	await expect(blockchain).toContainText(
-		'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin)'
+		'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin, NEAR)'
 	);
 	await expect(blockchain).toContainText('IP-Adresse dieses Macs');
 	await expect(blockchain).toContainText('Synchronisieren');
