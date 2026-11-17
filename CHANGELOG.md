@@ -6,9 +6,19 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The hosted bridge on Aleph can run from an image of the books' own (#777, #808). "Bridge-Image bauen" on the hosted bridge card derives the image's passphrase from the books' keys in the browser. It starts the pinned builder and hands it the passphrase only after its attestation, fetches the sealed image back and keeps it on Aleph as a STORE of the books' key. The builder is forgotten afterwards. From then on, "Starten" and "Entsperren" send the derived passphrase; there is no passphrase field and no passphrase Le Space holds. The launch measurement is the same as for the shared image. This first works while the books' own Aleph key pays: the card checks the reserve Aleph asks for the builder first. A Le Space plan and a member's device keep the shared image for now, as does a VM started before. The consent screen says what a build sends and where (version 54).
+
 ### Changed
 
+- The footer links the privacy policy at credits.le-space.de next to the imprint, and the consent screen says what Le Space keeps (#809).
+- `@le-space/attest-wasm` 0.12.8 in the app and the bridge (#807).
 - The bridge's default language model is Ollama on this computer (`qwen3:4b-instruct-2507-q4_K_M`), no longer DeepSeek: no receipt text leaves the computer unless you choose a provider on the internet on purpose. `pnpm setup:llm` offers Ollama first and needs no API key for it; a provider on the internet has to be typed and is shown with its country (for example _DeepSeek – China_) before it is taken. When Ollama is not installed, not running or lacks the model, the bridge and the KI card say so with the steps; no cloud model is used instead. A bridge that still has DeepSeek from the old default asks once – in `pnpm setup:llm`, at its start and on the KI card – whether to switch or keep DeepSeek on purpose, and keeps the answer in `bridge.json`. The consent screen says so (version 56).
+
+### Fixed
+
+- While the books open, the progress line names the trips collection instead of showing its key (#806).
 
 ## [0.34.0] – 2026-11-16
 
