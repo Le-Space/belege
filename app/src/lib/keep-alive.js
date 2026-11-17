@@ -1,5 +1,6 @@
 // Keep the page alive through an app switch on a phone (#525): a backup, a
-// restore, the move of the books after an update.
+// restore, the move of the books after an update, the build of the books' own
+// bridge image (#777).
 //
 // The screen wake lock (wake-lock.js, #512) holds the screen, and the browser
 // drops it the moment the page is hidden. Switch to a messenger for a few

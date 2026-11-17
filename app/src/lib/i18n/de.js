@@ -1190,11 +1190,12 @@ export default {
 	},
 	keepAlive: {
 		label: 'Leiser Ton, solange es läuft',
-		on: 'Alle zwei Sekunden ein leiser Ton, solange ein Backup oder eine Wiederherstellung läuft. Ein Telefon legt den Tab sonst schlafen, sobald du zu einer anderen App wechselst, und der Vorgang bricht ab; eine Seite, die hörbar spielt, lässt es laufen. Die Medienanzeige führt zurück in die App.',
+		on: 'Alle zwei Sekunden ein leiser Ton, solange ein Backup, eine Wiederherstellung oder ein Bau des Bridge-Images läuft. Ein Telefon legt den Tab sonst schlafen, sobald du zu einer anderen App wechselst, und der Vorgang bricht ab; eine Seite, die hörbar spielt, lässt es laufen. Die Medienanzeige führt zurück in die App.',
 		off: 'Kein Ton. Bleib dann in Belege, bis es fertig ist: Wechselst du am Telefon zu einer anderen App, legt es den Tab nach ein paar Minuten schlafen, und der Vorgang bricht ab.',
 		restoring: 'Belege stellt wieder her …',
 		backingUp: 'Belege sichert …',
-		moving: 'Belege zieht die Bücher um …'
+		moving: 'Belege zieht die Bücher um …',
+		building: 'Belege baut dein Bridge-Image …'
 	},
 	restore: {
 		leaves:
@@ -4701,6 +4702,12 @@ export default {
 				share: '{pct} % geschafft',
 				left: 'noch etwa {minutes} Min.',
 				endsAt: 'fertig gegen {time}',
+				phone:
+					'Am Telefon: Bleib in Belege, bis der Bau fertig ist. Der Bildschirm bleibt an; wechselst du zu einer anderen App, legt das Telefon den Tab nach ein paar Minuten schlafen, und der Bau bricht ab.',
+				phoneTone:
+					'Ein leiser Ton alle zwei Sekunden hält die Seite wach, auch wenn du kurz wechselst; die Medienanzeige führt zurück.',
+				cameBack:
+					'Die Seite war {seconds} s im Hintergrund. Bleib bitte hier, bis der Bau fertig ist.',
 				keepOpen:
 					'Lass dieses Fenster offen – der Bildschirm bleibt an. Schließt du es, bricht der Bau ab und der Build-Dienst wird beim nächsten Öffnen gelöscht.',
 				failedTitle: 'Der Bau ist abgebrochen',

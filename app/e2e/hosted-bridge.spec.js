@@ -897,6 +897,9 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 		await expect(journey).toBeVisible();
 		await expect(journey.getByTestId('build-station-wake')).toBeVisible();
 		await expect(journey).toContainText('Der Bau ist abgebrochen');
+		// A desktop keeps a background tab running: no tone offered, no phone hint.
+		await expect(journey.getByTestId('build-journey-phone')).toHaveCount(0);
+		await expect(ownImage.getByTestId('hosted-bridge-keep-alive')).toHaveCount(0);
 		await journey.getByTestId('build-journey-close').click();
 		await expect(journey).toHaveCount(0);
 		await expect(mac.page.getByTestId('hosted-bridge-error')).toBeVisible();

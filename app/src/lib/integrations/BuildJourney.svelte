@@ -2,12 +2,14 @@
 	// The build of the books' own bridge image (#777) as an event of its own, as
 	// Paperless anywhere shows its first start: a full-screen view with five
 	// stations, the picture of what flows where, the time left and when it ends.
-	// It can shrink to a slim bar. While it runs the screen stays on (Wake
-	// Lock), leaving the page asks first, and the tab's title carries the
-	// progress. At the end: "Geschafft". Everything shown is what the build
-	// reported (build-journey.js withFacts); nothing is interpreted.
+	// It can shrink to a slim bar. While it runs the screen stays on and, on a
+	// phone, a soft tone keeps the tab awake (both held by the card), leaving
+	// the page asks first, and the tab's title carries the progress. At the
+	// end: "Geschafft". Everything shown is what the build reported
+	// (build-journey.js withFacts); nothing is interpreted.
 	import { onDestroy } from 'svelte';
 	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { keepAliveOffered, keepAliveWanted } from '$lib/keep-alive.js';
 	import {
 		STATIONS,
 		fetchPercent,
@@ -95,26 +97,25 @@
 				i > 0 && ((flow.path[i - 1] === a && p === b) || (flow.path[i - 1] === b && p === a))
 		);
 
-	// The screen stays on while it runs, and comes back on after the tab was hidden.
-	/** @type {any} */
-	let lock = null;
-	async function wake() {
-		try {
-			lock = (await /** @type {any} */ (navigator).wakeLock?.request('screen')) ?? null;
-		} catch {
-			lock = null;
-		}
-	}
+	// The screen stays on and, on a phone, a soft tone keeps the tab awake:
+	// both held by the card from the click (wake-lock.js, keep-alive.js). Here:
+	// on a phone, say to stay; and when the page was away, say for how long.
+	const phone = keepAliveOffered();
+	const tone = phone && keepAliveWanted(globalThis.localStorage);
+	let hiddenAt = 0;
+	let away = $state(0);
 	$effect(() => {
 		if (!running) return;
-		wake();
-		const visible = () => document.visibilityState === 'visible' && wake();
-		document.addEventListener('visibilitychange', visible);
-		return () => {
-			document.removeEventListener('visibilitychange', visible);
-			lock?.release?.().catch?.(() => {});
-			lock = null;
+		const seen = () => {
+			if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+			else if (hiddenAt) {
+				const s = Math.round((Date.now() - hiddenAt) / 1000);
+				hiddenAt = 0;
+				if (s >= 5) away = s;
+			}
 		};
+		document.addEventListener('visibilitychange', seen);
+		return () => document.removeEventListener('visibilitychange', seen);
 	});
 	// Leaving the page would stop the build: the browser asks first.
 	$effect(() => {
@@ -350,6 +351,16 @@
 						<span>{k('left', { minutes: minutes(j.left) })} · {k('endsAt', { time: ends })}</span>
 					</p>
 					<span class="bar"><span class="fill shimmer" style="width: {pct}%"></span></span>
+					{#if away}
+						<p class="warn" role="status" data-testid="build-journey-away">
+							{k('cameBack', { seconds: away })}
+						</p>
+					{/if}
+					{#if phone}
+						<p class="small" data-testid="build-journey-phone">
+							{k('phone')}{#if tone}<br />{k('phoneTone')}{/if}
+						</p>
+					{/if}
 					<p class="small">{k('keepOpen')}</p>
 				</div>
 			</div>
@@ -659,6 +670,14 @@
 	}
 	.between {
 		justify-content: space-between;
+	}
+	.warn {
+		margin: 0;
+		padding: 0.6rem 0.9rem;
+		border-radius: 12px;
+		background: rgba(245, 199, 107, 0.15);
+		color: #f5c76b;
+		font-size: 0.9rem;
 	}
 	.small {
 		margin: 0;
