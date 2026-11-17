@@ -30,6 +30,8 @@
 		unlockHostedBridge
 	} from '$lib/session.svelte.js';
 	import HackathonBand from './HackathonBand.svelte';
+	import BuildJourney from './BuildJourney.svelte';
+	import { stationOfBuildStep, withFacts } from './build-journey.js';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
 	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
@@ -313,13 +315,45 @@
 		step(() => stopHostedInstance(hash));
 	}
 
+	/**
+	 * The build as a journey (BuildJourney.svelte): station, facts reported so
+	 * far, done or failed. @type {{ station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('./build-journey.js').Facts } | null}
+	 */
+	let journeyView = $state(null);
+
+	/** @param {any} p a build's progress: the card's line, and the journey's station and facts */
+	const buildProgress = (p) => {
+		onProgress(p);
+		if (!journeyView || typeof p.step !== 'string') return;
+		const station = stationOfBuildStep(p.step);
+		const now = Date.now();
+		journeyView.facts = withFacts(journeyView.facts, p.step, p.data ?? {}, now);
+		if (station && station !== journeyView.station) {
+			journeyView.station = station;
+			journeyView.since = now;
+		}
+	};
+
 	/** "Bridge-Image bauen" (#777). */
 	async function build() {
 		building = true;
+		journeyView = {
+			station: 'wake',
+			since: Date.now(),
+			done: false,
+			failed: false,
+			minimized: false,
+			facts: {}
+		};
 		try {
-			await step(() => buildHostedImage({ onProgress }));
+			await step(() => buildHostedImage({ onProgress: buildProgress }));
 		} finally {
 			building = false;
+			if (journeyView) {
+				if (error) journeyView.failed = true;
+				else journeyView.done = true;
+				journeyView.minimized = false;
+			}
 		}
 	}
 
@@ -557,6 +591,14 @@
 								: t('integrationen.hostedBridge.ownImage.build')}</button
 						>
 						<p class="mt-1 text-xs text-faint">{t('integrationen.hostedBridge.ownImage.hint')}</p>
+					{/if}
+					{#if journeyView}
+						<BuildJourney
+							view={journeyView}
+							onminimize={() => journeyView && (journeyView.minimized = true)}
+							onexpand={() => journeyView && (journeyView.minimized = false)}
+							onclose={() => (journeyView = null)}
+						/>
 					{/if}
 				</div>
 			{/if}

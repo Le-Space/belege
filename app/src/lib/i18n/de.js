@@ -4690,6 +4690,98 @@ export default {
 				startHint:
 					'Die VM startet dein eigenes Bridge-Image; der Browser leitet seine Passphrase aus deinen Büchern ab. Die Messung nennt den Aleph-Schlüssel der Bücher, und nur er entsperrt die VM. Aleph nimmt sie nur mit einem Tag Reserve.'
 			},
+			journey: {
+				kicker: 'Eigenes Bridge-Image',
+				title: 'Dein Bridge-Image entsteht',
+				tab: '{pct} % · Bridge-Image',
+				minimize: 'Verkleinern',
+				expand: 'Ansehen',
+				close: 'Schließen',
+				step: 'Station {n} von {of}',
+				share: '{pct} % geschafft',
+				left: 'noch etwa {minutes} Min.',
+				endsAt: 'fertig gegen {time}',
+				keepOpen:
+					'Lass dieses Fenster offen – der Bildschirm bleibt an. Schließt du es, bricht der Bau ab und der Build-Dienst wird beim nächsten Öffnen gelöscht.',
+				failedTitle: 'Der Bau ist abgebrochen',
+				failedText:
+					'Was schiefging, steht auf der Karte. Der Build-Dienst wird gelöscht; du kannst es danach noch einmal versuchen.',
+				doneTitle: 'Geschafft',
+				doneText:
+					'Dein eigenes Bridge-Image liegt bei Aleph. Der nächste Start nutzt es und entsperrt es mit einer Passphrase, die nur deine Bücher kennen.',
+				mib: '{got} von {size} MiB',
+				rate: '{rate} MiB/s',
+				flowTitle: 'Gerade unterwegs',
+				evidenceTitle: 'Belege des Baus',
+				evidenceNone:
+					'Sobald der Build-Dienst antwortet, steht hier, was die Hardware gemessen hat.',
+				stations: {
+					wake: {
+						label: 'Wecken',
+						duration: 'ca. 4 Min.',
+						title: 'Der Build-Dienst startet',
+						text: 'Aleph startet eine vertrauliche VM (AMD SEV-SNP), signiert mit dem Aleph-Schlüssel deiner Bücher. Sie bekommt das öffentliche Bridge-Image, aber noch keine Passphrase.'
+					},
+					check: {
+						label: 'Prüfen',
+						duration: 'ca. 20 s',
+						title: 'Dein Browser prüft den Build-Dienst',
+						text: 'Über einen Relay von Le Space fragt der Browser die Hardware, was in der VM läuft, und vergleicht die Messung mit der festgelegten. Nur bei Übereinstimmung geht es weiter.'
+					},
+					seal: {
+						label: 'Versiegeln',
+						duration: 'ca. 2 Min.',
+						title: 'Das Image wird versiegelt',
+						text: 'Der Browser schickt die Passphrase, die er aus deinen Büchern ableitet, einmal über die geprüfte Verbindung. Der Build-Dienst verschlüsselt das Image damit (LUKS2).'
+					},
+					fetch: {
+						label: 'Abholen',
+						duration: 'ca. 9 Min.',
+						title: 'Dein Browser holt das versiegelte Image ab',
+						text: 'In Stücken, jede Verbindung neu geprüft. Le Space sieht nur verschlüsselte Bytes.'
+					},
+					store: {
+						label: 'Ablegen',
+						duration: 'ca. 1–2 Min.',
+						title: 'Das Image kommt zu Aleph',
+						text: 'Der Aleph-Schlüssel deiner Bücher signiert es, der Browser lädt es hoch, und Aleph bestätigt es. Danach wird der Build-Dienst gelöscht.'
+					}
+				},
+				sub: {
+					ask: 'VM bei Aleph angefragt',
+					boot: 'VM bootet',
+					answer: 'VM antwortet',
+					relay: 'Relay verbunden',
+					report: 'Bericht der Hardware erhalten',
+					match: 'Messung stimmt',
+					send: 'Passphrase übergeben',
+					luks: 'Image verschlüsselt',
+					lanes: 'Verbindungen geprüft',
+					bytes: 'Stücke geladen',
+					sign: 'Signiert',
+					upload: 'Hochgeladen',
+					confirm: 'Von Aleph bestätigt'
+				},
+				flow: {
+					program: 'die Anfrage für den Build-Dienst',
+					report: 'der Bericht der Hardware',
+					passphrase: 'die Passphrase, verschlüsselt',
+					pieces: 'Stücke des versiegelten Images',
+					image: 'das versiegelte Image'
+				},
+				places: {
+					browser: 'Dein Browser',
+					relay: 'Le-Space-Relay',
+					builder: 'Build-Dienst (TEE)',
+					aleph: 'Aleph'
+				},
+				evidence: {
+					measurement: 'Messung der Hardware',
+					plain: 'Öffentliches Image (SHA-256)',
+					cid: 'Versiegeltes Image (CID)',
+					store: 'Bei Aleph (STORE)'
+				}
+			},
 			startTitle: 'Neue VM starten',
 			startHint:
 				'Die VM gehört dem Aleph-Schlüssel der Bücher: Die Messung nennt ihn, und nur er entsperrt sie. Aleph nimmt sie erst mit einem Tag Reserve an.',

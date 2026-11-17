@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- "Bridge-Image bauen" shows the build as a journey, as Paperless anywhere does its first start (#777): five stations from waking the builder to storing the image on Aleph. Each station has its small steps and a picture of what flows where (the request, the hardware's report, the passphrase, the pieces, the image). The view shows the share done, the time left and when it ends, and the evidence the build reported (the hardware's measurement, the plain image, the sealed image's CID and STORE). It can shrink to a bar. While it runs the screen stays on, leaving the page asks first, and the tab's title carries the progress. It ends with "Geschafft", or with what stopped it.
+
 ## [0.35.0] – 2026-11-17
 
 ### Added

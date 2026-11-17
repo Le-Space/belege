@@ -4629,6 +4629,97 @@ export default {
 				startHint:
 					'The VM starts your own bridge image; the browser derives its passphrase from your books. The measurement names the books’ Aleph key, and only it unlocks the VM. Aleph takes it only with a day in reserve.'
 			},
+			journey: {
+				kicker: 'Own bridge image',
+				title: 'Your bridge image is being built',
+				tab: '{pct} % · bridge image',
+				minimize: 'Minimise',
+				expand: 'Show',
+				close: 'Close',
+				step: 'Station {n} of {of}',
+				share: '{pct} % done',
+				left: 'about {minutes} min left',
+				endsAt: 'done around {time}',
+				keepOpen:
+					'Keep this window open – the screen stays on. Closing it stops the build, and the builder is forgotten the next time you open the card.',
+				failedTitle: 'The build stopped',
+				failedText:
+					'The card says what went wrong. The builder is forgotten; you can try again afterwards.',
+				doneTitle: 'Done',
+				doneText:
+					'Your own bridge image is on Aleph. The next start uses it and unlocks it with a passphrase only your books know.',
+				mib: '{got} of {size} MiB',
+				rate: '{rate} MiB/s',
+				flowTitle: 'On the way now',
+				evidenceTitle: 'Evidence of the build',
+				evidenceNone: 'As soon as the builder answers, what the hardware measured appears here.',
+				stations: {
+					wake: {
+						label: 'Wake',
+						duration: 'about 4 min',
+						title: 'The builder starts',
+						text: 'Aleph starts a confidential VM (AMD SEV-SNP), signed by your books’ Aleph key. It gets the public bridge image, but no passphrase yet.'
+					},
+					check: {
+						label: 'Check',
+						duration: 'about 20 s',
+						title: 'Your browser checks the builder',
+						text: 'Through a Le Space relay the browser asks the hardware what runs in the VM and compares the measurement with the pinned one. Only a match goes on.'
+					},
+					seal: {
+						label: 'Seal',
+						duration: 'about 2 min',
+						title: 'The image is sealed',
+						text: 'The browser sends the passphrase it derives from your books once, over the checked connection. The builder encrypts the image with it (LUKS2).'
+					},
+					fetch: {
+						label: 'Fetch',
+						duration: 'about 9 min',
+						title: 'Your browser fetches the sealed image',
+						text: 'In pieces, every connection checked anew. Le Space sees encrypted bytes only.'
+					},
+					store: {
+						label: 'Store',
+						duration: 'about 1–2 min',
+						title: 'The image goes to Aleph',
+						text: 'Your books’ Aleph key signs it, the browser uploads it, and Aleph confirms it. Then the builder is forgotten.'
+					}
+				},
+				sub: {
+					ask: 'VM requested at Aleph',
+					boot: 'VM booting',
+					answer: 'VM answering',
+					relay: 'Relay connected',
+					report: 'Hardware report received',
+					match: 'Measurement matches',
+					send: 'Passphrase handed over',
+					luks: 'Image encrypted',
+					lanes: 'Connections checked',
+					bytes: 'Pieces fetched',
+					sign: 'Signed',
+					upload: 'Uploaded',
+					confirm: 'Confirmed by Aleph'
+				},
+				flow: {
+					program: 'the request for the builder',
+					report: 'the hardware’s report',
+					passphrase: 'the passphrase, encrypted',
+					pieces: 'pieces of the sealed image',
+					image: 'the sealed image'
+				},
+				places: {
+					browser: 'Your browser',
+					relay: 'Le Space relay',
+					builder: 'Builder (TEE)',
+					aleph: 'Aleph'
+				},
+				evidence: {
+					measurement: 'Hardware measurement',
+					plain: 'Public image (SHA-256)',
+					cid: 'Sealed image (CID)',
+					store: 'On Aleph (STORE)'
+				}
+			},
 			startTitle: 'Start a new VM',
 			startHint:
 				'The VM belongs to the books’ Aleph key: the measurement names it, and only it unlocks the VM. Aleph takes it only with a day in reserve.',
