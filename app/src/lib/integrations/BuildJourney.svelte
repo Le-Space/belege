@@ -22,12 +22,13 @@
 	/**
 	 * @type {{
 	 *   view: { station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('./build-journey.js').Facts },
+	 *   reason?: string | null,
 	 *   onminimize: () => void,
 	 *   onexpand: () => void,
 	 *   onclose: () => void
 	 * }}
 	 */
-	let { view, onminimize, onexpand, onclose } = $props();
+	let { view, reason = null, onminimize, onexpand, onclose } = $props();
 
 	const k = (/** @type {string} */ key, /** @type {Record<string, string | number>} */ v = {}) =>
 		t(`integrationen.hostedBridge.journey.${key}`, v);
@@ -243,12 +244,22 @@
 					<div class="col">
 						<div class="now" aria-live="polite">
 							<p class="step">
-								{k('step', { n: j.index + 1, of: STATIONS.length })} · {k(
-									`stations.${view.station}.duration`
-								)}
+								{#if view.failed}
+									{k('stoppedAt', {
+										n: j.index + 1,
+										station: k(`stations.${view.station}.label`)
+									})}
+								{:else}
+									{k('step', { n: j.index + 1, of: STATIONS.length })} · {k(
+										`stations.${view.station}.duration`
+									)}
+								{/if}
 							</p>
 							{#if view.failed}
 								<h3>{k('failedTitle')}</h3>
+								{#if reason}
+									<p class="reason" role="alert" data-testid="build-journey-reason">{reason}</p>
+								{/if}
 								<p>{k('failedText')}</p>
 							{:else}
 								<h3 data-testid="build-journey-stage">{k(`stations.${view.station}.title`)}</h3>
@@ -341,28 +352,28 @@
 								{/each}
 							</ul>
 						{:else}
-							<p class="small">{k('evidenceNone')}</p>
+							<p class="small">{running ? k('evidenceNone') : k('evidenceNoneStopped')}</p>
 						{/if}
 					</aside>
 				</div>
-				<div class="total">
-					<p class="row between">
-						<strong data-testid="build-journey-share">{k('share', { pct })}</strong>
-						<span>{k('left', { minutes: minutes(j.left) })} · {k('endsAt', { time: ends })}</span>
-					</p>
-					<span class="bar"><span class="fill shimmer" style="width: {pct}%"></span></span>
-					{#if away}
-						<p class="warn" role="status" data-testid="build-journey-away">
-							{k('cameBack', { seconds: away })}
+				{#if running}<div class="total">
+						<p class="row between">
+							<strong data-testid="build-journey-share">{k('share', { pct })}</strong>
+							<span>{k('left', { minutes: minutes(j.left) })} · {k('endsAt', { time: ends })}</span>
 						</p>
-					{/if}
-					{#if phone}
-						<p class="small" data-testid="build-journey-phone">
-							{k('phone')}{#if tone}<br />{k('phoneTone')}{/if}
-						</p>
-					{/if}
-					<p class="small">{k('keepOpen')}</p>
-				</div>
+						<span class="bar"><span class="fill shimmer" style="width: {pct}%"></span></span>
+						{#if away}
+							<p class="warn" role="status" data-testid="build-journey-away">
+								{k('cameBack', { seconds: away })}
+							</p>
+						{/if}
+						{#if phone}
+							<p class="small" data-testid="build-journey-phone">
+								{k('phone')}{#if tone}<br />{k('phoneTone')}{/if}
+							</p>
+						{/if}
+						<p class="small">{k('keepOpen')}</p>
+					</div>{/if}
 			</div>
 		{/if}
 	</div>
@@ -670,6 +681,13 @@
 	}
 	.between {
 		justify-content: space-between;
+	}
+	.reason {
+		padding: 0.75rem 1rem;
+		border-radius: 12px;
+		background: rgba(248, 113, 113, 0.14);
+		border: 1px solid rgba(248, 113, 113, 0.4);
+		color: #fecaca !important;
 	}
 	.warn {
 		margin: 0;

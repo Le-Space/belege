@@ -4623,6 +4623,9 @@ export default {
 					'Built {date}. The next start uses it, and it unlocks with a passphrase only your books know – you type none.',
 				store: 'Image (STORE):',
 				build: 'Build the bridge image',
+				reserveShort:
+					'Not possible yet: the books’ Aleph key holds {credits} credits, and Aleph wants a day of the builder in reserve first, {needed} credits. Only about a quarter of an hour of it is used. Load credits onto this address:',
+				reserveCheck: 'Check again',
 				rebuild: 'Build again',
 				hint: 'About 20 minutes; keep this window open. An attested build service (confidential VM, AMD SEV-SNP) seals the image with a passphrase from your books and is deleted afterwards. Paid by the books’ Aleph key: about a quarter of an hour of the build service, and the image (just under 1 GB) while it stays on Aleph. Aleph wants a day of the build service in reserve for it, about 2 million credits.',
 				packageLater:
@@ -4651,7 +4654,9 @@ export default {
 					'Keep this window open – the screen stays on. Closing it stops the build, and the builder is forgotten the next time you open the card.',
 				failedTitle: 'The build stopped',
 				failedText:
-					'The card says what went wrong. The builder is forgotten; you can try again afterwards.',
+					'A builder that was already running is forgotten. You can try again afterwards.',
+				stoppedAt: 'Stopped at station {n} · {station}',
+				evidenceNoneStopped: 'The builder did not answer; there is nothing to show.',
 				doneTitle: 'Done',
 				doneText:
 					'Your own bridge image is on Aleph. The next start uses it and unlocks it with a passphrase only your books know.',

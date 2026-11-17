@@ -18,6 +18,7 @@
 		forgetLeftHostedBuilder,
 		continueHostedStart,
 		hostedBridgeRecord,
+		hostedBuildReserve,
 		hostedCredits,
 		hostedInstances,
 		hostedNodeHistory,
@@ -322,6 +323,19 @@
 	 * far, done or failed. @type {{ station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('./build-journey.js').Facts } | null}
 	 */
 	let journeyView = $state(null);
+	/**
+	 * What the books' key holds and Aleph wants before a build; null until
+	 * asked or when it cannot be.
+	 * @type {{ credits: number, needed: number, address: string } | null}
+	 */
+	let reserve = $state(null);
+	$effect(() => {
+		if (!app.sync.online || paidBy !== 'books' || busy) return;
+		hostedBuildReserve().then((r) => (reserve = r));
+	});
+	/** @param {{ credits: number, needed: number } | null} r */
+	const isShort = (r) => Boolean(r && r.credits < r.needed);
+	const short = $derived(isShort(reserve));
 	/** The soft tone on a phone while the build runs; off per browser (keep-alive.js). */
 	let keepAlive = $state(keepAliveWanted(globalThis.localStorage));
 
@@ -594,13 +608,45 @@
 						<button
 							type="button"
 							class="hover:bg-surface-muted mt-2 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text disabled:opacity-50"
-							disabled={busy}
+							disabled={busy || short}
 							onclick={build}
 							data-testid="hosted-bridge-build-image"
 							>{ownImage
 								? t('integrationen.hostedBridge.ownImage.rebuild')
 								: t('integrationen.hostedBridge.ownImage.build')}</button
 						>
+						{#if short && reserve}
+							<p
+								class="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+								data-testid="hosted-bridge-build-reserve"
+							>
+								{t('integrationen.hostedBridge.ownImage.reserveShort', {
+									credits: Math.floor(reserve.credits).toLocaleString(intlLocale()),
+									needed: reserve.needed.toLocaleString(intlLocale())
+								})}
+								<span class="mt-1 flex flex-wrap items-center gap-2">
+									<code
+										class="font-mono text-xs break-all"
+										data-testid="hosted-bridge-build-address">{reserve.address}</code
+									>
+									<button
+										type="button"
+										class="hover:bg-surface-muted min-h-8 rounded border border-border px-2 text-xs"
+										onclick={() => reserve && copy(reserve.address)}
+										>{copied === reserve.address
+											? t('integrationen.hostedBridge.copied')
+											: t('integrationen.hostedBridge.copy')}</button
+									>
+								</span>
+								<button
+									type="button"
+									class="mt-1 underline"
+									onclick={() => hostedBuildReserve().then((r) => (reserve = r))}
+									data-testid="hosted-bridge-build-reserve-check"
+									>{t('integrationen.hostedBridge.ownImage.reserveCheck')}</button
+								>
+							</p>
+						{/if}
 						<p class="mt-1 text-xs text-faint">{t('integrationen.hostedBridge.ownImage.hint')}</p>
 						{#if keepAliveOffered()}
 							<label
@@ -628,6 +674,7 @@
 					{#if journeyView}
 						<BuildJourney
 							view={journeyView}
+							reason={error}
 							onminimize={() => journeyView && (journeyView.minimized = true)}
 							onexpand={() => journeyView && (journeyView.minimized = false)}
 							onclose={() => (journeyView = null)}
