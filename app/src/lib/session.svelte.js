@@ -2111,6 +2111,45 @@ export async function forgetLeftHostedBuilder() {
 }
 
 /**
+ * What Aleph wants in reserve before it starts the builder, and what the
+ * books' key holds: a day of the builder besides what the key pays for
+ * already (a VM it runs itself).
+ *
+ * @param {{ owner: string, apiHost: string, running: any }} p
+ */
+async function buildReserve({ owner, apiHost, running }) {
+	const vm = await import('./integrations/hosted-vm.js');
+	const image = await import('./integrations/hosted-image.js');
+	const spending =
+		running && !running.stoppedAt && running.payer === owner
+			? Number(running.creditsPerHour) || 0
+			: 0;
+	const needed = image.creditsNeededForBuild({ spendingPerHour: spending });
+	const credits = await vm.creditsOf(owner, { apiHost });
+	return { credits, needed };
+}
+
+/**
+ * Whether the books' key can pay a build now, for the card before the click:
+ * its credits and the reserve Aleph wants; null when that cannot be asked
+ * (no books open, a member's device, Aleph not answering).
+ *
+ * @returns {Promise<{ credits: number, needed: number, address: string } | null>}
+ */
+export async function hostedBuildReserve() {
+	if (!session?.online || !session.store || !session.imageBase || app.member) return null;
+	try {
+		const { alephEndpoints } = await import('./backup/keeper.js');
+		const { owner } = await hostedOwner();
+		const { apiHost } = alephEndpoints();
+		const r = await buildReserve({ owner, apiHost, running: await hostedVmRecord() });
+		return { ...r, address: owner };
+	} catch {
+		return null;
+	}
+}
+
+/**
  * "Bridge-Image bauen" (#777): the books' own image of the hosted bridge,
  * sealed by an attested builder with a passphrase derived here, stored on
  * Aleph as a STORE of the books' key and paid by it. Only with the books' own
@@ -2123,7 +2162,6 @@ export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 	if (!session?.online || !session.store) throw new Error(t('messages.bridge.needsSync'));
 	if (!session.imageBase || app.member)
 		throw new Error(t('messages.hostedBridge.ownImageOwnerOnly'));
-	const vm = await import('./integrations/hosted-vm.js');
 	const hosted = await import('./integrations/hosted-bridge.js');
 	const image = await import('./integrations/hosted-image.js');
 	const { alephEndpoints } = await import('./backup/keeper.js');
@@ -2140,13 +2178,7 @@ export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 	);
 	if (!relays.length) throw new Error(t('messages.hostedBridge.noRelay'));
 
-	// Aleph starts the builder only with a day of it in reserve, besides what the key pays for already.
-	const spending =
-		running && !running.stoppedAt && running.payer === owner
-			? Number(running.creditsPerHour) || 0
-			: 0;
-	const needed = image.creditsNeededForBuild({ spendingPerHour: spending });
-	const credits = await vm.creditsOf(owner, { apiHost });
+	const { credits, needed } = await buildReserve({ owner, apiHost, running });
 	if (credits < needed) {
 		throw new Error(
 			t('messages.hostedBridge.ownImageFewCredits', {

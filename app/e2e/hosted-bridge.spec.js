@@ -890,19 +890,15 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 		await expect(ownImage.getByTestId('hosted-bridge-own-image-built')).toBeVisible();
 		await expect(ownImage).toContainText(OWN);
 		await expect(ownImage.getByTestId('hosted-bridge-build-image')).toHaveText('Neu bauen');
-		// Too few credits for the builder's reserve: the build's journey opens, says it
-		// stopped, and the card says why.
-		await ownImage.getByTestId('hosted-bridge-build-image').click();
-		const journey = mac.page.getByTestId('build-journey');
-		await expect(journey).toBeVisible();
-		await expect(journey.getByTestId('build-station-wake')).toBeVisible();
-		await expect(journey).toContainText('Der Bau ist abgebrochen');
-		// A desktop keeps a background tab running: no tone offered, no phone hint.
-		await expect(journey.getByTestId('build-journey-phone')).toHaveCount(0);
+		// Too few credits for the builder's reserve: the card says so before the click,
+		// names the address to load, and offers no build.
+		const reserve = ownImage.getByTestId('hosted-bridge-build-reserve');
+		await expect(reserve).toContainText('Noch nicht möglich');
+		await expect(reserve.getByTestId('hosted-bridge-build-address')).toHaveText(owner);
+		await expect(ownImage.getByTestId('hosted-bridge-build-image')).toBeDisabled();
+		await expect(mac.page.getByTestId('build-journey')).toHaveCount(0);
+		// A desktop keeps a background tab running: no tone offered.
 		await expect(ownImage.getByTestId('hosted-bridge-keep-alive')).toHaveCount(0);
-		await journey.getByTestId('build-journey-close').click();
-		await expect(journey).toHaveCount(0);
-		await expect(mac.page.getByTestId('hosted-bridge-error')).toBeVisible();
 		// Nothing to type: the own image's passphrase is derived.
 		await expect(mac.page.getByTestId('hosted-bridge-start-passphrase')).toHaveCount(0);
 		await mac.page.getByTestId('hosted-bridge-start').click();

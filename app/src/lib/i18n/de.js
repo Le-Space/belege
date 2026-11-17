@@ -4684,6 +4684,9 @@ export default {
 					'Gebaut {date}. Der nächste Start nutzt es, und es entsperrt sich mit einer Passphrase, die nur deine Bücher kennen – du tippst keine ein.',
 				store: 'Image (STORE):',
 				build: 'Bridge-Image bauen',
+				reserveShort:
+					'Noch nicht möglich: Der Aleph-Schlüssel der Bücher hat {credits} Credits, Aleph verlangt vor dem Bau einen Tag Reserve, {needed} Credits. Verbraucht wird davon nur etwa eine Viertelstunde. Lade Credits auf diese Adresse:',
+				reserveCheck: 'Neu prüfen',
 				rebuild: 'Neu bauen',
 				hint: 'Etwa 20 Minuten, dieses Fenster offen lassen. Ein geprüfter Build-Dienst (vertrauliche VM, AMD SEV-SNP) versiegelt das Image mit einer Passphrase aus deinen Büchern; danach wird er gelöscht. Bezahlt vom Aleph-Schlüssel der Bücher: der Build-Dienst etwa eine Viertelstunde, das Image (knapp 1 GB) solange es bei Aleph liegt. Aleph verlangt dafür einen Tag des Build-Dienstes als Reserve, etwa 2 Mio. Credits.',
 				packageLater:
@@ -4712,7 +4715,9 @@ export default {
 					'Lass dieses Fenster offen – der Bildschirm bleibt an. Schließt du es, bricht der Bau ab und der Build-Dienst wird beim nächsten Öffnen gelöscht.',
 				failedTitle: 'Der Bau ist abgebrochen',
 				failedText:
-					'Was schiefging, steht auf der Karte. Der Build-Dienst wird gelöscht; du kannst es danach noch einmal versuchen.',
+					'Ein Build-Dienst, der schon lief, wird gelöscht. Du kannst es danach noch einmal versuchen.',
+				stoppedAt: 'Abgebrochen bei Station {n} · {station}',
+				evidenceNoneStopped: 'Der Build-Dienst hat nicht geantwortet; es gibt nichts zu belegen.',
 				doneTitle: 'Geschafft',
 				doneText:
 					'Dein eigenes Bridge-Image liegt bei Aleph. Der nächste Start nutzt es und entsperrt es mit einer Passphrase, die nur deine Bücher kennen.',

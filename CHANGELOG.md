@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- "Bridge-Image bauen" checks the books' key before the click: with fewer credits than the day of builder reserve Aleph wants, the card says how many it holds and needs, shows the key's address to load (with a copy button), and offers no build until then (#777). A build that stops shows its reason in the build view, at the station where it stopped, without the progress and time left it no longer has.
+
 ## [0.37.0] – 2026-11-17
 
 ### Added
