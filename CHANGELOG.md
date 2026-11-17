@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.35.0] – 2026-11-17
+
 ### Added
 
 - The hosted bridge on Aleph can run from an image of the books' own (#777, #808). "Bridge-Image bauen" on the hosted bridge card derives the image's passphrase from the books' keys in the browser. It starts the pinned builder and hands it the passphrase only after its attestation, fetches the sealed image back and keeps it on Aleph as a STORE of the books' key. The builder is forgotten afterwards. From then on, "Starten" and "Entsperren" send the derived passphrase; there is no passphrase field and no passphrase Le Space holds. The launch measurement is the same as for the shared image. This first works while the books' own Aleph key pays: the card checks the reserve Aleph asks for the builder first. A Le Space plan and a member's device keep the shared image for now, as does a VM started before. The consent screen says what a build sends and where (version 54).
