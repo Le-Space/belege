@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.37.0] – 2026-11-17
+
 ### Added
 
 - A build of the books' own bridge image holds the screen on and, on a phone or tablet, plays the soft keep-alive tone the backup uses (#525, #777): a phone otherwise puts the tab to sleep when the person switches apps, and the build breaks off. The card offers the tone switch on phones, the build view says to stay in Belege, and it says how long the page was away when it comes back.
