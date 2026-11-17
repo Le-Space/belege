@@ -1162,11 +1162,12 @@ export default {
 	},
 	keepAlive: {
 		label: 'A soft tone while it runs',
-		on: 'A soft note every two seconds while a backup or a restore runs. A phone otherwise puts the tab to sleep as soon as you switch to another app, and the run breaks off; a page that is audibly playing is left running. The media notification leads back into the app.',
+		on: 'A soft note every two seconds while a backup, a restore or a build of the bridge image runs. A phone otherwise puts the tab to sleep as soon as you switch to another app, and the run breaks off; a page that is audibly playing is left running. The media notification leads back into the app.',
 		off: 'No tone. Then stay in Belege until it is done: switch to another app on a phone, and it puts the tab to sleep after a few minutes, and the run breaks off.',
 		restoring: 'Belege is restoring …',
 		backingUp: 'Belege is backing up …',
-		moving: 'Belege is moving the books …'
+		moving: 'Belege is moving the books …',
+		building: 'Belege is building your bridge image …'
 	},
 	restore: {
 		leaves:
@@ -4640,6 +4641,12 @@ export default {
 				share: '{pct} % done',
 				left: 'about {minutes} min left',
 				endsAt: 'done around {time}',
+				phone:
+					'On a phone: stay in Belege until the build is done. The screen stays on; switch to another app, and the phone puts the tab to sleep after a few minutes, and the build breaks off.',
+				phoneTone:
+					'A soft note every two seconds keeps the page awake, even if you switch briefly; the media notification leads back.',
+				cameBack:
+					'The page was in the background for {seconds} s. Please stay here until the build is done.',
 				keepOpen:
 					'Keep this window open – the screen stays on. Closing it stops the build, and the builder is forgotten the next time you open the card.',
 				failedTitle: 'The build stopped',

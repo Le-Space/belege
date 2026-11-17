@@ -32,6 +32,8 @@
 	import HackathonBand from './HackathonBand.svelte';
 	import BuildJourney from './BuildJourney.svelte';
 	import { stationOfBuildStep, withFacts } from './build-journey.js';
+	import { keepAwake } from '$lib/wake-lock.js';
+	import { holdAlive, keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
 	import { noteAleph } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
@@ -320,6 +322,8 @@
 	 * far, done or failed. @type {{ station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('./build-journey.js').Facts } | null}
 	 */
 	let journeyView = $state(null);
+	/** The soft tone on a phone while the build runs; off per browser (keep-alive.js). */
+	let keepAlive = $state(keepAliveWanted(globalThis.localStorage));
 
 	/** @param {any} p a build's progress: the card's line, and the journey's station and facts */
 	const buildProgress = (p) => {
@@ -336,6 +340,11 @@
 
 	/** "Bridge-Image bauen" (#777). */
 	async function build() {
+		// From the click, before the first await: the screen stays on, and on a
+		// phone a soft tone keeps the tab from sleeping when the person switches
+		// apps (#525) – the builder's fetch would break off otherwise.
+		const letSleep = keepAwake();
+		const letQuiet = holdAlive({ title: t('keepAlive.building') });
 		building = true;
 		journeyView = {
 			station: 'wake',
@@ -348,6 +357,8 @@
 		try {
 			await step(() => buildHostedImage({ onProgress: buildProgress }));
 		} finally {
+			letSleep();
+			letQuiet();
 			building = false;
 			if (journeyView) {
 				if (error) journeyView.failed = true;
@@ -591,6 +602,28 @@
 								: t('integrationen.hostedBridge.ownImage.build')}</button
 						>
 						<p class="mt-1 text-xs text-faint">{t('integrationen.hostedBridge.ownImage.hint')}</p>
+						{#if keepAliveOffered()}
+							<label
+								class="mt-2 flex items-start gap-2 text-sm text-text"
+								data-testid="hosted-bridge-keep-alive"
+							>
+								<input
+									type="checkbox"
+									class="mt-1"
+									checked={keepAlive}
+									onchange={(e) => {
+										keepAlive = e.currentTarget.checked;
+										setKeepAlive(globalThis.localStorage, keepAlive);
+									}}
+								/>
+								<span
+									>{t('keepAlive.label')}
+									<span class="block text-xs text-faint"
+										>{keepAlive ? t('keepAlive.on') : t('keepAlive.off')}</span
+									></span
+								>
+							</label>
+						{/if}
 					{/if}
 					{#if journeyView}
 						<BuildJourney
