@@ -890,6 +890,16 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 		await expect(ownImage.getByTestId('hosted-bridge-own-image-built')).toBeVisible();
 		await expect(ownImage).toContainText(OWN);
 		await expect(ownImage.getByTestId('hosted-bridge-build-image')).toHaveText('Neu bauen');
+		// Too few credits for the builder's reserve: the build's journey opens, says it
+		// stopped, and the card says why.
+		await ownImage.getByTestId('hosted-bridge-build-image').click();
+		const journey = mac.page.getByTestId('build-journey');
+		await expect(journey).toBeVisible();
+		await expect(journey.getByTestId('build-station-wake')).toBeVisible();
+		await expect(journey).toContainText('Der Bau ist abgebrochen');
+		await journey.getByTestId('build-journey-close').click();
+		await expect(journey).toHaveCount(0);
+		await expect(mac.page.getByTestId('hosted-bridge-error')).toBeVisible();
 		// Nothing to type: the own image's passphrase is derived.
 		await expect(mac.page.getByTestId('hosted-bridge-start-passphrase')).toHaveCount(0);
 		await mac.page.getByTestId('hosted-bridge-start').click();

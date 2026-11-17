@@ -2117,7 +2117,7 @@ export async function forgetLeftHostedBuilder() {
  * key as payer: a build through Le Space's plan is not offered yet. The next
  * start uses this image and unlocks it without a typed passphrase.
  *
- * @param {{ signal?: AbortSignal, onProgress?: (p: { phase: string, detail?: string, received?: number, total?: number | null }) => void }} [p]
+ * @param {{ signal?: AbortSignal, onProgress?: (p: { phase: string, detail?: string, received?: number, total?: number | null, step?: string, data?: Record<string, any> }) => void }} [p]
  */
 export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 	if (!session?.online || !session.store) throw new Error(t('messages.bridge.needsSync'));
@@ -2210,14 +2210,17 @@ export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 				await setSetting(settings, image.BUILDER_SETTING, null);
 			},
 			onProgress: ({ step, data = {} }) => {
+				// `step` and `data` as the build reported them, for the journey view (build-journey.js).
 				if (step === 'fetch' || step === 'upload') {
 					onProgress({
 						phase: `ownImage.${step}`,
 						detail: String(data.host ?? ''),
 						received: Number(data.got ?? 0),
-						total: Number(data.size ?? 0) || null
+						total: Number(data.size ?? 0) || null,
+						step,
+						data
 					});
-				} else onProgress({ phase: `ownImage.${step}`, detail: '' });
+				} else onProgress({ phase: `ownImage.${step}`, detail: '', step, data });
 			}
 		})
 		.catch((e) => {
