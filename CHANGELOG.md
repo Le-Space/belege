@@ -6,13 +6,19 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- When Aleph cannot be asked for the relays, Belege falls back to three relays instead of one: ocean-skate-resource-route and secret-pass-wife-sentence (orbitdb-relay account) besides relay-main-ekb (relay-button account). One relay going away no longer leaves the app without any. All three offer /attest with the image builders' larger limits.
+
+## [0.38.0] – 2026-11-18
+
 ### Added
 
 - A withdrawal from Kraken to an address that is no own wallet yet offers it as one: the payment's detail shows the destination address and "Als eigene Wallet anlegen", which opens Integrationen → Eigene Wallets with the chain and the address filled in. Nothing is added, and no node is asked, before the button there is pressed: an address does not prove whose it is. A chain Belege cannot read is named instead. The bridge passes the address on with Kraken's ledger, so it needs a restart, and a Kraken sync that reaches the withdrawal again.
 
 ### Changed
 
-- When Aleph cannot be asked for the relays, Belege falls back to three relays instead of one: ocean-skate-resource-route and secret-pass-wife-sentence (orbitdb-relay account) besides relay-main-ekb (relay-button account). One relay going away no longer leaves the app without any. All three offer /attest with the image builders' larger limits.
+- An unlock that waits says for what, and what helps (#803). The step "Speicher und Netz starten" is shown in its parts: opening the storage in the browser, looking for relays, creating the node, and starting it (the first read of the storage). When a step takes far longer than it should (a minute; five for opening large books; never for a move), the screen says so: close other tabs and windows of Belege, the installed app too, and reload; then quit the browser and open it again; never clear site data. When Belege is open in another window of the browser, it says that first. The console times each part and names the one that waits, and the diagnosis under "Hilfe & Support" names it too. This does not remove the cause of such a wait, which is not known yet; it makes the next one say where it is.
 
 ## [0.37.1] – 2026-11-18
 

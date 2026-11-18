@@ -26,7 +26,7 @@ export const app = $state({
 	/**
 	 * Where an unlock is, while `status` is 'starting' after the passkey answered
 	 * (unlock-progress.js): the step, a collection, a move's count, its start.
-	 * @type {(import('./unlock-progress.js').Status & { since: number }) | null}
+	 * @type {(import('./unlock-progress.js').Status & { since: number, stepSince: number }) | null}
 	 */
 	unlock: null,
 	/** @type {string | null} */

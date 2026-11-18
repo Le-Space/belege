@@ -1111,9 +1111,25 @@ export default {
 			continue: 'Continue',
 			cancel: 'Cancel'
 		},
+		stall: {
+			title: 'This is taking unusually long.',
+			otherWindow:
+				'Belege is open in another tab or window of this browser right now. Close that one first.',
+			storage:
+				'The browser has not opened this site’s storage yet. That is usually the browser, not your books. In this order: 1. Close every other tab and window with Belege, the installed app too, and reload this page. 2. If that does not help, quit the browser completely and open it again. Your books stay as they are. Do not clear any site data.',
+			other:
+				'This step normally takes seconds. Reload the page; if that does not help, quit the browser completely and open it again. Your books stay as they are. Do not clear any site data.',
+			report: 'If this happens often: “Help & support” at the foot shows a diagnosis to copy.'
+		},
 		progress: {
 			keys: 'Deriving the keys from the passkey …',
 			network: 'Starting storage and network …',
+			part: {
+				storage: 'Opening the storage in the browser …',
+				relays: 'Looking for relays …',
+				node: 'Creating the network node …',
+				start: 'Reading the storage and starting the node …'
+			},
 			identity: 'Checking the identity …',
 			open: 'Opening {collection} …',
 			move: 'Moving {collection}: {done} of {total}',
