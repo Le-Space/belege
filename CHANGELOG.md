@@ -13,6 +13,11 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - The declaration on withdrawal before a top-up is now the service's own text, in German or English, and the top-up tells the service which version of it was ticked. The consent screen's line on Le Space Credits names the agreement to the terms among what is sent (same host, so it does not open again).
+
+## [0.39.2] – 2026-11-18
+
+### Changed
+
 - The build view of "Bridge-Image bauen" is now the shared one from `@le-space/build-journey` (NiKrause/relay-button), the same Paperless anywhere shows at its first start. It shows more to check: the source commit and SHA-256 of the plain image, the expected measurement (pinned in Belege), the builder's V-PROGRAM, the node, the relay, the measurement the AMD processor reported with "stimmt", the content address and the STORE, each linked where it can be looked up, and the hardware behind it. Stations and small steps carry the same names as in Paperless anywhere.
 
 ## [0.39.1] – 2026-11-18
