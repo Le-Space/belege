@@ -31,8 +31,10 @@
 		unlockHostedBridge
 	} from '$lib/session.svelte.js';
 	import HackathonBand from './HackathonBand.svelte';
-	import BuildJourney from './BuildJourney.svelte';
-	import { stationOfBuildStep, withFacts } from './build-journey.js';
+	import BuildJourney from '@le-space/build-journey/BuildJourney.svelte';
+	import { stationOfBuildStep, withFacts } from '@le-space/build-journey';
+	import { BRIDGE_BUILDER } from './bridge-builder.js';
+	import { ALEPH_API_HOSTS } from './aleph-fetch.js';
 	import { keepAwake } from '$lib/wake-lock.js';
 	import { holdAlive, keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
@@ -319,8 +321,8 @@
 	}
 
 	/**
-	 * The build as a journey (BuildJourney.svelte): station, facts reported so
-	 * far, done or failed. @type {{ station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('./build-journey.js').Facts } | null}
+	 * The build as a journey (@le-space/build-journey): station, facts reported
+	 * so far, done or failed. @type {{ station: string, since: number, done: boolean, failed: boolean, minimized: boolean, facts: import('@le-space/build-journey').Facts } | null}
 	 */
 	let journeyView = $state(null);
 	/**
@@ -338,6 +340,29 @@
 	const short = $derived(isShort(reserve));
 	/** The soft tone on a phone while the build runs; off per browser (keep-alive.js). */
 	let keepAlive = $state(keepAliveWanted(globalThis.localStorage));
+
+	/** The journey's words, from the catalogue. @param {string} key @param {Record<string, string | number>} [v] */
+	const journeyText = (key, v = {}) => t(`integrationen.hostedBridge.journey.${key}`, v);
+	/** Where the journey's evidence can be checked: Aleph's messages, the plain image's source, the pin. */
+	const JOURNEY_LINKS = Object.freeze({
+		aleph: `${ALEPH_API_HOSTS[0]}/api/v0/messages`,
+		repo: 'https://github.com/Le-Space/belege',
+		expected:
+			'https://github.com/Le-Space/belege/blob/main/app/src/lib/integrations/bridge-builder.js'
+	});
+	/** The tries of the upload: @le-space/sealed-image's UPLOAD_HOSTS, not imported here to keep the build's code out of the card. */
+	const JOURNEY_UPLOAD_TRIES = 3;
+	/** On a phone: stay in Belege, and whether the soft tone holds the tab (keep-alive.js). */
+	const journeyHint = $derived(
+		keepAliveOffered()
+			? [
+					t('integrationen.hostedBridge.journey.phone'),
+					keepAlive ? t('integrationen.hostedBridge.journey.phoneTone') : ''
+				]
+					.filter(Boolean)
+					.join(' ')
+			: null
+	);
 
 	/** @param {any} p a build's progress: the card's line, and the journey's station and facts */
 	const buildProgress = (p) => {
@@ -674,6 +699,13 @@
 					{#if journeyView}
 						<BuildJourney
 							view={journeyView}
+							text={journeyText}
+							locale={intlLocale()}
+							builder={BRIDGE_BUILDER}
+							links={JOURNEY_LINKS}
+							hint={journeyHint}
+							uploadHosts={JOURNEY_UPLOAD_TRIES}
+							wakeLock={false}
 							reason={error}
 							onminimize={() => journeyView && (journeyView.minimized = true)}
 							onexpand={() => journeyView && (journeyView.minimized = false)}

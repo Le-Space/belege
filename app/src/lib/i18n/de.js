@@ -4740,15 +4740,17 @@ export default {
 					'Die VM startet dein eigenes Bridge-Image; der Browser leitet seine Passphrase aus deinen Büchern ab. Die Messung nennt den Aleph-Schlüssel der Bücher, und nur er entsperrt die VM. Aleph nimmt sie nur mit einem Tag Reserve.'
 			},
 			journey: {
-				kicker: 'Eigenes Bridge-Image',
+				kicker: 'Eigenes Bridge-Image · ca. 16 Minuten',
 				title: 'Dein Bridge-Image entsteht',
-				tab: '{pct} % · Bridge-Image',
+				tab: '{pct} % · Dein Bridge-Image entsteht',
+				leave:
+					'Dein Bridge-Image entsteht gerade. Wenn du die Seite jetzt verlässt, bricht der Bau ab.',
 				minimize: 'Verkleinern',
 				expand: 'Ansehen',
 				close: 'Schließen',
-				step: 'Station {n} von {of}',
+				step: 'Schritt {n} von {of}',
 				share: '{pct} % geschafft',
-				left: 'noch etwa {minutes} Min.',
+				left: 'noch ca. {minutes} Min.',
 				endsAt: 'fertig gegen {time}',
 				phone:
 					'Am Telefon: Bleib in Belege, bis der Bau fertig ist. Der Bildschirm bleibt an; wechselst du zu einer anderen App, legt das Telefon den Tab nach ein paar Minuten schlafen, und der Bau bricht ab.',
@@ -4757,86 +4759,108 @@ export default {
 				cameBack:
 					'Die Seite war {seconds} s im Hintergrund. Bleib bitte hier, bis der Bau fertig ist.',
 				keepOpen:
-					'Lass dieses Fenster offen – der Bildschirm bleibt an. Schließt du es, bricht der Bau ab und der Build-Dienst wird beim nächsten Öffnen gelöscht.',
+					'Dein Bildschirm bleibt an. Lass dieses Fenster offen – du kannst es verkleinern. Schließt du es, bricht der Bau ab und der Build-Dienst wird beim nächsten Öffnen gelöscht.',
 				failedTitle: 'Der Bau ist abgebrochen',
 				failedText:
 					'Ein Build-Dienst, der schon lief, wird gelöscht. Du kannst es danach noch einmal versuchen.',
-				stoppedAt: 'Abgebrochen bei Station {n} · {station}',
-				evidenceNoneStopped: 'Der Build-Dienst hat nicht geantwortet; es gibt nichts zu belegen.',
-				doneTitle: 'Geschafft',
+				stoppedAt: 'Abgebrochen bei Schritt {n} · {station}',
+				doneTitle: 'Geschafft – dein Bridge-Image ist fertig!',
 				doneText:
-					'Dein eigenes Bridge-Image liegt bei Aleph. Der nächste Start nutzt es und entsperrt es mit einer Passphrase, die nur deine Bücher kennen.',
+					'Versiegelt mit einer Passphrase, die nur deine Bücher kennen – nicht Le Space, nicht der Knoten. Der nächste Start nutzt dein Image.',
+				attested: 'Verbindungen bestätigt: {count}',
 				mib: '{got} von {size} MiB',
 				rate: '{rate} MiB/s',
-				flowTitle: 'Gerade unterwegs',
-				evidenceTitle: 'Belege des Baus',
+				attempt: 'Versuch {n} von {of}',
+				retryNote:
+					'Die Verbindung ist abgerissen – kein Problem: Dein Image ist schon da, nur das Hochladen läuft noch einmal.',
+				fetched: '{pct} % abgeholt',
+				flowTitle: 'Was gerade wohin fließt',
+				evidenceTitle: 'Zum Nachprüfen',
 				evidenceNone:
 					'Sobald der Build-Dienst antwortet, steht hier, was die Hardware gemessen hat.',
+				evidenceNoneStopped: 'Der Build-Dienst hat nicht geantwortet; es gibt nichts Gemessenes.',
+				matches: 'stimmt',
+				hardwareTitle: 'Die Hardware dahinter',
+				hardware: {
+					sev: 'AMD SEV-SNP: vertrauliche VMs',
+					epyc: 'AMD-EPYC-Prozessoren'
+				},
 				stations: {
 					wake: {
-						label: 'Wecken',
+						label: 'Build-Dienst',
 						duration: 'ca. 4 Min.',
-						title: 'Der Build-Dienst startet',
-						text: 'Aleph startet eine vertrauliche VM (AMD SEV-SNP), signiert mit dem Aleph-Schlüssel deiner Bücher. Sie bekommt das öffentliche Bridge-Image, aber noch keine Passphrase.'
+						title: 'Dein persönlicher Build-Dienst wacht auf',
+						text: 'Aleph startet eine vertrauliche VM (AMD SEV-SNP), signiert mit dem Aleph-Schlüssel deiner Bücher. Sie bekommt das öffentliche Bridge-Image, aber noch keine Passphrase.',
+						mini: 'Dein Build-Dienst wacht auf'
 					},
 					check: {
-						label: 'Prüfen',
-						duration: 'ca. 20 s',
-						title: 'Dein Browser prüft den Build-Dienst',
-						text: 'Über einen Relay von Le Space fragt der Browser die Hardware, was in der VM läuft, und vergleicht die Messung mit der festgelegten. Nur bei Übereinstimmung geht es weiter.'
+						label: 'Echtheit',
+						duration: 'wenige Sekunden',
+						title: 'Echtheit bestätigt!',
+						text: 'Der AMD-Prozessor bestätigt über einen Relay von Le Space: Hier läuft genau der veröffentlichte Code. Erst jetzt geht deine Passphrase auf die Reise.',
+						mini: 'Echtheit wird bestätigt'
 					},
 					seal: {
-						label: 'Versiegeln',
+						label: 'Siegel',
 						duration: 'ca. 2 Min.',
-						title: 'Das Image wird versiegelt',
-						text: 'Der Browser schickt die Passphrase, die er aus deinen Büchern ableitet, einmal über die geprüfte Verbindung. Der Build-Dienst verschlüsselt das Image damit (LUKS2).'
+						title: 'Dein Image wird versiegelt',
+						text: 'Mit einer Passphrase, die der Browser aus deinen Büchern ableitet. Nicht Le Space, nicht der Knoten – nur deine Bücher kennen sie.',
+						mini: 'Dein Image wird versiegelt'
 					},
 					fetch: {
 						label: 'Abholen',
 						duration: 'ca. 9 Min.',
-						title: 'Dein Browser holt das versiegelte Image ab',
-						text: 'In Stücken, jede Verbindung neu geprüft. Le Space sieht nur verschlüsselte Bytes.'
+						title: 'Dein Image kommt zu dir',
+						text: 'Stück für Stück, über geprüfte Verbindungen. Le Space sieht nur verschlüsselte Bytes.',
+						mini: 'Dein Image kommt zu dir'
 					},
 					store: {
-						label: 'Ablegen',
+						label: 'Abgelegt',
 						duration: 'ca. 1–2 Min.',
-						title: 'Das Image kommt zu Aleph',
-						text: 'Der Aleph-Schlüssel deiner Bücher signiert es, der Browser lädt es hoch, und Aleph bestätigt es. Danach wird der Build-Dienst gelöscht.'
+						title: 'Sicher abgelegt',
+						text: 'Der Aleph-Schlüssel deiner Bücher signiert dein versiegeltes Image, der Browser lädt es zu Aleph hoch, und Aleph bestätigt es. Danach wird der Build-Dienst gelöscht.',
+						mini: 'Dein Image wird abgelegt'
 					}
 				},
 				sub: {
-					ask: 'VM bei Aleph angefragt',
-					boot: 'VM bootet',
-					answer: 'VM antwortet',
-					relay: 'Relay verbunden',
-					report: 'Bericht der Hardware erhalten',
-					match: 'Messung stimmt',
-					send: 'Passphrase übergeben',
-					luks: 'Image verschlüsselt',
-					lanes: 'Verbindungen geprüft',
-					bytes: 'Stücke geladen',
-					sign: 'Signiert',
-					upload: 'Hochgeladen',
-					confirm: 'Von Aleph bestätigt'
+					ask: 'Build-Dienst angefordert (V-PROGRAM, vom Schlüssel deiner Bücher signiert)',
+					boot: 'Ein vertraulicher Knoten startet die VM des Build-Dienstes',
+					answer: 'Der Build-Dienst meldet sich',
+					relay: 'Verbindung über den Relay steht (er sieht nur Verschlüsseltes)',
+					report: 'Bericht des AMD-Prozessors empfangen, Zertifikatskette von AMD geprüft',
+					match: 'Messwert stimmt mit dem in Belege festgelegten überein',
+					send: 'Passphrase verschlüsselt an genau diesen Build-Dienst geschickt',
+					verify: 'Ausgangs-Image ausgepackt, SHA-256 geprüft',
+					luks: 'Mit LUKS versiegelt – die Passphrase vergisst der Dienst danach',
+					lanes: 'Mehrere Verbindungen parallel, jede einzeln von der Hardware bestätigt',
+					bytes: 'Stücke kommen an',
+					sign: 'Speicher-Nachricht (STORE) vom Schlüssel deiner Bücher signiert',
+					upload: 'Versiegeltes Image zu Aleph hochgeladen',
+					confirm: 'Aleph bestätigt die Ablage'
 				},
 				flow: {
-					program: 'die Anfrage für den Build-Dienst',
-					report: 'der Bericht der Hardware',
-					passphrase: 'die Passphrase, verschlüsselt',
-					pieces: 'Stücke des versiegelten Images',
-					image: 'das versiegelte Image'
+					program: 'Auftrag für den Build-Dienst',
+					report: 'Bericht des Prozessors',
+					passphrase: 'Passphrase, verschlüsselt',
+					pieces: 'Stücke deines versiegelten Images',
+					image: 'Dein versiegeltes Image'
 				},
 				places: {
 					browser: 'Dein Browser',
 					relay: 'Le-Space-Relay',
-					builder: 'Build-Dienst (TEE)',
-					aleph: 'Aleph'
+					node: 'Vertraulicher Knoten',
+					aleph: 'Aleph-Speicher'
 				},
 				evidence: {
-					measurement: 'Messung der Hardware',
-					plain: 'Öffentliches Image (SHA-256)',
-					cid: 'Versiegeltes Image (CID)',
-					store: 'Bei Aleph (STORE)'
+					commit: 'Quelltext-Stand',
+					plain: 'Ausgangs-Image (SHA-256)',
+					expected: 'Erwarteter Messwert (in Belege)',
+					vprogram: 'Build-Dienst (V-PROGRAM)',
+					node: 'Knoten',
+					relay: 'Relay',
+					measured: 'Gemessen vom AMD-Prozessor',
+					cid: 'Inhaltsadresse deines Images',
+					store: 'Dein Image bei Aleph (STORE)'
 				}
 			},
 			startTitle: 'Neue VM starten',
