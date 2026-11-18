@@ -75,6 +75,15 @@ A deposit or withdrawal keeps Kraken's on-chain hash (`chainTxRef`) and, where K
 
 A crypto withdrawal also keeps the address it went to (`chainAddress`, Kraken's `info` in WithdrawStatus; a deposit's `info` is Kraken's own address and is not kept). When that address is no own wallet yet, on a chain Belege reads by address, the payment's detail says so and offers _Als eigene Wallet anlegen_: the click opens _Integrationen → Eigene Wallets_ with the chain and the address filled in. Nothing is added or asked of any node before you press the button there – an address is no proof of ownership, and a withdrawal can pay someone else. With an EVM hash of no named network, every EVM chain is offered. For a chain Belege cannot read (Solana, say) the detail says that the arrival will not be found. Bitcoin (read by a key in the bridge) and Monero (imported) are not offered (`app/src/lib/wallets/suggest.js`).
 
+The same detail asks **what the transfer was** (_Was war diese Zahlung?_), for an exchange's withdrawal and for a wallet's own booking to or from an address that nothing else explains. The answer is kept for the address, on the partner record, so every booking with it is treated the same:
+
+- _an own wallet_ – added and read, as above; the two sides become an own transfer;
+- _private_ – the person's own private address, a withdrawal or a deposit: no receipt, counted as private;
+- _a vendor or service provider_ (incoming: _a customer_) – someone else's address: the address gets the name, and the payment needs its invoice;
+- _own money at an exchange or custodian_ Belege does not read: no receipt, an own transfer on 1360 whose other side is not in the books, so 1360 stays open by that amount.
+
+What the books can see for themselves – an own wallet, a counter-booking, the same hash – always comes first. An answer can be taken back (_Aufheben_). How a withdrawal, a swap or staking is to be booked for tax is for the tax adviser; Belege only proposes (`app/src/lib/matching/partners.js` `ADDRESS_KINDS`, `classify.js`).
+
 ## Own wallets
 
 Tokens withdrawn from an exchange to a wallet of our own stay the company's. _Integrationen → Eigene Wallets_ adds such a wallet by **chain and address**: read only, never a key or a seed phrase. The list of wallets is kept sealed in the books (settings key `wallets`); the bridge keeps nothing about them.

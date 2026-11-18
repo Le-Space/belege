@@ -42,7 +42,15 @@
 		runMatchingNow
 	} from './session.svelte.js';
 	import { portalLink } from './matching/portal.js';
-	import { learnedVendors, nameAddress } from './matching/partners.js';
+	import {
+		addressKindOf,
+		forgetAddress,
+		isAddressAlias,
+		learnedVendors,
+		nameAddress,
+		txAlias
+	} from './matching/partners.js';
+	import AddressKind from './matching/AddressKind.svelte';
 	import { groupIban, ownIbanSuggestionFor, ownIbanSuggestions } from './matching/own-iban.js';
 	import { instalmentOf, settlement as invoiceSettlement } from './matching/instalments.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
@@ -63,7 +71,12 @@
 	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
-	import { addressExplorerUrl, safeExplorerUrl, walletChain } from './wallets/chains.js';
+	import {
+		addressExplorerUrl,
+		cosmosChainOf,
+		safeExplorerUrl,
+		walletChain
+	} from './wallets/chains.js';
 	import { chainOfHash, hashUrl } from './assets/hash-chain.js';
 	import { walletSuggestion } from './wallets/suggest.js';
 	import { proposeWallet } from './wallets/proposal.svelte.js';
@@ -286,20 +299,37 @@
 					.sort((a, b) => String(b.bookedOn).localeCompare(String(a.bookedOn)))
 			: []
 	);
-	// The other side is a bare address: offer to name it.
-	let whereUnnamed = $derived.by(() => {
-		if (!whereOpen || !tx || !parties) return false;
-		const other = txDirection(tx) < 0 ? parties.to : parties.from;
-		return !other.own && Boolean(other.address) && other.label === shortAddress(other.address);
-	});
-	let addressName = $state('');
-	const saveAddressName = () =>
+	// "Was war diese Zahlung?" (matching/AddressKind.svelte): a crypto transfer
+	// to or from an address – a wallet's booking, or an exchange's withdrawal –
+	// that nothing else explains. What the person says is kept for the address.
+	let addressKind = $derived(tx ? addressKindOf(app.partners ?? [], tx) : null);
+	let addressKindOpen = $derived(
+		Boolean(
+			tx &&
+				tx.movement === 'transfer' &&
+				!tx.receiptId &&
+				!tx.noReceipt &&
+				!privateKind(tx) &&
+				isAddressAlias(txAlias(tx)) &&
+				(!classification || classification.via === 'address' || classification.via === 'custodian')
+		)
+	);
+	/** @param {'vendor' | 'private' | 'custodian'} kind @param {string} name */
+	const saveAddressKind = (kind, name) =>
 		act(async () => {
 			const store = currentStore();
 			if (!store || !tx) return;
-			await nameAddress(store.partners, tx, addressName);
-			addressName = '';
+			await nameAddress(store.partners, tx, name, kind);
 			await refreshNow();
+			await runMatchingNow();
+		});
+	const forgetAddressKind = () =>
+		act(async () => {
+			const store = currentStore();
+			if (!store || !tx) return;
+			await forgetAddress(store.partners, tx);
+			await refreshNow();
+			await runMatchingNow();
 		});
 	/** @param {string} otherId */
 	const linkCandidate = (otherId) =>
@@ -1116,7 +1146,7 @@
 	/** @type {import('./wallets/wallet-sync.js').Wallet[] | null} */
 	let ownWallets = $state(null);
 	$effect(() => {
-		if (!tx?.chainAddress) return;
+		if (!tx?.chainAddress && !(tx?.counterpartyAddress && walletChain(tx.source))) return;
 		const store = currentStore();
 		if (!store) return;
 		let stale = false;
@@ -1127,17 +1157,29 @@
 			stale = true;
 		};
 	});
-	let walletOffer = $derived(
-		tx?.chainAddress && ownWallets
-			? walletSuggestion({
-					address: tx.chainAddress,
-					chains: hashChain?.chains ?? [],
-					method: tx.chainMethod ?? '',
-					asset: tx.asset ?? '',
-					wallets: ownWallets
-				})
-			: null
-	);
+	let walletOffer = $derived.by(() => {
+		if (!tx || !ownWallets) return null;
+		if (tx.chainAddress) {
+			return walletSuggestion({
+				address: tx.chainAddress,
+				chains: hashChain?.chains ?? [],
+				method: tx.chainMethod ?? '',
+				asset: tx.asset ?? '',
+				wallets: ownWallets
+			});
+		}
+		// A wallet's own booking: the other address on its chain – or, for an IBC
+		// transfer, on the Cosmos chain its prefix names.
+		const chain = walletChain(tx.source);
+		if (!chain || !tx.counterpartyAddress) return null;
+		const there =
+			chain.kind === 'cosmos' ? (cosmosChainOf(String(tx.counterpartyAddress)) ?? chain) : chain;
+		return walletSuggestion({
+			address: tx.counterpartyAddress,
+			chains: [there],
+			wallets: ownWallets
+		});
+	});
 	/** @param {string} chain */
 	async function offerWallet(chain) {
 		if (!walletOffer) return;
@@ -1516,6 +1558,18 @@
 		'rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 </script>
 
+{#snippet addressKindForm()}
+	<AddressKind
+		incoming={tx ? txDirection(tx) > 0 : false}
+		ownChains={walletOffer?.state === 'add' ? walletOffer.chains : []}
+		current={addressKind}
+		{busy}
+		onown={offerWallet}
+		onsave={saveAddressKind}
+		onforget={forgetAddressKind}
+	/>
+{/snippet}
+
 {#snippet uploadControls()}
 	<!-- Upload a receipt and link it here: above the list of receipts while one is being
 	     chosen (#274) – below a long list it is not found –, else at the end of the part. -->
@@ -1873,31 +1927,17 @@
 							{t('zahlungen.detail.where.first')}
 						</p>
 					{/if}
-					{#if whereUnnamed}
-						<form
-							class="mt-2 flex flex-wrap items-end gap-2"
-							onsubmit={(e) => {
-								e.preventDefault();
-								saveAddressName();
-							}}
-						>
-							<label class="flex min-w-48 flex-1 flex-col text-xs text-faint"
-								>{t('zahlungen.detail.where.nameLabel')}
-								<input
-									class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-heading"
-									bind:value={addressName}
-									placeholder={t('zahlungen.detail.where.namePlaceholder')}
-									data-testid="tx-where-name"
-								/>
-							</label>
-							<button
-								type="submit"
-								class={button}
-								disabled={busy || !addressName.trim()}
-								data-testid="tx-where-name-save">{t('zahlungen.detail.where.nameSave')}</button
-							>
-						</form>
+					{#if addressKindOpen}
+						{@render addressKindForm()}
 					{/if}
+				</section>
+			{/if}
+			{#if addressKindOpen && !whereOpen}
+				<section
+					class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+					data-testid="tx-address-kind-section"
+				>
+					{@render addressKindForm()}
 				</section>
 			{/if}
 			{#if tx.importChange}
@@ -2022,23 +2062,7 @@
 									testid="tx-detail-chain-address-copy">{tx.chainAddress}</CopyButton
 								>
 							</span>
-							{#if walletOffer?.state === 'add'}
-								<span class="mt-1 block text-text" data-testid="tx-detail-wallet-offer">
-									{t('zahlungen.detail.walletOffer')}
-									<span class="mt-1 flex flex-wrap gap-2">
-										{#each walletOffer.chains as c (c.id)}
-											<button
-												type="button"
-												class="rounded-md border border-border px-2 py-1 text-xs text-heading hover:bg-surface-2"
-												onclick={() => offerWallet(c.id)}
-												data-testid="tx-detail-wallet-offer-add"
-												data-chain={c.id}
-												>{t('zahlungen.detail.walletOfferAdd', { chain: c.name })}</button
-											>
-										{/each}
-									</span>
-								</span>
-							{:else if walletOffer?.state === 'unsupported'}
+							{#if walletOffer?.state === 'unsupported'}
 								<span class="mt-1 block text-text" data-testid="tx-detail-wallet-unsupported">
 									{t('zahlungen.detail.walletUnsupported', { chain: walletOffer.chainName })}
 								</span>

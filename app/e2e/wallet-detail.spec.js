@@ -170,6 +170,8 @@ test('a wallet send says whose address is whose, once each, and where the money 
 	await expect(where.getByTestId('tx-where-candidate')).toContainText('Kraken · FIL');
 
 	// Naming the address names every booking with it.
+	// The address could be an own wallet, so that is offered first; this one is a vendor's.
+	await where.getByTestId('tx-address-kind-vendor').check();
 	await where.getByTestId('tx-where-name').fill('Testlieferant Ahornweg');
 	await where.getByTestId('tx-where-name-save').click();
 	await expect(detail.getByTestId('tx-detail-counterparty')).toHaveText('Testlieferant Ahornweg');

@@ -11,7 +11,7 @@ import { refundIndex } from './refunds.js';
 import { isVendorPayment, isVendorReceipt } from './vendor-account.js';
 import { cleanMatchingSettings } from './classify.js';
 import { compactIban, dayNumber } from './normalize.js';
-import { learnedVendors } from './partners.js';
+import { addressKindOf, learnedVendors } from './partners.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
 import { sameKey } from '../wallets/cross-swap.js';
 import { mutualTwin } from './twins.js';
@@ -525,6 +525,8 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		graceDays: clean.graceDays,
 		feeKeys: new Set(clean.feeKeys),
 		learnedVendors: learnedVendors(partners),
+		// What a person said an address is (partners.js): private, or own money elsewhere.
+		addressKindOf: (tx) => addressKindOf(partners, tx),
 		mirrored(tx, accountIds) {
 			const day = dayNumber(tx.bookedOn);
 			if (day === null) return false;

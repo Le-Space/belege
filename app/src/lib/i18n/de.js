@@ -2267,6 +2267,10 @@ export default {
 			noReceipt: 'Von dir entschieden: Kein Beleg nötig – {reason}',
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
+			ownCustodian:
+				'Eigenes Geld bei „{name}“: Du hast die Adresse {address} als eigenes Konto bei einer Börse oder einem Verwahrer gemerkt, das Belege nicht liest. Kein Beleg nötig (Konto 1360). Die andere Seite steht nicht in den Büchern, 1360 bleibt um diesen Betrag offen.',
+			addressPrivate:
+				'Privat: Du hast die Adresse {address} als private Adresse gemerkt („{name}“). Kein Beleg nötig.',
 			ownCard: 'Eigene Umbuchung: Ausgleich deiner Kreditkarte {account}',
 			ownCardSettlement:
 				'Eigene Umbuchung: Ausgleich der Kreditkarte vom Bankkonto – die Abbuchung dort ist der Beleg',
@@ -4002,9 +4006,7 @@ export default {
 				same: '{count} weitere Buchungen mit dieser Adresse.',
 				show: 'Anzeigen',
 				first: 'Diese Adresse kommt in keiner anderen Buchung vor.',
-				nameLabel: 'Adresse benennen',
-				namePlaceholder: 'z. B. Kraken-Einzahlung oder Lieferant',
-				nameSave: 'Benennen'
+				namePlaceholder: 'z. B. Kraken-Einzahlung oder Lieferant'
 			},
 			changedTitle: 'Beim Abruf am {date} geändert',
 			changedText: 'Die Quelle meldet diese Buchung jetzt anders: vorher {from}, jetzt {to}.',
@@ -4108,8 +4110,29 @@ export default {
 			chainTxRef: 'Transaktions-Hash',
 			chainAddress: 'Zieladresse',
 			walletOffer:
-				'Diese Adresse ist noch keine eigene Wallet. Gehört sie dir, leg sie an und synchronisiere sie: Dann findet Belege die Ankunft, und beide Seiten sind eine eigene Umbuchung ohne Beleg. Gehört sie jemand anderem, braucht die Auszahlung einen Beleg.',
+				'Leg sie an und synchronisiere sie: Dann findet Belege die andere Seite, und beide sind eine eigene Umbuchung ohne Beleg.',
 			walletOfferAdd: 'Als eigene Wallet anlegen ({chain})',
+			addressKind: {
+				titleOut: 'Was war diese Zahlung?',
+				titleIn: 'Was war dieser Eingang?',
+				hint: 'Deine Antwort gilt für die Adresse: Jede Buchung mit ihr wird gleich behandelt.',
+				own: 'Umbuchung an eine eigene Wallet',
+				ownIn: 'Umbuchung von einer eigenen Wallet',
+				private: 'Privat',
+				privateHint: 'Deine eigene private Adresse: eine Entnahme oder Einlage. Kein Beleg nötig.',
+				privateName: 'Privat',
+				vendorOut: 'Zahlung an einen Lieferanten oder Dienstleister',
+				vendorIn: 'Zahlung von einem Kunden',
+				vendorHint: 'Die Adresse von jemand anderem: Die Zahlung braucht ihre Rechnung.',
+				custodian: 'Eigenes Geld bei einer Börse oder einem Verwahrer',
+				custodianHint:
+					'Ein Konto von dir, das Belege nicht liest. Kein Beleg nötig; gebucht als eigene Umbuchung (1360), deren andere Seite nicht in den Büchern steht.',
+				nameLabel: 'Name für diese Adresse',
+				custodianPlaceholder: 'z. B. der Name der Börse',
+				save: 'Merken',
+				current: 'Gemerkt als: {kind} („{name}“)',
+				forget: 'Aufheben'
+			},
 			walletUnsupported:
 				'{chain} kann Belege noch nicht als eigene Wallet lesen. Die Ankunft dort findet es deshalb nicht.',
 			address: 'Gegenadresse',

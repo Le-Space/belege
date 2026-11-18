@@ -10,6 +10,7 @@
 
 import { sameVendor, vendorWords } from './normalize.js';
 import { normalizeAddress, walletChain } from '../wallets/chains.js';
+import { chainNamed, chainOfHash } from '../assets/hash-chain.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -37,6 +38,10 @@ export function counterpartyKey(s) {
  * on every EVM chain), else the counterparty as a key. An address has no
  * words to learn from, so it is the address itself that is remembered.
  *
+ * An exchange's withdrawal names the address it went to (`chainAddress`): the
+ * same alias a wallet's booking to that address has, where the chain is clear
+ * – from the hash, the network the exchange named, or the asset.
+ *
  * @param {Rec} tx
  */
 export function txAlias(tx) {
@@ -45,7 +50,36 @@ export function txAlias(tx) {
 		const family = chain.kind === 'evm' ? 'evm' : chain.id;
 		return `addr:${family}:${normalizeAddress(chain, tx.counterpartyAddress)}`;
 	}
-	return counterpartyKey(tx.counterparty);
+	return exchangeAddressAlias(tx) ?? counterpartyKey(tx.counterparty);
+}
+
+/**
+ * The alias of the address an exchange's withdrawal went to, or null: no
+ * address, or a chain that is not clear.
+ *
+ * @param {Rec} tx
+ * @returns {string | null}
+ */
+export function exchangeAddressAlias(tx) {
+	if (walletChain(tx.source) || typeof tx.chainAddress !== 'string' || !tx.chainAddress.trim()) {
+		return null;
+	}
+	const asset = String(tx.asset ?? '');
+	const method = String(tx.chainMethod ?? '');
+	const byHash = tx.chainTxRef ? chainOfHash({ hash: tx.chainTxRef, asset, method }).chains : [];
+	const ids = (byHash.length ? byHash : [chainNamed({ method, asset })])
+		.filter((c) => c !== null)
+		.map((c) => c.id);
+	if (!ids.length) return null;
+	const known = ids.map((id) => walletChain(id));
+	const evm = known.length > 0 && known.every((c) => c?.kind === 'evm');
+	// Several candidates are only ever the EVM chains: one address on all of them.
+	if (ids.length > 1 && !evm) return null;
+	const address = tx.chainAddress.trim();
+	const one = known[0];
+	return evm
+		? `addr:evm:${address.toLowerCase()}`
+		: `addr:${ids[0]}:${one ? normalizeAddress(one, address) : address}`;
 }
 
 /** Whether an alias is an address (txAlias). @param {string} alias */
@@ -138,21 +172,93 @@ export async function learnFromLink(partners, receipt, tx, { companyNames = [] }
  * @param {import('../store/repository.js').Collection} partners
  * @param {Rec} tx a wallet booking with `counterpartyAddress`
  * @param {string} name
+ * @param {string} [kind] what the address is (ADDRESS_KINDS); a vendor unless said
  * @returns {Promise<Rec | null>} null when there is no address or no name
  */
-export async function nameAddress(partners, tx, name) {
+export async function nameAddress(partners, tx, name, kind = 'vendor') {
 	const alias = txAlias(tx);
 	const label = String(name ?? '')
 		.trim()
 		.slice(0, 80);
-	if (!isAddressAlias(alias) || !label) return null;
-	const existing = findPartner(await partners.list(), label);
+	if (!isAddressAlias(alias) || !label || !ADDRESS_KINDS.includes(kind)) return null;
+	const all = await partners.list();
+	const existing = findPartner(all, label);
+	// An address is one thing: decided anew, it leaves whoever had it before.
+	for (const p of all) {
+		if (p.id !== existing?.id && !p.deleted && (p.aliases ?? []).includes(alias)) {
+			await partners.put(withoutAddress(p, alias));
+		}
+	}
+	/** @type {Record<string, string>} */
+	const kinds = { ...(existing?.addressKinds ?? {}) };
+	if (kind === 'vendor') delete kinds[alias];
+	else kinds[alias] = kind;
 	return partners.put({
 		...(existing ?? {}),
 		name: existing?.name ?? label,
 		aliases: [...new Set([...(existing?.aliases ?? []), alias])].slice(-20),
+		addressKinds: kinds,
 		learnedFrom: existing?.learnedFrom ?? 'address'
 	});
+}
+
+/**
+ * What an address is to the books, as a person said (issue: "Was war das?"):
+ *   vendor     someone paid or paying – a booking with it needs its receipt
+ *   private    the person's own private address – a withdrawal or a deposit,
+ *              no receipt
+ *   custodian  own money at an exchange or custodian Belege does not read –
+ *              an own transfer whose other side is not in the books
+ * An own wallet is not here: it is added as a wallet and read.
+ */
+export const ADDRESS_KINDS = /** @type {readonly string[]} */ (['vendor', 'private', 'custodian']);
+
+/** @param {Rec} p @param {string} alias */
+function withoutAddress(p, alias) {
+	const kinds = { ...(p.addressKinds ?? {}) };
+	delete kinds[alias];
+	return {
+		...p,
+		aliases: (p.aliases ?? []).filter((/** @type {string} */ a) => a !== alias),
+		addressKinds: kinds
+	};
+}
+
+/**
+ * Take a booking's address back out of the partners: it is no one's again.
+ *
+ * @param {import('../store/repository.js').Collection} partners
+ * @param {Rec} tx
+ */
+export async function forgetAddress(partners, tx) {
+	const alias = txAlias(tx);
+	if (!isAddressAlias(alias)) return;
+	for (const p of await partners.list()) {
+		if (!p.deleted && (p.aliases ?? []).includes(alias)) {
+			await partners.put(withoutAddress(p, alias));
+		}
+	}
+}
+
+/**
+ * What a booking's address was said to be, and by which name; null when no
+ * one named it.
+ *
+ * @param {Rec[]} partners
+ * @param {Rec} tx
+ * @returns {{ kind: 'vendor' | 'private' | 'custodian', name: string, alias: string } | null}
+ */
+export function addressKindOf(partners, tx) {
+	const alias = txAlias(tx);
+	if (!isAddressAlias(alias)) return null;
+	const p = partners.find((x) => !x.deleted && (x.aliases ?? []).includes(alias));
+	if (!p) return null;
+	const kind = p.addressKinds?.[alias];
+	return {
+		kind: kind === 'private' || kind === 'custodian' ? kind : 'vendor',
+		name: String(p.name ?? ''),
+		alias
+	};
 }
 
 /**
