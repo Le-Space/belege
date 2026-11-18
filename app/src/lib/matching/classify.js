@@ -300,6 +300,7 @@ export function feeKey(tx) {
  * @property {(tx: Record<string, any>) => import('./context.js').CrossSwapSide | null} [crossSwapOf] a swap across chains this booking is a side of (context.js, issue #170)
  * @property {Map<string, Map<string, string>>} [ownAddresses] `<chain>:<address>` (normalised) of our own wallets → their accounts by asset ('' = the first)
  * @property {(tx: Record<string, any>) => string | null} [lookalikeOf] a known address the booking's other side looks like, but is not
+ * @property {(tx: Record<string, any>) => { kind: string, name: string, alias: string } | null} [addressKindOf] what a person said the booking's address is (partners.js)
  */
 
 /**
@@ -317,7 +318,7 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
  * @property {import('./payroll.js').TaxKind} [tax] which tax, for 'tax-payment' and 'payroll-tax' (#233)
@@ -739,5 +740,25 @@ export function classifyTransaction(tx, ctx) {
 		return { ...payroll, ...(account ? { account } : {}) };
 	}
 	if (LOAN.test(purpose)) return { kind: 'loan' };
+	// An address a person said is their own private one, or own money at an
+	// exchange or custodian that is not in the books (partners.js ADDRESS_KINDS):
+	// every transfer with it needs no receipt. Last, so that whatever the books
+	// can see for themselves – an own wallet, a counter-booking – comes first.
+	if (tx.movement === 'transfer') {
+		const said = ctx.addressKindOf?.(tx);
+		const address = said ? said.alias.split(':').slice(2).join(':') : '';
+		if (said?.kind === 'private') {
+			return { kind: 'rule-private', via: 'address', reason: said.name, address };
+		}
+		if (said?.kind === 'custodian') {
+			return {
+				kind: 'own-transfer',
+				account: '1360',
+				via: 'custodian',
+				company: said.name,
+				address
+			};
+		}
+	}
 	return null;
 }

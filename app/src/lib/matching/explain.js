@@ -263,6 +263,12 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
+			if (c.via === 'custodian') {
+				return t('explain.rule.ownCustodian', {
+					name: c.company ?? '',
+					address: shortAddress(c.address ?? '')
+				});
+			}
 			// A credit card settled from the bank (#382).
 			if (c.via === 'card') {
 				const card = accounts.find((a) => a.id === c.counterAccountId);
@@ -370,6 +376,12 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			return t('explain.rule.cryptoReward');
 		case 'rule-ignore':
 		case 'rule-private':
+			if (c.via === 'address') {
+				return t('explain.rule.addressPrivate', {
+					name: c.reason ?? '',
+					address: shortAddress(c.address ?? '')
+				});
+			}
 			return t(c.kind === 'rule-private' ? 'explain.rule.private' : 'explain.rule.ignore', {
 				field: t(FIELD_KEY[c.ruleField ?? 'counterparty'] ?? FIELD_KEY.counterparty),
 				contains: c.ruleContains ?? c.reason ?? '',

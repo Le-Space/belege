@@ -2228,6 +2228,10 @@ export default {
 			noReceipt: 'Decided by you: No receipt needed – {reason}',
 			noReason: 'no reason given',
 			ownCompany: 'Own transfer: the counterparty is your company “{company}”',
+			ownCustodian:
+				'Own money at “{name}”: you noted the address {address} as an own account at an exchange or custodian that Belege does not read. No receipt needed (account 1360). The other side is not in the books, so 1360 stays open by this amount.',
+			addressPrivate:
+				'Private: you noted the address {address} as a private address (“{name}”). No receipt needed.',
 			ownCard: 'Own transfer: settles your credit card {account}',
 			ownCardSettlement:
 				'Own transfer: the credit card settled from the bank account – the debit there is its receipt',
@@ -3944,9 +3948,7 @@ export default {
 				same: '{count} more bookings with this address.',
 				show: 'Show',
 				first: 'This address is in no other booking.',
-				nameLabel: 'Name the address',
-				namePlaceholder: 'e.g. Kraken deposit or supplier',
-				nameSave: 'Name it'
+				namePlaceholder: 'e.g. Kraken deposit or supplier'
 			},
 			changedTitle: 'Changed on fetch on {date}',
 			changedText: 'The source now reports this booking differently: before {from}, now {to}.',
@@ -4054,8 +4056,30 @@ export default {
 			chainTxRef: 'Transaction hash',
 			chainAddress: 'Destination address',
 			walletOffer:
-				'This address is not an own wallet yet. If it is yours, add it and synchronise it: Belege then finds the arrival, and both sides are an own transfer that needs no receipt. If it is someone else’s, the withdrawal needs a receipt.',
+				'Add it and synchronise it: Belege then finds the other side, and both are an own transfer that needs no receipt.',
 			walletOfferAdd: 'Add as own wallet ({chain})',
+			addressKind: {
+				titleOut: 'What was this payment?',
+				titleIn: 'What was this incoming payment?',
+				hint: 'Your answer holds for the address: every booking with it is treated the same.',
+				own: 'A transfer to an own wallet',
+				ownIn: 'A transfer from an own wallet',
+				private: 'Private',
+				privateHint:
+					'Your own private address: a private withdrawal or deposit. No receipt needed.',
+				privateName: 'Private',
+				vendorOut: 'A payment to a vendor or service provider',
+				vendorIn: 'A payment from a customer',
+				vendorHint: 'Someone else’s address: the payment needs its invoice.',
+				custodian: 'Own money at an exchange or custodian',
+				custodianHint:
+					'An account of yours that Belege does not read. No receipt needed; booked as an own transfer (1360), whose other side is not in the books.',
+				nameLabel: 'Name for this address',
+				custodianPlaceholder: 'e.g. the exchange’s name',
+				save: 'Remember',
+				current: 'Remembered as: {kind} (“{name}”)',
+				forget: 'Undo'
+			},
 			walletUnsupported:
 				'Belege cannot read {chain} as an own wallet yet, so it does not find the arrival there.',
 			address: 'Counter address',

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- "Was war diese Zahlung?" in the payment's detail, for a crypto transfer to or from an address that nothing else explains – an exchange's withdrawal, or an own wallet's booking. The choices: an own wallet (added and read, as before), private (a withdrawal or deposit: no receipt, counted as private), a vendor or service provider – for an incoming payment a customer – (the address gets the name, the payment needs its invoice), or own money at an exchange or custodian Belege does not read (no receipt; an own transfer on 1360 whose other side is not in the books). The answer is kept for the address, so every booking with it is treated the same, and can be taken back. What the books see for themselves – an own wallet, a counter-booking, the same hash – comes first. It replaces "Adresse benennen".
+
 ### Changed
 
 - When Aleph cannot be asked for the relays, Belege falls back to three relays instead of one: ocean-skate-resource-route and secret-pass-wife-sentence (orbitdb-relay account) besides relay-main-ekb (relay-button account). One relay going away no longer leaves the app without any. All three offer /attest with the image builders' larger limits.

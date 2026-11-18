@@ -138,6 +138,15 @@ Eine Ein- oder Auszahlung behält Krakens Hash auf der Chain (`chainTxRef`). Wo 
 
 Eine Krypto-Auszahlung behält außerdem die Adresse, an die sie ging (`chainAddress`, Krakens `info` aus WithdrawStatus; das `info` einer Einzahlung ist Krakens eigene Adresse und wird nicht behalten). Ist diese Adresse noch keine eigene Wallet, auf einer Chain, die Belege per Adresse liest, sagt das Detail der Zahlung es und bietet _Als eigene Wallet anlegen_ an: Der Klick öffnet _Integrationen → Eigene Wallets_ mit Chain und Adresse ausgefüllt. Angelegt und bei einem Knoten abgefragt wird erst, wenn du dort den Knopf drückst – eine Adresse beweist nicht, wem sie gehört, und eine Auszahlung kann auch jemand anderen bezahlen. Bei einem EVM-Hash ohne genanntes Netzwerk wird jede EVM-Chain angeboten. Bei einer Chain, die Belege nicht lesen kann (etwa Solana), sagt das Detail, dass die Ankunft nicht gefunden wird. Bitcoin (über einen Schlüssel in der Bridge gelesen) und Monero (importiert) werden nicht angeboten (`app/src/lib/wallets/suggest.js`).
 
+Dasselbe Detail fragt, **was die Überweisung war** (_Was war diese Zahlung?_), bei der Auszahlung einer Börse und bei der Buchung einer eigenen Wallet an oder von einer Adresse, die sonst nichts erklärt. Die Antwort gilt für die Adresse und steht am Partner, sodass jede Buchung mit ihr gleich behandelt wird:
+
+- _eine eigene Wallet_ – angelegt und gelesen, wie oben; beide Seiten werden eine eigene Umbuchung;
+- _privat_ – die eigene private Adresse, eine Entnahme oder Einlage: kein Beleg, zählt als privat;
+- _ein Lieferant oder Dienstleister_ (bei einem Eingang: _ein Kunde_) – die Adresse von jemand anderem: Die Adresse bekommt den Namen, und die Zahlung braucht ihre Rechnung;
+- _eigenes Geld bei einer Börse oder einem Verwahrer_, die Belege nicht liest: kein Beleg, eine eigene Umbuchung auf 1360, deren andere Seite nicht in den Büchern steht – 1360 bleibt um diesen Betrag offen.
+
+Was die Bücher selbst sehen – eine eigene Wallet, eine Gegenbuchung, derselbe Hash – geht immer vor. Eine Antwort lässt sich zurücknehmen (_Aufheben_). Wie eine Entnahme, ein Tausch oder Staking steuerlich zu buchen ist, klärt der Steuerberater; Belege schlägt nur vor (`app/src/lib/matching/partners.js` `ADDRESS_KINDS`, `classify.js`).
+
 Das Detail der Zahlung bestimmt daraus die Chain. Das passiert lokal, in dieser Reihenfolge:
 
 1. eine Buchung einer eigenen Wallet mit demselben Hash;
