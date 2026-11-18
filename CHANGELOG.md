@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.37.1] – 2026-11-18
+
 ### Added
 
 - A NEAR account as an own wallet (#815): under Integrationen → Eigene Wallets, choose NEAR and enter the account id (`name.near`, or the 64 hex characters of an implicit account). NEAR and USDC are booked, the gas of a transaction the account signed as a fee of its own; other tokens are counted, not booked. A withdrawal from an exchange and its arrival on the account pair by the transaction's hash, as on the other chains. The bridge reads the history from NearBlocks and the balance from an archival node of FastNEAR; both see the account id and the IP address, and the consent screen says so (version 57). Not read yet: NEAR that arrives inside another transaction's inner receipts, a staking pool paying out, say – the balance shows the difference. The local bridge needs a restart to know the chain.
