@@ -187,7 +187,7 @@ export class ReadOnlyError extends Error {
  * Where an unlock is (startSession `onStatus`).
  *
  * @typedef {{ step: 'keys' | 'identity' | 'blobs' }
- *   | { step: 'network', part?: 'storage' | 'relays' | 'node' }
+ *   | { step: 'network', part?: 'storage' | 'relays' | 'node' | 'start' }
  *   | { step: 'open', collection: string }
  *   | { step: 'move', collection: string, done: number, total: number }} UnlockStatus
  */
@@ -462,6 +462,8 @@ export async function startSession(
 		: await createOfflineLibp2p(peerKey);
 	// The code exchange builds its connections on this node (qr-link.js).
 	if (deviceGate && (mode === 'qr' || mode === 'both')) attachQrSession(libp2p);
+	// The node is made; starting it reads the stores for the first time.
+	onStatus?.({ step: 'network', part: 'start' });
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();

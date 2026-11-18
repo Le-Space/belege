@@ -1155,7 +1155,8 @@ export default {
 			part: {
 				storage: 'Speicher im Browser öffnen …',
 				relays: 'Relays suchen …',
-				node: 'Netzknoten starten …'
+				node: 'Netzknoten anlegen …',
+				start: 'Speicher lesen und Knoten starten …'
 			},
 			identity: 'Identität prüfen …',
 			open: '{collection} öffnen …',

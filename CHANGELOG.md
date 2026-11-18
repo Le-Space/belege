@@ -8,7 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
-- An unlock that waits says for what, and what helps (#803). The step "Speicher und Netz starten" is shown in its parts: opening the storage in the browser, looking for relays, starting the node. When a step takes far longer than it should (a minute; five for opening large books; never for a move), the screen says so: close other tabs and windows of Belege, the installed app too, and reload; then quit the browser and open it again; never clear site data. When Belege is open in another window of the browser, it says that first. The console times each part and names the one that waits, and the diagnosis under "Hilfe & Support" names it too. This does not remove the cause of such a wait, which is not known yet; it makes the next one say where it is.
+- An unlock that waits says for what, and what helps (#803). The step "Speicher und Netz starten" is shown in its parts: opening the storage in the browser, looking for relays, creating the node, and starting it (the first read of the storage). When a step takes far longer than it should (a minute; five for opening large books; never for a move), the screen says so: close other tabs and windows of Belege, the installed app too, and reload; then quit the browser and open it again; never clear site data. When Belege is open in another window of the browser, it says that first. The console times each part and names the one that waits, and the diagnosis under "Hilfe & Support" names it too. This does not remove the cause of such a wait, which is not known yet; it makes the next one say where it is.
 
 ## [0.37.1] – 2026-11-18
 

@@ -1127,7 +1127,8 @@ export default {
 			part: {
 				storage: 'Opening the storage in the browser …',
 				relays: 'Looking for relays …',
-				node: 'Starting the network node …'
+				node: 'Creating the network node …',
+				start: 'Reading the storage and starting the node …'
 			},
 			identity: 'Checking the identity …',
 			open: 'Opening {collection} …',

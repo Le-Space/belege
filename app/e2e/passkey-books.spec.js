@@ -131,6 +131,7 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 		// the network step in its parts (#803); no relays are asked offline
 		'network storage',
 		'network node',
+		'network start',
 		'identity',
 		'open transactions',
 		'open events',
