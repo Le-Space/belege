@@ -4,7 +4,11 @@
 // and what it answered – instead of a card that just says "Lade …".
 //
 // Only Aleph's own API hosts are retried on another one; any other URL (AMD's
-// key service during attestation) passes through untouched. Files from
+// key service during attestation) passes through untouched. A signed message
+// (`POST /api/v0/messages`) goes to the other host too when the first cannot
+// be reached or answers 502–504: it is the same message with the same hash,
+// so sending it twice changes nothing. Other writes (an upload) are not
+// repeated here. Files from
 // Aleph's storage (`/api/v0/storage/raw/<sha256>`) are content-addressed:
 // one whose bytes hash to its name is kept in the browser's cache, so the
 // SEV-SNP runtime (about 15 MB) is downloaded once, not at every unlock.
@@ -41,6 +45,9 @@ async function sha256Hex(bytes) {
 	);
 	return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+/** Where a signed message is broadcast. */
+const MESSAGES = '/api/v0/messages';
 
 /** @param {string} pathname */
 const storageHash = (pathname) =>
@@ -130,13 +137,43 @@ export function alephFetch({
 		}
 	}
 
+	/**
+	 * A signed message to the host asked, then to the others: the first answer
+	 * that is not an outage is the answer.
+	 *
+	 * @param {URL} url @param {RequestInit} init
+	 */
+	async function postMessage(url, init) {
+		const order = [url.origin, ...origins.filter((o) => o !== url.origin)];
+		/** @type {unknown} */
+		let failure = null;
+		/** @type {Response | null} */
+		let last = null;
+		for (const origin of order) {
+			try {
+				const response = await base(`${origin}${url.pathname}${url.search}`, init);
+				if (![502, 503, 504].includes(response.status)) return response;
+				last = response;
+			} catch (error) {
+				// A timeout is the caller's own clock (its signal): no other host after it.
+				if (/** @type {any} */ (error)?.name !== 'TypeError') throw error;
+				failure = error;
+			}
+		}
+		if (last) return last;
+		throw failure;
+	}
+
 	/** @type {typeof fetch} */
 	return async function (input, init) {
 		const url = new URL(
 			typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
 		);
-		if (!origins.includes(url.origin) || (init?.method && init.method !== 'GET')) {
-			return base(input, init);
+		if (!origins.includes(url.origin)) return base(input, init);
+		if (init?.method && init.method !== 'GET') {
+			if (init.method !== 'POST' || url.pathname !== MESSAGES || typeof init.body !== 'string')
+				return base(input, init);
+			return postMessage(url, init);
 		}
 		const hash = storageHash(url.pathname);
 		const key = hash ? `https://aleph-storage.invalid/${hash}` : null;

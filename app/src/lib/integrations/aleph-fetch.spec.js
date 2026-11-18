@@ -122,4 +122,50 @@ describe('alephFetch', () => {
 		await alephFetch({ fetch: f, cache })(`${A}/api/v0/storage/raw/${'0'.repeat(64)}`);
 		expect(cache.store.size).toBe(0);
 	});
+
+	const message = { method: 'POST', body: '{"sync":true}' };
+
+	it('sends a signed message to the other host when the first cannot be reached', async () => {
+		const { f, asked } = fake({ [B]: () => new Response('{}', { status: 200 }) });
+		const res = await alephFetch({ fetch: f, cache: null })(`${A}/api/v0/messages`, message);
+		expect(res.status).toBe(200);
+		expect(asked).toEqual([`${A}/api/v0/messages`, `${B}/api/v0/messages`]);
+	});
+
+	it('sends it to the other host on a gateway error, and keeps a refusal as the answer', async () => {
+		const down = fake({
+			[A]: () => new Response(null, { status: 503 }),
+			[B]: () => new Response('{}', { status: 202 })
+		});
+		expect(
+			(await alephFetch({ fetch: down.f, cache: null })(`${A}/api/v0/messages`, message)).status
+		).toBe(202);
+		const refused = fake({
+			[A]: () => new Response('{}', { status: 422 }),
+			[B]: () => new Response('{}', { status: 200 })
+		});
+		expect(
+			(await alephFetch({ fetch: refused.f, cache: null })(`${A}/api/v0/messages`, message)).status
+		).toBe(422);
+		expect(refused.asked).toEqual([`${A}/api/v0/messages`]);
+	});
+
+	it('fails as the first host did when no host takes the message', async () => {
+		const { f, asked } = fake({});
+		await expect(
+			alephFetch({ fetch: f, cache: null })(`${A}/api/v0/messages`, message)
+		).rejects.toThrow(TypeError);
+		expect(asked).toHaveLength(2);
+	});
+
+	it('does not repeat another write on a second host', async () => {
+		const { f, asked } = fake({ [B]: () => new Response('{}', { status: 200 }) });
+		await expect(
+			alephFetch({ fetch: f, cache: null })(`${A}/api/v0/ipfs/add_file`, {
+				method: 'POST',
+				body: 'x'
+			})
+		).rejects.toThrow(TypeError);
+		expect(asked).toEqual([`${A}/api/v0/ipfs/add_file`]);
+	});
 });

@@ -2105,7 +2105,7 @@ export async function forgetLeftHostedBuilder() {
 		app: await alephAppKey(key, owner),
 		payer: typeof left.payer === 'string' ? left.payer : owner,
 		vprogram: left.vprogram,
-		post: poster({ api: apiHost })
+		post: poster({ api: apiHost, fetch: await alephFetchFor(apiHost, () => {}) })
 	}).catch(() => false);
 	if (forgotten) await setSetting(session.store.settings, BUILDER_SETTING, null).catch(() => {});
 }
@@ -2125,7 +2125,16 @@ async function buildReserve({ owner, apiHost, running }) {
 			? Number(running.creditsPerHour) || 0
 			: 0;
 	const needed = image.creditsNeededForBuild({ spendingPerHour: spending });
-	const credits = await vm.creditsOf(owner, { apiHost });
+	// Aleph's second host when the first does not answer; an address neither
+	// host knows (404 from both) holds nothing.
+	const credits = await vm
+		.creditsOf(owner, { apiHost, fetch: await alephFetchFor(apiHost, () => {}) })
+		.catch((e) => {
+			const tried = /** @type {any} */ (e)?.name === 'AlephUnavailable' && e.tried;
+			if (tried?.length && tried.every((/** @type {any} */ x) => x.outcome === 'HTTP 404'))
+				return 0;
+			throw e;
+		});
 	return { credits, needed };
 }
 
@@ -2218,6 +2227,8 @@ export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 			app: appKey,
 			relays,
 			apiHost,
+			// Aleph's second host when the first does not answer (aleph-fetch.js).
+			fetch: await alephFetchFor(apiHost, () => {}),
 			attest: async () => {
 				const wasm = await import('@le-space/attest-wasm/pkg/relay_button_attest.js');
 				await wasm.default();

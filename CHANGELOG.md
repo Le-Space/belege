@@ -14,6 +14,10 @@ All notable changes to Le Space Belege. The format follows
 
 - When Aleph cannot be asked for the relays, Belege falls back to three relays instead of one: ocean-skate-resource-route and secret-pass-wife-sentence (orbitdb-relay account) besides relay-main-ekb (relay-button account). One relay going away no longer leaves the app without any. All three offer /attest with the image builders' larger limits.
 
+### Fixed
+
+- Building the books' own bridge image no longer stops when Aleph's first API host does not answer: reading the balance, starting and ending the builder and checking the stored image ask the second host (api.aleph.im, already named in the consent screen) then, as unlocking does (#777). A builder left running is ended that way too.
+
 ## [0.38.0] – 2026-11-18
 
 ### Added
