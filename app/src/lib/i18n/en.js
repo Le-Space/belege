@@ -4036,6 +4036,12 @@ export default {
 			exchangeType: 'Type at the exchange',
 			txRef: 'Reference',
 			chainTxRef: 'Transaction hash',
+			chainAddress: 'Destination address',
+			walletOffer:
+				'This address is not an own wallet yet. If it is yours, add it and synchronise it: Belege then finds the arrival, and both sides are an own transfer that needs no receipt. If it is someone else’s, the withdrawal needs a receipt.',
+			walletOfferAdd: 'Add as own wallet ({chain})',
+			walletUnsupported:
+				'Belege cannot read {chain} as an own wallet yet, so it does not find the arrival there.',
 			address: 'Counter address',
 			explorerAt: 'View in the block explorer ({explorer})',
 			chainMethod: 'network as the exchange names it: {method}',
