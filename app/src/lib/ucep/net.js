@@ -55,8 +55,9 @@ export const RELAY_REGISTRATION = Object.freeze({
  * Guest wallets of single relay VMs, trusted one by one. A guest publishes
  * with a key made at deploy time, so every redeploy meant a new wallet here.
  * None any more: the relay Belege uses is found by its account
- * (TRUSTED_RELAY_OWNERS). The last one, the orbitdb-relay VM of 2026-10-23
- * (secret-pass-wife-sentence), was retired for relay-main-ekb.
+ * (TRUSTED_RELAY_OWNERS). The last one was the guest wallet of the
+ * orbitdb-relay VM of 2026-10-23 (secret-pass-wife-sentence); that VM is now
+ * found by its account like the others.
  *
  * @type {readonly string[]}
  */
@@ -89,15 +90,23 @@ export function twoN6Host(instanceHash) {
 }
 
 /**
- * The relay as it was registered on 2026-11-03, for when Aleph cannot be
- * asked: relay-main-ekb, deployed from the relay-button account, which serves
- * UCEP and paperless-anywhere's attest relay at /attest. A relay moves when it
- * is redeployed; the lookup is what keeps up. Before it:
- * secret-pass-wife-sentence (2026-11-02) and exhaust-tobacco-abuse-purchase
- * (2026-10-14), retired for this one, and job-blanket-biology-typical, silent
- * since 2026-10-09.
+ * The relays as they were registered on 2026-11-18, for when Aleph cannot be
+ * asked. All three serve UCEP and an attest relay at /attest that knows the
+ * image builders:
+ *  - ocean-skate-resource-route, deployed from the orbitdb-relay account
+ *    (2026-11-17);
+ *  - secret-pass-wife-sentence, the same account's relay of 2026-10-23, with
+ *    a new peer ID since its recovery on 2026-11-15;
+ *  - relay-main-ekb (crazy-pluck-uncle-device), deployed from the
+ *    relay-button account (2026-11-02).
+ * Several, so that one relay going away does not leave Belege without any.
+ * A relay moves when it is redeployed; the lookup is what keeps up. Retired
+ * before: exhaust-tobacco-abuse-purchase (2026-10-14) and
+ * job-blanket-biology-typical, silent since 2026-10-09.
  */
 export const FALLBACK_RELAYS = Object.freeze([
+	'/dns4/ocean-skate-resource-route.2n6.me/tcp/443/tls/ws/p2p/12D3KooWLaah6yFW7ohFEZgsDNpH86xtmpztvamgyoLvLMtNyfpR',
+	'/dns4/secret-pass-wife-sentence.2n6.me/tcp/443/tls/ws/p2p/12D3KooWJz8EgU2Ffz2bq2vTy6FdmxcEe4fV816jEDCWGmBSPvKJ',
 	'/dns4/crazy-pluck-uncle-device.2n6.me/tcp/443/tls/ws/p2p/12D3KooWQu5E1ZkGC5x2dSVTEWxYvsssWjXgk2Mzc8GZHN26cYzS'
 ]);
 
