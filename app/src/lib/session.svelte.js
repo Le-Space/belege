@@ -649,7 +649,8 @@ async function readAll() {
 		travel,
 		matchingSettings,
 		datevSettings,
-		chart
+		chart,
+		alephSettings
 	] = await Promise.all([
 		session.store.transactions.list(),
 		session.store.receipts.list(),
@@ -661,13 +662,15 @@ async function readAll() {
 		session.store.travel.list(),
 		getSetting(session.store.settings, 'matching'),
 		getSetting(session.store.settings, 'datev'),
-		getSetting(session.store.settings, 'chart')
+		getSetting(session.store.settings, 'chart'),
+		getSetting(session.store.settings, 'aleph')
 	]);
 	const ctx = await buildMatchingContext({
 		accounts,
 		transactions,
 		settings: matchingSettings,
-		partners
+		partners,
+		alephPurchases: Array.isArray(alephSettings?.purchases) ? alephSettings.purchases : []
 	});
 	/** @type {Record<string, import('./matching/classify.js').Classification>} */
 	const classifications = {};

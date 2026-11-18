@@ -111,6 +111,45 @@ export function mailDomain(from) {
 const vendorOf = (r) => String(r.vendor ?? r.extraction?.vendor ?? '').trim();
 
 /**
+ * A receipt the books made themselves (an Eigenbeleg, a statement of Aleph or
+ * Akash credits): its `vendor` is a label of the document, not someone paid.
+ *
+ * @param {Rec} r
+ */
+const isSelfReceipt = (r) => r.source === 'eigenbeleg';
+
+/** The labels such receipts carry as `vendor` (receipts/self-receipt.js, aleph/, akash/). */
+const SELF_RECEIPT_LABEL = /^(.+ \()?eigenbeleg\)?$/i;
+
+/**
+ * Take back what links to self-made receipts taught before they were left
+ * out: a partner called "Eigenbeleg" (or "… (Eigenbeleg)") that claimed the
+ * counterparties and addresses of the bookings such a receipt was made for,
+ * so every booking with them was called "Eigenbeleg" and treated as a vendor's.
+ * Its learned aliases, account and tax key go; an address a person said is
+ * private or a custodian's stays as said. Changes nothing a second time.
+ *
+ * @param {import('../store/repository.js').Collection} partners
+ * @returns {Promise<number>} how many partner records were repaired
+ */
+export async function forgetSelfReceiptPartners(partners) {
+	let repaired = 0;
+	for (const p of await partners.list()) {
+		if (p.deleted || !SELF_RECEIPT_LABEL.test(String(p.name ?? '').trim())) continue;
+		const kinds = p.addressKinds ?? {};
+		const aliases = (p.aliases ?? []).filter((/** @type {string} */ a) => kinds[a]);
+		if (aliases.length === (p.aliases ?? []).length && !p.account && !p.taxKey) continue;
+		/** @type {Rec} */
+		const rest = { ...p, aliases };
+		delete rest.account;
+		delete rest.taxKey;
+		await partners.put(rest);
+		repaired++;
+	}
+	return repaired;
+}
+
+/**
  * The partner a vendor name belongs to, among the stored ones.
  *
  * @param {Rec[]} partners
@@ -136,6 +175,8 @@ export function findPartner(partners, vendor) {
 export async function learnFromLink(partners, receipt, tx, { companyNames = [] } = {}) {
 	const vendor = vendorOf(receipt);
 	const alias = txAlias(tx);
+	// A receipt the books made themselves names no vendor: "Eigenbeleg" is nobody.
+	if (isSelfReceipt(receipt)) return null;
 	// "GmbH" alone, or only digits and short words, names nobody.
 	if (!vendor || !namesSomeone(alias)) return null;
 	if (companyNames.some((name) => sameVendor(vendor, name))) return null;
@@ -278,7 +319,7 @@ export function addressKindOf(partners, tx) {
  */
 export async function learnAccount(partners, receipt, tx, booking, { companyNames = [] } = {}) {
 	const vendor = vendorOf(receipt);
-	if (!vendor) return null;
+	if (!vendor || isSelfReceipt(receipt)) return null;
 	if (companyNames.some((name) => sameVendor(vendor, name))) return null;
 	const alias = txAlias(tx);
 	const existing = findPartner(await partners.list(), vendor);

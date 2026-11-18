@@ -13,6 +13,8 @@ import {
 	lastDay,
 	loadAleph,
 	previousMonth,
+	purchasesOf,
+	rememberPurchases,
 	saveAleph,
 	scanAleph
 } from './aleph.js';
@@ -114,12 +116,12 @@ describe('which addresses are asked', () => {
 			{ chain: 'nyx', address: 'n1notanethereumaddress' },
 			{ chain: 'polygon', address: B }
 		];
-		expect(candidateAddresses(wallets, { scan: false, extra: [C], accounts: [] })).toEqual([C]);
-		expect(candidateAddresses(wallets, { scan: true, extra: [C], accounts: [] })).toEqual([
-			A.toUpperCase().replace('0X', '0x'),
-			B,
-			C
-		]);
+		expect(
+			candidateAddresses(wallets, { scan: false, extra: [C], accounts: [], purchases: [] })
+		).toEqual([C]);
+		expect(
+			candidateAddresses(wallets, { scan: true, extra: [C], accounts: [], purchases: [] })
+		).toEqual([A.toUpperCase().replace('0X', '0x'), B, C]);
 	});
 
 	it('keeps the accounts Aleph knows, with when they were checked', async () => {
@@ -287,5 +289,101 @@ describe('the statement as an Eigenbeleg', () => {
 		});
 		const bytes = await blobs.get((await store.receipts.get(receipt.id)).fileCid);
 		expect((await getDocumentProxy(bytes)).numPages).toBeGreaterThan(1);
+	});
+
+	it('keeps the purchases a statement names, each once, by the paying transaction', async () => {
+		const H1 = '0x' + 'a1'.repeat(32);
+		const H2 = '0x' + 'b2'.repeat(32);
+		const listed = /** @type {any} */ ({
+			...statement(),
+			purchases: [
+				{
+					time: '2026-05-02T10:00:00.000Z',
+					credits: 500_000,
+					price: '0.000001',
+					token: 'ALEPH',
+					chain: 'ETH',
+					txHash: H1
+				},
+				{
+					time: '2026-08-10T09:00:00.000Z',
+					credits: 100_000,
+					price: '0.000001',
+					token: 'USDC',
+					chain: 'BASE',
+					txHash: H2
+				},
+				{
+					time: '2026-08-11T09:00:00.000Z',
+					credits: 1,
+					price: '1',
+					token: null,
+					chain: null,
+					txHash: 'not a hash!'
+				}
+			]
+		});
+		expect(purchasesOf(listed).map((p) => p.txHash)).toEqual([H1, H2]);
+		expect(await rememberPurchases(store.settings, listed)).toBe(2);
+		expect(await rememberPurchases(store.settings, listed)).toBe(0);
+		expect((await loadAleph(store.settings)).purchases).toEqual([
+			{
+				address: A,
+				txHash: H1,
+				time: '2026-05-02T10:00:00.000Z',
+				credits: 500_000,
+				chain: 'ETH',
+				token: 'ALEPH'
+			},
+			{
+				address: A,
+				txHash: H2,
+				time: '2026-08-10T09:00:00.000Z',
+				credits: 100_000,
+				chain: 'BASE',
+				token: 'USDC'
+			}
+		]);
+		// An older bridge lists none: the month's own purchases are taken.
+		const old = statement();
+		expect(purchasesOf(old).length).toBe(
+			old.topUps.filter((t) => t.how === 'purchase' && t.txHash).length
+		);
+	});
+
+	it('reads the purchases at the scan, from the running month’s statement', async () => {
+		const H = '0x' + 'c3'.repeat(32);
+		/** @type {string[]} */
+		const asked = [];
+		const client = {
+			alephAccounts: async (/** @type {string[]} */ addresses) =>
+				addresses.map((address) => ({ address, credits: 10, entries: 1 })),
+			alephStatement: async (/** @type {string} */ address, /** @type {string} */ month) => {
+				asked.push(`${address} ${month}`);
+				return /** @type {any} */ ({
+					...statement({ address, month }),
+					purchases: [
+						{
+							time: '2026-09-03T08:00:00.000Z',
+							credits: 7,
+							price: '0.000001',
+							token: 'ALEPH',
+							chain: 'ETH',
+							txHash: H
+						}
+					]
+				});
+			}
+		};
+		await saveAleph(store.settings, { extra: [A] });
+		const out = await scanAleph({
+			client,
+			settings: store.settings,
+			wallets: [],
+			now: () => new Date('2026-09-15T12:00:00Z')
+		});
+		expect(asked).toEqual([`${A} 2026-09`]);
+		expect(out.purchases).toBe(1);
+		expect((await loadAleph(store.settings)).purchases.map((p) => p.txHash)).toEqual([H]);
 	});
 });

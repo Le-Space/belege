@@ -331,6 +331,12 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			});
 		}
 		case 'prepaid-topup':
+			if (c.via === 'aleph-purchase') {
+				return t('explain.rule.alephPurchase', {
+					credits: new Intl.NumberFormat(intlLocale()).format(c.credits ?? 0),
+					address: shortAddress(String(c.address ?? ''))
+				});
+			}
 			return t('explain.rule.prepaidTopup', { vendor: c.vendor ?? '' });
 		case 'crypto-stake':
 			return t('explain.rule.staking');

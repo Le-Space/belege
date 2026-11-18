@@ -730,6 +730,10 @@ Für ein Konto und einen Monat erstellt „Verbrauchsnachweis erstellen“ einen
 
 Ein Monat ohne Bewegung ergibt keinen Nachweis. Geprüft am 27.09.2026 gegen zwei eigene Konten für zwei Monate: Die Bestände gingen auf den Credit genau auf.
 
+**Die Zahlung hinter einem Kauf.** Zu jedem Kauf nennt Aleph die Transaktion, die ihn bezahlt hat. „Bei Aleph prüfen“ liest die Käufe jedes gefundenen Kontos. Dafür fragt es den Nachweis des laufenden Monats ab, der alle Käufe bis heute aufführt. Konto, Hash, Zeit und Credits liegen danach versiegelt in den Einstellungen. „Verbrauchsnachweis erstellen“ merkt sich die Käufe ebenso.
+
+Eine Buchung, die mit diesem Hash die Bücher verlassen hat, erklärt Belege dann selbst als Kauf von Aleph-Credits. Das gilt für eine eigene Wallet und für die Auszahlung einer Börse mit ihrem On-Chain-Hash. Sie braucht keinen eigenen Beleg, weil der Verbrauchsnachweis des Kontos der Beleg ist. Die Netzwerkgebühr derselben Transaktion bleibt eine Gebühr. Eine ältere Bridge nennt nur die Käufe des abgefragten Monats.
+
 ## Im Export
 
 Der Buchungstext einer Krypto-Buchung endet mit der Menge, zum Beispiel `Konto B -0,015 BTC`. DATEV erlaubt 60 Zeichen. Reichen die nicht, wird der Name gekürzt, nie die Menge. Der Umsatz steht wie bei jeder anderen Zeile in Euro.

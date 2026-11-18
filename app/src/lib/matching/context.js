@@ -90,9 +90,17 @@ function timeOf(t) {
  * @param {Record<string, any>[]} params.transactions
  * @param {any} params.settings the stored `matching` value, or null
  * @param {Record<string, any>[]} [params.partners] what people's links taught (partners.js)
+ * @param {{ address: string, txHash: string, credits: number }[]} [params.alephPurchases] the credit purchases Aleph lists for the own accounts (aleph/aleph.js)
  * @returns {Promise<import('./classify.js').ClassifyContext & { learnedVendors: Map<string, string[]> }>}
  */
-export async function buildMatchingContext({ accounts, transactions, settings, partners = [] }) {
+export async function buildMatchingContext({
+	accounts,
+	transactions,
+	settings,
+	partners = [],
+	alephPurchases = []
+}) {
+	const boughtByRef = new Map(alephPurchases.map((p) => [normalizeTxRef(p.txHash), p]));
 	const clean = cleanMatchingSettings(settings);
 	// Our credit cards (#382): their bank debits are own transfers.
 	const cards = accounts.filter(
@@ -527,6 +535,15 @@ export async function buildMatchingContext({ accounts, transactions, settings, p
 		learnedVendors: learnedVendors(partners),
 		// What a person said an address is (partners.js): private, or own money elsewhere.
 		addressKindOf: (tx) => addressKindOf(partners, tx),
+		// The purchase of Aleph credits a booking paid: Aleph names its transaction.
+		alephPurchaseOf(tx) {
+			if (!boughtByRef.size) return null;
+			for (const ref of txRefsOf(tx)) {
+				const bought = boughtByRef.get(ref);
+				if (bought) return bought;
+			}
+			return null;
+		},
 		mirrored(tx, accountIds) {
 			const day = dayNumber(tx.bookedOn);
 			if (day === null) return false;

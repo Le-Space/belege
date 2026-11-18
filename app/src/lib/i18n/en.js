@@ -1635,6 +1635,8 @@ export default {
 		scan: 'Check with Aleph',
 		scanning: 'Checking …',
 		scanned: '{asked} addresses checked, {found} of them with Aleph credits.',
+		purchasesFound:
+			'{count} credit purchases newly read: the payments behind them need no receipt of their own.',
 		none: 'No Aleph account found yet. Switch on the check or enter an account, then “Check with Aleph”.',
 		credits: '{credits} credits (as of {date})',
 		month: 'Month',
@@ -2292,6 +2294,8 @@ export default {
 				'Own transfer, linked by you: the counter-booking is on {account} on {date}. No receipt needed (account 1360).',
 			ownBridge:
 				'Own transfer via a bridge: the counter-booking is on {account} on {date} – the same cryptocurrency, the same quantity minus the bridge fee (at most 3 %), within 8 days. No receipt needed (account 1360).',
+			alephPurchase:
+				'Purchase of {credits} Aleph credits for the Aleph account {address}: Aleph names this transaction as the payment. Aleph issues no invoice; the account’s usage statement for the month (Integrations → Aleph) is the document – no receipt of its own needed.',
 			prepaidTopup:
 				'Top-up of the prepaid balance at {vendor}: covered by its usage proofs in the vendor account – no receipt of its own needed.',
 			refunded:

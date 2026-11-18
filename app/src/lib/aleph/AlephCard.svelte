@@ -24,7 +24,7 @@
 	const client = $derived(createBridgeClient({ url, token }));
 
 	/** @type {import('./aleph.js').AlephSettings} */
-	let aleph = $state({ scan: false, extra: [], accounts: [] });
+	let aleph = $state({ scan: false, extra: [], accounts: [], purchases: [] });
 	/** @type {import('$lib/wallets/wallet-sync.js').Wallet[]} */
 	let wallets = $state([]);
 	let extra = $state('');
@@ -92,9 +92,17 @@
 		error = null;
 		scanNote = null;
 		try {
-			const { asked, accounts } = await scanAleph({ client, settings: store.settings, wallets });
+			const { asked, accounts, purchases } = await scanAleph({
+				client,
+				settings: store.settings,
+				wallets
+			});
 			aleph = await loadAleph(store.settings);
-			scanNote = t('aleph.scanned', { asked, found: accounts.length });
+			scanNote =
+				t('aleph.scanned', { asked, found: accounts.length }) +
+				(purchases ? ` ${t('aleph.purchasesFound', { count: purchases })}` : '');
+			// The payments behind the purchases are explained from now on.
+			if (purchases) await refreshNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {

@@ -66,6 +66,19 @@ test('as ledger entries: in, out and usage, signed from the account, with the US
 	assert.equal(new Set(entries.map((e) => e.id)).size, entries.length);
 });
 
+test('a later month still names every earlier purchase with its paying transaction', async () => {
+	const july = await client().statement({ address: ACCOUNT, month: '2026-07' });
+	const august = await client().statement({ address: ACCOUNT, month: '2026-08' });
+	const bought = july.topUps.filter((t) => t.how === 'purchase' && t.txHash);
+	assert.ok(bought.length > 0);
+	// August had no purchase of its own, and lists July's.
+	assert.equal(august.topUps.filter((t) => t.how === 'purchase').length, 0);
+	assert.deepEqual(
+		august.purchases.map((p) => [p.time, p.credits, p.txHash]),
+		bought.map((t) => [t.time, t.credits, t.txHash])
+	);
+});
+
 test('a purchase in the month is an entry with its price and paying transaction', async () => {
 	const s = await client().statement({ address: ACCOUNT, month: '2026-07' });
 	const [bought] = alephEntries(s);
