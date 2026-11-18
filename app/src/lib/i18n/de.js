@@ -1139,9 +1139,24 @@ export default {
 			continue: 'Weiter',
 			cancel: 'Abbrechen'
 		},
+		stall: {
+			title: 'Das dauert ungewöhnlich lange.',
+			otherWindow:
+				'Belege ist gerade in einem anderen Tab oder Fenster dieses Browsers offen. Schließe es zuerst.',
+			storage:
+				'Der Browser hat den Speicher dieser Seite noch nicht geöffnet. Das liegt meist am Browser, nicht an deinen Büchern. Der Reihe nach: 1. Schließe alle anderen Tabs und Fenster mit Belege, auch die installierte App, und lade diese Seite neu. 2. Hilft das nicht, beende den Browser ganz und öffne ihn wieder. Deine Bücher bleiben, wie sie sind. Lösche keine Website-Daten.',
+			other:
+				'Dieser Schritt braucht sonst nur Sekunden. Lade die Seite neu; hilft das nicht, beende den Browser ganz und öffne ihn wieder. Deine Bücher bleiben, wie sie sind. Lösche keine Website-Daten.',
+			report: 'Passiert das öfter: „Hilfe & Support“ unten zeigt eine Diagnose zum Kopieren.'
+		},
 		progress: {
 			keys: 'Schlüssel aus dem Passkey ableiten …',
 			network: 'Speicher und Netz starten …',
+			part: {
+				storage: 'Speicher im Browser öffnen …',
+				relays: 'Relays suchen …',
+				node: 'Netzknoten starten …'
+			},
 			identity: 'Identität prüfen …',
 			open: '{collection} öffnen …',
 			move: '{collection} umziehen: {done} von {total}',

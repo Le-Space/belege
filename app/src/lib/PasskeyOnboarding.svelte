@@ -17,6 +17,8 @@
 	import ResetDialog from './storage/ResetDialog.svelte';
 	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
 	import { sharedOrigin } from './shared-origin.js';
+	import { stallAfterOf } from './unlock-progress.js';
+	import { otherWindowOpen } from './other-windows.js';
 	import { chooseBooks, chosenBooks, membershipChoices } from './members/open-choice.js';
 
 	// On a path-style gateway nothing opens (shared-origin.js): no passkey asked, no books.
@@ -57,7 +59,39 @@
 				total: count(unlock.total)
 			});
 		}
+		if (unlock.step === 'network' && unlock.part) {
+			return t(`onboarding.progress.part.${unlock.part}`);
+		}
 		return t(`onboarding.progress.${unlock.step}`, { collection });
+	});
+	// A step that waits far longer than it ever should (#803): say so, with
+	// what helps. E2E builds can shorten the wait.
+	const stallOverride =
+		import.meta.env.VITE_E2E === 'true'
+			? Number(/** @type {any} */ (globalThis).__belegeStallAfterMs)
+			: NaN;
+	let stalled = $derived(
+		Boolean(
+			unlock &&
+				clock - unlock.stepSince >
+					(Number.isFinite(stallOverride) ? stallOverride : stallAfterOf(unlock))
+		)
+	);
+	let stalledOnStorage = $derived(
+		stalled && unlock?.step === 'network' && 'part' in unlock && unlock.part === 'storage'
+	);
+	// Asked once per wait: is Belege open in another window of this browser?
+	let otherWindow = $state(false);
+	$effect(() => {
+		if (!stalled) {
+			otherWindow = false;
+			return;
+		}
+		let stale = false;
+		otherWindowOpen().then((open) => !stale && (otherWindow = open));
+		return () => {
+			stale = true;
+		};
 	});
 
 	const primary =
@@ -238,6 +272,24 @@
 						seconds: Math.max(0, Math.round((clock - unlock.since) / 1000))
 					})}
 				</p>
+			{/if}
+			{#if stalled}
+				<div
+					class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm text-text"
+					data-testid="passkey-stalled"
+					data-part={stalledOnStorage ? 'storage' : 'other'}
+				>
+					<p class="font-medium text-heading">{t('onboarding.stall.title')}</p>
+					{#if otherWindow}
+						<p class="mt-1 font-medium text-heading" data-testid="passkey-stalled-window">
+							{t('onboarding.stall.otherWindow')}
+						</p>
+					{/if}
+					<p class="mt-1">
+						{t(stalledOnStorage ? 'onboarding.stall.storage' : 'onboarding.stall.other')}
+					</p>
+					<p class="mt-1 text-xs text-faint">{t('onboarding.stall.report')}</p>
+				</div>
 			{/if}
 		</div>
 	{/if}
