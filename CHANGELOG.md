@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A NEAR account as an own wallet (#815): under Integrationen → Eigene Wallets, choose NEAR and enter the account id (`name.near`, or the 64 hex characters of an implicit account). NEAR and USDC are booked, the gas of a transaction the account signed as a fee of its own; other tokens are counted, not booked. A withdrawal from an exchange and its arrival on the account pair by the transaction's hash, as on the other chains. The bridge reads the history from NearBlocks and the balance from an archival node of FastNEAR; both see the account id and the IP address, and the consent screen says so (version 57). Not read yet: NEAR that arrives inside another transaction's inner receipts, a staking pool paying out, say – the balance shows the difference. The local bridge needs a restart to know the chain.
+
 ### Changed
 
 - "Bridge-Image bauen" checks the books' key before the click: with fewer credits than the day of builder reserve Aleph wants, the card says how many it holds and needs, shows the key's address to load (with a copy button), and offers no build until then (#777). A build that stops shows its reason in the build view, at the station where it stopped, without the progress and time left it no longer has.
@@ -44,6 +48,8 @@ All notable changes to Le Space Belege. The format follows
 
 - A tiny info icon beside every AI button (✦) shows, on hover, focus or tap, what one press will roughly take: tokens in and out, and the cost at the bridge's provider (#566). The tokens are the average of the last calls of the same kind in the Verlauf, or a rough figure until there are any; the price comes from DeepSeek's or LibertAI's published table, bundled with the app (LibertAI's from its Aleph aggregate, read on 2026-11-15). A model on the bridge's own computer costs nothing; a hosted bridge paid from a Le Space plan shows "im Paket enthalten". It says it is an estimate, and nothing is billed by it.
 - Einstellungen → Kontenplan: the ⓘ beside the title opens on hover, focus or a tap (it was a mouse-only title before) and says which files are read – DATEV Kontenbeschriftungen, or a CSV or text file with an account number and a name column, the headings recognised, separators and character sets – with an example and the example as a file made in the browser (#801). The AI cost hint shares its behaviour.
+- "Hilfe & Support" in the footer, locked and unlocked (#804): where to write about the app and about billing, what helps in a report, what Le Space never asks for (recovery words, passkeys, keys, tokens, passwords), where a weakness goes, and a diagnosis to copy – release, browser, the unlock's step, network settings and the last error with numbers, addresses and quoted text scrubbed. It is shown in full before it is copied and holds nothing from the books.
+- A full disclosure policy in `SECURITY.md` and `/.well-known/security.txt` on the deployed app (#805): how to report privately, what happens then (coordinated disclosure), rules for research, what is in scope and which versions are supported.
 
 ### Changed
 
