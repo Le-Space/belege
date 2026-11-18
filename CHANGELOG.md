@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.40.0] – 2026-11-18
+
 ### Added
 
 - The payment behind a purchase of Aleph credits is explained by itself. "Bei Aleph prüfen" (and making a usage statement) now reads the purchases of each Aleph account with the transaction Aleph names as their payment; a booking that left an own wallet with that hash, or an exchange's withdrawal with it as its on-chain hash, needs no receipt of its own: the account's monthly usage statement is the document. The network fee stays a fee. `@le-space/chains`: an Aleph statement lists `purchases`, every purchase up to the month's end with its paying transaction; a bridge from before this names only the month's own.
