@@ -34,6 +34,7 @@
 	} from './sync-run.svelte.js';
 	import { percentOf } from './sync-turn.js';
 	import { askToNotify, canNotify } from '$lib/notify.js';
+	import { takeWalletProposal } from './proposal.svelte.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
 	let { url, token, paired = Boolean(token) } = $props();
@@ -47,8 +48,12 @@
 	let alchemy = $state(null);
 	/** @type {import('./wallet-sync.js').Wallet[]} */
 	let wallets = $state([]);
-	let chainId = $state('nyx');
-	let address = $state('');
+	// A wallet offered from a payment (proposal.svelte.js): the form opens with
+	// its chain and address; nothing is added before the person presses the button.
+	const proposed = takeWalletProposal();
+	const proposedChain = walletChain(proposed?.chain);
+	let chainId = $state(proposedChain?.id ?? 'nyx');
+	let address = $state(proposedChain ? (proposed?.address ?? '') : '');
 	let newName = $state('');
 	let newLedger = $state('');
 	let newCostCentre = $state('');
@@ -63,7 +68,7 @@
 	let custom = $state({});
 	let adding = $state(false);
 	/** "+ Wallet hinzufügen": the form, once a wallet exists, only when asked for (issue #152). */
-	let showAdd = $state(false);
+	let showAdd = $state(Boolean(proposedChain));
 	/** @type {string | null} */
 	let addError = $state(null);
 	// A sync, one wallet's or all of them, is a run of the app (sync-run.svelte.js):

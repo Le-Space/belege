@@ -196,6 +196,10 @@ export async function krakenTransactions(entries, getRate) {
 					...(leg.transferRef && leg.asset !== 'EUR' ? { chainTxRef: leg.transferRef } : {}),
 					...(leg.transferRef && leg.asset !== 'EUR' && leg.transferMethod
 						? { chainMethod: leg.transferMethod }
+						: {}),
+					// Where a crypto withdrawal went: offered as an own wallet when it is none yet.
+					...(leg.type === 'withdrawal' && leg.asset !== 'EUR' && leg.transferAddress
+						? { chainAddress: leg.transferAddress }
 						: {})
 				};
 				out.push([

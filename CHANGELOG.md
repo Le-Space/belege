@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A withdrawal from Kraken to an address that is no own wallet yet offers it as one: the payment's detail shows the destination address and "Als eigene Wallet anlegen", which opens Integrationen → Eigene Wallets with the chain and the address filled in. Nothing is added, and no node is asked, before the button there is pressed: an address does not prove whose it is. A chain Belege cannot read is named instead. The bridge passes the address on with Kraken's ledger, so it needs a restart, and a Kraken sync that reaches the withdrawal again.
+
 ### Changed
 
 - When Aleph cannot be asked for the relays, Belege falls back to three relays instead of one: ocean-skate-resource-route and secret-pass-wife-sentence (orbitdb-relay account) besides relay-main-ekb (relay-button account). One relay going away no longer leaves the app without any. All three offer /attest with the image builders' larger limits.
