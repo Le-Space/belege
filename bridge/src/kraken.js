@@ -116,6 +116,12 @@ export function parseAsset(code, assets) {
 /** Seconds since the epoch (Kraken, with fractions) → ISO 8601. @param {unknown} seconds */
 const isoTime = (seconds) => new Date(Math.round(Number(seconds) * 1000)).toISOString();
 
+/** Kraken's `info` of a withdrawal as an address, or ''. @param {unknown} info */
+const addressOf = (info) =>
+	typeof info === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/.test(info.trim())
+		? info.trim()
+		: '';
+
 /**
  * @typedef {object} LedgerEntry
  * @property {string} id the ledger id, unique
@@ -131,6 +137,7 @@ const isoTime = (seconds) => new Date(Math.round(Number(seconds) * 1000)).toISOS
  * @property {number} decimals
  * @property {string} transferRef the txid of a deposit or withdrawal, '' when none
  * @property {string} transferMethod how Kraken names its network (`Filecoin`, `Ether (Arbitrum One)`), '' when none
+ * @property {string} transferAddress the address a crypto withdrawal went to, '' when none
  * @property {string} balance the asset's balance after this entry, decimal; '' when Kraken gave none
  * @property {string} code Kraken's asset code (`XXBT`, `DOT.S`): which balance `balance` is
  */
@@ -158,6 +165,7 @@ export function normalizeLedgerEntry(id, raw, assets) {
 		decimals,
 		transferRef: '',
 		transferMethod: '',
+		transferAddress: '',
 		balance: /^\d+(\.\d+)?$/.test(String(raw.balance ?? '')) ? String(raw.balance) : '',
 		code: String(raw.asset ?? '')
 	};
@@ -297,19 +305,22 @@ export function createKrakenClient({
 	}
 
 	/**
-	 * refid → txid and network name of deposits and withdrawals since `start`, paged by cursor,
+	 * refid → txid and network name of deposits and withdrawals since `start`, paged by cursor –
+	 * and, for a withdrawal, the address it went to (Kraken's `info`), so the app
+	 * can offer it as an own wallet. A deposit's `info` is Kraken's own address
+	 * and is not passed on.
 	 * and whether Kraken gave them: `refused` with its error (no values in it)
 	 * when a list was refused, e.g. for a key without Funds → Query.
 	 *
 	 * @param {string} start unix seconds
-	 * @returns {Promise<{ refs: Map<string, { txid: string, method: string }>, status: 'ok' | 'refused', reason: string }>}
+	 * @returns {Promise<{ refs: Map<string, { txid: string, method: string, address: string }>, status: 'ok' | 'refused', reason: string }>}
 	 */
 	async function transferRefs(start) {
-		/** @type {Map<string, { txid: string, method: string }>} */
+		/** @type {Map<string, { txid: string, method: string, address: string }>} */
 		const refs = new Map();
 		let status = /** @type {'ok' | 'refused'} */ ('ok');
 		let reason = '';
-		for (const method of ['DepositStatus', 'WithdrawStatus']) {
+		for (const call of ['DepositStatus', 'WithdrawStatus']) {
 			/** @type {string | boolean} */
 			let cursor = true;
 			for (let page = 0; cursor && page < 100; page++) {
@@ -317,11 +328,11 @@ export function createKrakenClient({
 				/** @type {any} */
 				let result;
 				try {
-					result = await privateCall(method, { start, cursor: String(cursor) });
+					result = await privateCall(call, { start, cursor: String(cursor) });
 				} catch (error) {
 					if (error instanceof KrakenError && error.code !== 'KRAKEN_RATE_LIMIT') {
 						status = 'refused';
-						reason ||= `${method}: ${error.message}`.slice(0, 160);
+						reason ||= `${call}: ${error.message}`.slice(0, 160);
 						break;
 					}
 					throw error;
@@ -335,7 +346,10 @@ export function createKrakenClient({
 						const raw = typeof t.network === 'string' && t.network ? t.network : t.method;
 						const method =
 							typeof raw === 'string' && /^[\w\s().,/+-]{1,60}$/.test(raw) ? raw.trim() : '';
-						refs.set(String(t.refid), { txid: t.txid, method });
+						// An address only: letters, digits and the few signs an address or
+						// account id has. Anything else (a memo, a bank's text) is dropped.
+						const address = call === 'WithdrawStatus' ? addressOf(t.info) : '';
+						refs.set(String(t.refid), { txid: t.txid, method, address });
 					}
 				}
 				cursor = Array.isArray(result) ? false : (result?.next_cursor ?? false);
@@ -392,6 +406,7 @@ export function createKrakenClient({
 					const ref = refs.get(e.refid);
 					e.transferRef = ref?.txid ?? '';
 					e.transferMethod = ref?.method ?? '';
+					e.transferAddress = e.type === 'withdrawal' ? (ref?.address ?? '') : '';
 				}
 			}
 			const sorted = [...entries.values()].sort((a, b) =>

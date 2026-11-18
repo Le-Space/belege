@@ -148,6 +148,83 @@ describe('Kraken client', () => {
 		}
 	});
 
+	test('a crypto withdrawal carries the address it went to; a deposit and a bank text do not', async () => {
+		const at = (/** @type {string} */ iso) => Date.parse(iso) / 1000;
+		const hash = '7'.repeat(44);
+		const fake = await startFakeKraken({
+			ledger: {
+				'L-N-WD': {
+					refid: 'R-N-WD',
+					time: at('2026-09-12T08:00:00Z'),
+					type: 'withdrawal',
+					subtype: '',
+					asset: 'NEAR',
+					amount: '-10.00000000',
+					fee: '0.01000000'
+				},
+				'L-N-DEP': {
+					refid: 'R-N-DEP',
+					time: at('2026-09-13T08:00:00Z'),
+					type: 'deposit',
+					subtype: '',
+					asset: 'NEAR',
+					amount: '2.00000000',
+					fee: '0'
+				},
+				'L-E-WD': {
+					refid: 'R-E-WD',
+					time: at('2026-09-14T08:00:00Z'),
+					type: 'withdrawal',
+					subtype: '',
+					asset: 'ZEUR',
+					amount: '-5.0000',
+					fee: '0'
+				}
+			},
+			transfers: {
+				deposit: [
+					{
+						refid: 'R-N-DEP',
+						asset: 'NEAR',
+						network: 'NEAR',
+						txid: hash,
+						info: 'kraken-deposit.example.near'
+					}
+				],
+				withdrawals: [
+					{
+						refid: 'R-N-WD',
+						asset: 'NEAR',
+						network: 'NEAR',
+						txid: hash,
+						info: ' wolkenfabrik.near '
+					},
+					{
+						refid: 'R-E-WD',
+						asset: 'ZEUR',
+						network: 'SEPA',
+						txid: 'BANKREF-0003',
+						info: 'Beispielbank, Konto A'
+					}
+				]
+			}
+		});
+		try {
+			const { entries } = await createKrakenClient({
+				getCredentials: credentials,
+				baseUrl: fake.url,
+				sleep: async () => {}
+			}).ledgers('2026-09-01');
+			const address = (/** @type {string} */ id) =>
+				entries.find((e) => e.id === id)?.transferAddress;
+			assert.equal(address('L-N-WD'), 'wolkenfabrik.near');
+			assert.equal(address('L-N-DEP'), '');
+			assert.equal(address('L-E-WD'), '');
+		} finally {
+			await fake.close();
+		}
+	});
+
 	test('a wrong key is an auth error that says what to do', async () => {
 		await assert.rejects(
 			client({

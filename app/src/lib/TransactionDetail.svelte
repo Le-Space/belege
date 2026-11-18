@@ -65,6 +65,10 @@
 	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
 	import { addressExplorerUrl, safeExplorerUrl, walletChain } from './wallets/chains.js';
 	import { chainOfHash, hashUrl } from './assets/hash-chain.js';
+	import { walletSuggestion } from './wallets/suggest.js';
+	import { proposeWallet } from './wallets/proposal.svelte.js';
+	import { loadWallets } from './wallets/wallet-sync.js';
+	import { goto } from '$app/navigation';
 	import { normalizeTxRef } from './matching/context.js';
 	import { renderSVG } from 'uqr';
 	import {
@@ -1107,6 +1111,39 @@
 			walletChain: mirror ? String(mirror.source) : null
 		});
 	});
+	// An exchange's withdrawal to an address that is no own wallet yet: offered
+	// as one (wallets/suggest.js). The own wallets are read when such a payment opens.
+	/** @type {import('./wallets/wallet-sync.js').Wallet[] | null} */
+	let ownWallets = $state(null);
+	$effect(() => {
+		if (!tx?.chainAddress) return;
+		const store = currentStore();
+		if (!store) return;
+		let stale = false;
+		loadWallets(store.settings)
+			.then((w) => !stale && (ownWallets = w))
+			.catch(() => {});
+		return () => {
+			stale = true;
+		};
+	});
+	let walletOffer = $derived(
+		tx?.chainAddress && ownWallets
+			? walletSuggestion({
+					address: tx.chainAddress,
+					chains: hashChain?.chains ?? [],
+					method: tx.chainMethod ?? '',
+					asset: tx.asset ?? '',
+					wallets: ownWallets
+				})
+			: null
+	);
+	/** @param {string} chain */
+	async function offerWallet(chain) {
+		if (!walletOffer) return;
+		proposeWallet({ chain, address: walletOffer.address });
+		await goto(resolve('/integrationen/[id]', { id: 'wallets' }));
+	}
 	let searchHint = $derived(
 		query && query.terms.length
 			? t('zahlungen.detail.privateHintCrypto', {
@@ -1971,6 +2008,39 @@
 											rel="noopener noreferrer"
 											class="underline">{c.name}</a
 										>{/each}
+								</span>
+							{/if}
+						</dd>
+					{/if}
+					{#if tx.chainAddress}
+						<dt class="text-faint">{t('zahlungen.detail.chainAddress')}</dt>
+						<dd class="text-xs text-heading" data-testid="tx-detail-chain-address">
+							<span class="font-mono break-all">
+								<CopyButton
+									text={tx.chainAddress}
+									label={t('copy.address')}
+									testid="tx-detail-chain-address-copy">{tx.chainAddress}</CopyButton
+								>
+							</span>
+							{#if walletOffer?.state === 'add'}
+								<span class="mt-1 block text-text" data-testid="tx-detail-wallet-offer">
+									{t('zahlungen.detail.walletOffer')}
+									<span class="mt-1 flex flex-wrap gap-2">
+										{#each walletOffer.chains as c (c.id)}
+											<button
+												type="button"
+												class="rounded-md border border-border px-2 py-1 text-xs text-heading hover:bg-surface-2"
+												onclick={() => offerWallet(c.id)}
+												data-testid="tx-detail-wallet-offer-add"
+												data-chain={c.id}
+												>{t('zahlungen.detail.walletOfferAdd', { chain: c.name })}</button
+											>
+										{/each}
+									</span>
+								</span>
+							{:else if walletOffer?.state === 'unsupported'}
+								<span class="mt-1 block text-text" data-testid="tx-detail-wallet-unsupported">
+									{t('zahlungen.detail.walletUnsupported', { chain: walletOffer.chainName })}
 								</span>
 							{/if}
 						</dd>

@@ -4106,6 +4106,12 @@ export default {
 			exchangeType: 'Art bei der Börse',
 			txRef: 'Referenz',
 			chainTxRef: 'Transaktions-Hash',
+			chainAddress: 'Zieladresse',
+			walletOffer:
+				'Diese Adresse ist noch keine eigene Wallet. Gehört sie dir, leg sie an und synchronisiere sie: Dann findet Belege die Ankunft, und beide Seiten sind eine eigene Umbuchung ohne Beleg. Gehört sie jemand anderem, braucht die Auszahlung einen Beleg.',
+			walletOfferAdd: 'Als eigene Wallet anlegen ({chain})',
+			walletUnsupported:
+				'{chain} kann Belege noch nicht als eigene Wallet lesen. Die Ankunft dort findet es deshalb nicht.',
 			address: 'Gegenadresse',
 			explorerAt: 'Im Block-Explorer ansehen ({explorer})',
 			chainMethod: 'Netzwerk laut Börse: {method}',

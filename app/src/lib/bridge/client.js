@@ -162,6 +162,7 @@ function failed(message, status, body) {
  * @property {number} decimals
  * @property {string} [transferRef] a deposit's or withdrawal's txid: the on-chain hash, or the bank's reference
  * @property {string} [transferMethod] the network as Kraken names it (`Filecoin`, `Ether (Arbitrum One)`)
+ * @property {string} [transferAddress] a crypto withdrawal: the address it went to
  * @property {string} [balance] the asset's balance on Kraken after this entry, decimal; '' when none (#287)
  * @property {string} [code] Kraken's asset code (`XXBT`, `DOT.S`): whose balance `balance` is
  */
