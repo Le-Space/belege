@@ -216,7 +216,8 @@ describe('Kraken transfers (#52)', () => {
 					decimals: 8,
 					amount: '-10.00000000',
 					transferRef: hash,
-					transferMethod: 'NYM (Nyx)'
+					transferMethod: 'NYM (Nyx)',
+					transferAddress: 'n1' + 'q'.repeat(38)
 				}),
 				entry({
 					id: 'L-EUR-OUT',
@@ -225,7 +226,8 @@ describe('Kraken transfers (#52)', () => {
 					asset: 'EUR',
 					amount: '-5.0000',
 					transferRef: 'BANKREF-1',
-					transferMethod: 'SEPA'
+					transferMethod: 'SEPA',
+					transferAddress: 'BANK'
 				})
 			],
 			async (asset, date) => ({
@@ -242,11 +244,14 @@ describe('Kraken transfers (#52)', () => {
 			exchangeType: 'withdrawal',
 			chainTxRef: hash,
 			chainMethod: 'NYM (Nyx)',
+			// where it went: offered as an own wallet (wallets/suggest.js)
+			chainAddress: 'n1' + 'q'.repeat(38),
 			amountCents: -50
 		});
 		// a euro withdrawal's reference is the bank's, no chain hash and no network
 		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainTxRef');
 		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainMethod');
+		expect(byAccount.get('EUR')?.[0]).not.toHaveProperty('chainAddress');
 	});
 
 	it('pairs a withdrawal with the wallet that received it by hash, whatever the euro amounts', async () => {

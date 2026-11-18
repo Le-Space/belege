@@ -151,6 +151,20 @@ export function chainOfHash({ hash, asset = '', method = '', walletChain = null 
 	return answer([], null);
 }
 
+/**
+ * The chain an exchange's network name says, else the asset's home chain –
+ * for a withdrawal whose hash is not there yet or tells nothing. Null when
+ * neither names one.
+ *
+ * @param {{ method?: string, asset?: string }} params
+ * @returns {HashChain | null}
+ */
+export function chainNamed({ method = '', asset = '' }) {
+	const named = method ? METHOD_WORDS.find(([re]) => re.test(method))?.[1] : undefined;
+	const id = named ?? HOME[String(asset).toUpperCase()];
+	return id ? HASH_CHAINS[id] : null;
+}
+
 /** @param {string} h @returns {'cid' | 'evm' | 'hex64' | 'solana' | 'base58-32' | null} */
 function formOf(h) {
 	if (/^bafy2bzace[a-z2-7]{40,}$/.test(h)) return 'cid';
