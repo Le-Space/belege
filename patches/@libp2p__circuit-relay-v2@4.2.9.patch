@@ -1,0 +1,31 @@
+diff --git a/dist/src/transport/reservation-store.js b/dist/src/transport/reservation-store.js
+index 632172e9d8b471817f69dccd2d71a80614361c02..afffb3f8f4f42956556ed57b7af6bfc51db9afcc 100644
+--- a/dist/src/transport/reservation-store.js
++++ b/dist/src/transport/reservation-store.js
+@@ -247,7 +247,8 @@ export class ReservationStore extends TypedEventEmitter {
+                 throw err;
+             }
+         }, {
+-            peerId
++            peerId,
++            type
+         });
+     }
+     hasReservation(peerId) {
+@@ -351,7 +352,15 @@ export class ReservationStore extends TypedEventEmitter {
+     #checkReservationCount() {
+         if (this.pendingReservations.length === 0) {
+             this.log.trace('have discovered enough relays');
+-            this.reserveQueue.clear();
++            // Belege: only reservations on discovered relays are dropped. clear()
++            // also dropped a queued reservation on a configured relay without
++            // settling it, so listening on that relay - and with it the node's
++            // start - waited forever.
++            for (let i = this.reserveQueue.queue.length - 1; i >= 0; i--) {
++                if (this.reserveQueue.queue[i].options?.type !== 'configured') {
++                    this.reserveQueue.queue.splice(i, 1);
++                }
++            }
+             this.safeDispatchEvent('relay:found-enough-relays');
+             return;
+         }

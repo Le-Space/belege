@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Unlocking no longer hangs at "Netzknoten anlegen" (#803). With device sync on and two relays that both answer, the node's start could wait forever: after the first relay had confirmed its reservation, `@libp2p/circuit-relay-v2` 4.2.9 emptied its queue of reservations and dropped the second relay's without ending it, and listening on that relay never returned. Whether it happened depended on which relay answered when, so the same books opened on one try and hung on the next; with a single relay it could not happen. The package is patched (`patches/`): a reservation on a configured relay stays in the queue. The bridge's own node had the same fault and has the same fix.
+- Starting the hosted bridge on a plan says to agree to Le Space's terms first when the service refuses the authorization for that reason, instead of showing the service's raw answer.
+
 ## [0.40.0] – 2026-11-18
 
 ### Added
