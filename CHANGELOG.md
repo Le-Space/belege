@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The build view of "Bridge-Image bauen" is now the shared one from `@le-space/build-journey` (NiKrause/relay-button), the same Paperless anywhere shows at its first start. It shows more to check: the source commit and SHA-256 of the plain image, the expected measurement (pinned in Belege), the builder's V-PROGRAM, the node, the relay, the measurement the AMD processor reported with "stimmt", the content address and the STORE, each linked where it can be looked up, and the hardware behind it. Stations and small steps carry the same names as in Paperless anywhere.
+
 ## [0.39.1] – 2026-11-18
 
 ## [0.39.0] – 2026-11-18

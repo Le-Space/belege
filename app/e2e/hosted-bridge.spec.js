@@ -940,3 +940,68 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 		await vmAgent.close();
 	}
 });
+
+test('building the books’ own image shows the journey; without an attest relay it stops with the reason and the pins to check (#777)', async ({
+	browser
+}) => {
+	test.setTimeout(120_000);
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E Bau-Reise');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	// Enough for a day of the builder and the image's storage (sealed-image creditsForBuild).
+	aleph.fund(owner, 3_000_000);
+
+	await openIntegration(mac.page, 'bridge');
+	await mac.page.getByTestId('hosted-bridge-pays-books').check();
+	const ownImage = mac.page.getByTestId('hosted-bridge-own-image');
+	const build = ownImage.getByTestId('hosted-bridge-build-image');
+	await expect(build).toBeEnabled({ timeout: 30_000 });
+	await build.click();
+
+	// No relay of these books offers /attest: the journey stops at its first station and says why.
+	const journey = mac.page.getByTestId('build-journey');
+	await expect(journey).toBeVisible();
+	await expect(journey).toHaveAttribute('data-state', 'stopped', { timeout: 60_000 });
+	await expect(mac.page.getByTestId('build-journey-station-wake')).toHaveAttribute(
+		'data-state',
+		'stopped'
+	);
+	await expect(journey).toContainText('Abgebrochen bei Schritt 1 · Build-Dienst');
+	await expect(mac.page.getByTestId('build-journey-reason')).toHaveText(
+		'Keiner der Relays dieser Bücher bietet /attest an.'
+	);
+	// What Belege pins is there to check, with links; nothing measured yet.
+	const evidence = mac.page.getByTestId('build-journey-evidence');
+	await expect(evidence.locator('li[data-key]')).toHaveCount(4);
+	await expect(evidence.locator('li[data-key=commit] a')).toHaveAttribute(
+		'href',
+		/^https:\/\/github\.com\/Le-Space\/belege\/commit\/[0-9a-f]{40}$/
+	);
+	await expect(evidence.locator('li[data-key=expected] a')).toHaveAttribute(
+		'href',
+		/\/app\/src\/lib\/integrations\/bridge-builder\.js$/
+	);
+	await expect(evidence).toContainText('Der Build-Dienst hat nicht geantwortet');
+	await expect(evidence.getByRole('link', { name: 'AMD SEV-SNP: vertrauliche VMs' })).toBeVisible();
+	await mac.page.screenshot({ path: test.info().outputPath('journey-stopped.png') });
+	await mac.page.setViewportSize({ width: 390, height: 844 });
+	await mac.page.screenshot({ path: test.info().outputPath('journey-stopped-phone.png') });
+
+	await mac.page.getByTestId('build-journey-close').click();
+	await expect(journey).toHaveCount(0);
+});

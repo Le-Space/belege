@@ -2253,7 +2253,7 @@ export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
 				await setSetting(settings, image.BUILDER_SETTING, null);
 			},
 			onProgress: ({ step, data = {} }) => {
-				// `step` and `data` as the build reported them, for the journey view (build-journey.js).
+				// `step` and `data` as the build reported them, for the journey view (@le-space/build-journey).
 				if (step === 'fetch' || step === 'upload') {
 					onProgress({
 						phase: `ownImage.${step}`,

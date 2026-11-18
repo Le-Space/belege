@@ -4680,16 +4680,17 @@ export default {
 					'The VM starts your own bridge image; the browser derives its passphrase from your books. The measurement names the books’ Aleph key, and only it unlocks the VM. Aleph takes it only with a day in reserve.'
 			},
 			journey: {
-				kicker: 'Own bridge image',
-				title: 'Your bridge image is being built',
-				tab: '{pct} % · bridge image',
+				kicker: 'Own bridge image · about 16 minutes',
+				title: 'Your bridge image is being made',
+				tab: '{pct} % · Your bridge image is being made',
+				leave: 'Your bridge image is being made right now. Leaving the page now stops the build.',
 				minimize: 'Minimise',
 				expand: 'Show',
 				close: 'Close',
-				step: 'Station {n} of {of}',
+				step: 'Step {n} of {of}',
 				share: '{pct} % done',
-				left: 'about {minutes} min left',
-				endsAt: 'done around {time}',
+				left: 'about {minutes} min to go',
+				endsAt: 'ready around {time}',
 				phone:
 					'On a phone: stay in Belege until the build is done. The screen stays on; switch to another app, and the phone puts the tab to sleep after a few minutes, and the build breaks off.',
 				phoneTone:
@@ -4697,85 +4698,107 @@ export default {
 				cameBack:
 					'The page was in the background for {seconds} s. Please stay here until the build is done.',
 				keepOpen:
-					'Keep this window open – the screen stays on. Closing it stops the build, and the builder is forgotten the next time you open the card.',
+					'Your screen stays on. Keep this window open – you can minimise it. Closing it stops the build, and the builder is forgotten the next time you open the card.',
 				failedTitle: 'The build stopped',
 				failedText:
 					'A builder that was already running is forgotten. You can try again afterwards.',
-				stoppedAt: 'Stopped at station {n} · {station}',
-				evidenceNoneStopped: 'The builder did not answer; there is nothing to show.',
-				doneTitle: 'Done',
+				stoppedAt: 'Stopped at step {n} · {station}',
+				doneTitle: 'Done – your bridge image is ready!',
 				doneText:
-					'Your own bridge image is on Aleph. The next start uses it and unlocks it with a passphrase only your books know.',
+					'Sealed with a passphrase only your books know – not Le Space, not the node. The next start uses your image.',
+				attested: 'Connections confirmed: {count}',
 				mib: '{got} of {size} MiB',
 				rate: '{rate} MiB/s',
-				flowTitle: 'On the way now',
-				evidenceTitle: 'Evidence of the build',
+				attempt: 'try {n} of {of}',
+				retryNote:
+					'The connection broke off – no problem: your image is already here, only the upload runs again.',
+				fetched: '{pct} % fetched',
+				flowTitle: 'What is flowing where right now',
+				evidenceTitle: 'To check yourself',
 				evidenceNone: 'As soon as the builder answers, what the hardware measured appears here.',
+				evidenceNoneStopped: 'The builder did not answer; nothing was measured.',
+				matches: 'matches',
+				hardwareTitle: 'The hardware behind it',
+				hardware: {
+					sev: 'AMD SEV-SNP: confidential VMs',
+					epyc: 'AMD EPYC processors'
+				},
 				stations: {
 					wake: {
-						label: 'Wake',
+						label: 'Builder',
 						duration: 'about 4 min',
-						title: 'The builder starts',
-						text: 'Aleph starts a confidential VM (AMD SEV-SNP), signed by your books’ Aleph key. It gets the public bridge image, but no passphrase yet.'
+						title: 'Your personal builder is waking up',
+						text: 'Aleph starts a confidential VM (AMD SEV-SNP), signed by your books’ Aleph key. It gets the public bridge image, but no passphrase yet.',
+						mini: 'Your builder is waking up'
 					},
 					check: {
-						label: 'Check',
-						duration: 'about 20 s',
-						title: 'Your browser checks the builder',
-						text: 'Through a Le Space relay the browser asks the hardware what runs in the VM and compares the measurement with the pinned one. Only a match goes on.'
+						label: 'Genuine',
+						duration: 'a few seconds',
+						title: 'Confirmed genuine!',
+						text: 'Through a Le Space relay the AMD processor confirms: exactly the published code runs here. Only now does your passphrase set off.',
+						mini: 'Confirming it is genuine'
 					},
 					seal: {
 						label: 'Seal',
 						duration: 'about 2 min',
-						title: 'The image is sealed',
-						text: 'The browser sends the passphrase it derives from your books once, over the checked connection. The builder encrypts the image with it (LUKS2).'
+						title: 'Your image is being sealed',
+						text: 'With a passphrase the browser derives from your books. Not Le Space, not the node – only your books know it.',
+						mini: 'Your image is being sealed'
 					},
 					fetch: {
 						label: 'Fetch',
 						duration: 'about 9 min',
-						title: 'Your browser fetches the sealed image',
-						text: 'In pieces, every connection checked anew. Le Space sees encrypted bytes only.'
+						title: 'Your image is on its way to you',
+						text: 'Piece by piece, over checked connections. Le Space sees encrypted bytes only.',
+						mini: 'Your image is on its way'
 					},
 					store: {
-						label: 'Store',
+						label: 'Stored',
 						duration: 'about 1–2 min',
-						title: 'The image goes to Aleph',
-						text: 'Your books’ Aleph key signs it, the browser uploads it, and Aleph confirms it. Then the builder is forgotten.'
+						title: 'Safely stored',
+						text: 'Your books’ Aleph key signs your sealed image, the browser uploads it to Aleph, and Aleph confirms it. Then the builder is forgotten.',
+						mini: 'Your image is being stored'
 					}
 				},
 				sub: {
-					ask: 'VM requested at Aleph',
-					boot: 'VM booting',
-					answer: 'VM answering',
-					relay: 'Relay connected',
-					report: 'Hardware report received',
-					match: 'Measurement matches',
-					send: 'Passphrase handed over',
-					luks: 'Image encrypted',
-					lanes: 'Connections checked',
-					bytes: 'Pieces fetched',
-					sign: 'Signed',
-					upload: 'Uploaded',
-					confirm: 'Confirmed by Aleph'
+					ask: 'Builder requested (V-PROGRAM, signed by your books’ key)',
+					boot: 'A confidential node starts the builder’s VM',
+					answer: 'The builder answers',
+					relay: 'Connection through the relay is up (it sees only encrypted data)',
+					report: 'Report of the AMD processor received, AMD’s certificate chain checked',
+					match: 'Measurement matches the one fixed in Belege',
+					send: 'Passphrase sent encrypted to exactly this builder',
+					verify: 'Base image unpacked, SHA-256 checked',
+					luks: 'Sealed with LUKS – the builder forgets the passphrase afterwards',
+					lanes: 'Several connections side by side, each confirmed by the hardware',
+					bytes: 'Pieces arriving',
+					sign: 'Storage message (STORE) signed by your books’ key',
+					upload: 'Sealed image uploaded to Aleph',
+					confirm: 'Aleph confirms it is stored'
 				},
 				flow: {
-					program: 'the request for the builder',
-					report: 'the hardware’s report',
-					passphrase: 'the passphrase, encrypted',
-					pieces: 'pieces of the sealed image',
-					image: 'the sealed image'
+					program: 'Order for the builder',
+					report: 'The processor’s report',
+					passphrase: 'Passphrase, encrypted',
+					pieces: 'Pieces of your sealed image',
+					image: 'Your sealed image'
 				},
 				places: {
 					browser: 'Your browser',
 					relay: 'Le Space relay',
-					builder: 'Builder (TEE)',
-					aleph: 'Aleph'
+					node: 'Confidential node',
+					aleph: 'Aleph storage'
 				},
 				evidence: {
-					measurement: 'Hardware measurement',
-					plain: 'Public image (SHA-256)',
-					cid: 'Sealed image (CID)',
-					store: 'On Aleph (STORE)'
+					commit: 'Source at',
+					plain: 'Base image (SHA-256)',
+					expected: 'Expected measurement (in Belege)',
+					vprogram: 'Builder (V-PROGRAM)',
+					node: 'Node',
+					relay: 'Relay',
+					measured: 'Measured by the AMD processor',
+					cid: 'Your image’s content address',
+					store: 'Your image on Aleph (STORE)'
 				}
 			},
 			startTitle: 'Start a new VM',
