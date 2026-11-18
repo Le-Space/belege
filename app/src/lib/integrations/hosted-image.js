@@ -202,6 +202,7 @@ export function builderProblems(builder = BRIDGE_BUILDER) {
  *   onProgress?: (p: { step: string, data?: Record<string, any> }) => void,
  *   onStarted?: (vprogram: string) => Promise<void> | void,
  *   onForgotten?: (vprogram: string) => Promise<void> | void,
+ *   fetch?: typeof fetch,
  *   post?: (message: any) => Promise<any>,
  *   store?: typeof storeOnAleph,
  *   read?: (itemHash: string) => Promise<string | null>,
@@ -221,9 +222,10 @@ export async function buildBridgeImage({
 	onProgress = () => {},
 	onStarted,
 	onForgotten,
-	post = poster({ api: apiHost }),
+	fetch: get,
+	post = poster({ api: apiHost, ...(get ? { fetch: get } : {}) }),
 	store = (image, message) => storeOnAleph(image, message, apiHost),
-	read = (itemHash) => messageStatus(itemHash, { api: apiHost }),
+	read = (itemHash) => messageStatus(itemHash, { api: apiHost, ...(get ? { fetch: get } : {}) }),
 	now = Date.now,
 	tuning = {}
 }) {
