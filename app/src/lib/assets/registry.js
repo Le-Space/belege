@@ -101,7 +101,15 @@ export const ASSETS = Object.freeze({
 		chain: 'eip155:314',
 		caip19: 'eip155:314/erc20:0x80b98d3aa09ffff255c3ba4a241111ff1262f045'
 	},
-	XMR: { symbol: 'XMR', name: 'Monero', decimals: 12, kind: 'crypto', chain: null, caip19: null }
+	XMR: { symbol: 'XMR', name: 'Monero', decimals: 12, kind: 'crypto', chain: null, caip19: null },
+	NEAR: {
+		symbol: 'NEAR',
+		name: 'NEAR',
+		decimals: 24,
+		kind: 'crypto',
+		chain: 'near:mainnet',
+		caip19: 'near:mainnet/slip44:397'
+	}
 });
 
 /**

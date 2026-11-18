@@ -2,7 +2,7 @@
 
 _Deutsch: [crypto.de.md](crypto.de.md)_
 
-Belege keeps accounts on exchanges (Kraken) and own wallets on blockchains (Cosmos, EVM, Bitcoin, Filecoin; Monero by import). This page describes what they share, the Kraken connector and the wallets.
+Belege keeps accounts on exchanges (Kraken) and own wallets on blockchains (Cosmos, EVM, Bitcoin, Filecoin, NEAR; Monero by import). This page describes what they share, the Kraken connector and the wallets.
 
 ## One account per asset
 
@@ -77,7 +77,7 @@ A deposit or withdrawal keeps Kraken's on-chain hash (`chainTxRef`) and, where K
 
 Tokens withdrawn from an exchange to a wallet of our own stay the company's. _Integrationen → Eigene Wallets_ adds such a wallet by **chain and address**: read only, never a key or a seed phrase. The list of wallets is kept sealed in the books (settings key `wallets`); the bridge keeps nothing about them.
 
-**Chains**: Nym (Nyx) and Akash (Cosmos SDK), Ethereum, Base, Arbitrum One, OP Mainnet and Polygon PoS (EVM), [Bitcoin](#bitcoin), [Filecoin](#filecoin), and [Monero](#monero) by importing the wallet's export. The table is `packages/chains/src/registry.js`; the app's names for them are in `app/src/lib/wallets/chains.js`.
+**Chains**: Nym (Nyx) and Akash (Cosmos SDK), Ethereum, Base, Arbitrum One, OP Mainnet and Polygon PoS (EVM), [Bitcoin](#bitcoin), [Filecoin](#filecoin), [NEAR](#near), and [Monero](#monero) by importing the wallet's export. The table is `packages/chains/src/registry.js`; the app's names for them are in `app/src/lib/wallets/chains.js`.
 
 **Sync** (_Synchronisieren_, per wallet): the app sends the address in the body of `POST /<chain>/wallet` to the bridge, and the bridge asks a public node (see below; a wallet may name its own https endpoint instead). It reads the whole history each time; what is known is skipped.
 
@@ -186,6 +186,23 @@ An own Filecoin wallet is added by its address: f1 (secp256k1), f3 (BLS) or f410
 
 A message in which the wallet gives one asset and gets another is a **swap**, as on the EVM chains: FIL for USDFC, or USDFC for FIL (the FIL comes back in the same message). Both legs are booked as a trade (_Tausch_) and need no receipt; the gas stays a fee of its own and names the swap. The router is named from the message's receiver (`message/<cid>`, asked for swaps only) where it is known from Sushi's own config: _SushiSwap_ (the router its app uses), _SushiSwap V2 (Router)_, _WFIL_. USDFC's euro rate comes from CoinGecko (`usdfc`), else from the swap's other side; it is never taken as 1 USD without a source. In the crypto-ledger export USDFC is `eip155:314/erc20:0x80b9…f045`.
 
+### NEAR
+
+An own NEAR account is added by its account id: a named one (`name.near`) or an implicit one (64 hex characters), kept in lower case. The bridge reads it without a key (`packages/chains/src/near-wallet.js`, on the reader that came from Eigenbeleg, `near.js`):
+
+- **NearBlocks** (`api.nearblocks.io`, v3): `accounts/<id>/txns` for the transactions the account signed or received, `accounts/<id>/ft-txns` for its NEP-141 token movements, 25 a page, the whole history (more than 5 000 of either is refused, `WALLET_TOO_LARGE`).
+- **An archival RPC** (`archival-rpc.mainnet.fastnear.com`): `view_account` for the balance now (liquid plus what a validator holds locked), `ft_balance_of` for a listed token, and `EXPERIMENTAL_tx_status` for what a storage deposit kept.
+
+Both see the account id and this Mac's IP address. Own endpoints can be named for either (`api`, `rpc`).
+
+Per transaction: the NEAR it moved a booking sent or received with the other account, and the gas of a transaction the account signed a fee of its own (`<hash>:fee`); a failed transaction costs its fee only. The 1 yoctoNEAR a token transfer attaches is no payment; of a storage deposit only what the contract kept is booked. The hash is the transaction's (base58), the one Kraken names for a withdrawal – so a withdrawal on Kraken and what arrives on the account pair as an own transfer, and the withdrawal's detail names NEAR and links NearBlocks.
+
+**Booked**: NEAR and **USDC** by Circle's own contract (`17208628…36133a1`). Any other token – the bridged USDC.e, USDT, wNEAR, and what was airdropped – is counted and left out: a token's symbol is its own claim. In the crypto-ledger export NEAR is `near:mainnet/slip44:397`, USDC `near:mainnet/nep141:<contract>`.
+
+**Not read yet**: NEAR that reaches the account inside another transaction's inner receipts – a staking pool paying out a withdrawal, say. The balance comes from the RPC, not from the bookings, so such a gap shows as a difference.
+
+NearBlocks limits requests without a key; the reader waits and asks again (up to about half a minute per request). A NearBlocks key in the bridge's keychain is not built yet.
+
 ### Monero
 
 Monero hides amounts, senders and receivers on its chain, so nothing can be read by an address. Instead Belege imports the history your wallet exports, and reads it only in the browser. No view key and no file leaves the computer.
@@ -220,6 +237,7 @@ Both formats were taken from the wallets' own source (monero-gui `TransactionHis
 
 - **Checked against the source**: Nyx and Akash chain id, bech32 prefix, denoms, exponents, RPC/REST and explorer URL patterns against the Cosmos chain registry (`nyx/`, `akash/` `chain.json` and `assetlist.json`); Nyx's node reports chain `nyx`, CometBFT 0.38 and cosmos-sdk 0.53 (so events are plain text, the fee is in the `tx` event). The USDC contracts against Circle's list of USDC contract addresses, their 6 decimals against each chain's Blockscout. ALEPH (Aleph Cloud's token, on Ethereum and Base) on 2026-11-06 against CoinGecko's platform list, Ethereum's Blockscout and the Base contract's own `symbol()` and `decimals()` (18). The Blockscout API answers on each host (Optimism's Blockscout moved to `explorer.optimism.io`) and reports chain ids 1, 42161, 10 and 137.
 - **Checked by trying**: Nym's RPC answers `tx_search` for `transfer.sender` and `transfer.recipient` in well under a second (an earlier project found sender queries hanging; not reproduced). It is **pruned** (its oldest block is from 2025); Nodes Guru's RPC goes back to the first block. Akash (checked 2026-09-27): every public node is pruned. PublicNode's keeps the most (from 2026-05-25); Polkachu's and Ecostake's keep only a few weeks, and Polkachu's `/status` says 0 all the same. Blockscout refuses page × offset above 10 000. Blockscout's `tokentx` gives no log index, so a token transfer's id is built from contract, sender, receiver and value (stable, but not a log index).
+- NEAR's endpoints are the ones Eigenbeleg reads (`api.nearblocks.io`, `archival-rpc.mainnet.fastnear.com`); USDC's contract is Circle's.
 - Filecoin and Monero were not part of this check. Filecoin is read through `filfox.info/api/v1` and links to Filfox; Monero has no endpoint, its explorer is xmrchain.net.
 - **Not checked**: Base's chain id through its API (rate-limited at the time; 8453 is the well-known id); that the explorers' pages render (they are single-page apps and answer 200 for anything); Akash's history depth on Polkachu's node.
 

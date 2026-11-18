@@ -91,6 +91,7 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'polygon', name: 'Polygon PoS', logo: 'polygon' },
 			{ id: 'nyx', name: 'Nym (Nyx)', initials: 'Ny' },
 			{ id: 'akash', name: 'Akash', initials: 'Ak' },
+			{ id: 'near', name: 'NEAR', initials: 'Ne' },
 			{ id: 'monero', name: 'Monero', initials: 'XM' }
 		]
 	},
@@ -100,6 +101,7 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'alchemy', name: 'Alchemy', logo: 'alchemy' },
 			{ id: 'blockscout', name: 'Blockscout', initials: 'Bs' },
 			{ id: 'mempool', name: 'mempool.space / Blockstream (Bitcoin)', initials: 'Mp' },
+			{ id: 'nearblocks', name: 'NearBlocks / FastNEAR (NEAR)', initials: 'Nb' },
 			{
 				id: 'cosmos-nodes',
 				name: 'Nym, Nodes Guru, PublicNode, Polkachu',
@@ -130,6 +132,7 @@ export const INTEGRATION_GROUPS = [
 			{ id: 'nym-explorer', name: 'Nym Explorer (Nodes Guru)', initials: 'Ny' },
 			{ id: 'mempool-explorer', name: 'mempool.space (Bitcoin)', initials: 'Mp' },
 			{ id: 'filfox', name: 'Filfox (Filecoin)', initials: 'Ff' },
+			{ id: 'nearblocks-explorer', name: 'NearBlocks (NEAR)', initials: 'Nb' },
 			{ id: 'solscan', name: 'Solscan (Solana)', initials: 'So' },
 			{ id: 'xmrchain', name: 'xmrchain.net (Monero)', initials: 'Xc' }
 		]

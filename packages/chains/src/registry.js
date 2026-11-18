@@ -13,6 +13,9 @@
 //            from a zpub kept in the bridge's keychain (bitcoin.js).
 //   filecoin Filfox's public API, by the address (filecoin.js); FIL and the
 //            FEVM tokens listed for it.
+//   near     NearBlocks' API for the history and an archival RPC for the
+//            balance, by the account id (near.js, near-wallet.js); NEAR and
+//            the NEP-141 tokens listed for it.
 //
 // Only assets listed here are booked. A Cosmos denom or an ERC-20 contract
 // that is not listed is counted and left out: a token contract can name
@@ -92,7 +95,21 @@ import { KNOWN_EVM_CONTRACTS } from './evm-contracts.js';
  * @property {Explorer} explorer
  */
 
-/** @typedef {CosmosChain | EvmChain | BitcoinChain | FilecoinChain | MoneroChain} Chain */
+/**
+ * @typedef {object} NearChain
+ * @property {string} id
+ * @property {'near'} kind
+ * @property {string} name
+ * @property {string} shortName
+ * @property {string} caip2
+ * @property {ChainAsset} native
+ * @property {Record<string, ChainAsset>} tokens NEP-141 contract (an account id) → asset
+ * @property {{ api: string, rpc: string }} endpoints NearBlocks' API and an archival RPC
+ * @property {{ api: string[], rpc: string[] }} alternatives
+ * @property {Explorer} explorer
+ */
+
+/** @typedef {CosmosChain | EvmChain | BitcoinChain | FilecoinChain | NearChain | MoneroChain} Chain */
 
 const USDC = { symbol: 'USDC', decimals: 6 };
 const ETH = { symbol: 'ETH', decimals: 18 };
@@ -207,6 +224,28 @@ export const CHAINS = Object.freeze({
 	// Read through Filfox, by address; a message CID is the hash
 	// (filecoin-chain.js holds this description).
 	filecoin: FILECOIN,
+	// Read through NearBlocks, by the account id; the balance from an archival
+	// RPC (near-wallet.js). USDC is Circle's own contract on NEAR (near.js
+	// TOKENS); the bridged USDC.e, USDT and wNEAR are counted and left out.
+	near: {
+		id: 'near',
+		kind: 'near',
+		name: 'NEAR',
+		shortName: 'NEAR',
+		caip2: 'near:mainnet',
+		native: { symbol: 'NEAR', decimals: 24 },
+		tokens: { '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1': USDC },
+		endpoints: {
+			api: 'https://api.nearblocks.io',
+			rpc: 'https://archival-rpc.mainnet.fastnear.com'
+		},
+		alternatives: { api: [], rpc: [] },
+		explorer: {
+			name: 'NearBlocks',
+			tx: 'https://nearblocks.io/txns/{tx}',
+			address: 'https://nearblocks.io/address/{address}'
+		}
+	},
 	// Not read here: Monero hides amounts and parties on its chain. The app
 	// imports the wallet's own export (app/src/lib/wallets/monero-import.js);
 	// listed so both tables name the same chains, and for its explorer.
@@ -250,7 +289,7 @@ export function publicChains() {
 					assets: Object.values(c.denoms).map((a) => a.symbol),
 					nativeSymbol: c.denoms[c.nativeDenom].symbol
 				}
-			: c.kind === 'evm' || c.kind === 'filecoin'
+			: c.kind === 'evm' || c.kind === 'filecoin' || c.kind === 'near'
 				? {
 						assets: [c.native.symbol, ...Object.values(c.tokens).map((a) => a.symbol)],
 						nativeSymbol: c.native.symbol

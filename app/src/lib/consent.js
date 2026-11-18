@@ -128,7 +128,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 56: the language model is Ollama on this computer by default, no longer
 //     DeepSeek; a provider on the internet (DeepSeek – China, …) only by
 //     choice, and a bridge that still has the old default asks once.
-export const CONSENT_VERSION = '56';
+// 57: an own NEAR account is read through NearBlocks (api.nearblocks.io) and
+//     an archival RPC of FastNEAR (archival-rpc.mainnet.fastnear.com); both
+//     see the account id and the IP address.
+export const CONSENT_VERSION = '57';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

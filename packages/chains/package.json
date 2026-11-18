@@ -35,6 +35,7 @@
 		"./aleph": "./src/aleph.js",
 		"./testing/cosmos": "./test/support/fake-cosmos.js",
 		"./testing/filfox": "./test/support/fake-filfox.js",
+		"./testing/near": "./test/support/fake-near.js",
 		"./testing/blockscout": "./test/support/fake-blockscout.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
 		"./testing/aleph": "./test/support/aleph.js"
