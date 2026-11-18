@@ -263,6 +263,8 @@ Aleph issues no invoice: hosting and storage are paid in credits. Under Integrat
 
 A month in which nothing moved makes none. Checked on 2026-09-27 against two own accounts for two months: the balances agreed to the credit.
 
+**The payment behind a purchase.** For every purchase Aleph names the transaction that paid it. "Bei Aleph prüfen" reads the purchases of each account found (from the running month's statement, which lists every purchase up to now) and keeps account, hash, time and credits in the sealed settings; making a statement does the same. A booking that left the books with that hash – on an own wallet, or an exchange's withdrawal by its on-chain hash – is then explained by itself: a purchase of Aleph credits, no receipt of its own, since the account's monthly statement is the document. The network fee of the same transaction stays a fee. A bridge from before this lists only the purchases of the month asked.
+
 ## In the export
 
 The Buchungstext of a crypto booking ends with what moved, e.g. `Konto B -0,015 BTC`. The name is shortened when the 60 characters DATEV allows are not enough; the quantity never is. The amount (Umsatz) is in EUR, like every other line.

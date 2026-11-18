@@ -1627,6 +1627,8 @@ export default {
 		scan: 'Bei Aleph prüfen',
 		scanning: 'Prüfe …',
 		scanned: '{asked} Adressen geprüft, {found} davon mit Aleph-Credits.',
+		purchasesFound:
+			'{count} Käufe von Credits neu gelesen: Die Zahlungen dahinter brauchen keinen eigenen Beleg.',
 		none: 'Noch kein Aleph-Konto gefunden. Prüfung einschalten oder ein Konto eintragen, dann „Bei Aleph prüfen“.',
 		credits: '{credits} Credits (Stand {date})',
 		month: 'Monat',
@@ -2331,6 +2333,8 @@ export default {
 				'Eigene Umbuchung, von dir verknüpft: Die Gegenbuchung steht auf {account} am {date}. Kein Beleg nötig (Konto 1360).',
 			ownBridge:
 				'Eigene Übertragung über eine Bridge: Die Gegenbuchung steht auf {account} am {date} – dieselbe Kryptowährung, dieselbe Menge abzüglich der Bridge-Gebühr (höchstens 3 %), innerhalb von 8 Tagen. Kein Beleg nötig (Konto 1360).',
+			alephPurchase:
+				'Kauf von {credits} Aleph-Credits für das Aleph-Konto {address}: Aleph nennt diese Transaktion als Zahlung. Aleph stellt keine Rechnung aus; der Verbrauchsnachweis des Kontos für den Monat (Integrationen → Aleph) ist der Beleg – kein eigener Beleg nötig.',
 			prepaidTopup:
 				'Aufladung des Guthabenkontos bei {vendor}: belegt durch dessen Verbrauchsnachweise im Lieferantenkonto – kein eigener Beleg nötig.',
 			refunded:

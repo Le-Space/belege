@@ -24,6 +24,7 @@ import { needsConfirmation } from '../receipts/import.js';
 import { getSetting } from '../store/settings.js';
 import { classifyTransaction, DEFAULT_GRACE_DAYS } from './classify.js';
 import { buildMatchingContext } from './context.js';
+import { forgetSelfReceiptPartners } from './partners.js';
 import { graceWait, localDay } from './grace.js';
 import { assign, receiptFacts, txFacts } from './score.js';
 import { cryptoEvidence } from './view.js';
@@ -158,24 +159,32 @@ export async function runMatching({
 	onProgress = () => {}
 }) {
 	onProgress({ step: 'read' });
-	const [allTxs, allReceipts, matches, questions, accounts, settings, partners] = await Promise.all(
-		[
+	// What links to self-made receipts taught by mistake goes first (partners.js).
+	if (store.partners) await forgetSelfReceiptPartners(store.partners);
+	const [allTxs, allReceipts, matches, questions, accounts, settings, partners, aleph] =
+		await Promise.all([
 			store.transactions.list({ includeDeleted: true }),
 			store.receipts.list({ includeDeleted: true }),
 			store.matches.list(),
 			store.questions.list(),
 			store.accounts.list(),
 			getSetting(store.settings, 'matching'),
-			store.partners ? store.partners.list() : []
-		]
-	);
+			store.partners ? store.partners.list() : [],
+			getSetting(store.settings, 'aleph')
+		]);
 	const txs = allTxs.filter((t) => !t.deleted);
 	const receipts = allReceipts.filter((r) => !r.deleted);
 	// What is known to be gone – as opposed to not here yet: with device sync a
 	// match can arrive before its receipt or booking (issue: links that vanish).
 	const deletedTx = new Set(allTxs.filter((t) => t.deleted).map((t) => t.id));
 	const deletedReceipt = new Set(allReceipts.filter((r) => r.deleted).map((r) => r.id));
-	const ctx = await buildMatchingContext({ accounts, transactions: txs, settings, partners });
+	const ctx = await buildMatchingContext({
+		accounts,
+		transactions: txs,
+		settings,
+		partners,
+		alephPurchases: Array.isArray(aleph?.purchases) ? aleph.purchases : []
+	});
 	const today = localDay(now);
 	const graceDays = ctx.graceDays ?? DEFAULT_GRACE_DAYS;
 	let writes = 0;

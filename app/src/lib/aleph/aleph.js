@@ -33,7 +33,82 @@ import { t } from '../i18n/index.js';
  * @property {boolean} scan own EVM wallets are asked at Aleph
  * @property {string[]} extra accounts typed in, 0x…
  * @property {{ address: string, credits: number, entries: number, checkedAt: string }[]} accounts found
+ * @property {AlephPurchase[]} purchases the credit purchases of these accounts, with the paying transaction
  */
+
+/**
+ * A purchase of credits as Aleph lists it, kept so that the booking of its
+ * payment – on an own wallet or an exchange – is known by its hash
+ * (matching/classify.js).
+ *
+ * @typedef {object} AlephPurchase
+ * @property {string} address the Aleph account that got the credits
+ * @property {string} txHash the paying transaction, as Aleph names it
+ * @property {string} time ISO
+ * @property {number} credits
+ * @property {string | null} chain Aleph's code of the chain it was paid on
+ * @property {string | null} token
+ */
+
+/** A transaction hash or id as a chain names it; nothing else is kept. */
+const TX_HASH = /^[A-Za-z0-9]{32,128}$/;
+/** More purchases than anyone makes; the oldest go first. */
+const MAX_PURCHASES = 1000;
+
+/** @param {unknown} list @returns {AlephPurchase[]} */
+function cleanPurchases(list) {
+	if (!Array.isArray(list)) return [];
+	return list
+		.filter((p) => ADDRESS.test(String(p?.address)) && TX_HASH.test(String(p?.txHash)))
+		.map((p) => ({
+			address: String(p.address),
+			txHash: String(p.txHash),
+			time: String(p.time ?? ''),
+			credits: Number(p.credits) || 0,
+			chain: p.chain ? String(p.chain).slice(0, 20) : null,
+			token: p.token ? String(p.token).slice(0, 20) : null
+		}));
+}
+
+/**
+ * The purchases a statement names: every one up to its month's end from a
+ * bridge that lists them, else the month's own.
+ *
+ * @param {AlephStatement} statement
+ * @returns {AlephPurchase[]}
+ */
+export function purchasesOf(statement) {
+	const listed = /** @type {any} */ (statement).purchases;
+	const rows = Array.isArray(listed)
+		? listed
+		: (statement.topUps ?? []).filter((t) => t.how === 'purchase');
+	return cleanPurchases(rows.map((/** @type {any} */ r) => ({ ...r, address: statement.address })));
+}
+
+/**
+ * Keep the purchases a statement names, each once (by its hash).
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {AlephStatement} statement
+ * @returns {Promise<number>} how many were new
+ */
+export async function rememberPurchases(settings, statement) {
+	const found = purchasesOf(statement);
+	if (!found.length) return 0;
+	const aleph = await loadAleph(settings);
+	const known = new Map(aleph.purchases.map((p) => [p.txHash.toLowerCase(), p]));
+	let added = 0;
+	for (const p of found) {
+		if (!known.has(p.txHash.toLowerCase())) added++;
+		known.set(p.txHash.toLowerCase(), p);
+	}
+	if (!added) return 0;
+	const purchases = [...known.values()]
+		.sort((a, b) => a.time.localeCompare(b.time))
+		.slice(-MAX_PURCHASES);
+	await saveAleph(settings, { purchases });
+	return added;
+}
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
@@ -47,7 +122,8 @@ export async function loadAleph(settings) {
 			: [],
 		accounts: Array.isArray(v.accounts)
 			? v.accounts.filter((/** @type {any} */ a) => ADDRESS.test(String(a?.address)))
-			: []
+			: [],
+		purchases: cleanPurchases(v.purchases)
 	};
 }
 
@@ -82,7 +158,7 @@ export function candidateAddresses(wallets, aleph) {
  * Ask the bridge which candidates are Aleph accounts, and keep those.
  *
  * @param {object} p
- * @param {{ alephAccounts: (addresses: string[]) => Promise<{ address: string, credits: number, entries: number }[]> }} p.client
+ * @param {{ alephAccounts: (addresses: string[]) => Promise<{ address: string, credits: number, entries: number }[]>, alephStatement?: (address: string, month: string) => Promise<AlephStatement> }} p.client
  * @param {import('../store/repository.js').Collection} p.settings
  * @param {{ chain: string, address: string }[]} p.wallets
  * @param {() => Date} [p.now]
@@ -96,7 +172,24 @@ export async function scanAleph({ client, settings, wallets, now = () => new Dat
 		.filter((a) => a.credits > 0 || a.entries > 0)
 		.map((a) => ({ ...a, checkedAt }));
 	await saveAleph(settings, { accounts });
-	return { asked: addresses.length, accounts };
+	// The accounts' credit purchases, so that the bookings that paid them are
+	// known (matching/classify.js). The running month's statement lists every
+	// purchase up to now; an account that cannot be read is left for next time.
+	let purchases = 0;
+	if (client.alephStatement) {
+		const month = checkedAt.slice(0, 7);
+		for (const a of accounts) {
+			try {
+				purchases += await rememberPurchases(
+					settings,
+					await client.alephStatement(a.address, month)
+				);
+			} catch {
+				// asked again at the next scan
+			}
+		}
+	}
+	return { asked: addresses.length, accounts, purchases };
 }
 
 /** `2026-08` → `2026-08-31`. @param {string} month */
@@ -172,6 +265,7 @@ export async function createAlephStatement({
 		throw new Error(t('messages.aleph.exists', { number: existing.selfNumber }));
 	}
 	const statement = await client.alephStatement(address, month);
+	await rememberPurchases(store.settings, statement);
 	if (!statement.usage.length && !statement.topUps.length && !statement.transfersOut.length) {
 		throw new Error(t('messages.aleph.nothing'));
 	}

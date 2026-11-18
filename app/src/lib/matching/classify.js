@@ -290,6 +290,7 @@ export function feeKey(tx) {
  * @property {Set<string>} [notTransfers] pairs a person said are no transfer (transferPairKey)
  * @property {(tx: Record<string, any>) => { other: Record<string, any>, role: 'charge' | 'refund', full: boolean, manual: boolean } | null} [refundOf] a charge's refund or a refund's charge (refunds.js)
  * @property {(r: Record<string, any>) => boolean} [prepaidReceipt] a statement of a confirmed prepaid vendor: covered by its account
+ * @property {(tx: Record<string, any>) => { address: string, credits: number } | null} [alephPurchaseOf] the purchase of Aleph credits this booking paid, by its transaction (aleph/aleph.js)
  * @property {(tx: Record<string, any>) => string | null} [prepaidVendorOf] the confirmed prepaid vendor a payment tops up (vendor-account.js)
  * @property {(tx: Record<string, any>) => Record<string, any> | null} [linkedTransfer] the booking a person linked as this one's other side (context.js)
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [bridgeCounterparts] the other side of a bridge transfer on another own wallet (context.js)
@@ -318,9 +319,10 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'aleph-purchase' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
+ * @property {number} [credits] the Aleph credits bought, for a 'prepaid-topup' via 'aleph-purchase'
  * @property {import('./payroll.js').TaxKind} [tax] which tax, for 'tax-payment' and 'payroll-tax' (#233)
  * @property {string | null} [period] the period a wage, tax or contribution is for: `2025-12`, `2025-Q4`, `2024`
  * @property {string} [employee] for a wage: the name on the employees list
@@ -541,6 +543,21 @@ export function classifyTransaction(tx, ctx) {
 	const wallet = walletChain(tx.source);
 	if (tx.movement === 'fee') {
 		return { kind: 'bank-fee', via: wallet ? 'network-fee' : 'exchange-fee' };
+	}
+	// The payment of a purchase of Aleph credits, known by the transaction Aleph
+	// names for it. Aleph issues no invoice: the account's monthly statement
+	// (aleph/aleph.js) is the document. Only what left the books pays.
+	if (Number(tx.amountCents ?? 0) <= 0) {
+		const bought = ctx.alephPurchaseOf?.(tx);
+		if (bought) {
+			return {
+				kind: 'prepaid-topup',
+				vendor: 'Aleph Cloud',
+				via: 'aleph-purchase',
+				address: bought.address,
+				credits: bought.credits
+			};
+		}
 	}
 	if (tx.movement === 'reward') return { kind: 'crypto-reward' };
 	if (wallet && tx.movement === 'stake') return { kind: 'crypto-stake' };

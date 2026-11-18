@@ -10,7 +10,13 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- The payment behind a purchase of Aleph credits is explained by itself. "Bei Aleph prüfen" (and making a usage statement) now reads the purchases of each Aleph account with the transaction Aleph names as their payment; a booking that left an own wallet with that hash, or an exchange's withdrawal with it as its on-chain hash, needs no receipt of its own: the account's monthly usage statement is the document. The network fee stays a fee. `@le-space/chains`: an Aleph statement lists `purchases`, every purchase up to the month's end with its paying transaction; a bridge from before this names only the month's own.
+
 - Le Space's terms for Belege's paid offers, asked for before a purchase: once the service has a version in force, the Le Space Credits card shows it with a link, and a top-up or a plan of the hosted bridge waits until the person has ticked and confirmed it. An announced new version can be agreed to ahead of its date. While no version is published nothing is asked, as before. The card links the terms, the privacy policy and Le Space's security page.
+
+### Fixed
+
+- An address or counterparty is no longer called "Eigenbeleg". Making an Eigenbeleg for a payment taught the books that the payment's other side is a vendor of that name, so every booking with the same address was named so and, since "Was war diese Zahlung?", treated as a vendor's. A receipt the books made themselves (an Eigenbeleg, a usage statement of Aleph or Akash) teaches no partner now, and what such receipts taught before is taken back at the next matching run; an address a person said is private or a custodian's stays as said.
 
 ### Changed
 

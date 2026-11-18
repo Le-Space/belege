@@ -307,6 +307,19 @@ export function createAlephClient({
 			// Prices of every purchase up to the month's end, to value its consumption.
 			const purchases = (await pages(`&endDate=${end}&direction=incoming`)).filter((r) => r?.price);
 			const { topUps, transfersOut, usage } = summarise({ rows, purchases });
+			// Every purchase up to the month's end with the transaction that paid it:
+			// what a wallet's or an exchange's booking of that payment is known by.
+			const paid = purchases
+				.filter((r) => r?.tx_hash && num(r.amount) > 0)
+				.map((r) => ({
+					time: new Date(String(r.message_timestamp)).toISOString(),
+					credits: num(r.amount),
+					price: String(r.price),
+					token: r.token ? String(r.token) : null,
+					chain: r.chain ? String(r.chain) : null,
+					txHash: String(r.tx_hash)
+				}))
+				.sort((a, b) => a.time.localeCompare(b.time));
 
 			// What each billed resource is: its type and the name it was given.
 			/** @type {Record<string, { type: string, name: string }>} */
@@ -357,6 +370,7 @@ export function createAlephClient({
 				opening,
 				closing,
 				topUps,
+				purchases: paid,
 				transfersOut,
 				usage,
 				resources,
