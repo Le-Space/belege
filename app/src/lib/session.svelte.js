@@ -2344,7 +2344,16 @@ async function leSpaceVmAccount(key) {
 export async function hostedCredits() {
 	const { key } = await hostedOwner();
 	const client = await creditsClientOf(key);
-	if (!client) return { on: false, credits: null, plan: null, hoursLeft: null, periodEnd: null };
+	if (!client)
+		return {
+			on: false,
+			credits: null,
+			plan: null,
+			hoursLeft: null,
+			periodEnd: null,
+			termsDue: false
+		};
+	const { termsOf } = await import('./credits/credits.js');
 	const balance = await client.balance();
 	const plan = balance?.package ?? null;
 	return {
@@ -2352,7 +2361,8 @@ export async function hostedCredits() {
 		credits: Number(balance?.credits ?? 0) - Number(balance?.reserved ?? 0),
 		plan: plan?.id ?? null,
 		hoursLeft: plan?.hours_left ?? null,
-		periodEnd: plan?.period_end ?? null
+		periodEnd: plan?.period_end ?? null,
+		termsDue: termsOf(balance?.terms).due
 	};
 }
 
@@ -2369,7 +2379,14 @@ export async function chooseHostedPlan(planId) {
 	const { key } = await hostedOwner();
 	const client = await creditsClientOf(key);
 	if (!client) throw new Error(t('messages.hostedBridge.creditsOff'));
-	await client.choosePlan(planId);
+	try {
+		await client.choosePlan(planId);
+	} catch (e) {
+		// The terms came into force since the card read the balance.
+		if (/** @type {any} */ (e)?.status === 412 && /** @type {any} */ (e)?.code === 'TERMS')
+			throw new Error(t('credits.terms.needed'), { cause: e });
+		throw e;
+	}
 	return hostedCredits();
 }
 

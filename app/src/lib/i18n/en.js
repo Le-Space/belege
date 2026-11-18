@@ -974,7 +974,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Only once you switch it on under Integrations → Aleph: a balance for what Le Space offers for Belege (today the hosted bridge), topped up by card.',
 				leaves:
-					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing address, as Stripe needs them for the payment, the invoice and the tax; Stripe keeps you as a customer with the address of the Aleph key. Never your books, never a receipt.',
+					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases, your agreement to the terms and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing address, as Stripe needs them for the payment, the invoice and the tax; Stripe keeps you as a customer with the address of the Aleph key. Never your books, never a receipt.',
 				technical:
 					'Every request carries X-LS-Address, X-LS-Timestamp and a personal_sign signature (EIP-191) over ls-credits/v1, method, path, product belege, address and time; the service accepts each time once and for five minutes only. The key is the secp256k1 key Belege makes for the backup and keeps sealed in the settings; it does not leave the browser. Stripe’s script does not run on belege.le-space.de: the payment page is on credits.le-space.de (/pay) and only framed here; the client secret is in the address’s fragment and reaches no server log. The page reports “paid” by postMessage; Belege believes only the balance it reads back, signed, afterwards. Paid credits do not expire; Le Space refunds the remaining balance on request.'
 			},
@@ -1576,6 +1576,18 @@ export default {
 	},
 	credits: {
 		title: 'Le Space Credits',
+		terms: {
+			label: 'Terms',
+			due: 'Before you top up or choose a plan: Le Space’s terms (AGB) for Belege.',
+			announced: 'New terms apply from {date}.',
+			germanNote: 'The terms are in German; the German text is the binding one.',
+			read: 'Read the terms (version {version})',
+			consent: 'I have read the terms in version {version} and agree to them.',
+			agree: 'Agree',
+			accepted: 'You have agreed to the terms in version {version}.',
+			needed: 'Agree to the terms first: Integrations → Aleph → Le Space Credits.'
+		},
+		legal: { terms: 'Terms', privacy: 'Privacy', security: 'Security' },
 		what: 'A balance in euro with Le Space, like a voucher. It pays for what Le Space offers for Belege: today the hosted bridge, later also AI through Le Space. Le Space Credits are not a cryptocurrency, and nothing is bought for you or into a wallet: Le Space itself pays the VM’s computing time at Aleph Cloud with your balance. You can also pay for the hosted bridge yourself instead: with your own Aleph credits on the books’ Aleph key (Integrations → Aleph), without Le Space. An AI with your own access is set up in the bridge; it runs without Le Space. Topped up by card through Stripe, with no account and no subscription. The balance belongs to the books: every own device sees the same.',
 		offNote: 'Off. Belege asks credits.le-space.de for the balance only once it is switched on.',
 		switchOn: 'Switch on Le Space Credits',

@@ -124,9 +124,25 @@ export async function createCreditsClient({
 			const out = await call('GET', '/v1/purchases');
 			return Array.isArray(out?.purchases) ? out.purchases : [];
 		},
-		/** @param {string} packageId @param {string} [locale] @returns {Promise<{ client_secret: string }>} */
-		checkout: (packageId, locale) =>
-			call('POST', '/v1/checkout', { package: packageId, ...(locale ? { locale } : {}) }),
+		/**
+		 * The terms in force, an announced version, and the declaration on
+		 * withdrawal a top-up needs.
+		 * @returns {Promise<PublishedTerms>}
+		 */
+		terms: async () => publishedTerms(await call('GET', '/v1/terms'), base),
+		/** Agree to a version of the terms. @param {string} version */
+		acceptTerms: (version) => call('POST', '/v1/terms/accept', { version }),
+		/**
+		 * @param {string} packageId @param {string} [locale]
+		 * @param {string | null} [waiver] the version of the declaration on withdrawal the person ticked
+		 * @returns {Promise<{ client_secret: string }>}
+		 */
+		checkout: (packageId, locale, waiver) =>
+			call('POST', '/v1/checkout', {
+				package: packageId,
+				...(locale ? { locale } : {}),
+				...(waiver ? { waiver } : {})
+			}),
 		/** @returns {Promise<{ refund_id: string, state: string }>} */
 		refund: () => call('POST', '/v1/refund', {}),
 		/**
@@ -156,6 +172,7 @@ export async function createCreditsClient({
  *   package?: { id: string, state: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
  *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null,
  *   mode?: 'test' | 'live' | null,
+ *   terms?: unknown,
  *   vm?: { owner: string, delegates: string[] } | null
  * }} Balance
  */
@@ -183,6 +200,85 @@ export async function createCreditsClient({
  *   created_at: string
  * }} Purchase
  */
+
+/**
+ * A page of the service the card may link to: https (or the E2E fake) on the
+ * service's own origin, nothing else. Null for anything else.
+ *
+ * @param {unknown} url @param {string} [base]
+ * @returns {string | null}
+ */
+export function creditsPage(url, base = creditsUrl()) {
+	if (typeof url !== 'string') return null;
+	try {
+		const u = new URL(url, base);
+		return u.origin === new URL(base).origin && !u.username ? u.href : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * What the service publishes of its terms (GET /v1/terms), reduced to what
+ * the card shows. Everything in it is the service's word: shown as text, a
+ * link only to the service's own origin.
+ *
+ * @typedef {{ version: string, url: string | null, changes: string[], effectiveAt: string | null }} TermsVersion
+ * @typedef {{ current: TermsVersion | null, pending: TermsVersion | null, withdrawal: { version: string, de: string, en: string } | null }} PublishedTerms
+ *
+ * @param {any} body @param {string} [base]
+ * @returns {PublishedTerms}
+ */
+export function publishedTerms(body, base = creditsUrl()) {
+	const one = (/** @type {any} */ v) =>
+		v?.version
+			? {
+					version: String(v.version),
+					url: creditsPage(v.url, base),
+					changes: (Array.isArray(v.changes) ? v.changes : v.changes ? [v.changes] : []).map(
+						String
+					),
+					effectiveAt: typeof v.effectiveAt === 'string' ? v.effectiveAt : null
+				}
+			: null;
+	const w = body?.withdrawal;
+	return {
+		current: one(body?.current),
+		pending: one(body?.pending),
+		withdrawal:
+			w?.version && typeof w.de === 'string' && w.de.trim()
+				? {
+						version: String(w.version),
+						de: w.de,
+						en: typeof w.en === 'string' && w.en.trim() ? w.en : w.de
+					}
+				: null
+	};
+}
+
+/**
+ * Where this account stands with the terms (`terms` of GET /v1/balance):
+ * `due` when a version is in force that it has not agreed to (a purchase is
+ * refused with 412 TERMS until it has), `announced` when a coming version is
+ * not agreed to yet. Nothing is due while no version is published.
+ *
+ * @param {any} t
+ */
+export function termsOf(t) {
+	const version = (/** @type {any} */ v) =>
+		v && typeof v === 'object' ? (v.version ? String(v.version) : null) : v ? String(v) : null;
+	const accepted = version(t?.accepted);
+	const current = version(t?.current);
+	const pending = version(t?.pending);
+	return {
+		accepted,
+		acceptedAt: typeof t?.accepted?.accepted_at === 'string' ? t.accepted.accepted_at : null,
+		current,
+		pending,
+		due: Boolean(current && accepted !== current),
+		announced: Boolean(pending && accepted !== pending && pending !== current)
+	};
+}
 
 /**
  * An invoice link the card may open: only Stripe's hosted invoice pages. The
