@@ -26,6 +26,7 @@
 	import { app } from '$lib/session.svelte.js';
 	import { WARN_BELOW_DAYS } from '$lib/backup/credits-watch.js';
 	import { onMount } from 'svelte';
+	import { answerOtherWindows } from '$lib/other-windows.js';
 	import { resolve } from '$app/paths';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { captureReturn } from '$lib/enablebanking/return.js';
@@ -69,6 +70,8 @@
 				replace: (path) => replaceState(path, page.state)
 			}) ?? pendingInvite(sessionStorage);
 	}
+	// Another window of Belege can ask whether this one is open (other-windows.js).
+	onMount(answerOtherWindows);
 	onMount(async () => {
 		if (!resetting) return;
 		const report = await wipeBrowser();

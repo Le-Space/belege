@@ -43,8 +43,10 @@
 			release: releaseName(),
 			commit: builtFrom()?.short ?? null,
 			status: app.status,
-			step: app.unlock?.step ?? null,
-			stepSeconds: app.unlock ? (Date.now() - app.unlock.since) / 1000 : null,
+			step: app.unlock
+				? `${app.unlock.step}${'part' in app.unlock && app.unlock.part ? `/${app.unlock.part}` : ''}`
+				: null,
+			stepSeconds: app.unlock ? (Date.now() - app.unlock.stepSince) / 1000 : null,
 			error: app.error,
 			userAgent: navigator.userAgent,
 			language: navigator.language,

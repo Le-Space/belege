@@ -128,7 +128,10 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	await expect.poll(() => steps.some((l) => /^unlock: ready after \d+\.\d s$/.test(l))).toBe(true);
 	for (const step of [
 		'keys',
-		'network',
+		// the network step in its parts (#803); no relays are asked offline
+		'network storage',
+		'network node',
+		'network start',
 		'identity',
 		'open transactions',
 		'open events',

@@ -186,7 +186,8 @@ export class ReadOnlyError extends Error {
 /**
  * Where an unlock is (startSession `onStatus`).
  *
- * @typedef {{ step: 'keys' | 'network' | 'identity' | 'blobs' }
+ * @typedef {{ step: 'keys' | 'identity' | 'blobs' }
+ *   | { step: 'network', part?: 'storage' | 'relays' | 'node' | 'start' }
  *   | { step: 'open', collection: string }
  *   | { step: 'move', collection: string, done: number, total: number }} UnlockStatus
  */
@@ -379,10 +380,23 @@ export async function startSession(
 	// A PR #1 build kept the signing key in IndexedDB. Gone before anything opens.
 	await forgetLegacyKeystore();
 
-	onStatus?.({ step: 'network' });
+	// The step in its parts, so an unlock that waits says for what (#803): the
+	// browser's storage, the relays, the node.
+	onStatus?.({ step: 'network', part: 'storage' });
 
 	const blockstore = new LevelBlockstore(STORAGE_PATHS.blockstore);
 	const datastore = new LevelDatastore(STORAGE_PATHS.datastore);
+	// E2E builds only: a storage that never opens, to watch what the screen says then.
+	if (
+		import.meta.env.VITE_E2E === 'true' &&
+		/** @type {any} */ (globalThis).__belegeStallStorage === true
+	) {
+		await new Promise(() => {});
+	}
+	// Opened here, not by the first read inside Helia's start: the browser's
+	// IndexedDB has no timeout, and this is where an unlock has been seen to wait.
+	await blockstore.open();
+	await datastore.open();
 	// Device sync (#123), when switched on for this device: online over the
 	// relay, on a peer key of this device's own. Else offline, as always.
 	// … and not while the network is paused in the header (network-pause.js).
@@ -391,7 +405,9 @@ export async function startSession(
 	const mode = networkMode();
 	// Aleph is asked for the Le-Space relays only when this device goes online
 	// in the public mode; the own network's relay is the bridge's (network-mode.js).
+	if (online) onStatus?.({ step: 'network', part: 'relays' });
 	const relays = online ? await relaysFor(mode, () => relayAddrs()) : [];
+	onStatus?.({ step: 'network', part: 'node' });
 	const relayPeers = new Set(
 		[...relays, lanRelayAddr()].map((addr) => relayPeerOf(addr)).filter(Boolean)
 	);
@@ -446,6 +462,8 @@ export async function startSession(
 		: await createOfflineLibp2p(peerKey);
 	// The code exchange builds its connections on this node (qr-link.js).
 	if (deviceGate && (mode === 'qr' || mode === 'both')) attachQrSession(libp2p);
+	// The node is made; starting it reads the stores for the first time.
+	onStatus?.({ step: 'network', part: 'start' });
 	const helia = await withBitswap(
 		withLibp2p(createHeliaLight({ codecs: [dagCbor], blockstore, datastore }), libp2p)
 	).start();
