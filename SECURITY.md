@@ -32,9 +32,9 @@ Never send real bookings, receipts, mails, account numbers, keys, recovery words
 
 The usual time until publication is 90 days from the report, earlier once a fix is released. If a fix needs longer, we agree on it with you. We do not promise fixed response times.
 
-### Safe harbor (draft)
+### Good faith
 
-> **Draft, pending legal review.** If you research in good faith and follow the rules on this page, Le Space will not take legal action against you for it, and will not ask anyone else to. If someone else does, we will make clear that you acted within these rules. If you are unsure whether something is within them, ask us first at security@le-space.de.
+We welcome research done in good faith within these rules, treat your report confidentially and work with you on it. This is how we intend to act; it is not a legal waiver, and it cannot speak for third parties such as Stripe, Aleph or Filecoin.
 
 ### Rules for research
 
