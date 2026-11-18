@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.39.3] – 2026-11-18
+
 ### Added
 
 - Le Space's terms for Belege's paid offers, asked for before a purchase: once the service has a version in force, the Le Space Credits card shows it with a link, and a top-up or a plan of the hosted bridge waits until the person has ticked and confirmed it. An announced new version can be agreed to ahead of its date. While no version is published nothing is asked, as before. The card links the terms, the privacy policy and Le Space's security page.
