@@ -1001,7 +1001,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Angebote von Le Space für Belege (heute die gehostete Bridge), aufgeladen mit Karte.',
 				leaves:
-					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsanschrift, wie Stripe sie für die Zahlung, die Rechnung und die Steuer braucht; Stripe führt dich als Kunden mit der Adresse des Aleph-Schlüssels. Nie deine Bücher, nie ein Beleg.',
+					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe, deine Zustimmung zu den Geschäftsbedingungen und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsanschrift, wie Stripe sie für die Zahlung, die Rechnung und die Steuer braucht; Stripe führt dich als Kunden mit der Adresse des Aleph-Schlüssels. Nie deine Bücher, nie ein Beleg.',
 				technical:
 					'Jede Anfrage trägt X-LS-Address, X-LS-Timestamp und eine personal_sign-Signatur (EIP-191) über ls-credits/v1, Methode, Pfad, Produkt belege, Adresse und Zeit; der Dienst nimmt jede Zeit nur einmal und nur fünf Minuten lang an. Der Schlüssel ist der secp256k1-Schlüssel, den Belege für das Backup macht und versiegelt in den Einstellungen hält; er verlässt den Browser nicht. Stripes Skript läuft nicht auf belege.le-space.de: Die Zahlungsseite liegt auf credits.le-space.de (/pay) und wird hier nur eingerahmt; das Client-Secret steht im Fragment der Adresse und erreicht kein Server-Log. Die Seite meldet „bezahlt“ per postMessage; Belege glaubt nur dem Guthaben, das es danach signiert abfragt. Bezahltes Guthaben verfällt nicht; das Restguthaben erstattet Le Space auf Anfrage.'
 			},
@@ -1569,6 +1569,18 @@ export default {
 	},
 	credits: {
 		title: 'Le Space Credits',
+		terms: {
+			label: 'Geschäftsbedingungen',
+			due: 'Bevor du auflädst oder ein Paket wählst: die Allgemeinen Geschäftsbedingungen von Le Space für Belege.',
+			announced: 'Ab {date} gelten neue Geschäftsbedingungen.',
+			germanNote: 'Die Geschäftsbedingungen sind auf Deutsch; der deutsche Text gilt.',
+			read: 'AGB lesen (Fassung {version})',
+			consent: 'Ich habe die AGB in der Fassung {version} gelesen und stimme ihnen zu.',
+			agree: 'Zustimmen',
+			accepted: 'Den AGB in der Fassung {version} hast du zugestimmt.',
+			needed: 'Stimme zuerst den AGB zu: Integrationen → Aleph → Le Space Credits.'
+		},
+		legal: { terms: 'AGB', privacy: 'Datenschutz', security: 'Sicherheit' },
 		what: 'Ein Guthaben in Euro bei Le Space, wie ein Gutschein. Damit bezahlst du die Angebote von Le Space für Belege: heute die gehostete Bridge, später auch KI über Le Space. Le Space Credits sind keine Kryptowährung, und es wird nichts für dich oder in eine Wallet gekauft: Le Space bezahlt mit deinem Guthaben selbst die Rechenzeit der VM bei Aleph Cloud. Die gehostete Bridge kannst du stattdessen auch selbst bezahlen: mit eigenen Aleph-Credits auf dem Aleph-Schlüssel der Bücher (Integrationen → Aleph), ohne Le Space. Eine KI mit eigenem Zugang richtest du in der Bridge ein; sie läuft ohne Le Space. Aufgeladen mit Karte über Stripe, ohne Konto und ohne Abo. Das Guthaben gehört zu den Büchern: Jedes eigene Gerät sieht dasselbe.',
 		offNote: 'Aus. Erst nach dem Einschalten fragt Belege credits.le-space.de nach dem Guthaben.',
 		switchOn: 'Le Space Credits einschalten',

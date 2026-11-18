@@ -6,11 +6,14 @@
 	// is asked of the service until the person switches it on.
 	import { onDestroy } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
+	import TermsConsent from './TermsConsent.svelte';
+	import { PRIVACY_URL, SECURITY_URL, TERMS_URL } from '$lib/legal.js';
 	import { app, currentStore } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import { formatDate } from '$lib/bank/format.js';
 	import { locale } from '$lib/i18n/locale.svelte.js';
 	import {
+		CreditsError,
 		TOPUPS,
 		createCreditsClient,
 		creditsUrl,
@@ -19,7 +22,8 @@
 		isPaidMessage,
 		loadCredits,
 		payUrl,
-		setCreditsOn
+		setCreditsOn,
+		termsOf
 	} from './credits.js';
 
 	let on = $state(false);
@@ -29,6 +33,8 @@
 	let balance = $state(null);
 	/** @type {import('./credits.js').Purchase[]} */
 	let purchases = $state([]);
+	/** @type {import('./credits.js').PublishedTerms | null} what the service publishes of its terms */
+	let published = $state(null);
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
@@ -43,6 +49,13 @@
 	let confirmRefund = $state(false);
 
 	const paused = $derived(app.network.paused);
+	const terms = $derived.by(() => (balance ? termsOf(balance.terms) : null));
+	// The declaration on withdrawal in the service's own words, which it records
+	// by its version; the app's text only while the service sends none.
+	const withdrawal = $derived.by(() => published?.withdrawal ?? null);
+	const withdrawalText = $derived(
+		withdrawal ? (locale.current === 'de' ? withdrawal.de : withdrawal.en) : t('credits.withdrawal')
+	);
 
 	$effect(() => {
 		load();
@@ -65,7 +78,11 @@
 			purchases = await client.purchases();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
+			return;
 		}
+		// Without an answer nothing is assumed: the service refuses a purchase
+		// that lacks the consent, and the card then asks again.
+		published = await client.terms().catch(() => published);
 	}
 
 	/** @param {boolean} value */
@@ -90,11 +107,19 @@
 		if (!client || !paying) return;
 		busy = true;
 		try {
-			const { client_secret } = await client.checkout(paying, locale.current);
+			const { client_secret } = await client.checkout(
+				paying,
+				locale.current,
+				withdrawal?.version ?? null
+			);
 			frameUrl = payUrl(client_secret, location.origin);
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
 			paying = null;
+			if (e instanceof CreditsError && e.status === 412 && e.code === 'TERMS') {
+				// The terms came into force since the balance was read: ask for them.
+				await refresh();
+				note = t('credits.terms.needed');
+			} else error = e instanceof Error ? e.message : String(e);
 		} finally {
 			busy = false;
 		}
@@ -243,12 +268,15 @@
 			     say): no top-up is offered until it does. -->
 			<p class="mt-3 text-sm text-faint" data-testid="credits-test-mode">{t('credits.testMode')}</p>
 		{:else if balance}
+			{#if client}
+				<TermsConsent {client} {terms} {published} onaccepted={refresh} />
+			{/if}
 			<div class="mt-3 flex flex-wrap gap-2">
 				{#each TOPUPS as topup (topup.id)}
 					<button
 						type="button"
 						class={button}
-						disabled={paused || busy || !client}
+						disabled={paused || busy || !client || terms?.due}
 						onclick={() => startTopUp(topup.id)}
 						data-testid="credits-topup-{topup.cents / 100}"
 						>{t('credits.topUp', { amount: money(topup.cents) })}</button
@@ -272,7 +300,7 @@
 							bind:checked={agreed}
 							data-testid="credits-agree"
 						/>
-						<span class="text-text">{t('credits.withdrawal')}</span>
+						<span class="text-text" data-testid="credits-withdrawal">{withdrawalText}</span>
 					</label>
 					<div class="mt-2 flex gap-2">
 						<button
@@ -355,6 +383,17 @@
 				>{t('credits.switchOff')}</button
 			>
 		</div>
+		<p class="mt-2 flex flex-wrap gap-x-3 text-xs text-faint" data-testid="credits-legal">
+			{#each [['terms', TERMS_URL], ['privacy', PRIVACY_URL], ['security', SECURITY_URL]] as [name, href] (name)}
+				<a
+					{href}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="underline hover:text-heading"
+					data-testid="credits-legal-{name}">{t(`credits.legal.${name}`)}</a
+				>
+			{/each}
+		</p>
 		{#if client}
 			<p class="mt-2 text-xs text-faint">
 				{t('credits.account', { host: new URL(creditsUrl()).host })}

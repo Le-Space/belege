@@ -162,7 +162,14 @@
 				if (!c.on) paidBy = 'books';
 			})
 			.catch(() => {
-				credits = { on: false, credits: null, plan: null, hoursLeft: null, periodEnd: null };
+				credits = {
+					on: false,
+					credits: null,
+					plan: null,
+					hoursLeft: null,
+					periodEnd: null,
+					termsDue: false
+				};
 				paidBy = 'books';
 			});
 	});
@@ -587,12 +594,17 @@
 									balance: euro(credits.credits ?? 0, intlLocale())
 								})}
 							</p>
+							{#if credits.termsDue}
+								<p class="mt-1 text-faint" data-testid="hosted-bridge-terms-due">
+									{t('credits.terms.needed')}
+								</p>
+							{/if}
 							<div class="mt-2 flex flex-wrap gap-2">
 								{#each BRIDGE_PLANS as plan (plan.id)}
 									<button
 										type="button"
 										class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-3 text-sm text-text disabled:opacity-50"
-										disabled={busy || (credits.credits ?? 0) < plan.credits}
+										disabled={busy || credits.termsDue || (credits.credits ?? 0) < plan.credits}
 										onclick={() => choosePlan(plan.id)}
 										data-testid="hosted-bridge-plan-{plan.id}"
 										>{t('integrationen.hostedBridge.payer.choose', {

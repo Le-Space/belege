@@ -3,7 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 
-import { canonical, createCreditsClient, isInvoiceUrl, isPaidMessage, payUrl } from './credits.js';
+import {
+	canonical,
+	createCreditsClient,
+	creditsPage,
+	isInvoiceUrl,
+	isPaidMessage,
+	payUrl,
+	publishedTerms,
+	termsOf
+} from './credits.js';
 
 const KEY = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
 const BASE = 'https://credits.example.com';
@@ -100,6 +109,82 @@ describe('Le Space Credits client', () => {
 		expect(isInvoiceUrl('https://user@invoice.stripe.com/i/x')).toBe(false);
 		expect(isInvoiceUrl('javascript:alert(1)')).toBe(false);
 		expect(isInvoiceUrl(null)).toBe(false);
+	});
+
+	it('asks for the terms, agrees to a version and sends the waiver with a top-up', async () => {
+		/** @type {{ url: string, method: string, body: any }[]} */
+		const seen = [];
+		/** @type {typeof fetch} */
+		const f = async (url, init) => {
+			seen.push({
+				url: String(url),
+				method: String(init?.method),
+				body: init?.body ? JSON.parse(String(init.body)) : null
+			});
+			return new Response(
+				JSON.stringify({
+					current: { version: '1', url: `${BASE}/agb/belege`, changes: 'first version' },
+					withdrawal: { version: 'w2', de: 'DE text', en: 'EN text' }
+				})
+			);
+		};
+		const client = await createCreditsClient({ key: KEY, base: BASE, fetch: f });
+		const terms = await client.terms();
+		expect(terms.current).toEqual({
+			version: '1',
+			url: `${BASE}/agb/belege`,
+			changes: ['first version'],
+			effectiveAt: null
+		});
+		expect(terms.pending).toBeNull();
+		expect(terms.withdrawal).toEqual({ version: 'w2', de: 'DE text', en: 'EN text' });
+		await client.acceptTerms('1');
+		await client.checkout('topup-10', 'en', 'w2');
+		expect(seen.map((r) => `${r.method} ${r.url}`)).toEqual([
+			`GET ${BASE}/v1/terms?product=belege`,
+			`POST ${BASE}/v1/terms/accept`,
+			`POST ${BASE}/v1/checkout`
+		]);
+		expect(seen[1].body).toEqual({ product: 'belege', version: '1' });
+		expect(seen[2].body).toEqual({
+			product: 'belege',
+			package: 'topup-10',
+			locale: 'en',
+			waiver: 'w2'
+		});
+	});
+
+	it('links only to the service’s own pages and takes no terms for granted', () => {
+		expect(creditsPage(`${BASE}/agb/belege`, BASE)).toBe(`${BASE}/agb/belege`);
+		expect(creditsPage('/agb/belege', BASE)).toBe(`${BASE}/agb/belege`);
+		expect(creditsPage('https://evil.example.com/agb', BASE)).toBeNull();
+		expect(creditsPage('javascript:alert(1)', BASE)).toBeNull();
+		expect(creditsPage(null, BASE)).toBeNull();
+		const none = publishedTerms({ current: null, withdrawal: { version: 'w1', de: 'Text' } }, BASE);
+		expect(none.current).toBeNull();
+		// Without an English text the German one is shown, not the app's own.
+		expect(none.withdrawal).toEqual({ version: 'w1', de: 'Text', en: 'Text' });
+		expect(publishedTerms({ withdrawal: { de: 'no version' } }, BASE).withdrawal).toBeNull();
+		expect(
+			publishedTerms({ current: { version: 2, url: 'https://evil.example.com/x' } }, BASE).current
+		).toEqual({ version: '2', url: null, changes: [], effectiveAt: null });
+	});
+
+	it('knows when the terms are due', () => {
+		expect(termsOf(undefined)).toMatchObject({ due: false, announced: false, current: null });
+		expect(termsOf({ accepted: null, current: null, pending: null }).due).toBe(false);
+		expect(termsOf({ accepted: null, current: '1' }).due).toBe(true);
+		expect(termsOf({ accepted: { version: '1' }, current: '1' })).toMatchObject({
+			due: false,
+			accepted: '1'
+		});
+		expect(termsOf({ accepted: { version: '1' }, current: { version: '2' } }).due).toBe(true);
+		expect(
+			termsOf({ accepted: { version: '1' }, current: '1', pending: { version: '2' } })
+		).toMatchObject({ due: false, announced: true });
+		expect(
+			termsOf({ accepted: { version: '2' }, current: '1', pending: { version: '2' } }).announced
+		).toBe(false);
 	});
 
 	it('reads the purchase list out of the service’s answer', async () => {

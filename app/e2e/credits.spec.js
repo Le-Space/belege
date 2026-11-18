@@ -30,7 +30,22 @@ function signer(message, signature) {
 }
 
 /** A fake credits service: one balance per address, top-ups booked by its pay page. */
-async function startFakeCredits({ mode = 'live' } = {}) {
+/** The declaration on withdrawal, as the fake service words it (made up). */
+const WITHDRAWAL = {
+	version: 'w-test-1',
+	de: 'Erklärung des Testdienstes.',
+	en: 'The test service’s declaration.'
+};
+
+/**
+ * @param {{ mode?: string, terms?: string | null }} [options] `terms`: the version
+ *   in force; a purchase is refused (412 TERMS) until the account agreed to it
+ */
+async function startFakeCredits({ mode = 'live', terms = null } = {}) {
+	/** @type {Map<string, string>} the version each address agreed to */
+	const agreed = new Map();
+	/** @type {any[]} the bodies of the Checkouts */
+	const checkouts = [];
 	/** @type {Map<string, number>} */
 	const balances = new Map();
 	/** @type {Map<string, { address: string, cents: number }>} */
@@ -100,12 +115,34 @@ async function startFakeCredits({ mode = 'live' } = {}) {
 				lines_this_month: { ki: 0, vm: 0, transfer: 0, refund: 0 },
 				package: null,
 				refund: null,
-				mode
+				mode,
+				terms: {
+					accepted: agreed.has(address) ? { version: agreed.get(address) } : null,
+					current: terms,
+					pending: null
+				}
 			});
+		if (url.pathname === '/v1/terms')
+			return send(200, {
+				current: terms
+					? { version: terms, url: `http://127.0.0.1:${port}/agb/belege`, changes: [] }
+					: null,
+				pending: null,
+				withdrawal: WITHDRAWAL
+			});
+		if (url.pathname === '/v1/terms/accept') {
+			agreed.set(address, String(JSON.parse(raw).version));
+			return send(200, { accepted: { version: agreed.get(address) } });
+		}
 		if (url.pathname === '/v1/purchases')
 			return send(200, { purchases: purchases.get(address) ?? [] });
 		if (url.pathname === '/v1/checkout') {
 			const body = JSON.parse(raw);
+			if (terms && agreed.get(address) !== terms)
+				return send(412, { error: 'the terms are not agreed to', code: 'TERMS' });
+			if (body.waiver !== WITHDRAWAL.version)
+				return send(412, { error: 'the declaration is missing', code: 'WAIVER' });
+			checkouts.push(body);
 			const cs = `cs_test_${sessions.size + 1}`;
 			sessions.set(cs, { address, cents: Number(String(body.package).split('-')[1]) * 100 });
 			return send(200, { client_secret: cs });
@@ -117,6 +154,7 @@ async function startFakeCredits({ mode = 'live' } = {}) {
 	return {
 		url: `http://127.0.0.1:${port}`,
 		calls,
+		checkouts,
 		close: () => new Promise((r) => server.close(() => r(null)))
 	};
 }
@@ -175,7 +213,11 @@ test('a top-up through the service’s own payment page shows as balance', async
 	expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
 
 	await card.getByTestId('credits-topup-25').click();
-	// The withdrawal consent comes before the payment page.
+	// No terms are published: none are asked for. The declaration on withdrawal
+	// comes before the payment page, unticked, in the service's own words.
+	await expect(card.getByTestId('credits-terms')).toHaveCount(0);
+	await expect(card.getByTestId('credits-withdrawal')).toHaveText(WITHDRAWAL.de);
+	await expect(card.getByTestId('credits-agree')).not.toBeChecked();
 	await expect(card.getByTestId('credits-checkout')).toBeDisabled();
 	await card.getByTestId('credits-agree').check();
 	await card.getByTestId('credits-checkout').click();
@@ -192,6 +234,21 @@ test('a top-up through the service’s own payment page shows as balance', async
 	await expect(card.getByTestId('credits-balance')).toHaveText(/25,00\s€/);
 	await expect(card.getByTestId('credits-note')).toHaveText('Aufgeladen.');
 	expect(credits.calls).toContain('POST /v1/checkout');
+	// The Checkout names the declaration the person ticked.
+	expect(credits.checkouts.at(-1)).toMatchObject({
+		package: 'topup-25',
+		waiver: WITHDRAWAL.version
+	});
+	for (const [name, path] of [
+		['terms', '/agb/belege'],
+		['privacy', '/datenschutz'],
+		['security', '/security']
+	]) {
+		await expect(card.getByTestId(`credits-legal-${name}`)).toHaveAttribute(
+			'href',
+			`https://credits.le-space.de${path}`
+		);
+	}
 
 	// The top-up with its invoice: Stripe's hosted page, opened in a tab of its own.
 	const invoice = card.getByTestId('credits-purchases').getByTestId('credits-invoice');
@@ -202,4 +259,38 @@ test('a top-up through the service’s own payment page shows as balance', async
 	await expect(invoice).toHaveAttribute('target', '_blank');
 	await expect(invoice).toHaveAttribute('rel', /noopener/);
 	await expect(card.getByTestId('credits-purchases')).toContainText('25,00');
+});
+
+test('with terms in force, a top-up waits for the agreement', async ({ page }) => {
+	const gated = await startFakeCredits({ terms: '1' });
+	try {
+		const card = await openCreditsCard(page, gated.url);
+		await card.getByTestId('credits-on').click();
+		await expect(card.getByTestId('credits-balance')).toHaveText(/0,00\s€/);
+
+		const terms = card.getByTestId('credits-terms');
+		await expect(terms).toHaveAttribute('data-due', 'true');
+		await expect(terms.getByTestId('credits-terms-link')).toHaveAttribute(
+			'href',
+			`${gated.url}/agb/belege`
+		);
+		await expect(card.getByTestId('credits-topup-10')).toBeDisabled();
+		// Agreeing takes a tick of its own; nothing is ticked beforehand.
+		await expect(terms.getByTestId('credits-terms-read')).not.toBeChecked();
+		await expect(terms.getByTestId('credits-terms-accept')).toBeDisabled();
+		expect(gated.calls).not.toContain('POST /v1/terms/accept');
+		await terms.getByTestId('credits-terms-read').check();
+		await terms.getByTestId('credits-terms-accept').click();
+
+		await expect(card.getByTestId('credits-terms')).toHaveCount(0);
+		await expect(card.getByTestId('credits-terms-accepted')).toContainText('Fassung 1');
+		expect(gated.calls).toContain('POST /v1/terms/accept');
+		await card.getByTestId('credits-topup-10').click();
+		await card.getByTestId('credits-agree').check();
+		await card.getByTestId('credits-checkout').click();
+		await expect(card.getByTestId('credits-frame')).toBeVisible();
+		expect(gated.checkouts).toHaveLength(1);
+	} finally {
+		await gated.close();
+	}
 });

@@ -8,3 +8,7 @@
 
 export const IMPRINT_URL = 'https://le-space.de/#impressum';
 export const PRIVACY_URL = 'https://credits.le-space.de/datenschutz';
+// The terms for Belege's paid offers (Le Space Credits, the hosted bridge) and
+// how Le Space handles security reports, on the same site.
+export const TERMS_URL = 'https://credits.le-space.de/agb/belege';
+export const SECURITY_URL = 'https://credits.le-space.de/security';
