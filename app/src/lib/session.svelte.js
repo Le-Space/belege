@@ -2409,6 +2409,9 @@ async function authorizeLeSpacePayer(key, owner) {
 	} catch (e) {
 		if (/** @type {any} */ (e)?.code === 'NO_PLAN')
 			throw new Error(t('messages.hostedBridge.noPlan'));
+		// Le Space's terms are in force and not agreed to yet (credits/TermsConsent.svelte).
+		if (/** @type {any} */ (e)?.status === 412 && /** @type {any} */ (e)?.code === 'TERMS')
+			throw new Error(t('credits.terms.needed'), { cause: e });
 		throw e;
 	}
 	if (!/^0x[0-9a-fA-F]{40}$/.test(String(answer?.owner ?? ''))) {
