@@ -8,6 +8,8 @@ All notable changes to Le Space Belege. The format follows
 
 ### Security
 
+- **The production build is checked, not only said to be clean** (#536, part of the audit plan #209). After every build for a release, a pull request and a deploy, `scripts/check-production-build.mjs` reads the built site and fails when a file names a test hook: a `__belege…` global, the build flag `VITE_E2E`, the key export for tests or the test booking button. In `deploy.yml` it reads the very directory that is published.
+- **The at-rest check runs against what visitors get.** A new spec (`app/e2e-production`, `pnpm --filter @belege/app run test:production`) builds the app as a deploy does, creates a passkey, reads a bank statement in, reloads and unlocks, and then looks through IndexedDB, `localStorage`, `sessionStorage` and the service worker's cache for every key of the session and for lines of the statement. This build has no hook that names its keys, so the spec listens where keys pass through the browser's cryptography (`app/e2e/secret-spy.js`); `passkey-books.spec.js` checks in the E2E build that the listener hears every key the app names there. The at-rest scan of the other specs now reads `sessionStorage` too.
 - **Standing tests from the audit plan** (#537, part of #209), so a regression fails CI. `no-discovery.spec.js` lists every libp2p node the app can start with its exact services, starts each as the app does and checks that it answers to no DHT, discovery or NAT protocol and that a provide has nowhere to go; a node made anywhere else, Helia building a libp2p of its own, or a discovery package among the dependencies fails it. `sealed-blocks.spec.js` opens the store as the app does, writes into every collection and the file store and classifies every block of the block store as sealed, public by design or neither – neither fails – and reads the sources for a database opened without the sealing.
 - **A stranger against the real stack, as a standing test** (#537, part of #209). `stranger-peer.spec.js` runs a node with a key of its own and no device proof against a device of the books in a browser, through the relay, in the modes that listen at one: it tries every protocol the device answers to, before and after a made-up proof, subscribes to the books' topics and wants a block. It is told the identify and relay protocols and nothing of the books. In the mode without a relay it cannot reach the device.
 
@@ -16,6 +18,10 @@ All notable changes to Le Space Belege. The format follows
 - A call to the bridge waits for its answer. Over the bridge's node a call was given up after a minute, so listing a mailbox with many mails, a wallet with a long history or a slow reading by the language model ended as "the bridge is not reachable" while the bridge finished and nobody took the answer. A call now has ten minutes (`@le-space/ucep` patched so a caller can say how long).
 - A purchase of Aleph credits is known right after the wallet's sync. The accounts' purchases were read only on the Aleph page, so the payment that had just come into the books asked for a receipt until someone went there.
 - The Verlauf names a NEAR wallet's sync and the ledger accounts taken from the chart of accounts, instead of showing their keys.
+
+### Changed
+
+- Three timing switches of the backup tests (the quiet time before an automatic backup, the wait for Aleph's decision, the recheck schedule) are compiled out of every build but the one for the end-to-end tests, like the other test hooks. They only shortened waits.
 
 ## [0.43.0] – 2026-11-19
 

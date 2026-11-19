@@ -12,6 +12,7 @@ import {
 	takeCeremonies
 } from './webauthn.js';
 import { everythingStoredAsText, spellings } from './storage-scan.js';
+import { secretsSeen, spyOnSecrets } from './secret-spy.js';
 import { acceptConsent } from './consent.js';
 
 /** @param {import('@playwright/test').Page} page */
@@ -66,9 +67,10 @@ async function plantLegacyKeystore(/** @type {import('@playwright/test').Page} *
 	);
 }
 
-test('a passkey opens sealed books that survive a reload', async ({ page }) => {
+test('a passkey opens sealed books that survive a reload', async ({ page, context }) => {
 	const marker = `Marker-Stadtwerke-${Date.now().toString(36)}`;
 	const afterReload = `Marker-Miete-${Date.now().toString(36)}`;
+	await spyOnSecrets(context);
 	await addVirtualAuthenticator(page);
 	await recordCeremonies(page);
 
@@ -102,6 +104,17 @@ test('a passkey opens sealed books that survive a reload', async ({ page }) => {
 	// 32 bytes: the books' secret, their own identity's (#496). No passkey signing key.
 	expect(first.secrets?.booksSecret).toMatch(/^[0-9a-f]{64}$/);
 	expect(first.secrets?.signingKey).toBeUndefined();
+	// The production build names no key (#536): its at-rest check listens where
+	// keys pass instead (secret-spy.js). Here, where the build does name them,
+	// the listener must have heard each one. Not the node's key: without
+	// device sync it is made at random for the session and derived from
+	// nothing; with device sync it is derived (`belege/device-peer/…`), which
+	// the production spec waits to hear.
+	const heard = (await secretsSeen(page)).map((s) => s.hex);
+	const unheard = Object.entries(first.secrets ?? {})
+		.filter(([name, hex]) => name !== 'peerKey' && !heard.includes(hex))
+		.map(([name]) => name);
+	expect(unheard).toEqual([]);
 
 	// A booking, through the real store.
 	await book(page, marker);

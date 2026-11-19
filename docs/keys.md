@@ -79,6 +79,8 @@ One key reveals nothing about another.
 | the bridge's key                    | the bridge's keychain (`bridge-auth`)                                    | only if the bridge was paired by invitation                                                                                                     |
 | a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup | sealed under the member's passkey                                                                                                               |
 
+**How this is checked.** After a session with a passkey, a bank statement and a reload, a test reads everything this site keeps – IndexedDB, `localStorage`, `sessionStorage` and the service worker's cache – and looks for every key of the session, in each way bytes can be written down, and for lines of the statement. It runs in CI against the build that is published (`app/e2e-production`), which has no test hook to ask for its keys: the test listens where keys pass through the browser's cryptography instead. The published files themselves are read for test hooks before each deploy (`scripts/check-production-build.mjs`).
+
 ## What the bridge holds, and why
 
 The bridge is a small program on your computer. It does what a browser may not: ask your bank,

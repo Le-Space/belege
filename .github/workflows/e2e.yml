@@ -137,11 +137,46 @@ jobs:
           path: app/test-results/
           retention-days: 7
 
+  # What visitors get (#536): the production build – no VITE_E2E, so no test
+  # hook – in a browser. One spec (app/e2e-production): the page answers to no
+  # test global, and after a session nothing the origin keeps holds a key or a
+  # booking in the clear. Then the same build is read for test hooks.
+  production:
+    name: Production build
+    needs: changes
+    if: needs.changes.outputs.e2e == 'full'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Let git read the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: No test hook, no key at rest
+        run: pnpm --filter @belege/app run test:production
+      - name: No test hook in the build that was tested
+        run: node scripts/check-production-build.mjs app/build
+      - name: Keep the evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-production
+          path: app/test-results/
+          retention-days: 7
+
   # One result for the whole workflow, under the name the shards replaced:
   # green when every shard passed, or when the pull request needs no spec.
   done:
     name: E2E tests
-    needs: [changes, e2e, e2e-stream]
+    needs: [changes, e2e, e2e-stream, production]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -151,9 +186,10 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           E2E: ${{ needs.e2e.result }}
           STREAM: ${{ needs.e2e-stream.result }}
+          PRODUCTION: ${{ needs.production.result }}
         run: |
-          echo "changes=$CHANGES e2e=$E2E stream=$STREAM"
+          echo "changes=$CHANGES e2e=$E2E stream=$STREAM production=$PRODUCTION"
           [ "$CHANGES" = success ] || exit 1
-          for r in "$E2E" "$STREAM"; do
+          for r in "$E2E" "$STREAM" "$PRODUCTION"; do
             case "$r" in success | skipped) ;; *) exit 1 ;; esac
           done
