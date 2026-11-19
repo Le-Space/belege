@@ -424,6 +424,11 @@ export default {
 			unknownDevice: 'The bridge does not know this device (pair again).',
 			nodeUnreachable:
 				'The bridge’s node cannot be reached over the network right now. No need to pair again: check in the “Network” menu at the top whether a Le Space relay can be reached, and otherwise reload the page.',
+			hostedUnreachable: {
+				aleph:
+					'The hosted bridge on Aleph does not answer. If its VM is not running or still locked: start and unlock it under Integrations → Bridge. If it runs and is unlocked: check in the “Network” menu at the top whether a Le Space relay can be reached.',
+				near: 'The hosted bridge on Phala (through NEAR) does not answer. If it is not running: start it under Integrations → Bridge. If it runs: check in the “Network” menu at the top whether a Le Space relay can be reached.'
+			},
 			outdated:
 				'Your bridge is older than this app and does not know this function yet. Please update it: git pull, pnpm install, then restart pnpm bridge.',
 			needsSync:
@@ -3645,6 +3650,7 @@ export default {
 		wayOut: {
 			unreachable: 'Start the bridge in the terminal:',
 			'unknown-device': 'The bridge no longer knows this pairing.',
+			hosted: 'Start or unlock the hosted bridge:',
 			origin: 'Once in the terminal, then restart the bridge (Ctrl+C, pnpm bridge):',
 			mail: 'Set up the mailbox once in the terminal, then restart the bridge:',
 			llm: 'Set up the language model once in the terminal, then restart the bridge:',
@@ -3654,6 +3660,7 @@ export default {
 		wayOutLink: {
 			unreachable: 'To the bridge',
 			'unknown-device': 'Pair again',
+			hosted: 'To the bridge',
 			origin: 'To the bridge',
 			llm: 'To the AI setup'
 		}

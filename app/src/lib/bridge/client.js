@@ -124,9 +124,10 @@ const withTerms = (body) => ({ ...body, redactTerms: redactTerms().slice(0, 20) 
  * @param {string} message
  * @param {number} status
  * @param {{ code?: string, error?: string } | null} body
+ * @param {import('../help/way-out.js').WayOutKind | null} [kind] the way out, when the answer alone does not say it
  */
-function failed(message, status, body) {
-	noteWayOut(message, wayOutKind(status, body));
+function failed(message, status, body, kind = wayOutKind(status, body)) {
+	noteWayOut(message, kind);
 	return new BridgeError(message, status, body?.code ?? null);
 }
 
@@ -300,6 +301,43 @@ export function setBridgeTransport(fetchLike) {
 }
 
 /**
+ * Which bridge the books expect to answer (integrations/bridge-status.js
+ * `expectedBridge`), asked when none does: the session reads it from the
+ * sealed settings. null: not known – the text is the one for a bridge on a
+ * computer then, as before.
+ *
+ * @type {() => ('aleph' | 'near' | 'local' | null) | Promise<'aleph' | 'near' | 'local' | null>}
+ */
+let expected = () => null;
+
+/** @param {typeof expected} which */
+export function setExpectedBridge(which) {
+	expected = which;
+}
+
+/**
+ * What to say when the bridge does not answer: for a hosted bridge where its
+ * VM is started and unlocked – never whether `pnpm bridge` runs.
+ *
+ * @param {'unreachable' | 'nodeUnreachable'} key the text for a bridge on a computer
+ * @param {number} status
+ * @param {{ code?: string, error?: string } | null} body
+ */
+async function silent(key, status, body) {
+	/** @type {Awaited<ReturnType<typeof expected>>} */
+	let which = null;
+	try {
+		which = await expected();
+	} catch {
+		// not known
+	}
+	// A hosted bridge is started and unlocked on its page, not in a terminal.
+	return which === 'aleph' || which === 'near'
+		? failed(t(`messages.bridge.hostedUnreachable.${which}`), status, body, 'hosted')
+		: failed(t(`messages.bridge.${key}`), status, body);
+}
+
+/**
  * How this page reaches its own bridge now: the transport the session set
  * (the bridge's node over a stream first), else plain fetch. The desktop's
  * forwarding to own devices calls its bridge this way (#580).
@@ -362,14 +400,14 @@ export function createBridgeClient({
 				credentials: 'omit'
 			});
 		} catch {
-			throw failed(t('messages.bridge.unreachable'), 0, null);
+			throw await silent('unreachable', 0, null);
 		}
 		if (binary && res.ok) return new Uint8Array(await res.arrayBuffer());
 		const body = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			// Sent only because the bridge's node was not connected (sync/remote-bridge.js).
 			if (res.status === 503 && body?.code === 'BRIDGE_NODE_UNREACHABLE') {
-				throw failed(t('messages.bridge.nodeUnreachable'), 503, body);
+				throw await silent('nodeUnreachable', 503, body);
 			}
 			// The bridge answers "not found" for a route it does not have: a command the
 			// app's catalogue knows and this bridge not yet – older code than this app.

@@ -4,6 +4,7 @@
 // localStorage.
 
 import { getSetting, setSetting } from '$lib/store/settings.js';
+import { VM_SETTING } from '$lib/integrations/hosted-vm.js';
 
 /** The pairing with the books' bridge. */
 export const BRIDGE_SETTING = 'bridge';
@@ -45,6 +46,18 @@ export const NEAR_HOSTED_SETTING = 'bridge/hosted-near';
  */
 
 /** @typedef {import('$lib/store/repository.js').Collection} Settings */
+
+/**
+ * The VM on Aleph the books started (settings `bridge/hosted-vm`, integrations/hosted-vm.js):
+ * which instance, on which node, since when – and `stoppedAt` once it was stopped.
+ *
+ * @param {Settings} settings
+ * @returns {Promise<{ instance: string, stoppedAt?: string } | null>}
+ */
+export async function readHostedVmRecord(settings) {
+	const kept = await getSetting(settings, VM_SETTING);
+	return typeof kept?.instance === 'string' ? kept : null;
+}
 
 /**
  * @param {Settings} settings

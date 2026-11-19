@@ -7,7 +7,7 @@
 // back. Only the few messages the client itself makes are noted.
 
 /**
- * @typedef {'unreachable' | 'unknown-device' | 'origin' | 'mail' | 'llm' | 'hibiscus' | 'kraken'} WayOutKind
+ * @typedef {'unreachable' | 'unknown-device' | 'hosted' | 'origin' | 'mail' | 'llm' | 'hibiscus' | 'kraken'} WayOutKind
  */
 
 /**
@@ -21,6 +21,8 @@
 const WAYS = {
 	unreachable: { command: 'pnpm bridge', href: '/integrationen/bridge' },
 	'unknown-device': { href: '/integrationen/bridge' },
+	// A hosted bridge that does not answer: started and unlocked on its page.
+	hosted: { href: '/integrationen/bridge' },
 	// The command names this page's origin: see `wayOutOf`.
 	origin: { href: '/integrationen/bridge' },
 	mail: { command: 'pnpm setup:mail' },
