@@ -9,6 +9,7 @@
 
 import { createBridgeClient, pairedWith } from '../bridge/client.js';
 import { getSetting, setSetting } from '../store/settings.js';
+import { readBridgeRecord } from '../bridge-connection/record.js';
 import { t } from '../i18n/index.js';
 import { currentBlobs, currentStore, refreshNow, runMatchingNow } from '../session.svelte.js';
 import { extractable } from './extract.js';
@@ -47,7 +48,7 @@ export async function loadUpload() {
 	const store = currentStore();
 	if (!store) return;
 	upload.readAfter = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
-	const saved = await getSetting(store.settings, 'bridge');
+	const saved = await readBridgeRecord(store.settings);
 	if (!pairedWith(saved)) {
 		client = null;
 		upload.llm = false;

@@ -33,7 +33,7 @@ import { pinsOf, unlockInstance } from '@le-space/attest-wasm/instance';
 export const HOSTED_IMAGE = 'd5a2f85f4a0ca793c58c85cf2d5d25b591deee1f0519e5d649d6aaf7ada4618c';
 
 /** The sealed settings record: which VM, its name, the bridge's own peer key, when it was attested. */
-export const HOSTED_SETTING = 'bridge/hosted';
+export { HOSTED_SETTING } from '$lib/bridge-connection/record.js';
 
 /** In E2E builds only: a fake Aleph's attest relay, and the measurement the fake agent reports. */
 export const E2E_ATTEST_URL_KEY = 'belege.e2e.attestUrl';
