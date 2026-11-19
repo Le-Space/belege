@@ -537,6 +537,9 @@ describe('the bridge on this machine, started again', () => {
 			async dial(addr) {
 				dialled.push(String(addr));
 				if (!String(addr).startsWith(`/ip4/127.0.0.1/tcp/${port}/ws`)) throw new Error('refused');
+				// As libp2p does: a dial to a peer it is connected to opens no second connection
+				// (adding a device dials it, and so does the round the new record starts).
+				if (connections.some((c) => c.remotePeer.toString() === bridge)) return;
 				connections.push({
 					remotePeer: { toString: () => bridge },
 					remoteAddr: { toString: () => String(addr) },
