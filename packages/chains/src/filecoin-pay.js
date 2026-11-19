@@ -23,7 +23,8 @@
 //      RailSettled, RailOneTimePaymentProcessed) and the balance by
 //      `eth_call` (`accounts(token, owner)`). Without a key Blockscout
 //      allows about ten requests and then none for minutes; with one
-//      (dev.blockscout.com, free) it is asked through api.blockscout.com.
+//      (dev.blockscout.com, free) it is asked through api.blockscout.com,
+//      the key in the `authorization` header, never in a URL.
 //      The public RPC is no way: it gives events for 360 blocks.
 //
 // Whoever is asked sees the payer's address and this machine's IP.
@@ -73,6 +74,8 @@ export const FILECOIN_PAY = Object.freeze({
 	api: 'https://filecoin.blockscout.com/api',
 	/** Blockscout's API for a key: every chain behind one host, by `chain_id`. */
 	keyedApi: 'https://api.blockscout.com/v2/api',
+	/** Its JSON-RPC for a key (`eth_call`): the chain in the path. */
+	keyedRpc: 'https://api.blockscout.com/{chain}/json-rpc',
 	chainId: 314,
 	message: 'https://filfox.info/en/message/{tx}',
 	explorer: Object.freeze({
@@ -389,6 +392,9 @@ export function summarisePay(
  * @param {number} [options.pauseMs] the wait between two requests to Blockscout
  * @param {{ rate: (asset: string, date: string) => Promise<{ rate: string, source: string }> } | null} [options.rates]
  * @param {() => Date} [options.now]
+ * @param {{ api: string, rpc: string }} [options.keyed] where a Blockscout key is sent: Blockscout's
+ *   keyed host. Set where the client is made, not per request, so that whoever asks for a
+ *   statement cannot have the key sent elsewhere (tests: a fake on this machine).
  */
 export function createFilecoinPayClient({
 	fetch: f = fetch,
@@ -398,7 +404,11 @@ export function createFilecoinPayClient({
 	perPage = PER_PAGE,
 	pauseMs = 350,
 	rates = null,
-	now = () => new Date()
+	now = () => new Date(),
+	keyed = {
+		api: FILECOIN_PAY.keyedApi,
+		rpc: FILECOIN_PAY.keyedRpc.replace('{chain}', String(FILECOIN_PAY.chainId))
+	}
 } = {}) {
 	const wait = sleep ?? ((/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms)));
 	const getJson = createJsonFetcher({ fetch: f, timeoutMs, sleep: wait });
@@ -594,7 +604,8 @@ export function createFilecoinPayClient({
 
 	/**
 	 * Blockscout's Etherscan-like API with a query: the chain's own instance, or
-	 * – with a key – the one host for every chain.
+	 * – with a key – the one host for every chain. The key is not in the URL:
+	 * it goes in a header (`keyHeaders`), so no log of URLs can hold it.
 	 *
 	 * @param {{ blockscout: string, blockscoutKey?: string }} endpoints
 	 * @param {Record<string, string>} query
@@ -603,9 +614,11 @@ export function createFilecoinPayClient({
 		const params = new URLSearchParams(query);
 		if (!endpoints.blockscoutKey) return `${endpoints.blockscout}?${params}`;
 		params.set('chain_id', String(FILECOIN_PAY.chainId));
-		params.set('apikey', endpoints.blockscoutKey);
-		return `${FILECOIN_PAY.keyedApi}?${params}`;
+		return `${keyed.api}?${params}`;
 	};
+	/** @param {{ blockscoutKey?: string }} endpoints @returns {Record<string, string>} */
+	const keyHeaders = (endpoints) =>
+		endpoints.blockscoutKey ? { authorization: `Bearer ${endpoints.blockscoutKey}` } : {};
 
 	/**
 	 * Every log of one event, oldest first, from a block on; narrowed to one
@@ -635,7 +648,9 @@ export function createFilecoinPayClient({
 				query[`topic${where.index}`] = `0x${word(where.value)}`;
 				query[`topic0_${where.index}_opr`] = 'and';
 			}
-			const body = await slowly(blockscoutUrl(endpoints, query));
+			const body = await slowly(blockscoutUrl(endpoints, query), {
+				headers: keyHeaders(endpoints)
+			});
 			// "No logs found" comes with status 0 and an empty result.
 			const batch = Array.isArray(body?.result) ? body.result : null;
 			if (!batch) throw new WalletError('Blockscout answered without logs', 'FILPAY_DATA');
@@ -672,26 +687,21 @@ export function createFilecoinPayClient({
 	 */
 	async function fundsOf(endpoints, payer) {
 		const data = `${ACCOUNTS}${word(FILECOIN_PAY.token.contract)}${word(payer)}`;
-		const body = endpoints.blockscoutKey
-			? await slowly(
-					blockscoutUrl(endpoints, {
-						module: 'proxy',
-						action: 'eth_call',
-						to: FILECOIN_PAY.contract,
-						data,
-						tag: 'latest'
-					})
-				)
-			: await slowly(`${endpoints.blockscout}/eth-rpc`, {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						jsonrpc: '2.0',
-						id: 1,
-						method: 'eth_call',
-						params: [{ to: FILECOIN_PAY.contract, data }, 'latest']
-					})
-				});
+		// The module API has no `eth_call` (no `proxy` module, checked 2026-11-19):
+		// the JSON-RPC of the instance, or of the keyed host.
+		const body = await slowly(
+			endpoints.blockscoutKey ? keyed.rpc : `${endpoints.blockscout}/eth-rpc`,
+			{
+				method: 'POST',
+				headers: { 'content-type': 'application/json', ...keyHeaders(endpoints) },
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'eth_call',
+					params: [{ to: FILECOIN_PAY.contract, data }, 'latest']
+				})
+			}
+		);
 		const w = words(body?.result);
 		if (w.length < 4)
 			throw new WalletError('Blockscout answered the balance without one', 'FILPAY_DATA');
