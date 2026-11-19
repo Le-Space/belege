@@ -41,6 +41,31 @@ describe('ledger accounts from the chart', () => {
 		});
 	});
 
+	it('reads an asset’s ticker and its name as one word', () => {
+		const named = {
+			accounts: [
+				{ number: '1110', name: 'Kraken EURO' },
+				{ number: '1120', name: 'Kraken Bitcoin' },
+				{ number: '1130', name: 'Kraken Filecoin' },
+				{ number: '1185', name: 'Hardware-Wallet Bitcoin - BTC' }
+			]
+		};
+		const found = ledgersFromChart(
+			[
+				{ id: 'a', name: 'Kraken BTC' },
+				{ id: 'b', name: 'Kraken EUR' },
+				{ id: 'c', name: 'Kraken FIL' }
+			],
+			named
+		);
+		expect(Object.fromEntries([...found].map(([id, c]) => [id, c.number]))).toEqual({
+			a: '1120',
+			b: '1110',
+			c: '1130'
+		});
+		expect(nameWords('Kraken XBT')).toEqual(['kraken', 'btc']);
+	});
+
 	it('takes nothing that is ambiguous, in use or already set', () => {
 		// "Kraken" alone fits three chart accounts.
 		expect(ledgersFromChart([{ id: 'a', name: 'Kraken' }], chart).size).toBe(0);

@@ -16,6 +16,34 @@ import { isAccountNumber } from './skr03.js';
 const GENERIC = new Set(['konto', 'kto', 'nr', 'no', 'account', 'acct']);
 
 /**
+ * An asset's ticker and its name are one word: a chart says "Kraken Bitcoin"
+ * where the account is "Kraken BTC". Each line is one asset, as compared
+ * (lower case, umlauts spelled out).
+ */
+const SAME_ASSET = [
+	['eur', 'euro'],
+	['usd', 'dollar'],
+	['btc', 'xbt', 'bitcoin'],
+	['eth', 'ether', 'ethereum'],
+	['fil', 'filecoin'],
+	['xmr', 'monero'],
+	['akt', 'akash'],
+	['atom', 'cosmos'],
+	['dot', 'polkadot'],
+	['sol', 'solana'],
+	['ada', 'cardano'],
+	['ltc', 'litecoin'],
+	['doge', 'dogecoin'],
+	['xrp', 'ripple'],
+	['usdt', 'tether'],
+	['matic', 'pol', 'polygon'],
+	['arb', 'arbitrum'],
+	['op', 'optimism']
+];
+/** @type {Map<string, string>} every spelling → the first of its line */
+const ASSET_WORD = new Map(SAME_ASSET.flatMap((line) => line.map((w) => [w, line[0]])));
+
+/**
  * A name as compared: its words of letters and digits, lower case, umlauts
  * as written or spelled out alike.
  *
@@ -30,7 +58,8 @@ export function nameWords(text) {
 		.replace(/ü/g, 'ue')
 		.replace(/ß/g, 'ss')
 		.split(/[^a-z0-9]+/)
-		.filter((w) => w.length >= 2);
+		.filter((w) => w.length >= 2)
+		.map((w) => ASSET_WORD.get(w) ?? w);
 }
 
 /** The chart's ledger accounts (not its longer personal accounts), with their words. @param {{ accounts: ChartAccount[] } | null | undefined} chart */

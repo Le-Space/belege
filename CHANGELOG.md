@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Ledger accounts from the chart of accounts: an asset's ticker and its name count as the same word, so a chart that says "Kraken Bitcoin", "Kraken EURO" or "Kraken Filecoin" now names the accounts "Kraken BTC", "Kraken EUR" and "Kraken FIL". Before, only names spelled exactly alike were taken.
+
 ## [0.41.0] – 2026-11-19
 
 ### Added

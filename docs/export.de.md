@@ -395,7 +395,7 @@ Der Kontenplan bleibt verschlüsselt in deinen Büchern im Browser, wie jeder Da
 
 ### Sachkonten aus dem Kontenplan
 
-Beim Übernehmen des Kontenplans und bei jedem Öffnen der Einstellungen bekommt jedes Bank-, Börsen- oder Wallet-Konto ohne Sachkonto das Konto, das der Kontenplan dafür nennt. Das ist das Konto, dessen Bezeichnung die letzten vier Stellen der IBAN enthält. Sonst ist es das Konto, dessen Bezeichnung jedes Wort des Kontonamens enthält, etwa „1310 Kraken BTC“ für „Kraken BTC“.
+Beim Übernehmen des Kontenplans und bei jedem Öffnen der Einstellungen bekommt jedes Bank-, Börsen- oder Wallet-Konto ohne Sachkonto das Konto, das der Kontenplan dafür nennt. Das ist das Konto, dessen Bezeichnung die letzten vier Stellen der IBAN enthält. Sonst ist es das Konto, dessen Bezeichnung jedes Wort des Kontonamens enthält, etwa „1310 Kraken BTC“ für „Kraken BTC“. Kürzel und Name eines Assets gelten dabei als dasselbe Wort, „Kraken Bitcoin“ passt also auch.
 
 Übernommen wird nur, was eindeutig ist: ein Konto des Plans für genau ein Konto der Bücher, das kein anderes schon nutzt. Die längeren Personenkonten (Debitoren, Kreditoren) bleiben außen vor.
 
