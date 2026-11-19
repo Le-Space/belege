@@ -1,20 +1,20 @@
-nodeLinker: isolated
 packages:
   - app
   - bridge
   - bridge/tee/launcher
   - packages/*
-# Same pin as Le-Space/simple-todo: OrbitDB's sync needs gossipsub on libp2p v3.
-overrides:
-  '@libp2p/gossipsub': 16.1.0
-onlyBuiltDependencies:
-  - esbuild
-  # libp2p's WebRTC in Node (the app's unit specs); the browser build does not use it.
-  - node-datachannel
 # ccxt (the bridge's exchanges, #265) lists bufferutil as optional; it would
 # become ws's optional native peer across the workspace. Nothing needs it.
 ignoredOptionalDependencies:
   - bufferutil
+nodeLinker: isolated
+onlyBuiltDependencies:
+  - esbuild
+  # libp2p's WebRTC in Node (the app's unit specs); the browser build does not use it.
+  - node-datachannel
+# Same pin as Le-Space/simple-todo: OrbitDB's sync needs gossipsub on libp2p v3.
+overrides:
+  '@libp2p/gossipsub': 16.1.0
 # Playwright records its videos as VP8 capped at 1 Mbit/s, too soft for text
 # on a 1080p page (the demo films, app/e2e-video). The patch raises the cap.
 # @libp2p/circuit-relay-v2: after the first reservation it dropped a queued
@@ -23,5 +23,6 @@ ignoredOptionalDependencies:
 # And a refreshed reservation took a configured relay's addresses away for good;
 # the patch gives them back to the listener, as 4.2.17 does.
 patchedDependencies:
+  '@le-space/ucep@0.2.0-draft.5': patches/@le-space__ucep@0.2.0-draft.5.patch
   '@libp2p/circuit-relay-v2@4.2.9': patches/@libp2p__circuit-relay-v2@4.2.9.patch
   playwright-core@1.61.1: patches/playwright-core@1.61.1.patch

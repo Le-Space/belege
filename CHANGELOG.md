@@ -10,6 +10,12 @@ All notable changes to Le Space Belege. The format follows
 
 - **Standing tests from the audit plan** (#537, part of #209), so a regression fails CI. `no-discovery.spec.js` lists every libp2p node the app can start with its exact services, starts each as the app does and checks that it answers to no DHT, discovery or NAT protocol and that a provide has nowhere to go; a node made anywhere else, Helia building a libp2p of its own, or a discovery package among the dependencies fails it. `sealed-blocks.spec.js` opens the store as the app does, writes into every collection and the file store and classifies every block of the block store as sealed, public by design or neither – neither fails – and reads the sources for a database opened without the sealing.
 
+### Fixed
+
+- A call to the bridge waits for its answer. Over the bridge's node a call was given up after a minute, so listing a mailbox with many mails, a wallet with a long history or a slow reading by the language model ended as "the bridge is not reachable" while the bridge finished and nobody took the answer. A call now has ten minutes (`@le-space/ucep` patched so a caller can say how long).
+- A purchase of Aleph credits is known right after the wallet's sync. The accounts' purchases were read only on the Aleph page, so the payment that had just come into the books asked for a receipt until someone went there.
+- The Verlauf names a NEAR wallet's sync and the ledger accounts taken from the chart of accounts, instead of showing their keys.
+
 ## [0.43.0] – 2026-11-19
 
 ### Added

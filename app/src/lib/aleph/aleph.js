@@ -192,6 +192,26 @@ export async function scanAleph({ client, settings, wallets, now = () => new Dat
 	return { asked: addresses.length, accounts, purchases };
 }
 
+/**
+ * After own wallets were synced: the credit purchases of the books' Aleph
+ * accounts are read again, so that a payment that just came into the books is
+ * known as the purchase it paid, without a visit to the Aleph page. Only when
+ * Aleph is in use here (the scan is on, or an account is kept), and never an
+ * error of the sync: what cannot be read now is read at the next sync.
+ *
+ * @param {Parameters<typeof scanAleph>[0]} p
+ * @returns {Promise<number>} the purchases newly known
+ */
+export async function learnAlephPurchases(p) {
+	try {
+		const aleph = await loadAleph(p.settings);
+		if (!aleph.scan && !aleph.extra.length && !aleph.accounts.length) return 0;
+		return (await scanAleph(p)).purchases;
+	} catch {
+		return 0;
+	}
+}
+
 /** `2026-08` → `2026-08-31`. @param {string} month */
 export const lastDay = (month) => {
 	const [y, m] = month.split('-').map(Number);

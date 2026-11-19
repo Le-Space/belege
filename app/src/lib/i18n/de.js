@@ -3483,6 +3483,7 @@ export default {
 			'receipt-moved': 'Beleg von einer anderen Zahlung hierher umgehängt',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			'aleph-statement': 'Aleph-Verbrauchsnachweis {number} für {month} erstellt',
+			'ledger-from-chart': 'Buchhaltungskonten aus dem Kontenplan übernommen',
 			'filecoin-pay-statement': 'Filecoin-Pay-Verbrauchsnachweis {number} für {month} erstellt',
 			booking: 'Konto übernommen',
 			bookings: 'Automatische Konten übernommen',
@@ -3503,6 +3504,7 @@ export default {
 			polygon: 'Wallet (Polygon)',
 			bitcoin: 'Wallet (Bitcoin)',
 			filecoin: 'Wallet (Filecoin)',
+			near: 'Wallet (NEAR)',
 			monero: 'Wallet (Monero)',
 			'crypto-ledger': 'crypto-ledger-Import'
 		},
