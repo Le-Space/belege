@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Standing tests from the audit plan** (#537, part of #209), so a regression fails CI. `no-discovery.spec.js` lists every libp2p node the app can start with its exact services, starts each as the app does and checks that it answers to no DHT, discovery or NAT protocol and that a provide has nowhere to go; a node made anywhere else, Helia building a libp2p of its own, or a discovery package among the dependencies fails it. `sealed-blocks.spec.js` opens the store as the app does, writes into every collection and the file store and classifies every block of the block store as sealed, public by design or neither – neither fails – and reads the sources for a database opened without the sealing.
+
 ## [0.43.0] – 2026-11-19
 
 ### Added

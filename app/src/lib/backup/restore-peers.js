@@ -72,19 +72,29 @@ export async function restoreProviders(
  */
 
 /**
+ * The libp2p options of the node: it listens nowhere and only dials. Exported
+ * so a test can read what it runs (sync/no-discovery.spec.js).
+ *
+ * @returns {import('libp2p').Libp2pOptions<any>}
+ */
+export function restoreLibp2pConfig() {
+	return {
+		addresses: { listen: [] },
+		transports: [webSockets(), webRTCDirect()],
+		connectionEncrypters: [noise()],
+		streamMuxers: [yamux()],
+		services: { identify: identify() }
+	};
+}
+
+/**
  * The node, started.
  *
  * @param {{ routers?: string[] }} [options]
  * @returns {Promise<RestorePeers>}
  */
 export async function createRestorePeers({ routers } = {}) {
-	const libp2p = await createLibp2p({
-		addresses: { listen: [] },
-		transports: [webSockets(), webRTCDirect()],
-		connectionEncrypters: [noise()],
-		streamMuxers: [yamux()],
-		services: { identify: identify() }
-	});
+	const libp2p = await createLibp2p(restoreLibp2pConfig());
 	const helia = await withBitswap(withLibp2p(createHeliaLight({}), libp2p)).start();
 	const fs = unixfs(helia);
 	/** @type {Set<string>} */
