@@ -2788,6 +2788,7 @@ export default {
 			title: 'Buchhaltung (DATEV-Export)',
 			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in deiner Buchhaltung – dort steht, was sie beim Import erwartet.',
 			fromChart: 'Aus deinem Kontenplan übernommen – bitte prüfen.',
+			candidates: 'Aus deinem Kontenplan könnte passen:',
 			ledger: 'Sachkonto in deiner Buchhaltung',
 			ledgerHint:
 				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',

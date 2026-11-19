@@ -2,7 +2,13 @@
 // wallet is offered. Made-up charts and accounts.
 import { describe, expect, it } from 'vitest';
 
-import { ledgersFromChart, nameWords, suggestWalletLedger } from './ledger-match.js';
+import {
+	bankWord,
+	chartCandidates,
+	ledgersFromChart,
+	nameWords,
+	suggestWalletLedger
+} from './ledger-match.js';
 
 const chart = {
 	accounts: [
@@ -41,6 +47,31 @@ describe('ledger accounts from the chart', () => {
 		});
 	});
 
+	it('reads an asset’s ticker and its name as one word', () => {
+		const named = {
+			accounts: [
+				{ number: '1110', name: 'Kraken EURO' },
+				{ number: '1120', name: 'Kraken Bitcoin' },
+				{ number: '1130', name: 'Kraken Filecoin' },
+				{ number: '1185', name: 'Hardware-Wallet Bitcoin - BTC' }
+			]
+		};
+		const found = ledgersFromChart(
+			[
+				{ id: 'a', name: 'Kraken BTC' },
+				{ id: 'b', name: 'Kraken EUR' },
+				{ id: 'c', name: 'Kraken FIL' }
+			],
+			named
+		);
+		expect(Object.fromEntries([...found].map(([id, c]) => [id, c.number]))).toEqual({
+			a: '1120',
+			b: '1110',
+			c: '1130'
+		});
+		expect(nameWords('Kraken XBT')).toEqual(['kraken', 'btc']);
+	});
+
 	it('takes nothing that is ambiguous, in use or already set', () => {
 		// "Kraken" alone fits three chart accounts.
 		expect(ledgersFromChart([{ id: 'a', name: 'Kraken' }], chart).size).toBe(0);
@@ -75,6 +106,56 @@ describe('ledger accounts from the chart', () => {
 			).size
 		).toBe(0);
 		expect(ledgersFromChart([{ id: 'a', name: 'Kraken BTC' }], null).size).toBe(0);
+	});
+});
+
+describe('an account whose name says nothing of its bank', () => {
+	const banks = {
+		accounts: [
+			{ number: '1100', name: 'Beispielbank Nord' },
+			{ number: '1140', name: 'Zahlfix Business' },
+			{ number: '1220', name: 'Kartenguthaben Geldweg Europa' },
+			{ number: '1730', name: 'Geldweg Kartenabrechnung' },
+			{ number: '1186', name: 'Tresor - ETH (Ethereum)' },
+			{ number: '1192', name: 'relay-test - ETH (Ethereum)' },
+			{ number: '1197', name: 'Tresor - ALEPH (Ethereum)' }
+		]
+	};
+
+	it('is named by its bank, where the source says which', () => {
+		expect(bankWord('Zahlfix Bank UAB')).toBe('zahlfix');
+		expect(bankWord('')).toBe('');
+		const found = ledgersFromChart(
+			[
+				{ id: 'a', name: 'Main', ibanLast4: '5281', bank: 'Zahlfix Bank UAB' },
+				// Two chart accounts name this bank: not taken.
+				{ id: 'b', name: 'Main', ibanLast4: '7777', bank: 'Geldweg Europe SA' },
+				// No bank known: nothing to go by.
+				{ id: 'c', name: 'Kontokorrent', ibanLast4: '1400' }
+			],
+			banks
+		);
+		expect(Object.fromEntries([...found].map(([id, c]) => [id, c.number]))).toEqual({ a: '1140' });
+	});
+
+	it('is offered the free chart accounts that share most with it', () => {
+		const accounts = [
+			{ id: 'w', name: 'Firma Ethereum · ETH (Ethereum)' },
+			{ id: 'x', name: 'Anderes', ledgerAccount: '1192' },
+			{ id: 'b', name: 'Main', bank: 'Geldweg Europe SA' },
+			{ id: 'c', name: 'Kontokorrent' }
+		];
+		// ETH and Ethereum are one word; 1192 is another account's already.
+		expect(chartCandidates(accounts[0], accounts, banks).map((c) => c.number)).toEqual([
+			'1186',
+			'1197'
+		]);
+		expect(chartCandidates(accounts[2], accounts, banks).map((c) => c.number)).toEqual([
+			'1220',
+			'1730'
+		]);
+		expect(chartCandidates(accounts[3], accounts, banks)).toEqual([]);
+		expect(chartCandidates(accounts[0], accounts, null)).toEqual([]);
 	});
 });
 
