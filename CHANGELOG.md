@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - `@le-space/chains/filecoin-pay`: what a payer's balance in Filecoin Pay was used for in a month, for a usage statement like Aleph's. Storage on Filecoin Onchain Cloud is paid by the contract out of the payer's balance, not by a wallet's transfers, so no wallet reader sees it. The statement has the opening and closing balance, what was paid in and taken out, and each settlement of each rail – provider, service, amount, of it commission and network fee, and up to when it paid – valued in euros; `filecoinPayEntries` gives the lines as ledger entries. Read from the index Filecoin Pay's makers keep, with the contract's deposit and withdrawal events from Blockscout; from Blockscout alone when the index does not answer (a key of dev.blockscout.com lifts its limit of about ten requests). The package is not used by the app yet.
 
+### Fixed
+
+- The receipts page's technical note reads as text again. With the technical view on it stood in the narrow column of sources and months beside the list and wrapped word by word into a tall strip, and on a phone it was not shown at all. It is now a strip over the whole width above the list, folded to its first line, and opens to the same two sentences on a click – on a phone too. `TechnicalNote` has a `folded` variant for notes that are about a whole page.
+
 ## [0.42.1] – 2026-11-19
 
 ### Fixed
