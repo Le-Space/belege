@@ -59,8 +59,8 @@ importers:
         specifier: workspace:^
         version: link:../packages/bridge-protocol
       '@le-space/build-journey':
-        specifier: 0.12.11
-        version: 0.12.11(svelte@5.37.2)
+        specifier: 0.12.12
+        version: 0.12.12(svelte@5.37.2)
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
@@ -1090,8 +1090,8 @@ packages:
   '@le-space/attest-wasm@0.12.8':
     resolution: {integrity: sha512-LJHTwwlhzZ8SSbYrpXoOBA5dWucTo6djKydqZmrMMVUklaH1gfx5L0By0Ajq8/ZHsspdcU+2dD613QwL6axXXg==}
 
-  '@le-space/build-journey@0.12.11':
-    resolution: {integrity: sha512-pilEXBnYPyXMnH8Y8gufigq+HRA8x4SPIkHtKBVm5PYJ4Lfcu39DtvvSE3zgc2GJN26c0Qdk9tMorYa6RZot/w==}
+  '@le-space/build-journey@0.12.12':
+    resolution: {integrity: sha512-X9BQVnqvGaoF4g+DFf70HxDHtGnreXLaxocIqoFXrFgyFxfAv5BLxkYYO268vPD4eh23HLK2/LO++YMEzuz/YA==}
     peerDependencies:
       svelte: ^5.0.0
 
@@ -6132,7 +6132,7 @@ snapshots:
 
   '@le-space/attest-wasm@0.12.8': {}
 
-  '@le-space/build-journey@0.12.11(svelte@5.37.2)':
+  '@le-space/build-journey@0.12.12(svelte@5.37.2)':
     dependencies:
       svelte: 5.37.2
 
