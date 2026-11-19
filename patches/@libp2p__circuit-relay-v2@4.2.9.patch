@@ -1,3 +1,22 @@
+diff --git a/dist/src/transport/listener.js b/dist/src/transport/listener.js
+index e7123f2959f9143854a3e8840e2311c0258aa69d..45d55ca21cd6d7833087634cbecaeba394f0f657 100644
+--- a/dist/src/transport/listener.js
++++ b/dist/src/transport/listener.js
+@@ -41,6 +41,14 @@ class CircuitRelayTransportListener extends TypedEventEmitter {
+     _onAddRelayPeer = (evt) => {
+         const { details } = evt.detail;
+         if (details.type === 'configured') {
++            // Belege (as @libp2p/circuit-relay-v2 4.2.17 does): listen() applies a
++            // configured relay's first reservation itself, when this.relay is not
++            // set yet. A refresh removes the relay and reserves again; without
++            // this the listener's addresses were gone for good after the first
++            // refresh, with the connection to the relay still open.
++            if (this.relay?.equals(evt.detail.relay) === true) {
++                this.addedRelay(evt.detail);
++            }
+             return;
+         }
+         if (details.id !== this.reservationId) {
 diff --git a/dist/src/transport/reservation-store.js b/dist/src/transport/reservation-store.js
 index 632172e9d8b471817f69dccd2d71a80614361c02..afffb3f8f4f42956556ed57b7af6bfc51db9afcc 100644
 --- a/dist/src/transport/reservation-store.js

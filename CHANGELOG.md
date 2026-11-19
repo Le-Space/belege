@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Own devices no longer lose each other after about a quarter of an hour ("kein Le-Space-Relay erreichbar" although the relays answer). A place at a relay is renewed before it runs out; in `@libp2p/circuit-relay-v2` 4.2.9 that renewal took the node's relay addresses away and never gave them back, with the connection to the relay still open, and asking for the place again changed nothing because the reservation itself was in order. Until a reload no other device could reach this one. The package's patch now applies the renewed reservation to the listener, as its version 4.2.17 does. The bridge's own node had the same fault and has the same fix.
+
 ## [0.40.1] – 2026-11-18
 
 ### Fixed
