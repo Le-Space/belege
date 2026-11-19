@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Security
 
 - **Standing tests from the audit plan** (#537, part of #209), so a regression fails CI. `no-discovery.spec.js` lists every libp2p node the app can start with its exact services, starts each as the app does and checks that it answers to no DHT, discovery or NAT protocol and that a provide has nowhere to go; a node made anywhere else, Helia building a libp2p of its own, or a discovery package among the dependencies fails it. `sealed-blocks.spec.js` opens the store as the app does, writes into every collection and the file store and classifies every block of the block store as sealed, public by design or neither – neither fails – and reads the sources for a database opened without the sealing.
+- **A stranger against the real stack, as a standing test** (#537, part of #209). `stranger-peer.spec.js` runs a node with a key of its own and no device proof against a device of the books in a browser, through the relay, in the modes that listen at one: it tries every protocol the device answers to, before and after a made-up proof, subscribes to the books' topics and wants a block. It is told the identify and relay protocols and nothing of the books. In the mode without a relay it cannot reach the device.
 
 ### Fixed
 

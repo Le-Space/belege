@@ -3779,6 +3779,9 @@ function installE2EHooks() {
 					)
 				: null,
 		transactions: () => session?.store.transactions.list(),
+		// Every protocol this device's node answers to, for the stranger spec (#537):
+		// it tries each one without the device proof.
+		protocols: () => session?.libp2p?.getProtocols?.() ?? [],
 		// A relay that dropped this device (sleep, another network): every connection to the relays hung up.
 		hangUpRelays: async () => {
 			const { relayPeerOf } = await import('./sync/first-contact.js');
