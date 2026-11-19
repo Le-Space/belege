@@ -42,6 +42,7 @@
 	import { usage } from './hosted-vm.js';
 	import { nodeHistoryOf, preferredNode } from './hosted-nodes.js';
 	import { hostedNotUp } from './bridge-status.js';
+	import { fetchStartStatus, hostedStartHint } from './hosted-start.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import { isCancelled, reasonOf } from './hosted-unlock.js';
 	import { BRIDGE_PLANS, euro } from '$lib/credits/credits.js';
@@ -106,6 +107,35 @@
 	const notUp = $derived(
 		hostedNotUp({ kept, vm, reached: reachedFor === /** @type {any} */ (kept)?.instance, now })
 	);
+
+	/**
+	 * What the unlocked VM says about its own start (hosted-start.js), asked
+	 * only while its bridge does not answer this device and the network is on.
+	 * @type {import('./hosted-start.js').StartStatus | null}
+	 */
+	let startStatus = $state(null);
+	$effect(() => {
+		const id = /** @type {any} */ (kept)?.instance;
+		const mine = id && (!vm || (!vm.stoppedAt && vm.instance === id));
+		const silent = bridge.state !== 'online' || reachedFor !== id;
+		if (!mine || !silent || !app.sync.online || busy) {
+			startStatus = null;
+			return;
+		}
+		let gone = false;
+		const ask = async () => {
+			const status = await fetchStartStatus(id);
+			if (!gone) startStatus = status;
+		};
+		ask();
+		const timer = setInterval(ask, 10_000);
+		return () => {
+			gone = true;
+			clearInterval(timer);
+		};
+	});
+	/** The sentence for a bridge that is still starting, or whose node is not. */
+	const startHint = $derived(hostedStartHint(startStatus));
 
 	async function reload() {
 		[kept, vm, history, ownImage] = await Promise.all([
@@ -523,7 +553,16 @@
 			{t('integrationen.hostedBridge.measurement')}
 			{kept.measurement}
 		</p>
-		{#if notUp && app.sync.online && !busy}
+		{#if startHint && app.sync.online && !busy}
+			<p
+				class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+				role="status"
+				data-testid="hosted-bridge-start-hint"
+				data-hint={startHint}
+			>
+				{t(`integrationen.hostedBridge.vmStart.${startHint}`)}
+			</p>
+		{:else if notUp && !startStatus && app.sync.online && !busy}
 			<div
 				class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
 				role="status"
@@ -639,6 +678,15 @@
 								{t('integrationen.hostedBridge.ownImage.store')}
 								{ownImage.store}
 							</p>
+							{#if ownImage.plainSha256 !== BRIDGE_BUILDER.plain.sha256}
+								<p
+									class="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-text"
+									role="status"
+									data-testid="hosted-bridge-own-image-older"
+								>
+									{t('integrationen.hostedBridge.ownImage.older')}
+								</p>
+							{/if}
 						{:else}
 							<p class="mt-1 text-text">{t('integrationen.hostedBridge.ownImage.none')}</p>
 						{/if}

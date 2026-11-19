@@ -4806,6 +4806,8 @@ export default {
 				built:
 					'Gebaut {date}. Der nächste Start nutzt es, und es entsperrt sich mit einer Passphrase, die nur deine Bücher kennen – du tippst keine ein.',
 				store: 'Image (STORE):',
+				older:
+					'Dieses Image enthält eine ältere Bridge als diese Version von Belege. Baue es neu („Neu bauen“) und starte danach eine neue VM: Eine laufende VM behält das Image, mit dem sie gestartet ist.',
 				build: 'Bridge-Image bauen',
 				reserveShort:
 					'Noch nicht möglich: Der Aleph-Schlüssel der Bücher hat {credits} Credits, Aleph verlangt vor dem Bau einen Tag Reserve, {needed} Credits. Verbraucht wird davon nur etwa eine Viertelstunde. Lade Credits auf diese Adresse:',
@@ -4997,6 +4999,14 @@ export default {
 			notUp:
 				'Die VM ist seit dem Entsperren nicht hochgekommen: Ihre Bridge hat sich bei diesem Gerät nicht gemeldet. Meist war die Passphrase des Images falsch – die VM nimmt sie an, öffnet ihre Platte damit aber nicht. Kopiere die Passphrase frisch und entsperre dieselbe VM noch einmal; das kostet nichts zusätzlich, sie läuft ohnehin. Hilft das nicht, hier stoppen und neu starten.',
 			unlockAgain: 'Noch einmal entsperren',
+			vmStart: {
+				starting:
+					'Die VM ist entsperrt, ihre Bridge startet noch: Das dauert nach dem Entsperren meist ein bis zwei Minuten. Solange antwortet sie diesem Gerät nicht.',
+				nodeStuck:
+					'Die Bridge in der VM läuft, ihr Knoten startet aber seit Minuten nicht – deshalb erreicht sie kein Gerät. An der Passphrase liegt es nicht, die Platte ist offen. Stoppe die VM und starte eine neue; ist dein eigenes Bridge-Image älter als diese Version von Belege, baue es vorher neu („Neu bauen“).',
+				noRelay:
+					'Die Bridge in der VM läuft, aber kein Relay hält seit Minuten eine Reservierung für ihren Knoten: Geräte erreichen sie nur direkt unter dem Namen der VM. Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist.'
+			},
 			existing: 'Eine schon laufende VM entsperren',
 			instanceHash: 'INSTANCE:',
 			copy: 'Kopieren',
