@@ -5396,6 +5396,11 @@ export default {
 				hint: 'The label replaces the address on all accounts of this wallet. Account and cost centre apply to all its assets and go into the DATEV export; the cost centre only letters and digits.',
 				ledgerFromChart:
 					'Suggested from your chart of accounts: {account} {name}. You can change the number.',
+				ledgerCandidates: 'Several free accounts of your chart fit – pick one:',
+				ledgerNoneInChart:
+					'No suggestion: your chart of accounts names no free account for this wallet or its chain, and no other wallet has an account yet that a number could follow. Enter the number from your bookkeeping – or leave it empty and add it later.',
+				ledgerNoneNoChart:
+					'No suggestion: no chart of accounts has been read in (Settings → Chart of accounts), and no other wallet has an account yet. Enter the number from your bookkeeping – or leave it empty and add it later.',
 				ledgerNext:
 					'Suggested: {account}, the next free number after your other wallets. It is not in your chart of accounts yet – the account has to be opened in the bookkeeping, or the import will refuse the bookings. You can change the number.',
 				ledgerShort: 'Account {account}',

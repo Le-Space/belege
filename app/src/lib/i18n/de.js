@@ -5463,6 +5463,11 @@ export default {
 				hint: 'Die Bezeichnung steht statt der Adresse an allen Konten dieser Wallet. Konto und Kostenstelle gelten für alle ihre Assets und gehen in den DATEV-Export; die Kostenstelle nur aus Buchstaben und Ziffern.',
 				ledgerFromChart:
 					'Vorschlag aus deinem Kontenplan: {account} {name}. Du kannst die Nummer ändern.',
+				ledgerCandidates: 'In deinem Kontenplan passen mehrere freie Konten – wähle eines:',
+				ledgerNoneInChart:
+					'Kein Vorschlag: Dein Kontenplan nennt kein freies Konto für diese Wallet oder ihre Chain, und noch keine andere Wallet hat ein Konto, an das sich eine Nummer anschließen ließe. Trag die Nummer aus deiner Buchhaltung ein – oder lass das Feld leer und ergänze sie später.',
+				ledgerNoneNoChart:
+					'Kein Vorschlag: Es ist kein Kontenplan eingelesen (Einstellungen → Kontenplan), und noch keine andere Wallet hat ein Konto. Trag die Nummer aus deiner Buchhaltung ein – oder lass das Feld leer und ergänze sie später.',
 				ledgerNext:
 					'Vorschlag: {account}, die nächste freie Nummer nach deinen anderen Wallets. Sie steht noch nicht in deinem Kontenplan – in der Buchhaltung muss das Konto angelegt werden, sonst nimmt der Import die Buchungen nicht an. Du kannst die Nummer ändern.',
 				ledgerShort: 'Konto {account}',

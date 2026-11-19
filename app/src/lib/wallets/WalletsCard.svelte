@@ -36,7 +36,7 @@
 	import { askToNotify, canNotify } from '$lib/notify.js';
 	import { takeWalletProposal } from './proposal.svelte.js';
 	import { cleanChart } from '$lib/booking/chart.js';
-	import { suggestWalletLedger } from '$lib/booking/ledger-match.js';
+	import { suggestWalletLedger, walletLedgerCandidates } from '$lib/booking/ledger-match.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
 	let { url, token, paired = Boolean(token) } = $props();
@@ -91,16 +91,18 @@
 	// A ledger account for the wallet being added (booking/ledger-match.js): the
 	// chart account that names it or its chain, else the next free number beside
 	// the other wallets'. Filled in while the person has not typed one of their own.
-	const ledgerSuggestion = $derived.by(() =>
-		showAdd
-			? suggestWalletLedger({
-					name: newName,
-					chain: localChain,
-					wallets,
-					accounts: app.accounts,
-					chart: cleanChart(app.chart)
-				})
-			: null
+	const ledgerAsk = $derived({
+		name: newName,
+		address,
+		chain: localChain,
+		wallets,
+		accounts: app.accounts,
+		chart: cleanChart(app.chart)
+	});
+	const ledgerSuggestion = $derived.by(() => (showAdd ? suggestWalletLedger(ledgerAsk) : null));
+	// Several accounts of the chart fit: none is picked, they are offered.
+	const ledgerCandidates = $derived.by(() =>
+		showAdd && !ledgerSuggestion ? walletLedgerCandidates(ledgerAsk) : []
 	);
 	/** The number the form filled in by itself, to tell it from one that was typed. */
 	let autoLedger = $state('');
@@ -499,6 +501,31 @@
 									name: ledgerSuggestion.name
 								})
 							: t('integrationen.wallets.meta.ledgerNext', { account: ledgerSuggestion.number })}
+					</p>
+				{/if}
+				{#if ledgerCandidates.length && !newLedger.trim()}
+					<p
+						class="flex flex-wrap items-center gap-1.5 text-xs text-text"
+						data-testid="wallet-new-ledger-candidates"
+					>
+						{t('integrationen.wallets.meta.ledgerCandidates')}
+						{#each ledgerCandidates as c (c.number)}
+							<button
+								type="button"
+								class="rounded-md border border-border px-2 py-0.5 hover:bg-surface-2 hover:text-heading"
+								onclick={() => (newLedger = c.number)}
+								data-testid="wallet-new-ledger-candidate"
+								data-number={c.number}>{c.number} {c.name}</button
+							>
+						{/each}
+					</p>
+				{:else if !ledgerSuggestion && !newLedger.trim() && address.trim()}
+					<p class="text-xs text-faint" data-testid="wallet-new-ledger-none">
+						{t(
+							ledgerAsk.chart
+								? 'integrationen.wallets.meta.ledgerNoneInChart'
+								: 'integrationen.wallets.meta.ledgerNoneNoChart'
+						)}
 					</p>
 				{/if}
 				{#if info}
