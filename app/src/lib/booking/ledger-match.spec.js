@@ -159,6 +159,85 @@ describe('an account whose name says nothing of its bank', () => {
 	});
 });
 
+describe('a wallet the chart calls by another name', () => {
+	// The books call the wallet "Firma Ethereum", the chart "Tresor".
+	const plan = {
+		accounts: [
+			{ number: '1110', name: 'Kraken EURO' },
+			{ number: '1186', name: 'Tresor - ETH (Ethereum)' },
+			{ number: '1187', name: 'Tresor - USDC (Ethereum)' },
+			{ number: '1191', name: 'Testknoten - USDC (Ethereum)' },
+			{ number: '1193', name: 'Testknoten - ETH (Ethereum)' },
+			{ number: '1196', name: 'Akash - AKT' },
+			{ number: '1197', name: 'Tresor - ALEPH (Ethereum)' },
+			{ number: '1198', name: 'Tresor - BSO (Ethereum)' },
+			{ number: '1201', name: 'Base Firma - ETH (Base)' },
+			{ number: '1410', name: 'Forderungen ohne Kontokorrent' },
+			{ number: '1610', name: 'Verbindlichkeiten ohne Kontokorrent' }
+		]
+	};
+	const wallet = (
+		/** @type {string} */ id,
+		/** @type {string} */ asset,
+		chain = ' (Ethereum)'
+	) => ({
+		id,
+		kind: 'wallet',
+		asset,
+		name: `Firma Ethereum · ${asset}${chain}`
+	});
+
+	it('is found by the assets only it holds, and then by the name the chart gives it', () => {
+		const found = ledgersFromChart(
+			[
+				wallet('aleph', 'ALEPH'),
+				wallet('bso', 'BSO'),
+				wallet('eth', 'ETH'),
+				wallet('usdc', 'USDC'),
+				{ id: 'akt', kind: 'wallet', asset: 'AKT', name: 'Wallet AKT ···7zzsw8' },
+				{ id: 'k', kind: 'exchange', asset: 'EUR', name: 'Kraken EUR' }
+			],
+			plan
+		);
+		expect(Object.fromEntries([...found].map(([id, c]) => [id, c.number]))).toEqual({
+			// One chart account holds ALEPH, one BSO, one AKT …
+			aleph: '1197',
+			bso: '1198',
+			akt: '1196',
+			k: '1110',
+			// … both are "Tresor": so ETH and USDC are Tresor's, not the test node's.
+			eth: '1186',
+			usdc: '1187'
+		});
+	});
+
+	it('is not guessed while the chart has two accounts of that asset and nothing tells them apart', () => {
+		const found = ledgersFromChart([wallet('eth', 'ETH'), wallet('usdc', 'USDC')], plan);
+		expect(found.size).toBe(0);
+		// An exchange's account is never looked up by its asset alone.
+		expect(
+			ledgersFromChart([{ id: 'k', kind: 'exchange', asset: 'AKT', name: 'Kraken AKT' }], plan).size
+		).toBe(0);
+	});
+
+	it('is offered accounts of its asset only, that of its chain first, and none far from the others', () => {
+		const accounts = [
+			wallet('eth', 'ETH'),
+			{ id: 'a', name: 'x', ledgerAccount: '1110' },
+			{ id: 'b', name: 'y', ledgerAccount: '1197' },
+			{ id: 'bank', name: 'Kontokorrent', ibanLast4: '1400' }
+		];
+		expect(chartCandidates(accounts[0], accounts, plan).map((c) => c.number)).toEqual([
+			'1186',
+			'1193',
+			'1201'
+		]);
+		// "Kontokorrent" names a product, not a bank: no receivables are offered for it.
+		expect(chartCandidates(accounts[3], accounts, plan)).toEqual([]);
+		expect(ledgersFromChart([accounts[3]], plan).size).toBe(0);
+	});
+});
+
 describe('a ledger account for a new wallet', () => {
 	const near = { name: 'NEAR', shortName: 'NEAR', nativeSymbol: 'NEAR' };
 
