@@ -24,6 +24,7 @@
 // with, it is likely address poisoning, and the classification names that one.
 // (docs/phase-0.md, "Matching"; docs/crypto.md, "Own wallets").
 
+import { knownContract } from '../wallets/known-contracts.js';
 import { payrollAccount, payrollKind } from './payroll.js';
 import { mutualTwin } from './twins.js';
 import { cleanPrepaidVendors } from './vendor-account.js';
@@ -319,7 +320,7 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
- * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'aleph-purchase' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
+ * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'payment-contract' | 'aleph-purchase' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
  * @property {number} [credits] the Aleph credits bought, for a 'prepaid-topup' via 'aleph-purchase'
@@ -763,6 +764,20 @@ export function classifyTransaction(tx, ctx) {
 	// can see for themselves – an own wallet, a counter-booking – comes first.
 	if (tx.movement === 'transfer') {
 		const said = ctx.addressKindOf?.(tx);
+		// A payment contract that keeps the payer's own balance (Filecoin Pay): what
+		// is paid in is still ours until a service is settled from it, and comes
+		// back the same way – an own transfer whose other side no wallet shows.
+		// What a person said about the address comes first.
+		const contract = said ? null : knownContract(tx);
+		if (contract?.kind === 'payment-account') {
+			return {
+				kind: 'own-transfer',
+				account: '1360',
+				via: 'payment-contract',
+				company: contract.name,
+				address: contract.address
+			};
+		}
 		const address = said ? said.alias.split(':').slice(2).join(':') : '';
 		if (said?.kind === 'private') {
 			return { kind: 'rule-private', via: 'address', reason: said.name, address };

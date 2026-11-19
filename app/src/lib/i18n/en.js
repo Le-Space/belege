@@ -2242,6 +2242,8 @@ export default {
 			noReceipt: 'Decided by you: No receipt needed – {reason}',
 			noReason: 'no reason given',
 			ownCompany: 'Own transfer: the counterparty is your company “{company}”',
+			ownPaymentContract:
+				'Paid into your own balance in the payment contract “{name}” ({address}): the money stays yours and can be taken out again until services are settled from it – an own transfer, no receipt needed (account 1360). What the contract pays providers out of it is not in the wallet and needs a document of its own.',
 			ownCustodian:
 				'Own money at “{name}”: you noted the address {address} as an own account at an exchange or custodian that Belege does not read. No receipt needed (account 1360). The other side is not in the books, so 1360 stays open by this amount.',
 			addressPrivate:

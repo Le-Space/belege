@@ -17,6 +17,7 @@
 import { displayPurpose } from './format.js';
 import { txAlias } from '../matching/partners.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
+import { knownContract } from '../wallets/known-contracts.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -140,6 +141,9 @@ function otherParty(tx, book) {
 	}
 	const partner = book.known.get(txAlias(tx));
 	if (partner) return { address, label: partner, own: false };
+	// A contract known for what it is (wallets/known-contracts.js).
+	const contract = knownContract(tx);
+	if (contract) return { address, label: contract.name, own: false };
 	// A module or label the reader gave (staking, IBC, fee collector): not an address.
 	if (name && !looksLikeAddress(name)) return { address, label: name, own: false };
 	return { address, label: shortAddress(address), own: false };

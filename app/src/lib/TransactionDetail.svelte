@@ -1693,87 +1693,97 @@
 		{#if !tx}
 			<p class="text-sm text-faint">{t('zahlungen.noneForSelection')}</p>
 		{:else}
-			<div class="flex items-start justify-between gap-3">
-				<div class="min-w-0">
-					<p class="text-xs font-semibold tracking-wide text-faint uppercase">
-						{t('zahlungen.detail.title')}
-					</p>
-					<h2
-						id="tx-detail-title"
-						class="text-xl font-bold break-words text-heading"
-						data-testid="tx-detail-counterparty"
-					>
-						{heading}
-					</h2>
-					{#if payee && payee.from !== 'unknown' && !parties}
-						<a
-							class="text-sm underline"
-							href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(payee.name)}&until=${tx.bookedOn}`}
-							data-testid="vendor-account-link">{t('vendorAccount.open')}</a
+			<!-- Side by side where the panel is wide enough for both. On a phone – and
+			     more so on a folded one's outer screen – the amount and "Schließen"
+			     took the width and left the name a column one letter wide: there the
+			     amount and the button come first, on a row of their own, and the name
+			     and the two sides get the whole width below. By the panel's own width
+			     (a container query), since it is a narrow panel on a wide screen too. -->
+			<div class="@container">
+				<div
+					class="flex flex-col-reverse gap-2 @md:flex-row @md:items-start @md:justify-between @md:gap-3"
+				>
+					<div class="min-w-0">
+						<p class="text-xs font-semibold tracking-wide text-faint uppercase">
+							{t('zahlungen.detail.title')}
+						</p>
+						<h2
+							id="tx-detail-title"
+							class="text-xl font-bold break-words text-heading"
+							data-testid="tx-detail-counterparty"
 						>
-					{/if}
-					{#if parties}
-						<!-- The full address under each name (issue #114): the list keeps the short
+							{heading}
+						</h2>
+						{#if payee && payee.from !== 'unknown' && !parties}
+							<a
+								class="text-sm underline"
+								href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(payee.name)}&until=${tx.bookedOn}`}
+								data-testid="vendor-account-link">{t('vendorAccount.open')}</a
+							>
+						{/if}
+						{#if parties}
+							<!-- The full address under each name (issue #114): the list keeps the short
 						     form, here it is copied into an explorer or a wallet. -->
-						<!-- Who sent and who received (issue #254): both sides the same way, ours
+							<!-- Who sent and who received (issue #254): both sides the same way, ours
 						     marked, each address once and short – the full one on hover and copy. -->
-						<dl
-							class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
-							data-testid="tx-parties"
-						>
-							{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
-								{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
-								<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
-								<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
-									{#if p.own}<span
-											class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
-											data-testid={`tx-party-${side}-own`}
-											>{t('zahlungen.detail.party.ownChip')}</span
-										>{/if}<span class="font-medium text-heading"
-										>{p.address && p.label === shortAddress(p.address)
-											? t('zahlungen.detail.party.unknownAddress')
-											: p.label}</span
-									>
-									{#if p.address}
-										<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
-											<span class="whitespace-nowrap" title={p.address}>
-												<CopyButton
-													text={p.address}
-													label={t('copy.address')}
-													testid={`tx-party-${side}-address`}
-													valueClass="font-mono text-xs text-faint"
-													>{shortAddress(p.address)}</CopyButton
-												>
+							<dl
+								class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+								data-testid="tx-parties"
+							>
+								{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
+									{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
+									<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
+									<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
+										{#if p.own}<span
+												class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
+												data-testid={`tx-party-${side}-own`}
+												>{t('zahlungen.detail.party.ownChip')}</span
+											>{/if}<span class="font-medium text-heading"
+											>{p.address && p.label === shortAddress(p.address)
+												? t('zahlungen.detail.party.unknownAddress')
+												: p.label}</span
+										>
+										{#if p.address}
+											<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
+												<span class="whitespace-nowrap" title={p.address}>
+													<CopyButton
+														text={p.address}
+														label={t('copy.address')}
+														testid={`tx-party-${side}-address`}
+														valueClass="font-mono text-xs text-faint"
+														>{shortAddress(p.address)}</CopyButton
+													>
+												</span>
+												{#if pageUrl}<a
+														href={pageUrl}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="text-xs underline"
+														data-testid={`tx-party-${side}-explorer`}
+														>{t('zahlungen.detail.party.explorer')}</a
+													>{/if}
 											</span>
-											{#if pageUrl}<a
-													href={pageUrl}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="text-xs underline"
-													data-testid={`tx-party-${side}-explorer`}
-													>{t('zahlungen.detail.party.explorer')}</a
-												>{/if}
-										</span>
-									{/if}
-								</dd>
-							{/each}
-						</dl>
-					{/if}
-				</div>
-				<div class="flex shrink-0 items-start gap-3">
-					<p
-						class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {txDirection(
-							tx
-						) < 0
-							? 'text-red-700 dark:text-red-400'
-							: 'text-emerald-700 dark:text-emerald-400'}"
-						data-testid="tx-detail-amount"
-					>
-						{formatTxAmount(tx)}
-					</p>
-					<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
-						>{t('zahlungen.detail.close')}</button
-					>
+										{/if}
+									</dd>
+								{/each}
+							</dl>
+						{/if}
+					</div>
+					<div class="flex items-start justify-between gap-3 @md:shrink-0 @md:justify-start">
+						<p
+							class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {txDirection(
+								tx
+							) < 0
+								? 'text-red-700 dark:text-red-400'
+								: 'text-emerald-700 dark:text-emerald-400'}"
+							data-testid="tx-detail-amount"
+						>
+							{formatTxAmount(tx)}
+						</p>
+						<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
+							>{t('zahlungen.detail.close')}</button
+						>
+					</div>
 				</div>
 			</div>
 			<p class="mt-1 text-sm text-faint" data-testid="tx-detail-meta">
@@ -3589,7 +3599,7 @@
 			</section>
 			{#if receiptState === 'missing' || !isBookingConfirmed(tx)}
 				<div
-					class="sticky bottom-0 -mx-4 mt-4 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden"
+					class="sticky -bottom-4 -mx-4 mt-4 -mb-4 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden"
 					data-testid="tx-next"
 				>
 					<span class="flex-1 text-xs text-faint">{t('zahlungen.detail.next')}</span>

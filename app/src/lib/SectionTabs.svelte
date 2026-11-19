@@ -50,7 +50,7 @@
 					aria-current={active ? 'page' : undefined}
 					data-testid={`tab-${tab.icon}`}
 					data-active={active}
-					class="flex flex-col items-center gap-0.5 rounded-md px-0.5 py-2 text-[11px] font-medium tracking-tight no-underline outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 sm:-mb-px sm:flex-row sm:gap-2 sm:rounded-none sm:border-b-2 sm:px-3 sm:py-2.5 sm:text-sm sm:tracking-normal {active
+					class="flex flex-col items-center gap-0.5 rounded-md px-0.5 py-2 text-[11px] font-medium tracking-tight no-underline outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 max-[359px]:text-[10px] max-[359px]:tracking-tighter sm:-mb-px sm:flex-row sm:gap-2 sm:rounded-none sm:border-b-2 sm:px-3 sm:py-2.5 sm:text-sm sm:tracking-normal {active
 						? 'text-cyan-800 sm:border-cyan-800 dark:text-cyan dark:sm:border-cyan'
 						: 'text-text hover:text-heading sm:border-transparent'}"
 				>

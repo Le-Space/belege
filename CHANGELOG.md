@@ -8,6 +8,14 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- A payment into Filecoin Pay explains itself. USDFC sent from an own wallet to the Filecoin Pay contract (Filecoin Onchain Cloud, the contract storage is paid from) is known by the contract's address: the payment is named "Filecoin Pay" instead of "unbekannte Adresse", and it is an own transfer that needs no receipt – what is paid in stays the payer's own balance in the contract until storage is settled from it. What the contract then pays providers is not in the wallet and is not booked by this. What a person said about the address still comes first.
+
+### Fixed
+
+- The payment's detail on a narrow screen, such as a folded phone's outer display: the amount and "Schließen" took the width and left the name a column one letter wide, and the two sides of a wallet payment wrapped word by word. Where the panel is narrow the amount and the button now sit on a row of their own, and the name and both sides get the whole width below. The "Nächster Schritt" bar sits flush with the bottom edge instead of letting a strip of the page show beneath it, and the tab labels are set a little smaller below 360 pixels.
+
+### Added
+
 - A wallet's accounts are found in the chart of accounts although the chart calls the wallet by another name. An asset account is looked up by its asset and chain when the chart has exactly one such account ("… - ALEPH (Ethereum)"). What is found that way tells what the chart calls the wallet, and the wallet's other assets – ETH, USDC, which several wallets hold – are then looked up under that name. Still only what is unambiguous is taken, and it is marked for checking.
 
 ### Fixed
