@@ -4746,6 +4746,8 @@ export default {
 				built:
 					'Built {date}. The next start uses it, and it unlocks with a passphrase only your books know – you type none.',
 				store: 'Image (STORE):',
+				older:
+					'This image holds an older bridge than this version of Belege. Build it again (“Build again”) and start a new VM afterwards: a running VM keeps the image it started with.',
 				build: 'Build the bridge image',
 				reserveShort:
 					'Not possible yet: the books’ Aleph key holds {credits} credits, and Aleph wants a day of the builder in reserve first, {needed} credits. Only about a quarter of an hour of it is used. Load credits onto this address:',
@@ -4935,6 +4937,14 @@ export default {
 			notUp:
 				'The VM has not come up since the unlock: its bridge has not reached this device. Most often the image’s passphrase was wrong – the VM accepts it but cannot open its disk with it. Copy the passphrase afresh and unlock the same VM again; that costs nothing extra, it is running anyway. If that does not help, stop it here and start again.',
 			unlockAgain: 'Unlock again',
+			vmStart: {
+				starting:
+					'The VM is unlocked and its bridge is still starting: after the unlock that usually takes a minute or two. Until then it does not answer this device.',
+				nodeStuck:
+					'The bridge in the VM is running, but its node has not started for minutes – so no device reaches it. It is not the passphrase: the disk is open. Stop the VM and start a new one; if your own bridge image is older than this version of Belege, build it again first (“Build again”).',
+				noRelay:
+					'The bridge in the VM is running, but no relay has held a reservation for its node for minutes: devices reach it only directly under the VM’s name. Check the “Network” menu at the top to see whether a Le Space relay is reachable.'
+			},
 			existing: 'Unlock a VM that is already running',
 			instanceHash: 'INSTANCE:',
 			copy: 'Copy',

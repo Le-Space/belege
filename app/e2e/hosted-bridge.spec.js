@@ -840,7 +840,7 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 	test.setTimeout(180_000);
 	const OWN = 'b'.repeat(64);
 	// The plain image the pinned builder seals (integrations/hosted-image.js BRIDGE_BUILDER).
-	const PLAIN = '25f03bb56bc7d305790ae90d878a1d8b9cf71871b5899dc179deeac9ede8efa5';
+	const PLAIN = 'c594b999d344dfb73d227626d2dad270ace74e52a3de8c7e3cfbeadafc259ab7';
 	const mac = await device(browser);
 	await mac.page.addInitScript(
 		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
