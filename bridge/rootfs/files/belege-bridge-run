@@ -45,7 +45,7 @@ if [ -d "$in" ]; then
     name="$(basename "$f")"
     # A whole-name match, as sort-secrets.mjs's ACCOUNT: a case glob's `*`
     # would take any character after `portal_`.
-    printf '%s\n' "$name" | grep -Eqx 'hibiscus|imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*' || continue
+    printf '%s\n' "$name" | grep -Eqx 'hibiscus|imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|blockscout|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*' || continue
     install -o belege-bridge -g belege-bridge -m 600 "$f" "$run/secrets/$name"
   done
 fi

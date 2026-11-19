@@ -21,7 +21,7 @@ import { join } from 'node:path';
 // The same names as the case list in bridge/rootfs/files/belege-bridge-run:
 // change both together.
 const ACCOUNT =
-	/^(hibiscus|imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*)$/;
+	/^(hibiscus|imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|blockscout|aleph_backup|bridge_auth|portal_[a-z0-9]+(_[a-z0-9]+)*)$/;
 const FILES = ['bridge_config', 'bridge_peer_key', 'enablebanking_sealed', 'bridge_start'];
 /** An account's secret: the keychain's own limit (keychain.js). */
 const MAX = 64 * 1024;

@@ -7,6 +7,7 @@
 //                            account `imap`      the mail password or auth token
 //                            account `llm`       the LLM provider's API key
 //                            account `alchemy`   an optional Alchemy API key (own EVM wallets)
+//                            account `blockscout` an optional Blockscout API key (Filecoin Pay's events)
 //                            account `portal:<id>` a customer portal's password (optional)
 //                            account `enablebanking` the key to the sealed Enable Banking file
 //                                                  (sealed-file.js: the application key is too
@@ -43,6 +44,7 @@ export const ACCOUNTS = /** @type {const} */ ({
 	bitcoin: { what: 'Bitcoin zpub', setup: 'setup:bitcoin' },
 	coingecko: { what: 'CoinGecko API key', setup: 'setup:coingecko' },
 	alchemy: { what: 'Alchemy API key', setup: 'setup:alchemy' },
+	blockscout: { what: 'Blockscout API key', setup: 'setup:blockscout' },
 	enablebanking: { what: 'Enable Banking key', setup: 'setup:enablebanking' },
 	'aleph-backup': { what: 'Aleph backup key', setup: 'setup:aleph' },
 	'bridge-auth': { what: 'the bridge’s own key', setup: 'bridge (pairing by invitation)' },

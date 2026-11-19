@@ -583,6 +583,31 @@ export const COMMANDS = [
 		description: 'An Aleph address’s month: credits in, usage, balance'
 	},
 	{
+		// A POST, so the payer's address is in no URL.
+		name: 'filecoinpay.statement',
+		version: 1,
+		scope: 'bridge:chains:read',
+		method: 'POST',
+		path: '/filecoinpay/statement',
+		args: 'json',
+		answer: 'json',
+		via: 'both',
+		request: object(
+			{
+				address: text(100),
+				month: text(7),
+				source: { type: 'string', enum: ['index', 'logs'] },
+				endpoints: object(
+					{ index: optText(300), filfox: optText(300), blockscout: optText(300) },
+					[]
+				)
+			},
+			['address', 'month']
+		),
+		response: { type: 'object' },
+		description: 'A Filecoin Pay payer’s month: paid in, settled to providers, balance'
+	},
+	{
 		name: 'backup.status',
 		version: 1,
 		scope: 'bridge:backup',

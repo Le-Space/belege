@@ -15,7 +15,8 @@
 // $BELEGE_BRIDGE_TEST_IMAP_PASSWORD, $BELEGE_BRIDGE_TEST_LLM_KEY,
 // $BELEGE_BRIDGE_TEST_PORTAL_PASSWORD, $BELEGE_BRIDGE_TEST_KRAKEN_KEY as the
 // keychain's JSON, $BELEGE_BRIDGE_TEST_COINGECKO_KEY,
-// $BELEGE_BRIDGE_TEST_ALCHEMY_KEY, $BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY as the
+// $BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY (sent only to the fake at
+// $BELEGE_BRIDGE_TEST_FILECOINPAY_URL), $BELEGE_BRIDGE_TEST_ALCHEMY_KEY, $BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY as the
 // key to the sealed Enable Banking file; the macOS keychain is never read), an
 // Alchemy key is sent only to a fake Alchemy at $BELEGE_BRIDGE_TEST_ALCHEMY_URL
 // (http://127.0.0.1:<port>, asked as `<url>/<network>/v2/<key>`; a key
@@ -90,6 +91,9 @@ let alchemyKeychain;
 /** @type {((network: string) => string) | undefined} */
 let alchemyBaseUrl;
 /** @type {Record<string, string> | null} */
+let blockscoutKeychain;
+/** @type {{ index: string, filfox: string, blockscout: string, keyedApi: string, keyedRpc: string } | undefined} tests: a fake on 127.0.0.1 */
+let filecoinPayFake;
 /** @type {string | undefined} tests: a fake Aleph API on 127.0.0.1 */
 let alephApi;
 let alephBackupKeychain;
@@ -142,6 +146,29 @@ if (testMode) {
 		console.error('BELEGE_BRIDGE_TEST_ALCHEMY_KEY needs BELEGE_BRIDGE_TEST_ALCHEMY_URL (a fake).');
 		process.exit(1);
 	}
+	blockscoutKeychain = memoryKeychain(
+		process.env.BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY ?? null,
+		'blockscout'
+	);
+	const fakeFilecoinPay = process.env.BELEGE_BRIDGE_TEST_FILECOINPAY_URL;
+	if (fakeFilecoinPay) {
+		if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(fakeFilecoinPay)) {
+			console.error('BELEGE_BRIDGE_TEST_FILECOINPAY_URL must be http://127.0.0.1:<port>.');
+			process.exit(1);
+		}
+		filecoinPayFake = {
+			index: `${fakeFilecoinPay}/index`,
+			filfox: `${fakeFilecoinPay}/filfox`,
+			blockscout: `${fakeFilecoinPay}/blockscout`,
+			keyedApi: `${fakeFilecoinPay}/keyed/v2/api`,
+			keyedRpc: `${fakeFilecoinPay}/keyed/314/json-rpc`
+		};
+	} else if (process.env.BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY) {
+		console.error(
+			'BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY needs BELEGE_BRIDGE_TEST_FILECOINPAY_URL (a fake).'
+		);
+		process.exit(1);
+	}
 	const fakeAleph = process.env.BELEGE_BRIDGE_TEST_ALEPH_URL;
 	if (fakeAleph) {
 		if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(fakeAleph)) {
@@ -178,6 +205,7 @@ if (hosted) {
 	coingeckoKeychain = fromUnlock('coingecko');
 	bitcoinKeychain = fromUnlock('bitcoin');
 	alchemyKeychain = fromUnlock('alchemy');
+	blockscoutKeychain = fromUnlock('blockscout');
 	alephBackupKeychain = fromUnlock('aleph-backup');
 	bridgeAuthKeychain = fromUnlock('bridge-auth');
 	portalKeychain = (id) => fromUnlock(`portal:${id}`);
@@ -227,6 +255,8 @@ try {
 		bitcoinKeychain,
 		alchemyKeychain,
 		alchemyBaseUrl,
+		blockscoutKeychain,
+		filecoinPayFake,
 		alephApi,
 		alephBackupKeychain,
 		alephIngestUrl,
