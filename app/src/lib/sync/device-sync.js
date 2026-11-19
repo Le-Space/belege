@@ -48,6 +48,8 @@ export const SYNC_FLAG_KEY = 'belege.device-sync';
 export const DEVICE_SALT_KEY = 'belege.device-salt';
 /** How often a known device that is not connected is dialled again. */
 export const REDIAL_MS = 30_000;
+/** A WebSocket on this machine: where a bridge's node listens for the browser beside it. */
+const LOOPBACK_WS = /^\/(ip4\/127\.\d+\.\d+\.\d+|ip6\/::1)\/tcp\/\d+\/ws(\/|$)/;
 /** How long a connected device may stay without a gossipsub stream before it is hung up. */
 export const MUTE_MS = 45_000;
 /** No device is hung up for being mute more often than this: a wrong guess must not loop. */
@@ -799,6 +801,45 @@ export async function startDeviceSync({
 			}
 			await dial(peerId);
 			report();
+		},
+		/**
+		 * Where the bridge's node listens on this machine now. It takes a free
+		 * port at every start, so the address the books keep from its pairing is
+		 * good only until the bridge is started again; the bridge's status
+		 * (`/health`, `node.addrs`) names the one in use. Kept in the books when
+		 * it changed, and dialled.
+		 *
+		 * @param {string} peerId the bridge's node, a device of the books
+		 * @param {string} addr `/ip4/127.0.0.1/tcp/<port>/ws`, with or without the peer id
+		 * @returns {Promise<boolean>} whether the address was new
+		 */
+		async bridgeListensAt(peerId, addr) {
+			const before = records.get(peerId);
+			if (!before?.bridge || !known.has(peerId) || !LOOPBACK_WS.test(addr)) return false;
+			const here = addr.replace(/\/p2p\/[^/]+$/, '');
+			const full = `${here}/p2p/${peerId}`;
+			const kept = (before.addrs ?? []).filter((a) => !LOOPBACK_WS.test(a));
+			const changed = !(before.addrs ?? []).some((a) => a === full || a === here);
+			if (changed) {
+				const addrs = [full, ...kept].slice(0, 8);
+				const key = `${DEVICE_PREFIX}${peerId}`;
+				const latest = (await all())
+					.filter((r) => r.key === key && !r.deleted)
+					.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0];
+				if (latest) {
+					await store.settings.put({
+						id: latest.id,
+						key,
+						value: { ...latest.value, addrs },
+						deleted: false
+					});
+				}
+				records.set(peerId, { ...before, addrs });
+			}
+			// Dialled either way: the bridge may have come up since the last round.
+			if (!open(peerId)) await dial(peerId);
+			report();
+			return changed;
 		},
 		/**
 		 * "Entfernen": every record of the device deleted; the deletion

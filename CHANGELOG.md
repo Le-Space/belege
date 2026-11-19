@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The bridge on this machine is found again after it was restarted, with device sync on. Its status page said "Bridge erreichbar" while the bank page showed no accounts and "Braucht die gekoppelte Bridge": the status goes over HTTP, the bridge's functions over its own node, and that node takes a free port at every start. The books still held the port from the day it was paired, and the node may sit at none of the relays this device uses. The app now reads from the bridge's status where its node listens, keeps that address in the books and dials it – at unlock, and whenever the bridge's card checks the status.
+
 ### Added
 
 - A wallet's accounts are found in the chart of accounts although the chart calls the wallet by another name. An asset account is looked up by its asset and chain when the chart has exactly one such account ("… - ALEPH (Ethereum)"). What is found that way tells what the chart calls the wallet, and the wallet's other assets – ETH, USDC, which several wallets hold – are then looked up under that name. Still only what is unambiguous is taken, and it is marked for checking.

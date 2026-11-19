@@ -515,3 +515,74 @@ describe('a device that is connected while gossipsub stays silent', () => {
 		await sync.stop();
 	});
 });
+
+describe('the bridge on this machine, started again', () => {
+	it('is dialled where its node listens now, and the books keep that address', async () => {
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const mac = await peerOf(SALT_A);
+		const bridge = await peerOf(SALT_B);
+		/** @type {string[]} */
+		const dialled = [];
+		/** @type {any[]} */
+		const connections = [];
+		let port = 50001;
+		const node = {
+			peerId: { toString: () => mac },
+			getConnections: () => connections,
+			getMultiaddrs: () => [],
+			/** Only the port the bridge's node has taken answers; it sits at no relay. @param {any} addr */
+			async dial(addr) {
+				dialled.push(String(addr));
+				if (!String(addr).startsWith(`/ip4/127.0.0.1/tcp/${port}/ws`)) throw new Error('refused');
+				connections.push({
+					remotePeer: { toString: () => bridge },
+					remoteAddr: { toString: () => String(addr) },
+					limited: false,
+					streams: [],
+					close: async () => void connections.splice(0, 1)
+				});
+			},
+			addEventListener: () => {}
+		};
+		const sync = await startDeviceSync({
+			store: { settings, resync: async () => {} },
+			relays: [],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac',
+			now: () => new Date(Date.parse('2026-03-01T10:00:00.000Z') + tick++).toISOString()
+		});
+		// Paired while it listened on the first port.
+		await sync.addDevice(bridge, 'Bridge', {
+			bridge: true,
+			addrs: [`/ip4/127.0.0.1/tcp/${port}/ws/p2p/${bridge}`]
+		});
+		expect(connections).toHaveLength(1);
+
+		// The bridge is started again and takes another port: the old address is dead.
+		connections.length = 0;
+		port = 50002;
+		dialled.length = 0;
+		await sync.addDevice(bridge, 'Bridge', { bridge: true, addrs: [] }).catch(() => {});
+		expect(connections).toHaveLength(0);
+
+		// Its status names the port in use.
+		expect(await sync.bridgeListensAt(bridge, '/ip4/127.0.0.1/tcp/50002/ws')).toBe(true);
+		expect(connections).toHaveLength(1);
+		expect(dialled.at(-1)).toBe(`/ip4/127.0.0.1/tcp/50002/ws/p2p/${bridge}`);
+		const kept = knownDevices(await settings.list({ includeDeleted: true })).find(
+			(d) => d.peerId === bridge
+		);
+		expect(kept?.addrs).toEqual([`/ip4/127.0.0.1/tcp/50002/ws/p2p/${bridge}`]);
+
+		// Told the same again: nothing new, nothing written.
+		expect(await sync.bridgeListensAt(bridge, `/ip4/127.0.0.1/tcp/50002/ws/p2p/${bridge}`)).toBe(
+			false
+		);
+		// Not an address on this machine, or not the bridge: left alone.
+		expect(await sync.bridgeListensAt(bridge, '/dns4/example.com/tcp/443/tls/ws')).toBe(false);
+		expect(await sync.bridgeListensAt(mac, '/ip4/127.0.0.1/tcp/50002/ws')).toBe(false);
+	});
+});
