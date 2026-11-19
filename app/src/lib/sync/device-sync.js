@@ -464,6 +464,7 @@ export async function startDeviceSync({
 			async bridgeListensAt() {
 				return false;
 			},
+			expectDevice() {},
 			refresh() {},
 			async stop() {}
 		};
@@ -518,6 +519,14 @@ export async function startDeviceSync({
 	const lastHangUp = new Map();
 	let hangUps = 0;
 
+	/**
+	 * Devices that were removed and are being added again right now: a bridge
+	 * whose pairing was undone keeps its peer id, and pairing it again starts
+	 * with dialling it – before any record says it is back.
+	 * @type {Set<string>}
+	 */
+	const expected = new Set();
+
 	async function refreshKnown() {
 		records = new Map(deviceRecords(await all()).map((d) => [d.peerId, d]));
 		if (removedHere(records.get(self))) {
@@ -530,6 +539,8 @@ export async function startDeviceSync({
 		knownState.loaded = true;
 		for (const d of records.values()) {
 			if (d.peerId === self) continue;
+			// Being paired again (expectDevice): its record is still the removal's.
+			if (d.removed && expected.has(d.peerId)) continue;
 			if (d.removed) {
 				if (!blocked.has(d.peerId)) {
 					blocked.add(d.peerId);
@@ -791,6 +802,7 @@ export async function startDeviceSync({
 		) {
 			if (!isPeerId(peerId) || peerId === self) throw new Error(t('messages.sync.notDeviceId'));
 			await writeDevice(peerId, otherLabel, { bridge, addrs, hosted, bridgeScopes });
+			expected.delete(peerId);
 			blocked.delete(peerId);
 			known.add(peerId);
 			knownPeers.add(peerId);
@@ -805,6 +817,23 @@ export async function startDeviceSync({
 			}
 			await dial(peerId);
 			report();
+		},
+		/**
+		 * A removed device is about to be added again and has to be dialled for
+		 * it (the bridge's node, paired anew): let it through until `addDevice`
+		 * writes its record – or, with `false`, shut it out again when that failed.
+		 *
+		 * @param {string} peerId
+		 * @param {boolean} [coming]
+		 */
+		expectDevice(peerId, coming = true) {
+			if (!isPeerId(peerId) || peerId === self) return;
+			if (coming) {
+				expected.add(peerId);
+				blocked.delete(peerId);
+			} else if (expected.delete(peerId) && records.get(peerId)?.removed) {
+				blocked.add(peerId);
+			}
 		},
 		/**
 		 * Where the bridge's node listens on this machine now. It takes a free

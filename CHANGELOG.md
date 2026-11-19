@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Fixed
 
 - The bridge on this machine is found again after it was restarted, with device sync on. Its status page said "Bridge erreichbar" while the bank page showed no accounts and "Braucht die gekoppelte Bridge": the status goes over HTTP, the bridge's functions over its own node, and that node takes a free port at every start. The books still held the port from the day it was paired, and the node may sit at none of the relays this device uses. The app now reads from the bridge's status where its node listens, keeps that address in the books and dials it – at unlock, and whenever the bridge's card checks the status.
+- A bridge whose pairing was undone can be paired again with device sync on. Its node keeps its peer id, the books held it as a removed device, and a removed device is never dialled – so the new pairing by code stood, its node stayed unpaired, and nothing said so. The node is let through while it is paired again, and when pairing it fails the bridge's card now says that the code is taken but no function will answer.
 
 ### Added
 

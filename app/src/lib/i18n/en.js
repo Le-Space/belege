@@ -4626,6 +4626,8 @@ export default {
 			codeHintPaired: 'a device is already paired: restart with --pair',
 			codeHintFirst: 'one-time, valid for 10 minutes',
 			unpair: 'Remove pairing',
+			nodeNotPaired:
+				'Paired by code, but the bridge’s network node could not be paired: {error} Without it none of the bridge’s functions answers. “Status prüfen” tries again.',
 			unpairOffline:
 				'The bridge was not reachable: the pairing is only removed on this device. On the bridge, `pnpm bridge -- --revoke-all` removes all pairings.',
 			unpairElsewhere:

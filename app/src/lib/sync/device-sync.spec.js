@@ -588,4 +588,55 @@ describe('the bridge on this machine, started again', () => {
 		expect(await sync.bridgeListensAt(bridge, '/dns4/example.com/tcp/443/tls/ws')).toBe(false);
 		expect(await sync.bridgeListensAt(mac, '/ip4/127.0.0.1/tcp/50002/ws')).toBe(false);
 	});
+
+	it('whose pairing was undone may be dialled again while it is paired anew', async () => {
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const mac = await peerOf(SALT_A);
+		const bridge = await peerOf(SALT_B);
+		const node = {
+			peerId: { toString: () => mac },
+			getConnections: () => [],
+			getMultiaddrs: () => [],
+			dial: async () => {
+				throw new Error('offline in tests');
+			},
+			addEventListener: () => {}
+		};
+		const sync = await startDeviceSync({
+			store: { settings, resync: async () => {} },
+			relays: [],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac',
+			now: () => new Date(Date.parse('2026-03-01T10:00:00.000Z') + tick++).toISOString()
+		});
+		await sync.addDevice(bridge, 'Bridge', { bridge: true, addrs: [] });
+		expect(blocked.has(bridge)).toBe(false);
+
+		// "Kopplung lösen": a removed device, never dialled.
+		await sync.removeDevice(bridge);
+		expect(blocked.has(bridge)).toBe(true);
+
+		// Paired again: let through for the dial, also across a round that reads the books.
+		sync.expectDevice(bridge);
+		expect(blocked.has(bridge)).toBe(false);
+		await settings.put({ key: 'anything', value: 1 });
+		await new Promise((r) => setTimeout(r, 20));
+		expect(blocked.has(bridge)).toBe(false);
+
+		// The pairing failed: shut out again.
+		sync.expectDevice(bridge, false);
+		expect(blocked.has(bridge)).toBe(true);
+
+		// It worked: a device of the books again.
+		sync.expectDevice(bridge);
+		await sync.addDevice(bridge, 'Bridge', { bridge: true, addrs: [] });
+		expect(blocked.has(bridge)).toBe(false);
+		expect(
+			knownDevices(await settings.list({ includeDeleted: true })).find((d) => d.peerId === bridge)
+				?.removed
+		).toBe(false);
+	});
 });

@@ -575,11 +575,13 @@ export async function startBridgeConsumer({
 	 * @param {Uint8Array} p.authKey the bridge's own key of this generation (node.js `bridgeAuth`)
 	 * @param {string[]} p.relays the relays the books use
 	 * @param {string[]} p.devices the books' devices, this one included
+	 * @param {(peerId: string) => void} [p.before] hears which peer is about to be dialled
 	 * @returns {Promise<{ peerId: string, addrs: string[] }>} the bridge's node, and where it listens besides the relays
 	 */
-	async function pairBridge({ invitation, authKey, relays, devices: list }) {
+	async function pairBridge({ invitation, authKey, relays, devices: list, before }) {
 		const inv = parseInvitation(invitation.trim());
 		if (inv.extensionId !== EXTENSION) throw new UcepError('UNKNOWN_EXTENSION');
+		before?.(inv.providerPeerId);
 		await consumer.pairWithInvitation(invitation.trim());
 		await consumer.call(inv.providerPeerId, EXTENSION, 'handover', {
 			bridgeAuth: toBase64(authKey),

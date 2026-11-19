@@ -4686,6 +4686,8 @@ export default {
 			codeHintPaired: 'schon ein Gerät gekoppelt: mit --pair neu starten',
 			codeHintFirst: 'einmalig, 10 Minuten gültig',
 			unpair: 'Kopplung lösen',
+			nodeNotPaired:
+				'Per Code gekoppelt, aber der Netzknoten der Bridge ließ sich nicht koppeln: {error} Ohne ihn antwortet keine Funktion der Bridge. „Status prüfen“ versucht es noch einmal.',
 			unpairOffline:
 				'Die Bridge war nicht erreichbar: Die Kopplung ist nur auf diesem Gerät gelöst. Auf der Bridge entfernt `pnpm bridge -- --revoke-all` alle Kopplungen.',
 			unpairElsewhere:
