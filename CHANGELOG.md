@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.42.1] – 2026-11-19
+
 ### Fixed
 
 - The bridge on this machine is found again after it was restarted, with device sync on. Its status page said "Bridge erreichbar" while the bank page showed no accounts and "Braucht die gekoppelte Bridge": the status goes over HTTP, the bridge's functions over its own node, and that node takes a free port at every start. The books still held the port from the day it was paired, and the node may sit at none of the relays this device uses. The app now reads from the bridge's status where its node listens, keeps that address in the books and dials it – at unlock, and whenever the bridge's card checks the status.
