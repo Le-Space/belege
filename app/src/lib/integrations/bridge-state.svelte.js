@@ -180,9 +180,15 @@ export async function pairBridge(code) {
 			pairedAt: now().toISOString()
 		});
 		bridge.token = token;
-		// With device sync off: its node paired over this machine, its calls over the stream (#580).
-		await bridgeOnThisMachine().catch(() => {});
+		// Its node paired too, its calls over the stream from then on (#580). When
+		// that fails the code's pairing stands, but no function answers: said so.
+		/** @type {string | null} */
+		let nodeError = null;
+		await bridgeOnThisMachine().catch((error) => {
+			nodeError = error instanceof Error ? error.message : String(error);
+		});
 		await checkBridge();
+		if (nodeError) bridge.error = t('integrationen.bridge.nodeNotPaired', { error: nodeError });
 		// Not awaited: whether the AI hints may say "geschwärzt" (ai-text.js).
 		refreshLlmRedaction();
 		return true;

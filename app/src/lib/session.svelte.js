@@ -1301,7 +1301,10 @@ export async function bridgeOnThisMachine() {
 	// Device sync on: its node is paired over device sync's node, as at an unlock.
 	if (!bridgeConsumer || !deviceSync) return;
 	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
-	if (saved?.peerId) return;
+	if (saved?.peerId) {
+		await findBridgeNodeHere(saved);
+		return;
+	}
 	const { createBridgeClient } = await import('./bridge/client.js');
 	await pairNodeByCode(
 		createBridgeClient({
@@ -1311,6 +1314,32 @@ export async function bridgeOnThisMachine() {
 		}),
 		saved
 	);
+}
+
+/**
+ * The books' bridge runs on this machine: tell device sync where its node
+ * listens now (sync/device-sync.js `bridgeListensAt`). The node takes a free
+ * port at every start, and it may sit at none of the relays this device uses,
+ * so without this a restarted bridge answers its status over HTTP while none
+ * of its functions can be reached. Quiet when no bridge answers here – a
+ * phone, or a bridge that is another machine's.
+ *
+ * @param {any} saved the settings' `bridge`
+ */
+async function findBridgeNodeHere(saved) {
+	if (!deviceSync || !saved?.peerId) return;
+	// Connected: nothing to find, and nothing asked over HTTP.
+	if (bridgeConsumer?.streamServer()) return;
+	const { createBridgeClient } = await import('./bridge/client.js');
+	const { loopbackAddr } = await import('./sync/loopback-bridge.js');
+	/** @type {any} */
+	const health = await createBridgeClient({ ...(saved.url ? { url: saved.url } : {}), fetch })
+		.health()
+		.catch(() => null);
+	const addr = loopbackAddr(health?.node?.addrs);
+	// Only the node these books paired: another one's address is not ours to dial.
+	if (!addr || health?.node?.peerId !== saved.peerId) return;
+	await deviceSync.bridgeListensAt(saved.peerId, addr);
 }
 
 /**
@@ -1355,7 +1384,8 @@ async function startBridgeForDevices() {
 	// the pairing waits for the node to come back armed.
 	(async () => {
 		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
-		if (saved?.peerId) return;
+		// Paired already: where its node listens today, when it runs on this machine.
+		if (saved?.peerId) return findBridgeNodeHere(saved);
 		const { createBridgeClient } = await import('./bridge/client.js');
 		await pairNodeByCode(
 			createBridgeClient({
@@ -1514,12 +1544,25 @@ export async function pairBridgeNode(invitation, { relays } = {}) {
 	const own = knownDevices(records)
 		.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
 		.map((d) => d.peerId);
-	const { peerId, addrs } = await bridgeConsumer.pairBridge({
-		invitation,
-		authKey: key,
-		relays: relays ?? session.relays,
-		devices: [await devicePeerId(), ...own]
-	});
+	// A bridge whose pairing was undone keeps its peer id, and these books hold
+	// it as a removed device, which is never dialled: let it through for this.
+	/** @type {string | null} */
+	let coming = null;
+	const { peerId, addrs } = await bridgeConsumer
+		.pairBridge({
+			invitation,
+			authKey: key,
+			relays: relays ?? session.relays,
+			devices: [await devicePeerId(), ...own],
+			before: (peer) => {
+				coming = peer;
+				deviceSync?.expectDevice(peer);
+			}
+		})
+		.catch((error) => {
+			if (coming) deviceSync?.expectDevice(coming, false);
+			throw error;
+		});
 	// Known as the books' bridge at once – the gate proves with its key toward it –
 	// and in the books (settings `bridge`), for the other devices.
 	session.bridgeAuth.peerId = peerId;
