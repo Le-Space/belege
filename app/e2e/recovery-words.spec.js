@@ -10,6 +10,7 @@ import { test, expect } from '@playwright/test';
 import { startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
 
@@ -137,7 +138,7 @@ test('recovery words open the same books when every passkey is gone', async ({ p
 	await expect(page.getByTestId('words-offer')).toHaveCount(0);
 
 	// The new passkey has its slot beside A's, and the words stay.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'schluessel');
 	await expect(keys.getByTestId('keys-slot')).toHaveCount(2);
 	await expect(keys.getByTestId('keys-slot').filter({ hasText: 'Ersatz' })).toHaveCount(1);
 	await expect(keys.getByTestId('words-has')).toBeVisible();

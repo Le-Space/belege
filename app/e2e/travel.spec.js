@@ -7,6 +7,7 @@ import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { makePdf } from '@belege/bridge/testing/pdf';
+import { openSettings } from './settings.js';
 
 test('a trip with its allowance, mileage, a ticket paid privately, and a hospitality bill', async ({
 	page
@@ -835,7 +836,7 @@ test('an employee travels: added under Einstellungen, a trip and a statement of 
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	// A made-up employee, with the clearing account the adviser named.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'reisende');
 	const card = page.getByTestId('travellers-card');
 	await card.getByTestId('traveller-add').click();
 	await card.getByTestId('traveller-name').fill('Anna Beispiel');

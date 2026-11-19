@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 const year = new Date().getFullYear();
 /** @param {string} day @param {Record<string, any>} extraction */
@@ -62,7 +63,7 @@ test('Home shows the input VAT per quarter; the settings switch to months and to
 	await expect(card.getByTestId('vat-unlinked')).toContainText('64,00');
 
 	// Monthly, under Buchhaltung.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-vat-period').selectOption('month');
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
@@ -71,7 +72,7 @@ test('Home shows the input VAT per quarter; the settings switch to months and to
 	await expect(period(`${year}-05`).getByTestId('vat-period-total')).toContainText('38,00');
 
 	// A small business deducts none: a note instead of the table.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-small-business').check();
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
@@ -134,7 +135,7 @@ test('output VAT from own invoices: Ist waits for the money, Soll counts the inv
 	await expect(card.getByTestId('vat-year-due')).toContainText('-64,00');
 
 	// Soll: on the invoice date.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-vat-basis').selectOption('soll');
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
@@ -147,7 +148,7 @@ test('output VAT from own invoices: Ist waits for the money, Soll counts the inv
 	await expect(card.getByTestId('vat-output-open')).toHaveCount(0);
 
 	// A small business: its turnover against the limit, no VAT payable.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-small-business').check();
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
@@ -194,8 +195,11 @@ test('an own invoice among the receipts: never input VAT, its VAT is output VAT 
 	// Not yet told the company's name: the own invoice looks like a received one.
 	await expect(card.getByTestId('vat-year-total')).toContainText('209,00');
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'firma');
 	await page.getByTestId('company-names').fill('Muster Beispiel UG');
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-vat-basis').selectOption('soll');
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();

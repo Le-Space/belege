@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { unzipSync, strFromU8 } from 'fflate';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 test('a booking without an account goes onto the suspense account, when asked', async ({
 	page
@@ -48,7 +49,7 @@ test('a booking without an account goes onto the suspense account, when asked', 
 	await expect(check).toHaveAttribute('data-state', 'blocker');
 	await expect(page.getByTestId('export-download')).toBeDisabled();
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-suspense-account').fill('1590');
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();

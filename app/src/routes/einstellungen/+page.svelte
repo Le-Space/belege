@@ -1,29 +1,34 @@
 <script>
 	// Einstellungen (issue #152): what the matching and the export need to know
 	// – the company and its own accounts, rules, what was learned, the
-	// bookkeeping (DATEV) and the chart of accounts. Moved here from
-	// Integrationen, which is for what Belege is connected to.
-	import MatchingSettings from '$lib/MatchingSettings.svelte';
-	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
-	import StorageCard from '$lib/storage/StorageCard.svelte';
-	import KeysCard from '$lib/keys/KeysCard.svelte';
-	import TravellersCard from '$lib/travel/TravellersCard.svelte';
+	// bookkeeping (DATEV) and the chart of accounts. An overview: each part on
+	// a tile that says where it stands and opens the part's own page, as
+	// Integrationen does. It was one long page with anchors once; a link to one
+	// of those anchors is taken on to the part's page.
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { app } from '$lib/session.svelte.js';
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
+	import { SETTINGS_SECTIONS, sectionOfAnchor, tileStates } from '$lib/settings/sections.js';
 
-	const sections = /** @type {const} */ ([
-		['einrichtung', 'settings.nav.setup'],
-		['firma', 'settings.nav.company'],
-		['abgleich', 'settings.nav.matching'],
-		['gelerntes', 'settings.nav.learned'],
-		['buchhaltung', 'settings.nav.books'],
-		['kontenplan', 'settings.nav.chart'],
-		['reisende', 'settings.nav.travellers'],
-		['schluessel', 'settings.nav.keys'],
-		['speicher', 'settings.nav.storage']
-	]);
-	const link =
-		'flex min-h-11 items-center rounded-md px-3 text-sm text-text hover:bg-surface hover:text-heading';
+	// Also when the overview is already open and only the anchor changes.
+	$effect(() => {
+		const old = sectionOfAnchor(page.url.hash);
+		if (old) goto(`${resolve(`/einstellungen/${old.id}`)}${old.hash}`, { replaceState: true });
+	});
+
+	let states = $derived(
+		tileStates({
+			accounts: app.accounts,
+			partners: app.partners ?? [],
+			matchingSettings: app.matchingSettings,
+			chart: app.chart
+		})
+	);
+	const tile =
+		'flex min-h-16 w-full items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left shadow-sm hover:bg-surface-2';
 </script>
 
 <svelte:head><title>{t('settings.title')} · Le Space Belege</title></svelte:head>
@@ -31,32 +36,47 @@
 <h1 class="text-2xl font-bold text-heading">{t('settings.title')}</h1>
 <p class="mt-1 text-sm text-text">{t('settings.intro')}</p>
 
-<div class="mt-4 flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
-	<nav
-		aria-label={t('settings.title')}
-		class="flex flex-wrap gap-1 md:sticky md:top-4 md:w-56 md:shrink-0 md:flex-col"
-		data-testid="settings-nav"
-	>
-		{#each sections as [id, key] (id)}
-			<a class={link} href="#{id}">{t(key)}</a>
-		{/each}
-		<button type="button" class="{link} text-left" onclick={() => consent.reopen()}
-			>{t('settings.nav.privacy')}</button
+<ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="settings-overview">
+	{#each SETTINGS_SECTIONS as s (s.id)}
+		{@const state = states[s.id]}
+		<li>
+			<a href={resolve(`/einstellungen/${s.id}`)} class={tile} data-testid="settings-tile-{s.id}">
+				<span
+					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-heading"
+					aria-hidden="true">{s.initials}</span
+				>
+				<span class="min-w-0 flex-1">
+					<span class="block font-semibold text-heading">{t(`settings.nav.${s.key}`)}</span>
+					<span
+						class="block text-sm {state?.warn
+							? 'font-medium text-amber-800 dark:text-amber-300'
+							: 'text-text'}"
+						data-testid="settings-tile-state"
+						data-warn={state?.warn ? 'true' : undefined}
+						>{state
+							? t(`settings.tile.${state.key}`, state.params ?? {})
+							: t(`settings.tile.about.${s.key}`)}</span
+					>
+				</span>
+				<span aria-hidden="true" class="text-lg text-faint">›</span>
+			</a>
+		</li>
+	{/each}
+	<li>
+		<button
+			type="button"
+			class={tile}
+			onclick={() => consent.reopen()}
+			data-testid="settings-tile-privacy"
 		>
-	</nav>
-	<div class="min-w-0 flex-1 [&>section]:mt-0">
-		<div id="einrichtung" class="mb-4 scroll-mt-4 [&>section]:mt-0">
-			<SetupChecklist place="settings" />
-		</div>
-		<MatchingSettings />
-		<div id="reisende" class="mt-4 scroll-mt-4">
-			<TravellersCard />
-		</div>
-		<div id="schluessel" class="mt-4 scroll-mt-4">
-			<KeysCard />
-		</div>
-		<div id="speicher" class="mt-4 scroll-mt-4">
-			<StorageCard />
-		</div>
-	</div>
-</div>
+			<span
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-heading"
+				aria-hidden="true">i</span
+			>
+			<span class="min-w-0 flex-1">
+				<span class="block font-semibold text-heading">{t('settings.nav.privacy')}</span>
+				<span class="block text-sm text-text">{t('settings.tile.about.privacy')}</span>
+			</span>
+		</button>
+	</li>
+</ul>

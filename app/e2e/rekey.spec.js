@@ -6,6 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 const MARKER = 'Schlüsselprobe-Wolkenfabrik';
 
@@ -69,7 +70,7 @@ test('new keys: the same books, in new databases under other keys', async ({ pag
 		})
 	);
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'schluessel');
 	const keys = page.getByTestId('keys-card');
 	await keys.getByTestId('keys-rekey-start').click();
 	// This browser's passkey stays, and cannot be unticked.
@@ -102,7 +103,7 @@ test('new keys: the same books, in new databases under other keys', async ({ pag
 	await page.getByRole('navigation').getByRole('link', { name: 'Belege' }).click();
 	await expect(page.getByText(MARKER).first()).toBeVisible();
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'schluessel');
 	await expect(page.getByTestId('keys-rekey-done')).toContainText('neue Schlüssel');
 	// The backup from before opens with the root the vault kept, and takes
 	// nothing back that the books have newer (#628).
@@ -182,7 +183,7 @@ test('another device of the owner switches to the new keys by itself', async ({ 
 		const before = await state(phone.page);
 
 		// New keys on the Mac.
-		await mac.page.getByTestId('settings-link').click();
+		await openSettings(mac.page, 'schluessel');
 		const keys = mac.page.getByTestId('keys-card');
 		await keys.getByTestId('keys-rekey-start').click();
 		await keys.getByTestId('keys-rekey-next').click();

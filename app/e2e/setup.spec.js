@@ -10,6 +10,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openSettings } from './settings.js';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { acceptConsent } from './consent.js';
@@ -122,7 +123,7 @@ test('a fresh start: the checklist, "later", and the bridge step that guides', a
 	await expect(step('payments')).toHaveAttribute('data-state', 'open');
 
 	// Under Einstellungen it stays.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'einrichtung');
 	await expect(page.getByTestId('setup-settings')).toBeVisible();
 });
 

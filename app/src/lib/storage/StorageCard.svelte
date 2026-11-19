@@ -10,6 +10,8 @@
 	import { bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
 	import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
+	import DataTable from '$lib/ui/DataTable.svelte';
+	import { technicalView } from '$lib/technical-view.js';
 	import ResetDialog from './ResetDialog.svelte';
 	import { storageSummary } from './summary.js';
 
@@ -76,6 +78,19 @@
 			: `${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: bytes < 1e7 ? 1 : 0 }).format(bytes / 1e6)} MB`;
 	/** @param {string[]} names */
 	const names = (names) => (names.length ? names.join(', ') : t('storage.technical.none'));
+
+	/** What an IndexedDB database of Belege is, by its name. @param {string} name */
+	const storeKind = (name) =>
+		/\/log\/_heads\/?$/.test(name)
+			? t('storage.technical.kind.heads')
+			: /\/log\/_index\/?$/.test(name)
+				? t('storage.technical.kind.index')
+				: /helia-blocks/.test(name)
+					? t('storage.technical.kind.blocks')
+					: /helia-data/.test(name)
+						? t('storage.technical.kind.data')
+						: t('storage.technical.kind.other');
+	let storeRows = $derived(stores.databases.map((name) => ({ name, kind: storeKind(name) })));
 
 	// What to offer before the reset: only what there is.
 	let before = $derived.by(() => {
@@ -186,11 +201,44 @@
 		class="mt-3"
 		testid="storage-technical"
 		lines={[
-			t('storage.technical.databases', { names: names(stores.databases) }),
+			t('storage.technical.databasesCount', { count: stores.databases.length }),
 			t('storage.technical.caches', { names: names(stores.caches) }),
 			t('storage.technical.local', { count: stores.local.length, names: names(stores.local) })
 		]}
 	/>
+	{#if $technicalView && stores.databases.length}
+		<!-- A long-used browser holds well over a hundred of them: folded away, and
+		     to be searched and sorted rather than read as one run of names. -->
+		<details class="mt-2 text-sm" data-testid="storage-stores">
+			<summary class="cursor-pointer text-text underline"
+				>{t('storage.technical.databasesList', { count: stores.databases.length })}</summary
+			>
+			{#snippet storeCell(
+				/** @type {{ name: string, kind: string }} */ row,
+				/** @type {{ key: string }} */ column
+			)}
+				{#if column.key === 'name'}
+					<span class="font-mono text-xs break-all text-text">{row.name}</span>
+				{:else}
+					<span class="text-faint">{row.kind}</span>
+				{/if}
+			{/snippet}
+			<DataTable
+				rows={storeRows}
+				columns={[
+					{ key: 'name', label: t('storage.technical.colName'), sort: (r) => r.name },
+					{ key: 'kind', label: t('storage.technical.colKind'), sort: (r) => r.kind }
+				]}
+				rowKey={(r) => r.name}
+				cell={storeCell}
+				search={(r) => `${r.name} ${r.kind}`}
+				sortBy="name"
+				label={t('storage.technical.databasesList', { count: stores.databases.length })}
+				testid="storage-stores-table"
+				rowTestid="storage-store"
+			/>
+		</details>
+	{/if}
 
 	<div class="mt-4 border-t border-border pt-4">
 		<button

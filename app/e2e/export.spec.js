@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unzipSync, strFromU8 } from 'fflate';
+import { openSettings } from './settings.js';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
@@ -170,7 +171,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	);
 
 	// Einstellungen: the ledger accounts, suggested 1200 and 1210 as placeholders only.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	const ledger = (/** @type {string} */ last4) =>
 		page.locator(`[data-testid="ledger-account"][data-account="${last4}"]`);
 	await expect(ledger('0011')).toHaveAttribute('placeholder', '1200');
@@ -193,7 +194,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	await expect(check('ledger')).toContainText('Konto A Test ···0011');
 	await expect(page.getByTestId('export-download')).toBeDisabled();
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await ledger('0011').fill('1200');
 	await ledger('0022').fill('1210');
 	await page.getByTestId('matching-save').click();

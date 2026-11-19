@@ -22,7 +22,7 @@
 		<span class="flex flex-wrap gap-2">
 			<a
 				class="inline-flex min-h-11 items-center rounded-md border border-amber-400 px-3 font-medium hover:bg-amber-100 dark:border-amber-600 dark:hover:bg-amber-900"
-				href={`${resolve('/einstellungen')}#schluessel`}
+				href={resolve('/einstellungen/schluessel')}
 				onclick={() => (app.offerWords = false)}
 				data-testid="words-offer-go">{t('settings.keys.words.offerGo')}</a
 			>
