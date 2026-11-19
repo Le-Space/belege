@@ -29,7 +29,9 @@ export const DEFAULT_BRIDGE_URL = import.meta.env?.VITE_BRIDGE_URL || 'http://12
  * bridge: a token over HTTP, or the bridge's own node, a device of the books,
  * over the stream (#575). Only HTTP knows a token; `token` stays null then.
  *
- * @param {{ token?: string | null, peerId?: string | null } | null | undefined} saved
+ * @template {{ token?: string | null, peerId?: string | null }} T
+ * @param {T | null | undefined} saved
+ * @returns {saved is T}
  */
 export const pairedWith = (saved) => Boolean(saved?.token || saved?.peerId);
 

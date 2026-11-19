@@ -52,6 +52,7 @@
 	} from '$lib/receipts/origin.js';
 	import { createBridgeClient, pairedWith } from '$lib/bridge/client.js';
 	import { getSetting, setSetting } from '$lib/store/settings.js';
+	import { readBridgeRecord } from '$lib/bridge-connection/record.js';
 	import { formatDate, formatMoney } from '$lib/bank/format.js';
 	import { fetchAccountingMail, needsConfirmation } from '$lib/receipts/import.js';
 	import { extractable, ocrText } from '$lib/receipts/extract.js';
@@ -331,7 +332,7 @@
 		}
 		// The bridge's client first: what loads below may wait for the bridge (#580),
 		// and a receipt opened meanwhile already asks through it.
-		const saved = await getSetting(store.settings, 'bridge');
+		const saved = await readBridgeRecord(store.settings);
 		const c = pairedWith(saved)
 			? createBridgeClient({ url: saved.url, token: saved.token ?? null })
 			: null;
@@ -342,7 +343,8 @@
 		await loadUpload();
 		if (!c) return;
 		// Customer portals are HTTP's only (bridge/src/stream.js): with the token alone.
-		bridgeAt = saved.token ? { url: saved.url, token: saved.token } : null;
+		// A token is written with its url (bridge-state.svelte.js `pairBridge`).
+		bridgeAt = saved?.token ? { url: /** @type {string} */ (saved.url), token: saved.token } : null;
 		if (bridgeAt) {
 			createPortalClient(bridgeAt)
 				.list()

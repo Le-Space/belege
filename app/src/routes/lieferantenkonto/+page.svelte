@@ -15,7 +15,7 @@
 	import { looksPrepaid, vendorTimeline } from '$lib/matching/vendor-account.js';
 	import { shownYear } from '$lib/year/year.svelte.js';
 	import { onMount } from 'svelte';
-	import { getSetting } from '$lib/store/settings.js';
+	import { readBridgeRecord } from '$lib/bridge-connection/record.js';
 	import { recordEvent } from '$lib/activity/events.js';
 	import { eventCalls } from '$lib/stats/usage.js';
 	import AiMark from '$lib/AiMark.svelte';
@@ -91,7 +91,7 @@
 	let client = $state(null);
 	onMount(async () => {
 		const store = currentStore();
-		const saved = store ? await getSetting(store.settings, 'bridge') : null;
+		const saved = store ? await readBridgeRecord(store.settings) : null;
 		const { createBridgeClient, pairedWith } = await import('$lib/bridge/client.js');
 		if (!pairedWith(saved)) return;
 		client = createBridgeClient({ url: saved.url, token: saved.token ?? null });
