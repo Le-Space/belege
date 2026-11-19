@@ -33,12 +33,14 @@
 		"./filecoin-chain": "./src/filecoin-chain.js",
 		"./near": "./src/near.js",
 		"./aleph": "./src/aleph.js",
+		"./filecoin-pay": "./src/filecoin-pay.js",
 		"./testing/cosmos": "./test/support/fake-cosmos.js",
 		"./testing/filfox": "./test/support/fake-filfox.js",
 		"./testing/near": "./test/support/fake-near.js",
 		"./testing/blockscout": "./test/support/fake-blockscout.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
-		"./testing/aleph": "./test/support/aleph.js"
+		"./testing/aleph": "./test/support/aleph.js",
+		"./testing/filecoin-pay": "./test/support/filecoin-pay-fetch.js"
 	},
 	"files": [
 		"src",
