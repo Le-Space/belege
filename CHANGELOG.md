@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The picture in the bridge image's build view shows keys, checks and measurements where they happen (`@le-space/build-journey` 0.12.12): the passphrase travels to the node as a key, the processor's report to the browser as a shield; the node shows "gemessen", the browser "Bericht geprüft" (red "stimmt nicht" for a value Belege does not pin), the node "mit deinem Schlüssel versiegelt", the fetch's connections checked, the STORE signed and stored. On a phone these notes stand as a list under the picture.
+
 ## [0.42.0] – 2026-11-19
 
 ### Added

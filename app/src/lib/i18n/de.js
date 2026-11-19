@@ -4863,6 +4863,18 @@ export default {
 					pieces: 'Stücke deines versiegelten Images',
 					image: 'Dein versiegeltes Image'
 				},
+				marks: {
+					measuring: 'misst…',
+					measured: 'gemessen',
+					attested: 'Bericht geprüft',
+					mismatch: 'stimmt nicht',
+					sealing: 'Schlüssel kommt an',
+					sealed: 'mit deinem Schlüssel versiegelt',
+					lanes: '{count} Verbindungen geprüft',
+					signing: 'signiert…',
+					signed: 'von dir signiert',
+					stored: 'gespeichert'
+				},
 				places: {
 					browser: 'Dein Browser',
 					relay: 'Le-Space-Relay',

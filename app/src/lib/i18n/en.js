@@ -4801,6 +4801,18 @@ export default {
 					pieces: 'Pieces of your sealed image',
 					image: 'Your sealed image'
 				},
+				marks: {
+					measuring: 'measuring…',
+					measured: 'measured',
+					attested: 'report checked',
+					mismatch: 'does not match',
+					sealing: 'key arriving',
+					sealed: 'sealed with your key',
+					lanes: '{count} connections checked',
+					signing: 'signing…',
+					signed: 'signed by you',
+					stored: 'stored'
+				},
 				places: {
 					browser: 'Your browser',
 					relay: 'Le Space relay',

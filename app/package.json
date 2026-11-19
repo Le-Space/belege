@@ -62,7 +62,7 @@
 		"@le-space/aleph-vm": "0.12.8",
 		"@le-space/attest-wasm": "0.12.8",
 		"@le-space/bridge-protocol": "workspace:^",
-		"@le-space/build-journey": "0.12.11",
+		"@le-space/build-journey": "0.12.12",
 		"@le-space/chains": "workspace:^",
 		"@le-space/eigenbeleg": "workspace:^",
 		"@le-space/libp2p-webrtc-qr": "0.14.0",
