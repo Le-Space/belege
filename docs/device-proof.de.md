@@ -83,7 +83,7 @@ Scheitert ein Austausch, versucht der Geräte-Sync es in jeder Runde neu, solang
 
 ## Tests
 
-[`device-gate.spec.js`](../app/src/lib/sync/device-gate.spec.js) lässt echte libp2p-Knoten über den Memory-Transport laufen:
+[`device-gate.spec.js`](../app/src/lib/sync/device-gate.spec.js) lässt echte libp2p-Knoten über den Memory-Transport laufen: [`stranger-peer.spec.js`](../app/e2e/stranger-peer.spec.js) stellt einen Fremden gegen die echte App im Browser: Ein Knoten mit eigenem Schlüssel und ohne Beweis verbindet sich über den Relay mit einem Gerät und versucht jedes Protokoll, auf das das Gerät antwortet, beim Namen – vor und nach einem erfundenen Beweis. Identify nennt ihm die Identify- und Relay-Protokolle und `js-libp2p`. Kein anderes Protokoll antwortet, Gossipsub sagt ihm nichts, und Bitswap gibt ihm keinen Block. Im Modus ohne Relay erreicht er das Gerät gar nicht.
 
 - Zwei Geräte derselben Bücher bekommen Daten und gossipsub.
 - Ein Peer ohne Tor und einer mit anderem Schlüssel bekommen nichts, ob sie anwählen oder angewählt werden.

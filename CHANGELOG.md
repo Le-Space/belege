@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **A stranger against the real stack, as a standing test** (#537, part of #209). `stranger-peer.spec.js` runs a node with a key of its own and no device proof against a device of the books in a browser, through the relay, in the modes that listen at one: it tries every protocol the device answers to, before and after a made-up proof, subscribes to the books' topics and wants a block. It is told the identify and relay protocols and nothing of the books. In the mode without a relay it cannot reach the device.
+
 ## [0.43.0] – 2026-11-19
 
 ### Added
