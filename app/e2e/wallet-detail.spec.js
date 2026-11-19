@@ -140,6 +140,22 @@ test('a wallet send says whose address is whose, once each, and where the money 
 	await page.evaluate(() => document.documentElement.classList.remove('dark'));
 	await page.setViewportSize({ width: 390, height: 900 });
 	await shot(page, 'phone');
+	// A folded phone's outer screen: about 300 CSS pixels wide.
+	await page.setViewportSize({ width: 300, height: 760 });
+	await shot(page, 'fold');
+	if (process.env.REVIEW_DIR) {
+		// The panel scrolls: one photograph per screenful, down to its end.
+		for (let i = 0; i < 6; i++) {
+			await page.screenshot({ path: `${process.env.REVIEW_DIR}/fold-screen-${i}.png` });
+			const more = await detail.evaluate((el) => {
+				const before = el.scrollTop;
+				el.scrollBy(0, 620);
+				return el.scrollTop > before;
+			});
+			if (!more) break;
+		}
+		await detail.evaluate((el) => el.scrollTo(0, 0));
+	}
 	await page.setViewportSize({ width: 1280, height: 900 });
 
 	// Whose is whose: ours marked, the other an unknown address, each short; the
@@ -187,4 +203,14 @@ test('a wallet send says whose address is whose, once each, and where the money 
 	await expect(detail.getByTestId('tx-detail-counterparty')).toHaveText('Kraken · FIL');
 	await expect(detail.getByTestId('tx-where')).toHaveCount(0);
 	await expect(detail.getByTestId('tx-counter-open')).toBeVisible();
+
+	if (process.env.REVIEW_DIR) {
+		// The list behind the detail, on the folded phone's outer screen.
+		await detail.getByTestId('tx-detail-close').click();
+		await page.setViewportSize({ width: 300, height: 760 });
+		await page.evaluate(() => window.scrollTo(0, 0));
+		await page.screenshot({ path: `${process.env.REVIEW_DIR}/fold-list-0.png` });
+		await page.evaluate(() => window.scrollBy(0, 620));
+		await page.screenshot({ path: `${process.env.REVIEW_DIR}/fold-list-1.png` });
+	}
 });

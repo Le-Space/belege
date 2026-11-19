@@ -581,6 +581,16 @@ Filfox sieht die Adresse und die IP-Adresse dieses Macs. Eine Adresse mit mehr a
 - Der Euro-Kurs von USDFC kommt von CoinGecko (`usdfc`), sonst aus der anderen Seite des Tauschs. Er wird nie pauschal mit 1 USD ohne Quelle angesetzt.
 - Im crypto-ledger-Export heißt USDFC `eip155:314/erc20:0x80b9…f045`.
 
+### Einzahlung in Filecoin Pay
+
+USDFC, die eine Wallet an den Vertrag Filecoin Pay sendet, gehen auf das eigene Guthaben des Zahlers in diesem Vertrag. Filecoin Pay gehört zur Filecoin Onchain Cloud; die Mainnet-Adresse ist `0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa` (`f410feoy…l36cyi`) und stammt aus den veröffentlichten Adressen von `@filoz/synapse-core`.
+
+Das Geld bleibt beim Zahler und lässt sich wieder auszahlen, bis daraus Speicher abgerechnet wird. Belege erkennt den Vertrag an seiner Adresse (`app/src/lib/wallets/known-contracts.js`), nennt die Zahlung „Filecoin Pay“ und bucht sie als eigene Umbuchung auf 1360, ohne Beleg. Dasselbe gilt für Geld, das von dort zurückkommt.
+
+Was der Vertrag aus dem Guthaben an Speicheranbieter zahlt, ist keine Bewegung der Wallet und wird noch nicht gelesen. Dieser Aufwand braucht einen eigenen Nachweis, wie ihn die Credits von Aleph und Akash haben.
+
+Hast du die Adresse unter „Was war diese Zahlung?“ selbst benannt, gilt deine Angabe.
+
 ### NEAR
 
 **Anlegen:** Ein eigenes NEAR-Konto legst du mit seinem Kontonamen an: ein benanntes (`name.near`) oder ein implizites (64 Hex-Zeichen). Belege hält ihn in Kleinbuchstaben.

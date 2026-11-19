@@ -2281,6 +2281,8 @@ export default {
 			noReceipt: 'Von dir entschieden: Kein Beleg nötig – {reason}',
 			noReason: 'ohne Grund',
 			ownCompany: 'Eigene Umbuchung: Die Gegenpartei ist deine Firma „{company}“',
+			ownPaymentContract:
+				'Einzahlung auf dein eigenes Guthaben im Zahlungsvertrag „{name}“ ({address}): Das Geld bleibt deins und lässt sich wieder auszahlen, bis daraus Leistungen abgerechnet werden – eine eigene Umbuchung, kein Beleg nötig (Konto 1360). Was der Vertrag davon an Anbieter zahlt, steht nicht in der Wallet und braucht einen eigenen Nachweis.',
 			ownCustodian:
 				'Eigenes Geld bei „{name}“: Du hast die Adresse {address} als eigenes Konto bei einer Börse oder einem Verwahrer gemerkt, das Belege nicht liest. Kein Beleg nötig (Konto 1360). Die andere Seite steht nicht in den Büchern, 1360 bleibt um diesen Betrag offen.',
 			addressPrivate:

@@ -263,6 +263,12 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			if (c.via === 'company') {
 				return t('explain.rule.ownCompany', { company: c.company ?? '' });
 			}
+			if (c.via === 'payment-contract') {
+				return t('explain.rule.ownPaymentContract', {
+					name: c.company ?? '',
+					address: shortAddress(c.address ?? '')
+				});
+			}
 			if (c.via === 'custodian') {
 				return t('explain.rule.ownCustodian', {
 					name: c.company ?? '',
