@@ -460,6 +460,10 @@ export async function startDeviceSync({
 				throw new Error(t('messages.sync.removed'));
 			},
 			async removeDevice() {},
+			/** @returns {Promise<boolean>} */
+			async bridgeListensAt() {
+				return false;
+			},
 			refresh() {},
 			async stop() {}
 		};

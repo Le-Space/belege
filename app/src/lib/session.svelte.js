@@ -1337,7 +1337,7 @@ async function findBridgeNodeHere(saved) {
 	const addr = loopbackAddr(health?.node?.addrs);
 	// Only the node these books paired: another one's address is not ours to dial.
 	if (!addr || health?.node?.peerId !== saved.peerId) return;
-	await deviceSync.bridgeListensAt?.(saved.peerId, addr);
+	await deviceSync.bridgeListensAt(saved.peerId, addr);
 }
 
 /**
