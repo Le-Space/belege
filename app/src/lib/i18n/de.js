@@ -180,7 +180,17 @@ export default {
 		elsewhere:
 			'Nicht hier: der Passkey (im Passwort-Manager), Kopien auf deinen anderen Geräten, und was die Bridge auf dem Rechner ablegt (~/.config/belege und der Schlüsselbund).',
 		technical: {
-			databases: 'IndexedDB: {names}',
+			databasesCount: 'IndexedDB: {count} Datenbanken',
+			databasesList: 'Die {count} IndexedDB-Datenbanken ansehen',
+			colName: 'Name',
+			colKind: 'Was es ist',
+			kind: {
+				heads: 'OrbitDB: Köpfe eines Protokolls',
+				index: 'OrbitDB: Index eines Protokolls',
+				blocks: 'Blöcke (versiegelte Einträge und Dateien)',
+				data: 'Verwaltungsdaten des Speichers',
+				other: 'Belege'
+			},
 			caches: 'Cache Storage (App-Hülle): {names}',
 			local: 'localStorage ({count} Einträge, nichts Geheimes): {names}',
 			none: 'keine'
@@ -1567,6 +1577,15 @@ export default {
 		blocks: 'Blöcke insgesamt',
 		history: 'Bisherige Backups'
 	},
+	table: {
+		search: 'Suchen …',
+		searchIn: 'Suchen in: {what}',
+		count: '{count} Einträge',
+		countOf: '{shown} von {count}',
+		noMatch: 'Nichts gefunden – die Suche oder ein Filter schließt alles aus.',
+		sortBy: 'Sortieren nach',
+		sortNone: 'wie vorgegeben'
+	},
 	credits: {
 		title: 'Le Space Credits',
 		terms: {
@@ -2564,6 +2583,26 @@ export default {
 	settings: {
 		title: 'Einstellungen',
 		intro: 'Was der Abgleich und der Export über dich und deine Buchhaltung wissen müssen.',
+		back: 'Alle Einstellungen',
+		unknown: 'Diesen Teil der Einstellungen gibt es nicht.',
+		tile: {
+			companySet: '{count} Firmennamen eingetragen',
+			companyMissing: 'Firmenname fehlt',
+			rules: '{count} Regeln',
+			learned: '{count} gelernte Anbieter',
+			noAccounts: 'Noch keine Konten in den Büchern',
+			ledgerMissing: '{count} von {total} Konten ohne Sachkonto',
+			ledgerDone: 'Alle {total} Konten haben ein Sachkonto',
+			chart: '{count} Konten eingelesen',
+			chartNone: 'Keiner eingelesen – es gilt die SKR-03-Liste',
+			about: {
+				setup: 'Schritt für Schritt startklar',
+				travellers: 'Wer reist, und auf welches Konto',
+				keys: 'Passkeys, Wiederherstellungswörter, neue Schlüssel',
+				storage: 'Was die Bücher belegen, und Zurücksetzen',
+				privacy: 'Wo deine Daten liegen und was den Rechner verlässt'
+			}
+		},
 		nav: {
 			storage: 'Speicher & Zurücksetzen',
 			setup: 'Einrichtung',
@@ -2742,6 +2781,11 @@ export default {
 			'Wenn du einen Beleg einer Zahlung zuordnest oder eine Zuordnung bestätigst, merkt sich der Abgleich, dass diese Gegenpartei auf dem Kontoauszug zu diesem Anbieter gehört – und woher seine Belege per E-Mail kommen. Beim nächsten Mal zählt das 40 Punkte und hilft der Suche im Postfach.',
 		learnedMail: 'Belege von {domains}',
 		noLearned: 'Noch nichts gelernt.',
+		learnedCol: {
+			vendor: 'Anbieter',
+			aliases: 'Gegenpartei auf dem Kontoauszug',
+			more: 'Konto, Belege von'
+		},
 		forget: 'Vergessen',
 		grace: 'Rückfrage bei fehlendem Beleg nach',
 		graceUnit: 'Tagen',
@@ -2749,6 +2793,8 @@ export default {
 			'Ein Beleg kommt oft ein paar Tage nach der Abbuchung. So lange zählt die Zahlung als ohne Beleg, aber der Abgleich fragt noch nicht. 0 = sofort fragen.',
 		chart: {
 			title: 'Kontenplan',
+			tookLedgers: 'Aus dem Kontenplan übernommene Buchhaltungskonten: {count} – bitte prüfen.',
+			toLedgers: 'Buchhaltungskonten ansehen',
 			hint: 'Lies den Kontenplan deiner Buchhaltung ein: Dann schlägt „Konto“ an jeder Zahlung deine Konten mit deinen Bezeichnungen vor statt der allgemeinen SKR-03-Liste.',
 			infoTitle:
 				'Eine Datei aus deiner Buchhaltung: DATEV-„Kontenbeschriftungen“ (in der Buchhaltung meist unter „Export DATEV“) oder eine CSV mit Kontonummer und Bezeichnung. Sie bleibt verschlüsselt in deinen Büchern in diesem Browser.',
@@ -2792,10 +2838,20 @@ export default {
 			fromChart: 'Aus deinem Kontenplan übernommen – bitte prüfen.',
 			candidates: 'Aus deinem Kontenplan könnte passen:',
 			ledger: 'Sachkonto in deiner Buchhaltung',
-			ledgerHint:
-				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',
+			ledgerHintPlain:
+				'Das Sachkonto, unter dem jedes Konto in deiner Buchhaltung geführt wird. Die grauen Nummern sind Platzhalter nach SKR 03 – trag die Nummern aus deiner Buchhaltung ein.',
 			ledgerHintChart:
-				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Tipp Nummer oder Bezeichnung – die Vorschläge kommen aus deinem eingelesenen Kontenplan ({count} Konten).',
+				'Das Sachkonto, unter dem jedes Konto in deiner Buchhaltung geführt wird. Tipp Nummer oder Bezeichnung – die Vorschläge kommen aus deinem eingelesenen Kontenplan ({count} Konten).',
+			filterMissing: 'nur ohne Sachkonto',
+			col: { account: 'Konto', kind: 'Art', name: 'Im Kontenplan' },
+			kind: {
+				bank: 'Bank',
+				exchange: 'Börse',
+				wallet: 'Wallet',
+				card: 'Kreditkarte',
+				outlay: 'Auslagen',
+				travel: 'Reisekosten'
+			},
 			noAccounts: 'Noch keine Bankkonten in den Büchern.',
 			vatPeriod: 'Umsatzsteuer-Voranmeldung',
 			vatPeriods: { quarter: 'vierteljährlich', month: 'monatlich' },

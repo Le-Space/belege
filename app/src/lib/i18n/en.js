@@ -172,7 +172,17 @@ export default {
 		elsewhere:
 			'Not here: the passkey (in the password manager), copies on your other devices, and what the bridge keeps on the computer (~/.config/belege and the keychain).',
 		technical: {
-			databases: 'IndexedDB: {names}',
+			databasesCount: 'IndexedDB: {count} databases',
+			databasesList: 'See the {count} IndexedDB databases',
+			colName: 'Name',
+			colKind: 'What it is',
+			kind: {
+				heads: 'OrbitDB: a log’s heads',
+				index: 'OrbitDB: a log’s index',
+				blocks: 'Blocks (sealed entries and files)',
+				data: 'The store’s own data',
+				other: 'Belege'
+			},
 			caches: 'Cache Storage (app shell): {names}',
 			local: 'localStorage ({count} entries, nothing secret): {names}',
 			none: 'none'
@@ -1574,6 +1584,15 @@ export default {
 			none: 'No top-up and no deployment yet.'
 		}
 	},
+	table: {
+		search: 'Search …',
+		searchIn: 'Search in: {what}',
+		count: '{count} entries',
+		countOf: '{shown} of {count}',
+		noMatch: 'Nothing found – the search or a filter rules everything out.',
+		sortBy: 'Sort by',
+		sortNone: 'as given'
+	},
 	credits: {
 		title: 'Le Space Credits',
 		terms: {
@@ -2524,6 +2543,26 @@ export default {
 	settings: {
 		title: 'Settings',
 		intro: 'What matching and the export need to know about you and your bookkeeping.',
+		back: 'All settings',
+		unknown: 'There is no such part of the settings.',
+		tile: {
+			companySet: '{count} company names entered',
+			companyMissing: 'Company name missing',
+			rules: '{count} rules',
+			learned: '{count} learned vendors',
+			noAccounts: 'No accounts in the books yet',
+			ledgerMissing: '{count} of {total} accounts without a ledger account',
+			ledgerDone: 'All {total} accounts have a ledger account',
+			chart: '{count} accounts read in',
+			chartNone: 'None read in – the SKR 03 list applies',
+			about: {
+				setup: 'Ready step by step',
+				travellers: 'Who travels, and on which account',
+				keys: 'Passkeys, recovery words, new keys',
+				storage: 'What the books take up, and resetting',
+				privacy: 'Where your data is and what leaves this computer'
+			}
+		},
 		nav: {
 			storage: 'Storage & reset',
 			setup: 'Setup',
@@ -2698,6 +2737,11 @@ export default {
 			'When you link a receipt to a payment or confirm a matching, matching remembers that this counterparty on the bank statement belongs to this vendor – and where its receipts come from by email. Next time this counts 40 points and helps the mailbox search.',
 		learnedMail: 'Receipts from {domains}',
 		noLearned: 'Nothing learned yet.',
+		learnedCol: {
+			vendor: 'Vendor',
+			aliases: 'Counterparty on the statement',
+			more: 'Account, receipts from'
+		},
 		forget: 'Forget',
 		grace: 'Ask about a missing receipt after',
 		graceUnit: 'days',
@@ -2705,6 +2749,8 @@ export default {
 			'A receipt often arrives a few days after the debit. Until then the payment counts as without a receipt, but matching does not ask yet. 0 = ask immediately.',
 		chart: {
 			title: 'Chart of accounts',
+			tookLedgers: 'Ledger accounts taken from the chart: {count} – please check.',
+			toLedgers: 'See the ledger accounts',
 			hint: 'Import your bookkeeping’s chart of accounts: then “Account” on each payment suggests your accounts with your names instead of the general SKR 03 list.',
 			infoTitle:
 				'A file from your bookkeeping: DATEV “Kontenbeschriftungen” (account labels, in the bookkeeping usually under “Export DATEV”) or a CSV with account number and name. It stays encrypted in your books in this browser.',
@@ -2748,10 +2794,20 @@ export default {
 			fromChart: 'Taken from your chart of accounts – please check.',
 			candidates: 'From your chart of accounts, this may fit:',
 			ledger: 'Ledger account in your bookkeeping',
-			ledgerHint:
-				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',
+			ledgerHintPlain:
+				'The ledger account under which each account is kept in your bookkeeping. The grey numbers are placeholders per SKR 03 – enter the numbers from your bookkeeping.',
 			ledgerHintChart:
-				'The ledger account under which this bank account is kept in your bookkeeping. Type its number or name – the suggestions come from your chart of accounts ({count} accounts).',
+				'The ledger account under which each account is kept in your bookkeeping. Type its number or name – the suggestions come from your chart of accounts ({count} accounts).',
+			filterMissing: 'without a ledger account only',
+			col: { account: 'Account', kind: 'Kind', name: 'In the chart of accounts' },
+			kind: {
+				bank: 'Bank',
+				exchange: 'Exchange',
+				wallet: 'Wallet',
+				card: 'Credit card',
+				outlay: 'Outlays',
+				travel: 'Travel expenses'
+			},
 			noAccounts: 'No bank accounts in the books yet.',
 			vatPeriod: 'Advance VAT return',
 			vatPeriods: { quarter: 'quarterly', month: 'monthly' },

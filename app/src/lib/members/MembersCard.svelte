@@ -225,7 +225,7 @@
 			{t('settings.keys.rekey.afterRemoval')}
 			<a
 				class="text-link underline"
-				href={`${resolve('/einstellungen')}#rekey`}
+				href={`${resolve('/einstellungen/schluessel')}#rekey`}
 				data-testid="member-rekey-link">{t('settings.keys.rekey.title')}</a
 			>
 		</p>

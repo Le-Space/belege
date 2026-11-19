@@ -17,6 +17,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openSettings } from './settings.js';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
@@ -180,8 +181,11 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	// Pair, tell the matcher who we are, sync.
 	await tab('Integrationen').click();
 	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'firma');
 	await page.getByTestId('company-names').fill(COMPANY);
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
+	await openSettings(page, 'abgleich');
 	await page.getByTestId('rule-contains').fill('Finanzamt');
 	await page.getByTestId('rule-reason').fill('Bescheid liegt vor');
 	await page.getByTestId('rule-add').click();
@@ -257,7 +261,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 	await page.getByTestId('tx-detail-close').click();
 
 	// Einstellungen: ask at once.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'firma');
 	await expect(page.getByTestId('grace-days')).toHaveValue('7');
 	await page.getByTestId('grace-days').fill('0');
 	await page.getByTestId('matching-save').click();

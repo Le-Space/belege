@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 /** What the browser still holds for this site. @param {import('@playwright/test').Page} page */
 const held = (page) =>
@@ -30,7 +31,7 @@ test('what the books take, and a reset that leaves nothing behind', async ({ pag
 	await page.getByTestId('setup-start-look').click();
 	await expect(page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'speicher');
 	const card = page.getByTestId('storage-card');
 	const row = (/** @type {string} */ name) =>
 		card.locator(`[data-testid="storage-database"][data-name="${name}"] td`);

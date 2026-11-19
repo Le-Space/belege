@@ -4,6 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 /** A DATEV Kontenbeschriftungen file in Windows-1252 (ö = 0xF6). */
 function datevChart() {
@@ -29,7 +30,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'kontenplan');
 	const chart = page.getByTestId('chart');
 	await expect(chart).toContainText('Kontenplan');
 	await chart.getByTestId('chart-how').locator('summary').click();
@@ -82,6 +83,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 			currency: 'EUR'
 		})
 	);
+	await openSettings(page, 'buchhaltung');
 	const ledger = page.locator('[data-testid="ledger-account"][data-account="0011"]');
 	await expect(ledger).toHaveAttribute('list', 'ledger-chart');
 	await expect(ledger).toHaveAttribute('placeholder', '');
@@ -118,7 +120,7 @@ test('a chart of accounts is read, previewed, taken, suggested and removed', asy
 
 	// Removed: back to the SKR 03 list.
 	await page.getByTestId('tx-detail-close').click();
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'kontenplan');
 	await page.getByTestId('chart-drop').click();
 	await expect(page.getByTestId('chart-current')).toHaveCount(0);
 });
@@ -182,11 +184,14 @@ test('a chart that names the accounts of the books gives them their ledger accou
 		});
 	});
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	const giro = page.locator('[data-testid="ledger-account"][data-account="4321"]');
 	const savings = page.locator('[data-testid="ledger-account"][data-account="9999"]');
 	await expect(giro).toHaveValue('');
 
+	// The chart has a page of its own; what it gave the accounts is said there,
+	// with the way back to them.
+	await openSettings(page, 'kontenplan');
 	const chart = page.getByTestId('chart');
 	await chart.getByTestId('chart-file').setInputFiles({
 		name: 'kontenplan.csv',
@@ -196,6 +201,9 @@ test('a chart that names the accounts of the books gives them their ledger accou
 		)
 	});
 	await chart.getByTestId('chart-take').click();
+	await expect(page.getByTestId('chart-took-ledgers')).toContainText('3');
+	await page.getByTestId('chart-to-ledgers').click();
+	await expect(page.getByTestId('settings-section')).toHaveAttribute('data-section', 'buchhaltung');
 
 	// Taken over at once, and said so.
 	await expect(giro).toHaveValue('1200');
@@ -229,7 +237,7 @@ test('a chart that names the accounts of the books gives them their ledger accou
 	await page.reload();
 	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await expect(page.locator('[data-testid="ledger-account"][data-account="4321"]')).toHaveValue(
 		'1200'
 	);

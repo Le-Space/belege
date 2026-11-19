@@ -7,6 +7,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 const COMPANY = 'Musterfirma UG';
 const WISE = 'BE00999900001111';
@@ -80,7 +81,7 @@ test('an IBAN that sends under our name is offered as own, and explains the paym
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'firma');
 	await page.getByTestId('company-names').fill(COMPANY);
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();

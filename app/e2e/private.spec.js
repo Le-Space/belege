@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
 const tab = (page, name) => page.getByRole('navigation').getByRole('link', { name });
@@ -20,7 +21,7 @@ test('a private payment: marked, documented, open on Home, settled by its repaym
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	// A UG, and the clearing account the tax adviser named (made up).
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'buchhaltung');
 	await page.getByTestId('datev-legal-form').selectOption('corporation');
 	await page.getByTestId('datev-shareholder-account').fill('1545');
 	await page.getByTestId('matching-save').click();

@@ -10,6 +10,7 @@ import { test, expect } from '@playwright/test';
 import { startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 const MARKER = 'Tresorprobe-Lindenweg';
 
@@ -45,7 +46,7 @@ const books = (page) =>
 /** @param {import('@playwright/test').Page} page */
 async function openKeys(page) {
 	// In the app, not by URL: a reload would lock the books.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'schluessel');
 	await expect(page.getByTestId('keys-card')).toBeVisible();
 	return page.getByTestId('keys-card');
 }

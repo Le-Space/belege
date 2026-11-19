@@ -10,6 +10,12 @@ All notable changes to Le Space Belege. The format follows
 
 - `@le-space/chains/filecoin-pay`: what a payer's balance in Filecoin Pay was used for in a month, for a usage statement like Aleph's. Storage on Filecoin Onchain Cloud is paid by the contract out of the payer's balance, not by a wallet's transfers, so no wallet reader sees it. The statement has the opening and closing balance, what was paid in and taken out, and each settlement of each rail – provider, service, amount, of it commission and network fee, and up to when it paid – valued in euros; `filecoinPayEntries` gives the lines as ledger entries. Read from the index Filecoin Pay's makers keep, with the contract's deposit and withdrawal events from Blockscout; from Blockscout alone when the index does not answer (a key of dev.blockscout.com lifts its limit of about ten requests). The package is not used by the app yet.
 
+### Changed
+
+- **Einstellungen is an overview with a page for each part.** It was one long page whose links only scrolled. Now each part – setup, company and own accounts, matching rules, what was learned, bookkeeping (DATEV), chart of accounts, travellers, keys, storage – is a tile that says where it stands and opens a page of its own (`/einstellungen/<part>`). Links to the old anchors lead to the new pages.
+- **Tables that can be searched, filtered and sorted** for the ledger accounts of the books' accounts ("only without a ledger account"), the learned vendors and, in the technical view, the databases of the books. On a narrow screen a row is a card, with no sideways scrolling.
+- After a chart of accounts is read in, its page says how many accounts were given their ledger account and links to them.
+
 ### Fixed
 
 - The receipts page's technical note reads as text again. With the technical view on it stood in the narrow column of sources and months beside the list and wrapped word by word into a tall strip, and on a phone it was not shown at all. It is now a strip over the whole width above the list, folded to its first line, and opens to the same two sentences on a click – on a phone too. `TechnicalNote` has a `folded` variant for notes that are about a whole page.

@@ -66,7 +66,7 @@ const STEP = {
 	payments: { optional: false, needs: [], href: '/integrationen/bank' },
 	receipts: { optional: false, needs: [], href: '/belege' },
 	ai: { optional: true, needs: ['bridge', 'terminal'], href: '/integrationen/ki' },
-	books: { optional: false, needs: [], href: '/einstellungen#buchhaltung' },
+	books: { optional: false, needs: [], href: '/einstellungen/buchhaltung' },
 	export: { optional: false, needs: [], href: '/export' },
 	more: { optional: true, needs: [], href: '/integrationen' }
 };

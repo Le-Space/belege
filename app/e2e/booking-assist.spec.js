@@ -10,6 +10,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openSettings } from './settings.js';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
@@ -106,7 +107,7 @@ test('the model suggests an account from the chart; the person puts it in', asyn
 	await tab('Integrationen').click();
 	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
 
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'kontenplan');
 	const chart = page.getByTestId('chart');
 	await chart.getByTestId('chart-file').setInputFiles({
 		name: 'kontenplan.csv',

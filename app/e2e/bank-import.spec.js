@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { openSettings } from './settings.js';
 
 import { defaultConfig, saveConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
@@ -373,7 +374,7 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	await expect(detail.getByTestId('tx-related-chip')).toContainText('Erstattung');
 	await detail.getByTestId('tx-detail-close').click();
 	// Saving "Eigene Anweisungen" keeps what was linked by hand.
-	await page.getByTestId('settings-link').click();
+	await openSettings(page, 'firma');
 	await page.getByTestId('matching-save').click();
 	await expect(page.getByTestId('matching-saved')).toBeVisible();
 	await page.getByRole('link', { name: 'Zahlungen' }).click();
