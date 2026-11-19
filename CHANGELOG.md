@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.42.0] – 2026-11-19
+
 ### Added
 
 - A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
