@@ -35,6 +35,8 @@
 	import { percentOf } from './sync-turn.js';
 	import { askToNotify, canNotify } from '$lib/notify.js';
 	import { takeWalletProposal } from './proposal.svelte.js';
+	import { cleanChart } from '$lib/booking/chart.js';
+	import { suggestWalletLedger } from '$lib/booking/ledger-match.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
 	let { url, token, paired = Boolean(token) } = $props();
@@ -85,6 +87,30 @@
 
 	const info = $derived(chains.find((c) => c.id === chainId) ?? null);
 	const localChain = $derived(walletChain(chainId));
+
+	// A ledger account for the wallet being added (booking/ledger-match.js): the
+	// chart account that names it or its chain, else the next free number beside
+	// the other wallets'. Filled in while the person has not typed one of their own.
+	const ledgerSuggestion = $derived.by(() =>
+		showAdd
+			? suggestWalletLedger({
+					name: newName,
+					chain: localChain,
+					wallets,
+					accounts: app.accounts,
+					chart: cleanChart(app.chart)
+				})
+			: null
+	);
+	/** The number the form filled in by itself, to tell it from one that was typed. */
+	let autoLedger = $state('');
+	$effect(() => {
+		const offered = ledgerSuggestion?.number ?? '';
+		if (newLedger === autoLedger && newLedger !== offered) {
+			newLedger = offered;
+			autoLedger = offered;
+		}
+	});
 
 	$effect(() => {
 		if (!paired) return;
@@ -234,6 +260,7 @@
 			custom = {};
 			newName = '';
 			newLedger = '';
+			autoLedger = '';
 			newCostCentre = '';
 		} catch (e) {
 			addError = e instanceof Error ? e.message : String(e);
@@ -321,7 +348,6 @@
 				class="w-32 rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
 				bind:value={v.ledger}
 				inputmode="numeric"
-				placeholder="1200"
 				data-testid={`${id}-ledger`}
 			/>
 		</label>
@@ -465,6 +491,16 @@
 					},
 					'wallet-new'
 				)}
+				{#if ledgerSuggestion && newLedger === ledgerSuggestion.number}
+					<p class="text-xs text-text" data-testid="wallet-new-ledger-suggestion">
+						{ledgerSuggestion.source === 'chart'
+							? t('integrationen.wallets.meta.ledgerFromChart', {
+									account: ledgerSuggestion.number,
+									name: ledgerSuggestion.name
+								})
+							: t('integrationen.wallets.meta.ledgerNext', { account: ledgerSuggestion.number })}
+					</p>
+				{/if}
 				{#if info}
 					<div
 						class="rounded-md border border-border bg-surface-2 px-3 py-2"

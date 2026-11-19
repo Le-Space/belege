@@ -10,6 +10,8 @@
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { forgetBankFee } from './matching/actions.js';
 	import { cleanChart, decodeChartBytes, parseChart } from './booking/chart.js';
+	import { takeLedgersFromChart } from './booking/ledger-match.js';
+	import { recordEvent } from './activity/events.js';
 	import { setSetting } from './store/settings.js';
 	import {
 		cleanMatchingSettings,
@@ -78,7 +80,32 @@
 		graceDays = current.graceDays;
 		datev = cleanDatevSettings(app.datevSettings);
 		ledgers = Object.fromEntries(app.accounts.map((a) => [a.id, String(a.ledgerAccount ?? '')]));
+		// Accounts added since the chart was read in get their ledger account too.
+		takeFromChart().catch(() => {});
 	});
+
+	/** @type {{ id: string, number: string, name: string }[]} the ledger accounts just taken over from the chart */
+	let fromChart = $state([]);
+
+	/**
+	 * Every account without a ledger account gets the one the chart names for
+	 * it, when that is unambiguous (booking/ledger-match.js): written to the
+	 * books at once, shown in the fields, and noted in the Verlauf.
+	 */
+	async function takeFromChart() {
+		const store = currentStore();
+		const current = cleanChart(app.chart);
+		if (!store || !current) return;
+		const taken = await takeLedgersFromChart(store, current);
+		if (!taken.length) return;
+		for (const x of taken) ledgers[x.id] = x.number;
+		fromChart = [...fromChart, ...taken];
+		await recordEvent(store.events, 'decision', {
+			action: 'ledger-from-chart',
+			accounts: taken.map((x) => ({ accountId: x.id, ledgerAccount: x.number }))
+		});
+		await refreshNow();
+	}
 
 	let bankAccounts = $derived(accountsInOrder(app.accounts));
 
@@ -164,6 +191,7 @@
 		});
 		chartPreview = null;
 		await refreshNow();
+		await takeFromChart();
 	}
 
 	async function dropChart() {
@@ -470,6 +498,11 @@
 								data-testid="ledger-account"
 								data-account={a.ibanLast4}
 							/>
+							{#if fromChart.some((x) => x.id === a.id && x.number === ledgers[a.id])}
+								<span class="mt-1 text-xs text-heading" data-testid="ledger-from-chart"
+									>{t('anweisungen.books.fromChart')}</span
+								>
+							{/if}
 							{#if chart && isAccountNumber(ledgers[a.id] ?? '')}
 								{@const own = catalogueAccount(ledgers[a.id], chart)}
 								<span

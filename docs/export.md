@@ -133,3 +133,7 @@ Under _Einstellungen → Kontenplan_ the app reads the chart of accounts of your
 - **Otherwise:** any CSV or text file with a column of account numbers (4–8 digits) and a column of names, separated by semicolon, comma or tab. UTF-8 and Windows-1252 are both read.
 
 The chart is kept sealed in your books in the browser, like every record. _Entfernen_ goes back to the SKR 03 list.
+
+**Ledger accounts from the chart.** When the chart is taken, and whenever the settings are opened, every bank, exchange or wallet account that has no ledger account yet gets the one the chart names for it: the chart account whose name holds the last four digits of the IBAN, else every word of the account's own name ("1310 Kraken BTC" for "Kraken BTC"). Only when that is unambiguous – one chart account for one account, used by no other; longer personal accounts (Debitoren, Kreditoren) are not looked at. It is written to the books at once, marked "Aus deinem Kontenplan übernommen" in the settings and noted in the Verlauf. Check the numbers: they go into the export.
+
+**A new wallet** is offered a ledger account in the form: the chart account that names the wallet or its chain, else the next free number after the ledger accounts of your other wallets, with the note that the bookkeeping has to open that account first. The field can be changed or emptied.

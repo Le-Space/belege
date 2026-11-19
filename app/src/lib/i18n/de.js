@@ -2787,6 +2787,7 @@ export default {
 		books: {
 			title: 'Buchhaltung (DATEV-Export)',
 			hint: 'Was der DATEV-Export über deine Buchhaltung wissen muss. Prüfe die Werte in deiner Buchhaltung – dort steht, was sie beim Import erwartet.',
+			fromChart: 'Aus deinem Kontenplan übernommen – bitte prüfen.',
 			ledger: 'Sachkonto in deiner Buchhaltung',
 			ledgerHint:
 				'Das Sachkonto, unter dem dieses Bankkonto in deiner Buchhaltung geführt wird. Vorschlag nach SKR 03: {suggestion} – nur ein Platzhalter, trag die Nummer aus deiner Buchhaltung ein.',
@@ -5387,6 +5388,10 @@ export default {
 				ledger: 'Konto (Finanzkonto)',
 				costCentre: 'Kostenstelle (KOST1)',
 				hint: 'Die Bezeichnung steht statt der Adresse an allen Konten dieser Wallet. Konto und Kostenstelle gelten für alle ihre Assets und gehen in den DATEV-Export; die Kostenstelle nur aus Buchstaben und Ziffern.',
+				ledgerFromChart:
+					'Vorschlag aus deinem Kontenplan: {account} {name}. Du kannst die Nummer ändern.',
+				ledgerNext:
+					'Vorschlag: {account}, die nächste freie Nummer nach deinen anderen Wallets. Sie steht noch nicht in deinem Kontenplan – in der Buchhaltung muss das Konto angelegt werden, sonst nimmt der Import die Buchungen nicht an. Du kannst die Nummer ändern.',
 				ledgerShort: 'Konto {account}',
 				costCentreShort: 'Kostenstelle {costCentre}',
 				edit: 'Bezeichnung, Konto, Kostenstelle',

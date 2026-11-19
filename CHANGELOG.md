@@ -6,6 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Ledger accounts come from your own chart of accounts. When a chart is read in – and for accounts added later, whenever the settings are opened – every bank, exchange or wallet account without a ledger account gets the one the chart names for it: by the last four digits of the IBAN or by every word of the account's name ("1310 Kraken BTC" for "Kraken BTC"), and only when that is unambiguous. It is written to the books at once, marked in the settings and noted in the Verlauf; an account that already has a number keeps it.
+- A new wallet is offered a ledger account: the chart account that names the wallet or its chain, else the next free number after the other wallets' ledger accounts, with the note that the bookkeeping has to open it first.
+
+### Changed
+
+- "Konto (Finanzkonto)" in the wallet form no longer shows a grey "1200" that looked like a value.
+
 ## [0.40.2] – 2026-11-19
 
 ### Fixed
