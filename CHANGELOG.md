@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A wallet's accounts are found in the chart of accounts although the chart calls the wallet by another name. An asset account is looked up by its asset and chain when the chart has exactly one such account ("… - ALEPH (Ethereum)"). What is found that way tells what the chart calls the wallet, and the wallet's other assets – ETH, USDC, which several wallets hold – are then looked up under that name. Still only what is unambiguous is taken, and it is marked for checking.
+
+### Fixed
+
+- The chart accounts offered for an account that got none are fewer and fitting: for a wallet's account only chart accounts of its asset, the one on its chain first; none far away from the accounts already numbered; and none for a bank account whose name is only what the bank calls the product ("Kontokorrent" brought up receivables and payables that carry the word).
+
 ### Changed
 
 - The picture in the bridge image's build view shows keys, checks and measurements where they happen (`@le-space/build-journey` 0.12.12): the passphrase travels to the node as a key, the processor's report to the browser as a shield; the node shows "gemessen", the browser "Bericht geprüft" (red "stimmt nicht" for a value Belege does not pin), the node "mit deinem Schlüssel versiegelt", the fetch's connections checked, the STORE signed and stored. On a phone these notes stand as a list under the picture.

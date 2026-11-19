@@ -192,7 +192,7 @@ test('a chart that names the accounts of the books gives them their ledger accou
 		name: 'kontenplan.csv',
 		mimeType: 'text/csv',
 		buffer: Buffer.from(
-			'Konto;Bezeichnung\n1140;Zahlfix Business\n1186;Tresor - ETH (Ethereum)\n1197;Tresor - ALEPH (Ethereum)\n1200;Bank A Kontokorrent 4321\n1310;Kraken Bitcoin\n1311;Kraken ETH\n4920;Telefon\n'
+			'Konto;Bezeichnung\n1140;Zahlfix Business\n1186;Tresor - ETH (Ethereum)\n1193;Testknoten - ETH (Ethereum)\n1197;Tresor - ALEPH (Ethereum)\n1200;Bank A Kontokorrent 4321\n1310;Kraken Bitcoin\n1311;Kraken ETH\n4920;Telefon\n'
 		)
 	});
 	await chart.getByTestId('chart-take').click();
@@ -210,13 +210,13 @@ test('a chart that names the accounts of the books gives them their ledger accou
 		.evaluateAll((els) => els.map((e) => /** @type {HTMLInputElement} */ (e).value).sort());
 	expect(values).toEqual(['', '', '1140', '1200', '1310']);
 
-	// The wallet's account is called otherwise in the chart: the free accounts
-	// that share most with it are offered, and one click takes one.
+	// The wallet's account is called otherwise in the chart, and two chart
+	// accounts hold its asset on its chain: nothing is guessed. The free
+	// accounts of that asset are offered, the chain's first, and one click takes one.
 	const offered = page.getByTestId('ledger-candidate');
-	// Best first: asset and chain shared, then only one of them.
 	await expect(offered).toHaveText([
 		'1186 Tresor - ETH (Ethereum)',
-		'1197 Tresor - ALEPH (Ethereum)',
+		'1193 Testknoten - ETH (Ethereum)',
 		'1311 Kraken ETH'
 	]);
 	await offered.first().click();

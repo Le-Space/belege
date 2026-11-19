@@ -13,7 +13,30 @@ import { isAccountNumber } from './skr03.js';
 /** @typedef {import('./chart.js').ChartAccount} ChartAccount */
 
 /** Words that say "an account" and nothing about which. */
-const GENERIC = new Set(['konto', 'kto', 'nr', 'no', 'account', 'acct']);
+const GENERIC = new Set(['konto', 'kto', 'nr', 'no', 'account', 'acct', 'wallet']);
+
+/**
+ * What a bank calls the product, which says nothing of the bank: an account
+ * named only so is not looked up by its name ("Kontokorrent" stands in the
+ * name of many a chart account that is no bank account at all).
+ */
+const PRODUCT = new Set([
+	'kontokorrent',
+	'kontokorrentkonto',
+	'giro',
+	'girokonto',
+	'geschaeftskonto',
+	'geschaeftsgirokonto',
+	'firmenkonto',
+	'tagesgeld',
+	'tagesgeldkonto',
+	'sparkonto',
+	'main',
+	'current',
+	'business',
+	'checking',
+	'savings'
+]);
 
 /**
  * An asset's ticker and its name are one word: a chart says "Kraken Bitcoin"
@@ -119,10 +142,61 @@ function fitting(account, candidates) {
 		if (byIban.length) return byIban.map((c) => c.account);
 	}
 	const words = nameWords(account.name).filter((w) => !GENERIC.has(w));
-	const byName = words.length ? candidates.filter((c) => words.every((w) => c.words.has(w))) : [];
+	const says = words.some((w) => !PRODUCT.has(w));
+	const byName = says ? candidates.filter((c) => words.every((w) => c.words.has(w))) : [];
 	if (byName.length) return byName.map((c) => c.account);
 	const bank = bankWord(account.bank);
 	return bank ? candidates.filter((c) => c.words.has(bank)).map((c) => c.account) : [];
+}
+
+/**
+ * A wallet's name, as its asset accounts carry it before the asset
+ * ("Projekt Nord · ETH (Ethereum)"); '' for an account that is no wallet's.
+ *
+ * @param {{ name?: unknown, kind?: unknown }} account
+ */
+const walletOf = (account) =>
+	account.kind === 'wallet' && String(account.name ?? '').includes(' · ')
+		? String(account.name).split(' · ')[0].trim()
+		: '';
+
+/**
+ * The words that say which asset on which chain a wallet's account holds:
+ * the asset, and the chain where the name gives it in brackets. Empty for an
+ * account that is no wallet's, or names no asset.
+ *
+ * @param {{ name?: unknown, kind?: unknown, asset?: unknown }} account
+ * @returns {string[]}
+ */
+function assetWords(account) {
+	if (account.kind !== 'wallet') return [];
+	const asset = nameWords(account.asset);
+	if (!asset.length) return [];
+	const chain = /\(([^)]*)\)\s*$/.exec(String(account.name ?? ''))?.[1] ?? '';
+	return [...new Set([...asset, ...nameWords(chain)])];
+}
+
+/**
+ * What the chart calls each wallet, read off the accounts already found: the
+ * words every one of a wallet's chart accounts has beyond its asset and chain.
+ *
+ * @param {{ id: string, name?: unknown, kind?: unknown, asset?: unknown }[]} accounts
+ * @param {Map<string, ChartAccount>} found
+ * @returns {Map<string, string[]>} wallet name → the chart's words for it
+ */
+function holderWords(accounts, found) {
+	/** @type {Map<string, string[]>} */
+	const out = new Map();
+	for (const a of accounts) {
+		const wallet = walletOf(a);
+		const match = found.get(a.id);
+		if (!wallet || !match) continue;
+		const own = new Set(assetWords(a));
+		const rest = nameWords(match.name).filter((w) => !own.has(w) && !GENERIC.has(w));
+		const before = out.get(wallet);
+		out.set(wallet, before ? before.filter((w) => rest.includes(w)) : [...new Set(rest)]);
+	}
+	return out;
 }
 
 /**
@@ -130,30 +204,61 @@ function fitting(account, candidates) {
  * the free ones that share the most words with its name and its bank, best
  * first. For the person to pick from – nothing here is taken over.
  *
- * @param {{ id: string, name?: unknown, bank?: unknown }} account
+ * @param {{ id: string, name?: unknown, bank?: unknown, kind?: unknown, asset?: unknown }} account
  * @param {{ id: string, ledgerAccount?: unknown, deleted?: boolean }[]} accounts every account of the books
  * @param {{ accounts: ChartAccount[] } | null | undefined} chart
  * @param {number} [limit]
  * @returns {ChartAccount[]}
  */
 export function chartCandidates(account, accounts, chart, limit = 4) {
-	const used = new Set(
-		accounts
-			.filter((a) => !a.deleted && a.id !== account.id)
-			.map((a) => String(a.ledgerAccount ?? ''))
-			.filter((n) => isAccountNumber(n))
-	);
+	const numbered = accounts
+		.filter((a) => !a.deleted && a.id !== account.id)
+		.map((a) => String(a.ledgerAccount ?? ''))
+		.filter((n) => isAccountNumber(n));
+	const used = new Set(numbered);
+	const asset = assetWords(account);
 	const words = new Set(
-		[...nameWords(account.name), bankWord(account.bank)].filter((w) => w && !GENERIC.has(w))
+		[...nameWords(account.name), bankWord(account.bank)].filter(
+			(w) => w && !GENERIC.has(w) && !PRODUCT.has(w)
+		)
 	);
 	if (!words.size) return [];
-	return ledgerAccounts(chart)
-		.filter((c) => !used.has(c.account.number))
-		.map((c) => ({ account: c.account, shared: [...words].filter((w) => c.words.has(w)).length }))
-		.filter((c) => c.shared > 0)
-		.sort((a, b) => b.shared - a.shared || (a.account.number < b.account.number ? -1 : 1))
-		.slice(0, limit)
-		.map((c) => c.account);
+	// Bank, exchange and wallet accounts sit together in a chart: with several
+	// numbered already, an account far from all of them is none of that kind.
+	const near = nearNumbered(numbered);
+	return (
+		ledgerAccounts(chart)
+			.filter((c) => !used.has(c.account.number) && near(c.account.number))
+			// A wallet's account holds one asset: a chart account of another is not it.
+			.filter((c) => !asset.length || nameWords(account.asset).every((w) => c.words.has(w)))
+			.map((c) => ({
+				account: c.account,
+				shared:
+					[...words].filter((w) => c.words.has(w)).length +
+					// Asset and chain weigh more than a word of the wallet's name.
+					2 * asset.filter((w) => c.words.has(w)).length
+			}))
+			.filter((c) => c.shared > 0)
+			.sort((a, b) => b.shared - a.shared || (a.account.number < b.account.number ? -1 : 1))
+			.slice(0, limit)
+			.map((c) => c.account)
+	);
+}
+
+/**
+ * Whether a number lies among the ledger accounts already given, a hundred
+ * to either side; everything does while fewer than two are given.
+ *
+ * @param {string[]} numbered
+ * @returns {(number: string) => boolean}
+ */
+function nearNumbered(numbered) {
+	if (numbered.length < 2) return () => true;
+	const values = numbered.map(Number);
+	const low = Math.min(...values) - 100;
+	const high = Math.max(...values) + 100;
+	const length = numbered[0].length;
+	return (number) => number.length === length && Number(number) >= low && Number(number) <= high;
 }
 
 /**
@@ -162,7 +267,7 @@ export function chartCandidates(account, accounts, chart, limit = 4) {
  * gets none; neither do two accounts that fit the same one, nor an account
  * whose only fit is already another account's ledger account.
  *
- * @param {{ id: string, name?: unknown, ibanLast4?: unknown, bank?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} accounts
+ * @param {{ id: string, name?: unknown, ibanLast4?: unknown, bank?: unknown, kind?: unknown, asset?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} accounts
  * @param {{ accounts: ChartAccount[] } | null | undefined} chart
  * @returns {Map<string, ChartAccount>}
  */
@@ -175,20 +280,56 @@ export function ledgersFromChart(accounts, chart) {
 	const taken = new Set(
 		live.map((a) => String(a.ledgerAccount ?? '')).filter((n) => isAccountNumber(n))
 	);
-	/** @type {Map<string, string[]>} chart number → the accounts it alone fits */
-	const claims = new Map();
-	/** @type {Map<string, ChartAccount>} */
-	const byNumber = new Map();
-	for (const a of live) {
-		if (isAccountNumber(String(a.ledgerAccount ?? ''))) continue;
-		const fits = fitting(a, candidates);
-		if (fits.length !== 1 || taken.has(fits[0].number)) continue;
-		byNumber.set(fits[0].number, fits[0]);
-		claims.set(fits[0].number, [...(claims.get(fits[0].number) ?? []), a.id]);
-	}
-	for (const [number, ids] of claims) {
-		if (ids.length === 1) out.set(ids[0], /** @type {ChartAccount} */ (byNumber.get(number)));
-	}
+	const open = () =>
+		live.filter((a) => !isAccountNumber(String(a.ledgerAccount ?? '')) && !out.has(a.id));
+
+	/**
+	 * One round: every open account names the free chart accounts that fit it;
+	 * a chart account that exactly one account names alone goes to it.
+	 *
+	 * @param {(a: (typeof live)[number], free: typeof candidates) => ChartAccount[]} fits
+	 */
+	const round = (fits) => {
+		const free = candidates.filter((c) => !taken.has(c.account.number));
+		/** @type {Map<string, { ids: string[], account: ChartAccount }>} */
+		const claims = new Map();
+		for (const a of open()) {
+			const found = fits(a, free);
+			if (found.length !== 1) continue;
+			const claim = claims.get(found[0].number) ?? { ids: [], account: found[0] };
+			claim.ids.push(a.id);
+			claims.set(found[0].number, claim);
+		}
+		for (const [number, claim] of claims) {
+			if (claim.ids.length !== 1) continue;
+			out.set(claim.ids[0], claim.account);
+			taken.add(number);
+		}
+	};
+
+	// 1. By the account's whole name, the IBAN's digits or its bank.
+	round((a, free) => fitting(a, free));
+	// 2. A wallet's asset account by its asset and chain alone: the chart may
+	//    call the wallet otherwise ("Ledger - ALEPH (Ethereum)" for the wallet
+	//    the books call by another name), but names one such account only.
+	round((a, free) => {
+		const need = assetWords(a);
+		return need.length
+			? free.filter((c) => need.every((w) => c.words.has(w))).map((c) => c.account)
+			: [];
+	});
+	// 3. What rounds 1 and 2 found tells what the chart calls each wallet: the
+	//    words its chart accounts share beyond asset and chain. The wallet's
+	//    other assets are then looked up under that name.
+	const holders = holderWords(live, out);
+	round((a, free) => {
+		const need = assetWords(a);
+		const holder = holders.get(walletOf(a));
+		if (!need.length || !holder?.length) return [];
+		return free
+			.filter((c) => [...need, ...holder].every((w) => c.words.has(w)))
+			.map((c) => c.account);
+	});
 	return out;
 }
 
