@@ -11,6 +11,7 @@ import { notifyInBackground } from '$lib/notify.js';
 import { syncInTurn } from './sync-turn.js';
 import { loadWallets, syncWallet } from './wallet-sync.js';
 import { importedChain, walletChain } from './chains.js';
+import { learnAlephPurchases } from '$lib/aleph/aleph.js';
 
 /** @typedef {import('./wallet-sync.js').Wallet} Wallet */
 
@@ -92,7 +93,27 @@ export async function syncOneWallet(wallet, p = {}) {
 	} catch {
 		// Noted in walletRun.errors.
 	}
-	if (done) await runMatchingNow();
+	if (done) {
+		if (walletChain(wallet.chain)?.kind === 'evm') await alephPurchases(p);
+		await runMatchingNow();
+	}
+}
+
+/**
+ * Aleph credits are bought from an EVM wallet: after such a wallet's sync the
+ * accounts' purchases are read again (aleph/aleph.js), before the matching
+ * looks at the new bookings.
+ *
+ * @param {{ client?: ReturnType<typeof bridgeClient> }} [p]
+ * @returns {Promise<number>} the purchases newly known
+ */
+async function alephPurchases({ client = bridgeClient() } = {}) {
+	const store = currentStore();
+	if (!store) return 0;
+	const wallets = await loadWallets(store.settings);
+	const learned = await learnAlephPurchases({ client, settings: store.settings, wallets });
+	if (learned) await refreshNow();
+	return learned;
 }
 
 /**
@@ -149,7 +170,10 @@ export async function syncAllWallets(p = {}) {
 	} finally {
 		walletRun.progress = null;
 	}
-	if ((walletRun.summary?.newEntries ?? 0) + (walletRun.summary?.updated ?? 0) > 0) {
+	const learned = wallets.some((w) => walletChain(w.chain)?.kind === 'evm')
+		? await alephPurchases(p)
+		: 0;
+	if ((walletRun.summary?.newEntries ?? 0) + (walletRun.summary?.updated ?? 0) + learned > 0) {
 		await runMatchingNow();
 	}
 }

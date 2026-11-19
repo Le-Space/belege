@@ -68,6 +68,14 @@ const nodeUnreachable = () =>
 export const STREAM_WAIT_MS = 20_000;
 /** How long a block answer may take to arrive: a 15 MB original through a relay (#578). */
 export const BLOCK_WAIT_MS = 120_000;
+/**
+ * How long one call to the bridge may take before it counts as unanswered.
+ * UCEP's own limit for an answer is a minute, which a mailbox listed over
+ * IMAP, a wallet with a long history or a receipt read by a language model
+ * can exceed: the bridge would finish, and nobody would take the answer. A
+ * caller's own signal (`init.signal`) comes first.
+ */
+export const CALL_WAIT_MS = 10 * 60_000;
 const PEER_ID = /^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/;
 
 /**
@@ -491,7 +499,9 @@ export async function startBridgeConsumer({
 		try {
 			answer = await askPeer({
 				call: (/** @type {string} */ name, /** @type {any} */ args) =>
-					consumer.call(peerId, EXTENSION, name, args),
+					consumer.call(peerId, EXTENSION, name, args, {
+						signal: init.signal ?? AbortSignal.timeout(CALL_WAIT_MS)
+					}),
 				peerId,
 				input,
 				init,

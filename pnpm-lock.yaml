@@ -8,6 +8,9 @@ overrides:
   '@libp2p/gossipsub': 16.1.0
 
 patchedDependencies:
+  '@le-space/ucep@0.2.0-draft.5':
+    hash: 181c19b7e5ff013f2a3d051fa7a3057524b36352bb6721b81c4e88118f8a686d
+    path: patches/@le-space__ucep@0.2.0-draft.5.patch
   '@libp2p/circuit-relay-v2@4.2.9':
     hash: efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122
     path: patches/@libp2p__circuit-relay-v2@4.2.9.patch
@@ -84,7 +87,7 @@ importers:
         version: 0.12.8(typescript@5.9.2)
       '@le-space/ucep':
         specifier: 0.2.0-draft.5
-        version: 0.2.0-draft.5
+        version: 0.2.0-draft.5(patch_hash=181c19b7e5ff013f2a3d051fa7a3057524b36352bb6721b81c4e88118f8a686d)
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
         version: 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
@@ -274,7 +277,7 @@ importers:
         version: link:../packages/rates
       '@le-space/ucep':
         specifier: 0.2.0-draft.5
-        version: 0.2.0-draft.5
+        version: 0.2.0-draft.5(patch_hash=181c19b7e5ff013f2a3d051fa7a3057524b36352bb6721b81c4e88118f8a686d)
       '@libertai/confidential-inference':
         specifier: 0.1.0
         version: 0.1.0
@@ -6272,7 +6275,7 @@ snapshots:
       multiformats: 13.4.2
       one-webcrypto: 1.0.3
 
-  '@le-space/ucep@0.2.0-draft.5':
+  '@le-space/ucep@0.2.0-draft.5(patch_hash=181c19b7e5ff013f2a3d051fa7a3057524b36352bb6721b81c4e88118f8a686d)':
     dependencies:
       '@libp2p/interface': 3.3.0
       '@libp2p/peer-id': 6.0.15

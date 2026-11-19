@@ -11,6 +11,7 @@ import {
 	createAlephStatement,
 	findStatement,
 	lastDay,
+	learnAlephPurchases,
 	loadAleph,
 	previousMonth,
 	purchasesOf,
@@ -385,5 +386,22 @@ describe('the statement as an Eigenbeleg', () => {
 		expect(asked).toEqual([`${A} 2026-09`]);
 		expect(out.purchases).toBe(1);
 		expect((await loadAleph(store.settings)).purchases.map((p) => p.txHash)).toEqual([H]);
+	});
+
+	it('after a wallet sync: asks only when Aleph is in use, and never fails the sync', async () => {
+		let asked = 0;
+		const client = {
+			alephAccounts: async () => {
+				asked++;
+				throw new Error('Aleph does not answer');
+			}
+		};
+		// Nothing of Aleph in these books: not asked.
+		expect(await learnAlephPurchases({ client, settings: store.settings, wallets: [] })).toBe(0);
+		expect(asked).toBe(0);
+		// In use: asked, and an error is no error of the sync.
+		await saveAleph(store.settings, { extra: [A] });
+		expect(await learnAlephPurchases({ client, settings: store.settings, wallets: [] })).toBe(0);
+		expect(asked).toBe(1);
 	});
 });
