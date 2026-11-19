@@ -32,6 +32,7 @@ import { createEnableBankingClient, enableBankingSecrets } from './enablebanking
 import { createEnableBankingLinks } from './enablebanking-links.js';
 import { createWalletService } from '@le-space/chains';
 import { ALEPH_API, createAlephClient } from '@le-space/chains/aleph';
+import { createFilecoinPayClient } from '@le-space/chains/filecoin-pay';
 import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
@@ -85,6 +86,9 @@ export { createPortalManager, buildRecipes, isPdf } from './portals/index.js';
  * @param {import('./keychain.js').Keychain} [options.enablebankingKeychain] the key to the sealed Enable Banking file
  * @param {import('./keychain.js').Keychain} [options.alchemyKeychain] an optional Alchemy API key (own EVM wallets)
  * @param {(network: string) => string} [options.alchemyBaseUrl] tests: a fake Alchemy on 127.0.0.1
+ * @param {import('./keychain.js').Keychain} [options.blockscoutKeychain] an optional Blockscout API key (Filecoin Pay's events)
+ * @param {{ index: string, filfox: string, blockscout: string, keyedApi: string, keyedRpc: string }} [options.filecoinPayFake]
+ *   tests: a fake of what the Filecoin Pay reader asks, on 127.0.0.1 – the key is then sent there only
  * @param {string} [options.alephApi] tests: a fake Aleph API on 127.0.0.1, the default for /aleph
  * @param {import('./keychain.js').Keychain} [options.alephBackupKeychain] the backup key (setup:aleph)
  * @param {string} [options.alephIngestUrl] tests: a fake of Aleph's IPFS host on 127.0.0.1
@@ -132,6 +136,8 @@ export async function startBridge({
 	enablebankingKeychain = systemKeychain({ account: 'enablebanking' }),
 	alchemyKeychain = systemKeychain({ account: 'alchemy' }),
 	alchemyBaseUrl,
+	blockscoutKeychain = systemKeychain({ account: 'blockscout' }),
+	filecoinPayFake,
 	alephApi,
 	alephBackupKeychain = systemKeychain({ account: 'aleph-backup' }),
 	alephIngestUrl,
@@ -524,7 +530,8 @@ export async function startBridge({
 			enablebanking: enablebankingKeychain,
 			coingecko: coingeckoKeychain,
 			bitcoin: bitcoinKeychain,
-			alchemy: alchemyKeychain
+			alchemy: alchemyKeychain,
+			blockscout: blockscoutKeychain
 		};
 		/** @type {Record<string, string>} */
 		const secrets = {};
@@ -645,6 +652,26 @@ export async function startBridge({
 					fetch: backupFetch
 				})
 			: null,
+		// Filecoin Pay, read only: a payer's month, valued with the same rates.
+		filecoinPay: createFilecoinPayClient({
+			fetch: walletFetch,
+			rates,
+			...(filecoinPayFake
+				? { keyed: { api: filecoinPayFake.keyedApi, rpc: filecoinPayFake.keyedRpc }, pauseMs: 0 }
+				: {})
+		}),
+		filecoinPayLoopback: walletLoopback,
+		...(filecoinPayFake
+			? {
+					filecoinPayEndpoints: {
+						index: filecoinPayFake.index,
+						filfox: filecoinPayFake.filfox,
+						blockscout: filecoinPayFake.blockscout
+					}
+				}
+			: {}),
+		// Read on every statement, so a key set up while the bridge runs counts at once.
+		blockscoutKey: () => blockscoutKeychain.read().catch(() => null),
 		wallets: createWalletService({
 			fetch: walletFetch,
 			allowLoopback: walletLoopback,

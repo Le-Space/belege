@@ -52,6 +52,9 @@ const ZERO = `0x${'0'.repeat(40)}`;
  * @param {string} [p.token] the token the index and Filfox know (0x…)
  * @param {(address: string) => string} [p.toFilecoin] 0x… → f410f…, for Filfox's answers
  * @param {{ index?: boolean, blockscout?: boolean, filfox?: boolean }} [p.down] which of the three answers 503
+ * @param {string} [p.key] the one key Blockscout's keyed host (api.blockscout.com) takes, in the
+ *   `authorization` header as the real one reads it; without it that host answers 402, with
+ *   another 401, and a key in the URL is refused (400) – the reader must not put it there
  * @returns {typeof fetch & { calls: string[] }}
  */
 export function filecoinPayFetch({
@@ -61,7 +64,8 @@ export function filecoinPayFetch({
 	perPage = 1000,
 	token = '',
 	toFilecoin = (a) => a,
-	down = {}
+	down = {},
+	key = ''
 }) {
 	const logs = events.map((/** @type {any} */ e, i) => {
 		const block = blockAt(e.at);
@@ -220,7 +224,27 @@ export function filecoinPayFetch({
 				calls.push('blockscout (down)');
 				return unavailable();
 			}
-			if (url.pathname.endsWith('/eth-rpc')) {
+			if (url.hostname === 'api.blockscout.com') {
+				const given = new Headers(init?.headers ?? {}).get('authorization') ?? '';
+				if (url.searchParams.has('apikey')) {
+					calls.push('blockscout (key in the URL)');
+					return json({ error: 'the key belongs in the header' }, 400);
+				}
+				if (!given) {
+					calls.push('blockscout (no key)');
+					return json({ error: 'Proceed with API key or make a X402 payment to continue' }, 402);
+				}
+				if (!key || given !== `Bearer ${key}`) {
+					calls.push('blockscout (wrong key)');
+					return json({ error: 'Unauthorized' }, 401);
+				}
+				const rpc = url.pathname.endsWith('/json-rpc');
+				if (rpc ? url.pathname !== '/314/json-rpc' : url.searchParams.get('chain_id') !== '314') {
+					return json({ error: 'unknown chain' }, 404);
+				}
+				calls.push('keyed');
+			}
+			if (url.pathname.endsWith('/eth-rpc') || url.pathname.endsWith('/json-rpc')) {
 				calls.push('eth_call');
 				const call = JSON.parse(String(init?.body ?? '{}'));
 				const data = String(call?.params?.[0]?.data ?? '');

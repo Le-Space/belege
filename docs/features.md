@@ -70,6 +70,7 @@ What Le Space Belege does today, by category. The app shows the same list, short
   - by hand.
 - **Recognised:** DEX swaps, swaps across chains, token migrations and dust, with lookalike senders named.
 - **Aleph Cloud credits** as a monthly statement per account. See [crypto.md](crypto.md).
+- **Filecoin Pay** (storage in Filecoin Onchain Cloud) as a monthly usage statement per wallet: what the payment contract settled with which provider out of the wallet's balance. See [crypto.md](crypto.md).
 
 ## Pre-accounting and export
 

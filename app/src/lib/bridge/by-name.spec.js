@@ -95,6 +95,13 @@ describe('a call by name', () => {
 				'/aleph/statement?address=0xabc&month=2026-01',
 				null,
 				'aleph.statement'
+			],
+			[
+				() => client.filecoinPayStatement('f410fexample', '2026-01'),
+				'POST',
+				'/filecoinpay/statement',
+				'{"address":"f410fexample","month":"2026-01"}',
+				'filecoinpay.statement'
 			]
 		];
 		for (const [run, method, path, body, name] of cases) {

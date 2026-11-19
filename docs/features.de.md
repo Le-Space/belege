@@ -92,6 +92,7 @@ Was Le Space Belege heute kann, nach Themen geordnet. Eine kürzere Fassung dies
   - von Hand.
 - **Erkannt werden** DEX-Swaps, Swaps über Chains, Token-Migrationen und Staub. Absender mit ähnlich aussehender Adresse benennt Belege.
 - **Aleph-Cloud-Guthaben** als Monatsauszug je Konto. Siehe [crypto.de.md](crypto.de.md).
+- **Filecoin Pay** (Speicher in der Filecoin Onchain Cloud) als monatlicher Verbrauchsnachweis je Wallet: was der Zahlungsvertrag aus dem Guthaben der Wallet an welchen Anbieter abgerechnet hat. Siehe [crypto.de.md](crypto.de.md).
 
 ## Vorbereitende Buchhaltung und Export
 

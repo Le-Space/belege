@@ -110,7 +110,12 @@ export function isOwnName(name, company) {
  * @property {{ name: string, openings: Record<string, number> }[]} prepaidVendors vendors a person keeps as a prepaid account, with opening balances per year (vendor-account.js)
  * @property {string[]} keptTransferReceipts `<transaction id>|<receipt id>`: an own transfer whose receipt a person said is right
  * @property {string} networkFeeAccount the account every wallet network fee takes (#305); '' = none
+ * @property {string} paymentAccountLedger the account a deposit into an own balance in a payment contract
+ *   (Filecoin Pay, wallets/known-contracts.js) goes on; SKR 03 1360 unless the books keep another
  */
+
+/** Where money on the way between own accounts goes in SKR 03 (Geldtransit). */
+export const DEFAULT_PAYMENT_ACCOUNT = '1360';
 
 /** A receipt often arrives days after the debit: no question before then. */
 export const DEFAULT_GRACE_DAYS = 7;
@@ -135,7 +140,8 @@ export function defaultMatchingSettings() {
 		notRefunds: [],
 		prepaidVendors: [],
 		keptTransferReceipts: [],
-		networkFeeAccount: ''
+		networkFeeAccount: '',
+		paymentAccountLedger: DEFAULT_PAYMENT_ACCOUNT
 	};
 }
 
@@ -205,7 +211,11 @@ export function cleanMatchingSettings(value) {
 		// The account every wallet network fee takes, confirmed once (#305); '' = none.
 		networkFeeAccount: /^\d{4,8}$/.test(String(value?.networkFeeAccount ?? '').trim())
 			? String(value.networkFeeAccount).trim()
-			: ''
+			: '',
+		// Where a deposit into an own balance in a payment contract goes; 1360 unless said.
+		paymentAccountLedger: /^\d{4,8}$/.test(String(value?.paymentAccountLedger ?? '').trim())
+			? String(value.paymentAccountLedger).trim()
+			: DEFAULT_PAYMENT_ACCOUNT
 	};
 }
 
@@ -284,6 +294,7 @@ export function feeKey(tx) {
  * @property {Rule[]} rules
  * @property {number} [graceDays] see grace.js
  * @property {Set<string>} [feeKeys] learned bank fees (feeKey)
+ * @property {string} [paymentAccountLedger] the account of a deposit into a payment contract (settings); 1360 without
  * @property {(tx: Record<string, any>) => Record<string, any>[]} [counterBookings] bookings on our other accounts with the opposite amount within a few days
  * @property {(tx: Record<string, any>) => { account: Record<string, any>, other: Record<string, any> | null } | null} [cardOf]
  *   a bank debit that settles one of our credit cards (#382): the card's account, and its settlement line where it has one
@@ -772,7 +783,7 @@ export function classifyTransaction(tx, ctx) {
 		if (contract?.kind === 'payment-account') {
 			return {
 				kind: 'own-transfer',
-				account: '1360',
+				account: ctx.paymentAccountLedger || DEFAULT_PAYMENT_ACCOUNT,
 				via: 'payment-contract',
 				company: contract.name,
 				address: contract.address

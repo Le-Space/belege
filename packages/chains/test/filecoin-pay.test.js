@@ -317,25 +317,14 @@ test('without Blockscout, paid in and taken out are the payer’s own transfers 
 	);
 });
 
-test('with a key, Blockscout is asked through its one host for every chain', async () => {
+test('with a key, Blockscout is asked through its one host, the key in a header and in no URL', async () => {
 	/** @type {string[]} */
 	const asked = [];
-	const inner = sources({ down: { index: true } });
+	const inner = sources({ down: { index: true }, key: 'proapi_made_up' });
 	const f = /** @type {typeof fetch} */ (
 		async (input, init) => {
-			const url = new URL(String(input));
-			asked.push(
-				`${url.origin}${url.pathname}?chain_id=${url.searchParams.get('chain_id')}&apikey=${url.searchParams.get('apikey')}&module=${url.searchParams.get('module')}`
-			);
-			// The fake answers the instance's paths: the keyed host's are mapped onto them.
-			if (url.hostname !== 'api.blockscout.com') return inner(input, init);
-			if (url.searchParams.get('module') === 'proxy') {
-				return inner('https://filecoin.blockscout.com/api/eth-rpc', {
-					method: 'POST',
-					body: JSON.stringify({ params: [{ data: url.searchParams.get('data') }] })
-				});
-			}
-			return inner(`https://filecoin.blockscout.com/api?${url.searchParams}`, init);
+			asked.push(String(input));
+			return inner(input, init);
 		}
 	);
 	const s = await client({ fetch: f }).statement({
@@ -344,11 +333,33 @@ test('with a key, Blockscout is asked through its one host for every chain', asy
 		endpoints: { blockscoutKey: 'proapi_made_up' }
 	});
 	assert.deepEqual([s.source, s.closing], ['logs', '11']);
-	const keyed = asked.filter((a) => a.startsWith('https://api.blockscout.com'));
+	const keyed = asked.filter((a) => a.startsWith('https://api.blockscout.com/'));
 	assert.ok(keyed.length >= 5);
-	assert.ok(keyed.every((a) => a.includes('/v2/api?chain_id=314&apikey=proapi_made_up')));
-	assert.ok(keyed.some((a) => a.endsWith('module=proxy')));
+	assert.ok(keyed.some((a) => a === 'https://api.blockscout.com/314/json-rpc'));
+	assert.ok(
+		keyed.some(
+			(a) => a.startsWith('https://api.blockscout.com/v2/api?') && a.includes('chain_id=314')
+		)
+	);
+	assert.ok(!asked.some((a) => a.includes('proapi_made_up')), 'the key is in no URL');
 	assert.ok(!asked.some((a) => a.startsWith('https://filecoin.blockscout.com')));
+	assert.ok(!JSON.stringify(s).includes('proapi_made_up'), 'nor in the statement');
+});
+
+test("a key Blockscout refuses: said as its host's refusal, without the key", async () => {
+	const f = sources({ down: { index: true }, key: 'proapi_made_up' });
+	await assert.rejects(
+		client({ fetch: f }).statement({
+			address: PAYER,
+			month: '2026-08',
+			endpoints: { blockscoutKey: 'proapi_another' }
+		}),
+		(/** @type {any} */ error) => {
+			assert.ok(!String(error.message).includes('proapi_'));
+			assert.match(String(error.message), /api\.blockscout\.com/);
+			return true;
+		}
+	);
 });
 
 test('as ledger entries: paid in, taken out and each settlement, signed from the balance', async () => {

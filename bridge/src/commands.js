@@ -247,6 +247,10 @@ export function errorJson(error) {
  * @param {boolean} deps.alephLoopback
  * @param {string} deps.alephApi
  * @param {any} deps.alephBackup
+ * @param {any} [deps.filecoinPay] the Filecoin Pay reader (@le-space/chains/filecoin-pay)
+ * @param {boolean} [deps.filecoinPayLoopback] tests: its endpoints may be on 127.0.0.1
+ * @param {{ index?: string, filfox?: string, blockscout?: string }} [deps.filecoinPayEndpoints] tests: asked when the request names none
+ * @param {() => Promise<string | null>} [deps.blockscoutKey] the optional Blockscout key, read per call
  * @param {{ addr: string | null, stats: () => object } | null} deps.lanRelay
  * @param {any} [deps.portals] the portal connector, for /health only (its routes stay in portals/routes.js)
  * @param {{ status: () => object, disarm: () => Promise<void>, invite?: () => Promise<string | null>, setScopes?: (peerId: unknown, scopes: unknown) => Promise<string[]> } | null} [deps.node] the bridge's libp2p node (node.js, #573)
@@ -282,6 +286,10 @@ export function createCommands({
 	alephLoopback,
 	alephApi = ALEPH_API,
 	alephBackup,
+	filecoinPay = null,
+	filecoinPayLoopback = false,
+	filecoinPayEndpoints = {},
+	blockscoutKey = async () => null,
 	lanRelay,
 	portals = null,
 	node = null,
@@ -340,6 +348,7 @@ export function createCommands({
 		}),
 		wallets: json(503, { error: 'wallets are not available' }),
 		aleph: json(503, { error: 'Aleph is not available' }),
+		filecoinPay: json(503, { error: 'Filecoin Pay is not available' }),
 		rates: json(503, { error: 'exchange rates are not available' })
 	};
 
@@ -908,6 +917,54 @@ export function createCommands({
 					`aleph: statement, ${statement.entries} entr(ies), ${statement.usage.length} line(s), ${statement.difference === 0 ? 'balanced' : 'difference'}`
 				);
 				return json(200, statement);
+			}
+		},
+		{
+			// Filecoin Pay, read only: what a payer's balance in the payment
+			// contract was used for in a month (@le-space/chains/filecoin-pay).
+			// A POST, so the address is in no URL and no access log.
+			name: 'filecoinpay.statement',
+			method: 'POST',
+			path: '/filecoinpay/statement',
+			scope: 'bridge:chains:read',
+			body: 'json',
+			run: async ({ body }) => {
+				if (!filecoinPay) return notSetUpAnswer.filecoinPay;
+				// Endpoints of the person's own: https only, as a wallet's are.
+				/** @type {Record<string, string>} */
+				const endpoints = { ...filecoinPayEndpoints };
+				const given = body?.endpoints ?? {};
+				if (typeof given !== 'object' || Array.isArray(given)) {
+					return json(400, { error: 'endpoints must be an object', code: 'FILPAY_ENDPOINT' });
+				}
+				for (const name of ['index', 'filfox', 'blockscout']) {
+					const value = given[name];
+					if (value === undefined || value === null || value === '') continue;
+					const checked = checkEndpoint(value, { allowLoopback: filecoinPayLoopback });
+					if (!checked) {
+						return json(400, {
+							error: `endpoints.${name} must be an https:// URL`,
+							code: 'FILPAY_ENDPOINT'
+						});
+					}
+					endpoints[name] = checked;
+				}
+				const source =
+					body?.source === 'index' || body?.source === 'logs' ? body.source : undefined;
+				// The key goes to Blockscout's own keyed host only (set where the
+				// client is made): not to a Blockscout the request names.
+				const key = given.blockscout ? null : await blockscoutKey().catch(() => null);
+				const statement = await filecoinPay.statement({
+					address: String(body?.address ?? ''),
+					month: String(body?.month ?? ''),
+					...(source ? { source } : {}),
+					endpoints: { ...endpoints, ...(key ? { blockscoutKey: key } : {}) }
+				});
+				log(
+					`filecoin pay: statement, ${statement.usage.length} settlement(s), ${statement.deposits.length} paid in, ${statement.withdrawals.length} taken out, from ${statement.source}${statement.indexFailed ? ' (the index did not answer)' : ''}, Blockscout ${key ? 'with' : 'without'} a key`
+				);
+				// Whether a key was used, never the key.
+				return json(200, { ...statement, blockscoutKey: Boolean(key) });
 			}
 		},
 		{

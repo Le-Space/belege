@@ -24,6 +24,7 @@
 	import AkashStatement from '$lib/akash/AkashStatement.svelte';
 	import AkashActAccount from '$lib/akash/AkashActAccount.svelte';
 	import { addWallet, loadWallets, removeWallet, updateWalletMeta } from './wallet-sync.js';
+	import { walletList } from './wallet-list.svelte.js';
 	import {
 		dismissWalletSummary,
 		syncable,
@@ -257,6 +258,7 @@
 				costCentre: newCostCentre
 			});
 			wallets = await loadWallets(store.settings);
+			walletList.changes++;
 			showAdd = false;
 			address = '';
 			custom = {};
@@ -326,6 +328,7 @@
 		if (!store) return;
 		await removeWallet(store.settings, wallet.id);
 		wallets = await loadWallets(store.settings);
+		walletList.changes++;
 	}
 </script>
 

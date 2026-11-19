@@ -131,7 +131,11 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 57: an own NEAR account is read through NearBlocks (api.nearblocks.io) and
 //     an archival RPC of FastNEAR (archival-rpc.mainnet.fastnear.com); both
 //     see the account id and the IP address.
-export const CONSENT_VERSION = '57';
+// 58: Filecoin Pay: a Filecoin wallet's balance in the payment contract is
+//     read from the makers' index at Goldsky (api.goldsky.com) and from
+//     Blockscout (filecoin.blockscout.com, or api.blockscout.com with the
+//     person's own key); each sees the address and the IP address.
+export const CONSENT_VERSION = '58';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

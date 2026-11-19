@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { addressBook, payeeName } from '../bank/payee.js';
-import { classifyTransaction } from '../matching/classify.js';
+import { cleanMatchingSettings, classifyTransaction } from '../matching/classify.js';
+import { suggestBooking } from '../booking/suggest.js';
 import { classificationLine } from '../matching/explain.js';
 import { knownContract } from './known-contracts.js';
 
@@ -70,5 +71,28 @@ describe('a known payment contract', () => {
 		expect(
 			classifyTransaction(deposit, ctx({ addressKindOf: () => ({ ...said, kind: 'vendor' }) }))
 		).toBeNull();
+	});
+
+	it('goes on 1360 unless the settings name another account, and the booking follows', () => {
+		expect(cleanMatchingSettings(null).paymentAccountLedger).toBe('1360');
+		expect(cleanMatchingSettings({ paymentAccountLedger: ' 1525 ' }).paymentAccountLedger).toBe(
+			'1525'
+		);
+		for (const bad of ['', 'abc', '15', '123456789'])
+			expect(cleanMatchingSettings({ paymentAccountLedger: bad }).paymentAccountLedger).toBe(
+				'1360'
+			);
+		const c = classifyTransaction(deposit, ctx({ paymentAccountLedger: '1525' }));
+		expect(c).toMatchObject({ kind: 'own-transfer', account: '1525', via: 'payment-contract' });
+		expect(classificationLine(/** @type {any} */ (c), {})).toContain('1525');
+		expect(
+			suggestBooking(/** @type {any} */ (deposit), { classification: /** @type {any} */ (c) })
+		).toMatchObject({ account: '1525', source: 'transfer' });
+		// Any other own transfer stays on 1360, whatever its classification carries.
+		expect(
+			suggestBooking(/** @type {any} */ (deposit), {
+				classification: /** @type {any} */ ({ kind: 'own-transfer', account: '1525', via: 'iban' })
+			})
+		).toMatchObject({ account: '1360' });
 	});
 });

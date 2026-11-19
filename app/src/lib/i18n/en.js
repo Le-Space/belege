@@ -498,6 +498,11 @@ export default {
 			nothing: 'The account moved no credits this month: no proof needed.',
 			saveFailed: 'The usage proof could not be saved.'
 		},
+		filecoinPay: {
+			exists: 'This month already has the Filecoin Pay usage statement {number}.',
+			nothing: 'Nothing was settled, paid in or taken out in this month.',
+			saveFailed: 'The Filecoin Pay usage statement could not be saved.'
+		},
 		akash: {
 			exists: 'This month already has Akash usage statement {number}.',
 			nothing:
@@ -756,7 +761,8 @@ export default {
 			camt: 'CAMT.053 bank statements, e.g. Revolut Business',
 			enablebanking: 'Enable Banking (banks in Europe via PSD2, with your own application)',
 			alchemy: 'Alchemy (EVM, with your own key)',
-			blockscout: 'Blockscout (EVM, no key)',
+			blockscout: 'Blockscout (EVM without a key; Filecoin Pay, also with your own key)',
+			'filecoin-pay-index': 'Goldsky (index of Filecoin Pay)',
 			'cosmos-nodes': 'Nym, Nodes Guru, PublicNode, Polkachu (Cosmos nodes)',
 			'akash-indexer': 'Akash Console (indexer, older Akash history)',
 			aleph: 'Aleph Cloud (credits of your own accounts, read only)',
@@ -1024,9 +1030,9 @@ export default {
 				name: 'Blockchain query (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin, NEAR)',
 				text: 'Only for your own wallets that you enter under Integrations, and only when you press “Sync”: the bridge asks a public node for the transfers and the balance of the address.',
 				leaves:
-					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP: the operator can infer from this that all these addresses belong together. For Filecoin the bridge asks Filfox (filfox.info) about the address. For NEAR the bridge asks NearBlocks (api.nearblocks.io) for the account’s transactions and an archival node of FastNEAR (archival-rpc.mainnet.fastnear.com) for the balance; both see the account name. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
+					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP: the operator can infer from this that all these addresses belong together. For Filecoin the bridge asks Filfox (filfox.info) about the address. For Filecoin Pay, only if you check a Filecoin wallet under “Own wallets” or make its usage statement: the wallet’s address to the index kept by the makers of Filecoin Pay at Goldsky (api.goldsky.com), to Blockscout (filecoin.blockscout.com – or api.blockscout.com, if you have set up a Blockscout API key; Blockscout then links the queries to your Blockscout account) and, where Blockscout does not answer, to Filfox; each of them also sees the IP address of this Mac. For NEAR the bridge asks NearBlocks (api.nearblocks.io) for the account’s transactions and an archival node of FastNEAR (archival-rpc.mainnet.fastnear.com) for the balance; both see the account name. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
 				technical:
-					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain). The app knows only a fingerprint of the key. For Filecoin, Filfox’s public API (address, address/transfers; the address is in the query URL), without a key; a message’s send, receive and fees come from there, and the message CID is the hash. For NEAR, NearBlocks’ API (v3: accounts/<account>/txns and ft-txns; the account name is in the query URL), without a key, and the JSON-RPC of an archival node of FastNEAR (view_account and ft_balance_of for the balance, EXPERIMENTAL_tx_status for what a storage deposit kept); NEAR and USDC (Circle’s contract) are booked, and the transaction hash is the one an exchange names for a withdrawal. NEAR that arrives in the inner receipts of someone else’s transaction (a staking pool paying out, say) is not read yet. Links to the block explorer only open when you click them.'
+					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain). The app knows only a fingerprint of the key. For Filecoin, Filfox’s public API (address, address/transfers; the address is in the query URL), without a key; a message’s send, receive and fees come from there, and the message CID is the hash. For Filecoin Pay (USDFC only), the makers’ index (a subgraph at Goldsky, over GraphQL: userTokens, rails, settlements, oneTimePayments by the payer’s address) and the payment contract’s events at Blockscout (getLogs for DepositRecorded and WithdrawRecorded; when the index does not answer, also RailCreated, RailSettled, RailOneTimePaymentProcessed and the balance by eth_call). The Blockscout key is kept in the bridge’s macOS keychain (pnpm setup:blockscout) and goes to api.blockscout.com only, in the request’s header – in no URL, never in the browser, never in the log. What a payer itself earns over rails is not read. For NEAR, NearBlocks’ API (v3: accounts/<account>/txns and ft-txns; the account name is in the query URL), without a key, and the JSON-RPC of an archival node of FastNEAR (view_account and ft_balance_of for the balance, EXPERIMENTAL_tx_status for what a storage deposit kept); NEAR and USDC (Circle’s contract) are booked, and the transaction hash is the one an exchange names for a withdrawal. NEAR that arrives in the inner receipts of someone else’s transaction (a staking pool paying out, say) is not read yet. Links to the block explorer only open when you click them.'
 			},
 			ucep: {
 				name: 'Invoice app (UCEP via a relay)',
@@ -1543,6 +1549,48 @@ export default {
 		files: 'Receipt files',
 		blocks: 'Blocks, all told',
 		history: 'Backups so far'
+	},
+	filecoinPay: {
+		title: 'Filecoin Pay (storage in Filecoin Onchain Cloud)',
+		what: 'Nobody sends an invoice for storage in Filecoin Onchain Cloud: the wallet pays USDFC into a balance in the payment contract Filecoin Pay, and the contract settles with the storage providers out of it from time to time. Here a usage statement is made per wallet and month as an Eigenbeleg – opening and closing balance, what was paid in and taken out, each settlement with its provider and euro value. Read only: nothing is signed or moved.',
+		needsBridge: 'Needs the paired bridge.',
+		privacy:
+			'Your Filecoin wallets with an address a contract can hold a balance for (f410f…) are checked. The index kept by the makers of Filecoin Pay (at Goldsky) and Blockscout then see the address and the bridge’s IP address.',
+		scan: 'Check Filecoin wallets ({count})',
+		scanning: 'Checking …',
+		scanned: '{asked} wallets checked, {found} of them with a balance or rails in Filecoin Pay.',
+		none: 'No wallet with a balance in Filecoin Pay found yet. “Check Filecoin wallets” asks.',
+		funds: '{funds} USDFC, {locked} of it locked · {rails} rails (as of {date})',
+		month: 'Month',
+		show: 'Show month',
+		reading: 'Reading …',
+		make: 'Create usage statement',
+		exists: 'Statement {number} is under Receipts.',
+		made: 'Eigenbeleg {number} for {month} created ({eur}); it is under Receipts.',
+		opening: 'Opening balance',
+		deposits: '+ Paid in',
+		withdrawals: '− Taken out',
+		usage: '− Settled',
+		closing: '= Closing balance',
+		noUsage: 'Nothing was settled in this month.',
+		oneTime: 'One-time payment',
+		col: {
+			time: 'Settled',
+			rail: 'Rail',
+			payee: 'Provider',
+			until: 'Paid until'
+		},
+		source: {
+			index:
+				'Source: the index kept by the makers of Filecoin Pay; paid in and taken out from Blockscout.',
+			logs: 'Source: the payment contract’s events at Blockscout (the index did not answer).',
+			transfers:
+				'Blockscout did not answer: paid in and taken out come from the transfers Filfox lists. What another address paid in is missing; the balances are then off by it.'
+		},
+		noKey:
+			'The bridge asks Blockscout without a key – enough for a few queries, then Blockscout does not answer for minutes. A free Blockscout key removes this; in the terminal:',
+		limits:
+			'Limits: only USDFC is read. Settlements lag behind usage – each names up to when it paid; what has run up since is not in it yet. What a wallet itself earns over rails is not read.'
 	},
 	uploadPanel: {
 		open: 'Upload receipts',
@@ -2262,7 +2310,7 @@ export default {
 			noReason: 'no reason given',
 			ownCompany: 'Own transfer: the counterparty is your company “{company}”',
 			ownPaymentContract:
-				'Paid into your own balance in the payment contract “{name}” ({address}): the money stays yours and can be taken out again until services are settled from it – an own transfer, no receipt needed (account 1360). What the contract pays providers out of it is not in the wallet and needs a document of its own.',
+				'Paid into your own balance in the payment contract “{name}” ({address}): the money stays yours and can be taken out again until services are settled from it – an own transfer, no receipt needed (account {account}). What the contract pays providers out of it is not in the wallet and needs a document of its own.',
 			ownCustodian:
 				'Own money at “{name}”: you noted the address {address} as an own account at an exchange or custodian that Belege does not read. No receipt needed (account 1360). The other side is not in the books, so 1360 stays open by this amount.',
 			addressPrivate:
@@ -2829,6 +2877,10 @@ export default {
 			},
 			shareholderAccount: 'Shareholder clearing account',
 			suspenseAccount: 'Suspense account for bookings without an account',
+			paymentAccount: 'Account for balances in payment contracts',
+			paymentAccountHint:
+				'What an own wallet pays into a payment contract (Filecoin Pay), or gets back from it, goes here: the money stays yours until something is settled from it. 1360 (cash in transit) by default. If your books keep an account of their own for it – for advance payments or other assets, say – enter it here; empty means 1360.',
+			invalidPaymentAccount: 'The account for balances in payment contracts has 4 to 8 digits.',
 			suspenseHint:
 				'Optional. With an account here, the export can book bookings without a confirmed account onto it instead of waiting. Belege suggests no number: which account (in SKR 03 usually one of the transit or unclear items) and who re-books is for you and your tax advisor to agree.',
 			legalFormHint:
@@ -3379,6 +3431,7 @@ export default {
 			'receipt-moved': 'Receipt moved here from another payment',
 			eigenbeleg: 'Eigenbeleg created and linked',
 			'aleph-statement': 'Aleph usage proof {number} for {month} created',
+			'filecoin-pay-statement': 'Filecoin Pay usage statement {number} for {month} created',
 			booking: 'Account adopted',
 			bookings: 'Automatic accounts adopted',
 			answer: 'Question answered: {choice}'
@@ -5073,7 +5126,7 @@ export default {
 			llmItemHash: 'Enclave item hash',
 			llmMeasurement: 'Enclave measurement',
 			othersHint:
-				'Enable Banking, CoinGecko and a Bitcoin zpub come along when taken over from the bridge on this computer.'
+				'Enable Banking, CoinGecko, a Blockscout key and a Bitcoin zpub come along when taken over from the bridge on this computer.'
 		},
 		hibiscus: {
 			title: 'Hibiscus',

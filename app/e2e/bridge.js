@@ -30,6 +30,7 @@ export const BRIDGE_SPECS = [
 	'bridge-scopes',
 	'enablebanking',
 	'export',
+	'filecoin-pay',
 	'filecoin-swap',
 	'filecoin-wallet',
 	'instalments-currency',

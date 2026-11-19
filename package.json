@@ -21,6 +21,7 @@
     "setup:coingecko": "pnpm --filter @belege/bridge setup:coingecko",
     "setup:bitcoin": "pnpm --filter @belege/bridge setup:bitcoin",
     "setup:alchemy": "pnpm --filter @belege/bridge setup:alchemy",
+    "setup:blockscout": "pnpm --filter @belege/bridge setup:blockscout",
     "setup:relay": "pnpm --filter @belege/bridge setup:relay",
     "setup:aleph": "pnpm --filter @belege/bridge setup:aleph",
     "setup:origins": "pnpm --filter @belege/bridge setup:origins",

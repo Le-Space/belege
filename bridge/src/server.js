@@ -46,6 +46,7 @@
 //   POST /akash/deployments { address, endpoints? }               token → an Akash wallet's deployments, what each cost, and the ACT it holds (#305)
 //   POST /aleph/accounts { addresses, api? }                      token → which are Aleph accounts: credits, entries (aleph.js)
 //   GET  /aleph/statement?address=0x…&month=YYYY-MM[&api=]        token → a month's credits: balances, top-ups, usage per day
+//   POST /filecoinpay/statement { address, month, source?, endpoints? }  token → a Filecoin Pay payer's month: paid in, settlements, balance
 //   GET  /backup/status                                           token → { aleph: { configured, address, credits, ingestUrl, gateways, apiHost } } (aleph-backup.js)
 //   GET  /backup/aleph/list                                       token → { backups: [{ cid, at, itemHash }] }: what this account had Aleph keep
 //   POST /backup/aleph/pin { cid, ref? }                          token → { cid, address, itemHash, status, ref? }: what the app uploaded, kept; an increment's ref is its base's CID
@@ -140,6 +141,11 @@ export function deprecatedOverHttp(command) {
  * @param {string} [options.alephApi] the Aleph API asked when the request names none
  * @param {ReturnType<typeof import('./aleph-backup.js').createAlephBackup> | null} [options.alephBackup]
  *   the backup's copy on Aleph, with the bridge's own key (issue #77)
+ * @param {ReturnType<typeof import('@le-space/chains/filecoin-pay').createFilecoinPayClient> | null} [options.filecoinPay]
+ *   Filecoin Pay, read only: a payer's month
+ * @param {boolean} [options.filecoinPayLoopback] tests: its endpoints on 127.0.0.1
+ * @param {{ index?: string, filfox?: string, blockscout?: string }} [options.filecoinPayEndpoints] tests: asked when the request names none
+ * @param {() => Promise<string | null>} [options.blockscoutKey] the optional Blockscout key, read per call
  * @param {{ addr: string | null, stats: () => { reservations: number, connections: number } } | null} [options.lanRelay]
  *   the relay for own devices (lan-relay.js): null when not set up, `addr` null when it did not start
  * @param {{ status: () => object, disarm: () => Promise<void> } | null} [options.node] the bridge's libp2p node (node.js, #573)
@@ -175,6 +181,10 @@ export function createBridgeServer({
 	alephLoopback = false,
 	alephApi = ALEPH_API,
 	alephBackup = null,
+	filecoinPay = null,
+	filecoinPayLoopback = false,
+	filecoinPayEndpoints = {},
+	blockscoutKey = async () => null,
 	lanRelay = null,
 	node = null,
 	settingsExport = null,
@@ -209,6 +219,10 @@ export function createBridgeServer({
 		alephLoopback,
 		alephApi,
 		alephBackup,
+		filecoinPay,
+		filecoinPayLoopback,
+		filecoinPayEndpoints,
+		blockscoutKey,
 		lanRelay,
 		portals,
 		node,

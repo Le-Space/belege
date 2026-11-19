@@ -25,6 +25,7 @@
 	import {
 		cleanMatchingSettings,
 		DEFAULT_GRACE_DAYS,
+		DEFAULT_PAYMENT_ACCOUNT,
 		MAX_GRACE_DAYS
 	} from './matching/classify.js';
 	import { ulid } from './store/ids.js';
@@ -55,6 +56,8 @@
 	let reason = $state('');
 	/** @type {number | string} */
 	let graceDays = $state(DEFAULT_GRACE_DAYS);
+	/** The account of a deposit into a payment contract (classify.js), as typed. */
+	let paymentAccount = $state(DEFAULT_PAYMENT_ACCOUNT);
 
 	/** @type {Record<string, string>} bank account id → its ledger account, as typed */
 	let ledgers = $state({});
@@ -88,6 +91,7 @@
 		ibanText = current.ownIbans.join('\n');
 		rules = current.rules;
 		graceDays = current.graceDays;
+		paymentAccount = current.paymentAccountLedger;
 		datev = cleanDatevSettings(app.datevSettings);
 		ledgers = Object.fromEntries(app.accounts.map((a) => [a.id, String(a.ledgerAccount ?? '')]));
 		// Accounts added since the chart was read in get their ledger account too.
@@ -261,6 +265,10 @@
 			});
 			return;
 		}
+		if (String(paymentAccount).trim() && !/^\d{4,8}$/.test(String(paymentAccount).trim())) {
+			invalid = t('anweisungen.books.invalidPaymentAccount');
+			return;
+		}
 		saving = true;
 		saved = null;
 		try {
@@ -281,9 +289,11 @@
 				employees: lines(employeesText),
 				ownIbans: lines(ibanText),
 				rules: $state.snapshot(rules),
-				graceDays: String(graceDays)
+				graceDays: String(graceDays),
+				paymentAccountLedger: String(paymentAccount).trim()
 			});
 			graceDays = value.graceDays;
+			paymentAccount = value.paymentAccountLedger;
 			await setSetting(store.settings, 'matching', value);
 			saved = t('anweisungen.saved');
 			await runMatchingNow();
@@ -739,6 +749,17 @@
 					/>
 				</label>
 				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.suspenseHint')}</p>
+				<label class="mt-3 flex flex-col">
+					<span class="text-faint">{t('anweisungen.books.paymentAccount')}</span>
+					<input
+						class="{input} w-28 font-mono"
+						inputmode="numeric"
+						bind:value={paymentAccount}
+						placeholder={DEFAULT_PAYMENT_ACCOUNT}
+						data-testid="payment-contract-account"
+					/>
+				</label>
+				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.paymentAccountHint')}</p>
 				<div class="mt-3 flex flex-wrap items-end gap-3">
 					<label class="flex flex-col">
 						<span class="text-faint">{t('anweisungen.books.vatPeriod')}</span>
