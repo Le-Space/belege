@@ -114,9 +114,22 @@ test('an Aleph account is found, and last month becomes an Eigenbeleg', async ({
 	const card = page.getByTestId('aleph-card');
 	await expect(card.getByTestId('aleph-scan')).toBeDisabled();
 	await card.getByTestId('aleph-extra-input').fill(ACCOUNT);
+	await card.getByTestId('aleph-extra-name').fill('Projekt Nord');
 	await card.getByTestId('aleph-extra-add').click();
-	await card.getByTestId('aleph-scan').click();
+	// Asked at once, and listed with its name and what Aleph said.
 	await expect(card.getByTestId('aleph-scan-result')).toContainText('1 Adressen geprüft, 1 davon');
+	await expect(card.getByTestId('aleph-extra')).toHaveCount(1);
+	await expect(card.getByTestId('aleph-extra')).toHaveAttribute('data-state', 'has');
+	await expect(card.getByTestId('aleph-extra')).toContainText('Projekt Nord');
+	await expect(card.getByTestId('aleph-account')).toContainText('Projekt Nord');
+	// An address Aleph holds nothing for says so, and can be taken off again.
+	const UNKNOWN = '0x00000000000000000000000000000000000000aa';
+	await card.getByTestId('aleph-extra-input').fill(UNKNOWN);
+	await card.getByTestId('aleph-extra-add').click();
+	const unknown = card.getByTestId('aleph-extra').filter({ hasText: UNKNOWN });
+	await expect(unknown).toHaveAttribute('data-state', 'nothing');
+	await unknown.getByTestId('aleph-extra-remove').click();
+	await expect(card.getByTestId('aleph-extra')).toHaveCount(1);
 	await expect(card.getByTestId('aleph-account')).toHaveCount(1);
 	await expect(card.getByTestId('aleph-account-credits')).toContainText('2.936.000 Credits');
 	await expect(card.getByTestId('aleph-month')).toHaveValue(MONTH);

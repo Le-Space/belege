@@ -1703,6 +1703,15 @@ export default {
 			'The addresses under “Own wallets” (Ethereum and other EVM chains) are checked with Aleph for credits. Aleph can infer from this that they belong together.',
 		extraLabel: 'Another Aleph account (0x…)',
 		extraAdd: 'Add',
+		extraName: 'Name (optional)',
+		extraNamePlaceholder: 'e.g. project or purpose',
+		extras: 'Accounts entered by hand – they are asked at every check:',
+		extraRemove: 'Remove',
+		extraState: {
+			has: 'found on Aleph',
+			nothing: 'Aleph holds neither credits nor entries here',
+			unchecked: 'not checked yet'
+		},
 		badAddress: 'That is not an Aleph account address (0x and 40 hex characters).',
 		scan: 'Check with Aleph',
 		scanning: 'Checking …',

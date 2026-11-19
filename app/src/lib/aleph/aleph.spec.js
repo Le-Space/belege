@@ -9,12 +9,14 @@ import { createBlobStore } from '../receipts/blob-store.js';
 import {
 	candidateAddresses,
 	createAlephStatement,
+	addAlephAccount,
 	findStatement,
 	lastDay,
 	learnAlephPurchases,
 	loadAleph,
 	previousMonth,
 	purchasesOf,
+	removeAlephAccount,
 	rememberPurchases,
 	saveAleph,
 	scanAleph
@@ -117,12 +119,12 @@ describe('which addresses are asked', () => {
 			{ chain: 'nyx', address: 'n1notanethereumaddress' },
 			{ chain: 'polygon', address: B }
 		];
-		expect(
-			candidateAddresses(wallets, { scan: false, extra: [C], accounts: [], purchases: [] })
-		).toEqual([C]);
-		expect(
-			candidateAddresses(wallets, { scan: true, extra: [C], accounts: [], purchases: [] })
-		).toEqual([A.toUpperCase().replace('0X', '0x'), B, C]);
+		expect(candidateAddresses(wallets, { scan: false, extra: [C] })).toEqual([C]);
+		expect(candidateAddresses(wallets, { scan: true, extra: [C] })).toEqual([
+			A.toUpperCase().replace('0X', '0x'),
+			B,
+			C
+		]);
 	});
 
 	it('keeps the accounts Aleph knows, with when they were checked', async () => {
@@ -403,5 +405,34 @@ describe('the statement as an Eigenbeleg', () => {
 		await saveAleph(store.settings, { extra: [A] });
 		expect(await learnAlephPurchases({ client, settings: store.settings, wallets: [] })).toBe(0);
 		expect(asked).toBe(1);
+	});
+
+	it('keeps a typed-in account with its name, and takes it off again', async () => {
+		await addAlephAccount(store.settings, A, '  Projekt Nord ');
+		await addAlephAccount(store.settings, B);
+		let aleph = await loadAleph(store.settings);
+		expect(aleph.extra).toEqual([A, B]);
+		expect(aleph.names).toEqual({ [A.toLowerCase()]: 'Projekt Nord' });
+		// Entered again: once in the list, its name changed.
+		await addAlephAccount(store.settings, A, 'Projekt Süd');
+		aleph = await loadAleph(store.settings);
+		expect(aleph.extra).toEqual([A, B]);
+		expect(aleph.names[A.toLowerCase()]).toBe('Projekt Süd');
+
+		// Found at Aleph, then taken off: the account goes with it …
+		await saveAleph(store.settings, {
+			accounts: [
+				{ address: A, credits: 5, entries: 1, checkedAt: '2026-09-01T10:00:00.000Z' },
+				{ address: B, credits: 1, entries: 1, checkedAt: '2026-09-01T10:00:00.000Z' }
+			]
+		});
+		aleph = await removeAlephAccount(store.settings, A);
+		expect(aleph.extra).toEqual([B]);
+		expect(aleph.names).toEqual({});
+		expect(aleph.accounts.map((a) => a.address)).toEqual([B]);
+		// … unless it is asked anyway (an own wallet, the scan on).
+		aleph = await removeAlephAccount(store.settings, B, { keep: true });
+		expect(aleph.extra).toEqual([]);
+		expect(aleph.accounts.map((a) => a.address)).toEqual([B]);
 	});
 });
