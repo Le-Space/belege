@@ -14,7 +14,7 @@
 	import AiMark from '$lib/AiMark.svelte';
 	import AiCostHint from '$lib/AiCostHint.svelte';
 	import { openTravelQuestions } from '$lib/travel/proposals.js';
-	import { getSetting } from '$lib/store/settings.js';
+	import { readBridgeRecord } from '$lib/bridge-connection/record.js';
 	import { refreshNow } from '$lib/session.svelte.js';
 	import {
 		aiEligible,
@@ -53,7 +53,7 @@
 	onMount(async () => {
 		const store = currentStore();
 		if (store) transferFirst = await loadTransferFirst(store.settings);
-		const saved = store ? await getSetting(store.settings, 'bridge') : null;
+		const saved = store ? await readBridgeRecord(store.settings) : null;
 		const { createBridgeClient, pairedWith } = await import('$lib/bridge/client.js');
 		if (!pairedWith(saved)) return;
 		client = createBridgeClient({ url: saved.url, token: saved.token ?? null });
