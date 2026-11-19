@@ -13,7 +13,7 @@ export const RECHECK_AFTER_MS = [15_000, 45_000, 120_000, 300_000];
 
 /** The schedule, shorter in the end-to-end tests (only in a build for them). */
 export const recheckSchedule = () => {
-	if (import.meta.env?.VITE_E2E !== 'true') return RECHECK_AFTER_MS;
+	if (import.meta.env.VITE_E2E !== 'true') return RECHECK_AFTER_MS;
 	const given = /** @type {any} */ (globalThis).__belegeBackupRecheckMs;
 	return Array.isArray(given) && given.every((n) => Number.isFinite(n) && n >= 0)
 		? given.map(Number)

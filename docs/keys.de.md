@@ -80,6 +80,8 @@ Aus einem Schlüssel lässt sich kein anderer berechnen.
 | der Bridge-Schlüssel                           | Schlüsselbund der Bridge (`bridge-auth`)                                           | nur, wenn die Bridge per Einladung gekoppelt ist                                                                                                                       |
 | ein Mitglieds-Tresor                           | `localStorage` im Browser des Mitglieds; bei Aleph nach einem Backup des Mitglieds | versiegelt mit dem Passkey des Mitglieds                                                                                                                               |
 
+**Wie das geprüft wird.** Nach einer Sitzung mit Passkey, Kontoauszug und Neuladen liest ein Test alles, was diese Website behält: IndexedDB, `localStorage`, `sessionStorage` und den Cache des Service Workers. Er sucht darin jeden Schlüssel der Sitzung, in jeder Schreibweise für Bytes, und Zeilen des Kontoauszugs. Der Test läuft in CI gegen den Build, der veröffentlicht wird (`app/e2e-production`). Dieser Build hat keinen Test-Zugang, den man nach seinen Schlüsseln fragen könnte. Der Test hört deshalb dort mit, wo Schlüssel durch die Kryptografie des Browsers laufen. Vor jedem Deploy werden außerdem die veröffentlichten Dateien selbst auf Test-Zugänge durchsucht (`scripts/check-production-build.mjs`).
+
 ## Was die Bridge hält, und warum
 
 Die Bridge ist ein kleines Programm auf deinem Rechner. Sie macht, was ein Browser nicht darf:

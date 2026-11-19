@@ -98,9 +98,11 @@ export function setAutoBackup(on) {
 	check().catch((e) => console.warn('backup due:', e));
 }
 
-/** The quiet time, shorter in the end-to-end tests. */
+/** The quiet time, shorter in the end-to-end tests (only in a build for them). */
 const delay = () =>
-	Number(/** @type {any} */ (globalThis).__belegeBackupAutoDelayMs) || AUTO_DELAY_MS;
+	(import.meta.env.VITE_E2E === 'true' &&
+		Number(/** @type {any} */ (globalThis).__belegeBackupAutoDelayMs)) ||
+	AUTO_DELAY_MS;
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let settleTimer = null;

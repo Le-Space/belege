@@ -64,8 +64,11 @@ jobs:
           node-version: '22.x'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # A production build: no test hooks, no "Testbuchung anlegen".
+      # A production build: no test hooks, no "Testbuchung anlegen" – checked
+      # on the very directory that is published (#536).
       - run: pnpm run build
+      - name: No test hook in what is published
+        run: node scripts/check-production-build.mjs app/build
       - name: Install isolated Aleph deploy tooling
         run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.7
       - name: Publish to Aleph IPFS

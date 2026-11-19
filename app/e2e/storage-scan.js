@@ -2,7 +2,8 @@
 // passkey-books.spec.js so every spec can scan the same way.
 
 /**
- * Everything this origin keeps in IndexedDB and localStorage, as text. Bytes
+ * Everything this origin keeps in IndexedDB, localStorage and sessionStorage,
+ * as text (Cache Storage: `cachedResponsesHolding`, below). Bytes
  * appear twice: decoded as UTF-8 (for markers and DIDs) and as hex (for keys,
  * which UTF-8 decoding would mangle).
  */
@@ -59,12 +60,54 @@ export async function everythingStoredAsText(/** @type {import('@playwright/test
 			/** @type {IDBDatabase} */ (db).close();
 			inventory.push({ database: name, records });
 		}
-		for (let i = 0; i < localStorage.length; i++) {
-			const key = /** @type {string} */ (localStorage.key(i));
-			text += key + '\n' + localStorage.getItem(key) + '\n';
+		for (const storage of [localStorage, sessionStorage]) {
+			for (let i = 0; i < storage.length; i++) {
+				const key = /** @type {string} */ (storage.key(i));
+				text += key + '\n' + storage.getItem(key) + '\n';
+			}
 		}
 		return { inventory, text };
 	});
+}
+
+/**
+ * The responses in this origin's Cache Storage (the service worker's) that
+ * hold one of `needles`, or the bytes of one of `secrets` as they are. Searched
+ * in the page: a cache holds the whole app, too much to hand to the test.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {{ needles?: string[], secrets?: string[] }} what `needles` as text (markers,
+ *   the spellings of a key), `secrets` in hex (looked for as raw bytes)
+ * @returns {Promise<{ responses: number, hits: { cache: string, url: string }[] }>}
+ */
+export async function cachedResponsesHolding(page, { needles = [], secrets = [] }) {
+	return page.evaluate(
+		async ({ needles, secrets }) => {
+			// One character per byte, so text and raw bytes are found the same way.
+			const latin1 = new TextDecoder('latin1');
+			const raw = secrets.map((hex) =>
+				String.fromCharCode(...(hex.match(/../g) ?? []).map((pair) => parseInt(pair, 16)))
+			);
+			const wanted = [...needles.map((n) => latin1.decode(new TextEncoder().encode(n))), ...raw];
+			/** @type {{ cache: string, url: string }[]} */
+			const hits = [];
+			let responses = 0;
+			for (const name of await caches.keys()) {
+				const cache = await caches.open(name);
+				for (const request of await cache.keys()) {
+					const response = await cache.match(request);
+					if (!response) continue;
+					responses++;
+					const body = latin1.decode(await response.arrayBuffer());
+					if (wanted.some((w) => (request.url + '\n' + body).includes(w))) {
+						hits.push({ cache: name, url: request.url });
+					}
+				}
+			}
+			return { responses, hits };
+		},
+		{ needles, secrets }
+	);
 }
 
 /**

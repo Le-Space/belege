@@ -6,6 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The production build is checked, not only said to be clean** (#536, part of the audit plan #209). After every build for a release, a pull request and a deploy, `scripts/check-production-build.mjs` reads the built site and fails when a file names a test hook: a `__belege…` global, the build flag `VITE_E2E`, the key export for tests or the test booking button. In `deploy.yml` it reads the very directory that is published.
+- **The at-rest check runs against what visitors get.** A new spec (`app/e2e-production`, `pnpm --filter @belege/app run test:production`) builds the app as a deploy does, creates a passkey, reads a bank statement in, reloads and unlocks, and then looks through IndexedDB, `localStorage`, `sessionStorage` and the service worker's cache for every key of the session and for lines of the statement. This build has no hook that names its keys, so the spec listens where keys pass through the browser's cryptography (`app/e2e/secret-spy.js`); `passkey-books.spec.js` checks in the E2E build that the listener hears every key the app names there. The at-rest scan of the other specs now reads `sessionStorage` too.
+
+### Changed
+
+- Three timing switches of the backup tests (the quiet time before an automatic backup, the wait for Aleph's decision, the recheck schedule) are compiled out of every build but the one for the end-to-end tests, like the other test hooks. They only shortened waits.
+
 ## [0.43.0] – 2026-11-19
 
 ### Added

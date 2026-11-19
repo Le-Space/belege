@@ -78,3 +78,9 @@ jobs:
       # not in every E2E shard (those build the app with VITE_E2E themselves).
       - name: Build
         run: pnpm run build
+      # … and that is checked, not only said (#536): the built site names no
+      # test hook. The check's own tests first.
+      - name: No test hook in the production build
+        run: |
+          node --test scripts/check-production-build.test.mjs
+          node scripts/check-production-build.mjs app/build

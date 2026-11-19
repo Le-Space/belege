@@ -224,7 +224,7 @@ export async function backupPin({ owner, key, endpoints = alephEndpoints(), fetc
 
 /** How long a STORE is followed until Aleph decides; shorter in the end-to-end tests (only in a build for them). */
 const followFor = () =>
-	(import.meta.env?.VITE_E2E === 'true' &&
+	(import.meta.env.VITE_E2E === 'true' &&
 		Number(/** @type {any} */ (globalThis).__belegeBackupSettleMs)) ||
 	60_000;
 
