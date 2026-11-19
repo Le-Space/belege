@@ -120,7 +120,12 @@ export function suggestBooking(
 	}
 	if (classification?.kind === 'own-transfer') {
 		return {
-			account: TRANSFER_ACCOUNT,
+			// A deposit into an own balance in a payment contract goes on the
+			// account the settings name for it (1360 unless said, classify.js).
+			account:
+				classification.via === 'payment-contract' && isAccountNumber(classification.account)
+					? String(classification.account)
+					: TRANSFER_ACCOUNT,
 			taxKey: '',
 			source: 'transfer',
 			taxVia: 'none',

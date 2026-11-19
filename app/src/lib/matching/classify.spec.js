@@ -355,7 +355,8 @@ describe('cleanMatchingSettings', () => {
 			notRefunds: [],
 			prepaidVendors: [],
 			keptTransferReceipts: [],
-			networkFeeAccount: ''
+			networkFeeAccount: '',
+			paymentAccountLedger: '1360'
 		});
 		expect(cleanMatchingSettings(null)).toEqual({
 			companyNames: [],
@@ -374,7 +375,8 @@ describe('cleanMatchingSettings', () => {
 			notRefunds: [],
 			prepaidVendors: [],
 			keptTransferReceipts: [],
-			networkFeeAccount: ''
+			networkFeeAccount: '',
+			paymentAccountLedger: '1360'
 		});
 	});
 

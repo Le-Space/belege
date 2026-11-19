@@ -585,11 +585,46 @@ Filfox sieht die Adresse und die IP-Adresse dieses Macs. Eine Adresse mit mehr a
 
 USDFC, die eine Wallet an den Vertrag Filecoin Pay sendet, gehen auf das eigene Guthaben des Zahlers in diesem Vertrag. Filecoin Pay gehört zur Filecoin Onchain Cloud; die Mainnet-Adresse ist `0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa` (`f410feoy…l36cyi`) und stammt aus den veröffentlichten Adressen von `@filoz/synapse-core`.
 
-Das Geld bleibt beim Zahler und lässt sich wieder auszahlen, bis daraus Speicher abgerechnet wird. Belege erkennt den Vertrag an seiner Adresse (`app/src/lib/wallets/known-contracts.js`), nennt die Zahlung „Filecoin Pay“ und bucht sie als eigene Umbuchung auf 1360, ohne Beleg. Dasselbe gilt für Geld, das von dort zurückkommt.
+Das Geld bleibt beim Zahler und lässt sich wieder auszahlen, bis daraus Speicher abgerechnet wird. Belege erkennt den Vertrag an seiner Adresse (`app/src/lib/wallets/known-contracts.js`), nennt die Zahlung „Filecoin Pay“ und bucht sie als eigene Umbuchung, ohne Beleg. Das Konto dafür ist eine Einstellung: Einstellungen → Buchhaltung, „Konto für Guthaben in Zahlungsverträgen“. Voreingestellt ist 1360. Dasselbe gilt für Geld, das von dort zurückkommt.
 
-Was der Vertrag aus dem Guthaben an Speicheranbieter zahlt, ist keine Bewegung der Wallet und wird noch nicht gelesen. Dieser Aufwand braucht einen eigenen Nachweis, wie ihn die Credits von Aleph und Akash haben.
+Was der Vertrag aus dem Guthaben an Speicheranbieter zahlt, ist keine Bewegung der Wallet. Dieser Aufwand hat einen eigenen Nachweis, siehe unten.
 
 Hast du die Adresse unter „Was war diese Zahlung?“ selbst benannt, gilt deine Angabe.
+
+### Verbrauchsnachweis für Filecoin Pay
+
+Für Speicher in der Filecoin Onchain Cloud stellt niemand eine Rechnung aus. Der Vertrag rechnet aus deinem Guthaben von Zeit zu Zeit mit den Speicheranbietern ab. Eine solche Abrechnung heißt Settlement, der Zahlungsweg zu einem Anbieter heißt Rail.
+
+**Wo:** Integrationen → Eigene Wallets, Karte „Filecoin Pay“. Die Karte erscheint, sobald die Bücher eine Filecoin-Wallet mit einer Adresse der Form `f410f…` führen. Nur für eine solche Adresse kann ein Vertrag ein Guthaben führen.
+
+**Ablauf:**
+
+1. „Filecoin-Wallets prüfen“ fragt für jede dieser Wallets, ob sie ein Guthaben oder Rails in Filecoin Pay hat. Vorher wird nichts gefragt.
+2. „Monat anzeigen“ zeigt Anfangsbestand, Einzahlungen, Auszahlungen, Abrechnungen und Endbestand. Jede Abrechnung steht mit Rail, Anbieter, dem Tag, bis zu dem sie bezahlt, der Menge in USDFC und dem Euro-Wert da.
+3. „Verbrauchsnachweis erstellen“ macht daraus einen Eigenbeleg als PDF. Er enthält zusätzlich die Aufteilung jeder Abrechnung (Anbieter, Provision, Netzwerkgebühr) mit ihrer Transaktion, die Rails mit den Adressen der Anbieter, die Quelle und die Grenzen.
+
+Der Eigenbeleg bekommt eine Nummer aus dem eigenen Nummernkreis (`EB-JJJJ-NNN`). Je Zahler und Monat gibt es ihn einmal. Er wird keiner Buchung zugeordnet, denn der Aufwand steht in keiner Wallet. Die Zahlen bleiben am Beleg (`selfReceipt.filecoinPay`, Art `filecoin-pay-statement`).
+
+**Woher die Daten kommen:** Die Bridge liest sie (`filecoinpay.statement`, `@le-space/chains/filecoin-pay`), nur lesend:
+
+- Abrechnungen und Bestand vom Index der Filecoin-Pay-Macher, einem öffentlichen Subgraph bei `api.goldsky.com`.
+- Ein- und Auszahlungen aus den Ereignissen des Vertrags bei Blockscout (`filecoin.blockscout.com`).
+- Antwortet der Index nicht, kommt alles aus den Ereignissen bei Blockscout.
+- Antwortet Blockscout nicht, kommen Ein- und Auszahlungen aus den Token-Überweisungen bei Filfox. Dann fehlt, was eine andere Adresse auf das Guthaben eingezahlt hat. Der Nachweis sagt das.
+
+Jeder dieser Dienste sieht die Adresse des Zahlers und die IP-Adresse der Bridge.
+
+**Blockscout-Schlüssel (optional):** Ohne Schlüssel beantwortet Blockscout etwa zehn Abfragen und dann minutenlang keine. Mit einem kostenlosen Schlüssel von dev.blockscout.com fragt die Bridge `api.blockscout.com`. Eingerichtet wird er im Terminal mit `pnpm setup:blockscout`:
+
+- Die Eingabe ist verdeckt. Enter behält einen gespeicherten Schlüssel, `-` löscht ihn.
+- Ein Testaufruf prüft den Schlüssel. Einen abgelehnten Schlüssel speichert die Bridge nicht.
+- Der Schlüssel liegt im macOS-Schlüsselbund (Dienst `belege-bridge`, Konto `blockscout`). Er steht nur im `authorization`-Kopf der Anfragen an `api.blockscout.com`, in keiner URL, nie im Protokoll und nie in der App.
+
+**Grenzen:**
+
+- Gelesen wird nur USDFC.
+- Eine Abrechnung bezahlt eine Rail bis zu dem Zeitpunkt, den sie nennt. Sie passiert, wenn jemand sie anstößt. Die Abrechnungen eines Monats decken darum nicht genau diesen Monat. Was seit der letzten Abrechnung aufgelaufen ist, steht nicht im Nachweis.
+- Was ein Zahler selbst über Rails einnimmt, wird nicht gelesen. Seine Bestände wären um diesen Betrag falsch.
 
 ### NEAR
 

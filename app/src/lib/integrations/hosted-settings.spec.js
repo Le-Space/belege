@@ -121,6 +121,7 @@ describe('what the card shows of the kept settings', () => {
 		paperless: 'SECRET-paperless-token',
 		enablebanking: 'SECRET-enablebanking-key',
 		alchemy: 'SECRET-alchemy-key',
+		blockscout: 'SECRET-blockscout-key',
 		coingecko: 'SECRET-coingecko-key',
 		bitcoin: 'SECRET-zpub'
 	};
@@ -159,6 +160,7 @@ describe('what the card shows of the kept settings', () => {
 			'paperless',
 			'enablebanking',
 			'alchemy',
+			'blockscout',
 			'coingecko',
 			'bitcoin'
 		]);

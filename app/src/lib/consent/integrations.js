@@ -100,6 +100,7 @@ export const INTEGRATION_GROUPS = [
 		items: [
 			{ id: 'alchemy', name: 'Alchemy', logo: 'alchemy' },
 			{ id: 'blockscout', name: 'Blockscout', initials: 'Bs' },
+			{ id: 'filecoin-pay-index', name: 'Goldsky (Filecoin Pay)', initials: 'Gs' },
 			{ id: 'mempool', name: 'mempool.space / Blockstream (Bitcoin)', initials: 'Mp' },
 			{ id: 'nearblocks', name: 'NearBlocks / FastNEAR (NEAR)', initials: 'Nb' },
 			{

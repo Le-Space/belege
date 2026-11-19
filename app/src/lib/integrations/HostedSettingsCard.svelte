@@ -45,6 +45,7 @@
 		paperless: 'Paperless-ngx',
 		enablebanking: 'Enable Banking',
 		alchemy: 'Alchemy',
+		blockscout: 'Blockscout',
 		coingecko: 'CoinGecko',
 		bitcoin: 'Bitcoin (zpub)'
 	};

@@ -1,6 +1,6 @@
 // What a hosted bridge starts with besides its pairing (#728): the accounts
-// it reads (mail, Enable Banking, Kraken, Alchemy, Paperless, CoinGecko, a
-// Bitcoin zpub) and the integrations' non-secret settings.
+// it reads (mail, Enable Banking, Kraken, Alchemy, Blockscout, Paperless,
+// CoinGecko, a Bitcoin zpub) and the integrations' non-secret settings.
 // Kept in the books' sealed settings – typed in a card or taken over from the
 // bridge on a computer – and handed only to an attested VM at its start,
 // next to what pairing needs (hosted-bridge.js `hostedSecrets`).
@@ -16,7 +16,8 @@
 export const HOSTED_SETTINGS_KEY = 'bridge/hosted-settings';
 
 /** The accounts a hosted bridge reads (bridge/src/keychain.js, sort-secrets.mjs). */
-const ACCOUNT = /^(?:imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy)$/;
+const ACCOUNT =
+	/^(?:imap|llm|kraken|paperless|enablebanking|coingecko|bitcoin|alchemy|blockscout)$/;
 
 /** The parts of bridge.json that belong to these integrations. */
 export const SECTIONS = /** @type {const} */ ([
@@ -221,6 +222,7 @@ const SHOWN = [
 	},
 	{ id: 'enablebanking', account: 'enablebanking', section: 'enablebanking' },
 	{ id: 'alchemy', account: 'alchemy' },
+	{ id: 'blockscout', account: 'blockscout' },
 	{ id: 'coingecko', account: 'coingecko' },
 	{ id: 'bitcoin', account: 'bitcoin' }
 ];

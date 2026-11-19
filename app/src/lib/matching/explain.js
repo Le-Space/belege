@@ -265,6 +265,7 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 			}
 			if (c.via === 'payment-contract') {
 				return t('explain.rule.ownPaymentContract', {
+					account: c.account ?? '1360',
 					name: c.company ?? '',
 					address: shortAddress(c.address ?? '')
 				});

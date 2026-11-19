@@ -438,6 +438,7 @@ export async function buildMatchingContext({
 			});
 		},
 		companyNames: clean.companyNames,
+		paymentAccountLedger: clean.paymentAccountLedger,
 		employees: clean.employees,
 		sameReference(tx) {
 			if (tx.movement === 'fee' || !tx.amountCents) return [];

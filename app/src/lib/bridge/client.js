@@ -258,6 +258,32 @@ function failed(message, status, body) {
  */
 
 /**
+ * @typedef {object} FilecoinPayStatement packages/chains/src/filecoin-pay.js `statement`, as the bridge answers it
+ * @property {string} address the payer, 0x… in lower case
+ * @property {string} filecoinAddress the same account, f410f…
+ * @property {string} month YYYY-MM
+ * @property {string} from ISO, UTC
+ * @property {string} until ISO, UTC
+ * @property {string} asset USDFC
+ * @property {number} decimals
+ * @property {string} opening the balance in the contract when the month began, a decimal
+ * @property {string} closing
+ * @property {{ time: string, amount: string, other: string, txHash: string }[]} deposits paid in
+ * @property {{ time: string, amount: string, other: string, txHash: string }[]} withdrawals taken out
+ * @property {{ time: string, date: string, railId: string, payee: string, service: string, oneTime: boolean, amount: string, toPayee: string, commission: string, networkFee: string, paidUntil: string | null, txHash: string, eurPerUnit: string | null, eurCents: number | null }[]} usage one line per settlement of a rail
+ * @property {Record<string, { id: string, payee: string, operator: string, service: string, commissionBps: number, createdAt: string }>} rails the rails the month used
+ * @property {number} railCount every rail the payer has
+ * @property {{ deposits: string, withdrawals: string, usage: string, eurCents: number | null }} totals
+ * @property {{ funds: string, lockedUp: string, at: string }} now the balance now, not at the month's end
+ * @property {string | null} rateSource
+ * @property {'index' | 'logs'} source where the lines come from
+ * @property {string | null} indexFailed why the index was passed over
+ * @property {'events' | 'transfers'} movementsFrom `transfers`: what another address paid in is missing
+ * @property {number} entries
+ * @property {boolean} [blockscoutKey] whether the bridge asked Blockscout with a key; never the key
+ */
+
+/**
  * How the bridge is reached when a caller names no fetch: plain fetch, or –
  * with device sync – the bridge on this machine first and an own desktop's
  * over UCEP otherwise (sync/remote-bridge.js, issue #142).
@@ -741,6 +767,24 @@ export function createBridgeClient({
 		 */
 		alephStatement: (address, month, api) =>
 			command('aleph.statement', { address, month, ...(api ? { api } : {}) }),
+		/**
+		 * A payer's balance in Filecoin Pay in one month: what it was before and
+		 * after, what was paid in and taken out, and each settlement of each
+		 * rail, valued in EUR (packages/chains/src/filecoin-pay.js). Read only;
+		 * in the body, so the address is in no URL.
+		 *
+		 * @param {string} address the payer, f410f… or 0x…
+		 * @param {string} month YYYY-MM
+		 * @param {{ source?: 'index' | 'logs', endpoints?: { index?: string, filfox?: string, blockscout?: string } }} [options]
+		 * @returns {Promise<FilecoinPayStatement>}
+		 */
+		filecoinPayStatement: (address, month, { source, endpoints } = {}) =>
+			command('filecoinpay.statement', {
+				address,
+				month,
+				...(source ? { source } : {}),
+				...(endpoints ? { endpoints } : {})
+			}),
 		/**
 		 * The backup on Aleph (issue #77): whether `pnpm setup:aleph` has made the
 		 * bridge's backup key, the account that pays, its credits, where the app
