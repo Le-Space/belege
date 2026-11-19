@@ -2743,6 +2743,7 @@ export default {
 		books: {
 			title: 'Bookkeeping (DATEV export)',
 			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in your bookkeeping – it shows what it expects on import.',
+			fromChart: 'Taken from your chart of accounts – please check.',
 			ledger: 'Ledger account in your bookkeeping',
 			ledgerHint:
 				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',
@@ -5320,6 +5321,10 @@ export default {
 				ledger: 'Account (financial account)',
 				costCentre: 'Cost centre (KOST1)',
 				hint: 'The label replaces the address on all accounts of this wallet. Account and cost centre apply to all its assets and go into the DATEV export; the cost centre only letters and digits.',
+				ledgerFromChart:
+					'Suggested from your chart of accounts: {account} {name}. You can change the number.',
+				ledgerNext:
+					'Suggested: {account}, the next free number after your other wallets. It is not in your chart of accounts yet – the account has to be opened in the bookkeeping, or the import will refuse the bookings. You can change the number.',
 				ledgerShort: 'Account {account}',
 				costCentreShort: 'Cost centre {costCentre}',
 				edit: 'Label, account, cost centre',
