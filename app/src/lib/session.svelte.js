@@ -3208,7 +3208,10 @@ async function unlockWith(
 		.catch(() => {});
 	{
 		// The bridge's calls wait until device sync has set up the stream to its node (#575).
-		const { holdBridgeTransport } = await import('./bridge/client.js');
+		const { holdBridgeTransport, setExpectedBridge } = await import('./bridge/client.js');
+		// Which bridge these books expect, for what the client says when none answers (#844).
+		const { expectedBridgeOf } = await import('./bridge-connection/expected.js');
+		setExpectedBridge(() => (session ? expectedBridgeOf(session.store.settings) : null));
 		const release = holdBridgeTransport();
 		// With device sync off, the bridge on this machine over a stream of its own (#580).
 		(session?.online ? startDeviceSyncIfOn() : startLoopbackBridge())

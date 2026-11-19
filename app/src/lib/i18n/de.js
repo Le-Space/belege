@@ -442,6 +442,11 @@ export default {
 			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
 			nodeUnreachable:
 				'Der Knoten der Bridge ist über das Netz gerade nicht erreichbar. Neu koppeln ist nicht nötig: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist, und lade sonst die Seite neu.',
+			hostedUnreachable: {
+				aleph:
+					'Die gehostete Bridge bei Aleph antwortet nicht. Läuft ihre VM nicht oder ist sie noch gesperrt: starten und entsperren unter Integrationen → Bridge. Läuft sie und ist entsperrt: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist.',
+				near: 'Die gehostete Bridge bei Phala (über NEAR) antwortet nicht. Läuft sie nicht: starten unter Integrationen → Bridge. Läuft sie: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist.'
+			},
 			outdated:
 				'Deine Bridge ist älter als diese App und kennt diese Funktion noch nicht. Bitte aktualisieren: git pull, pnpm install, dann pnpm bridge neu starten.',
 			needsSync:
@@ -3703,6 +3708,7 @@ export default {
 		wayOut: {
 			unreachable: 'Starte die Bridge im Terminal:',
 			'unknown-device': 'Die Kopplung ist auf der Bridge nicht mehr bekannt.',
+			hosted: 'Die gehostete Bridge starten oder entsperren:',
 			origin: 'Einmal im Terminal, dann die Bridge neu starten (Ctrl+C, pnpm bridge):',
 			mail: 'Richte das Postfach einmal im Terminal ein, dann die Bridge neu starten:',
 			llm: 'Richte das Sprachmodell einmal im Terminal ein, dann die Bridge neu starten:',
@@ -3712,6 +3718,7 @@ export default {
 		wayOutLink: {
 			unreachable: 'Zur Bridge',
 			'unknown-device': 'Neu koppeln',
+			hosted: 'Zur Bridge',
 			origin: 'Zur Bridge',
 			llm: 'Zur KI-Einrichtung'
 		}

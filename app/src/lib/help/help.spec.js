@@ -41,6 +41,7 @@ describe('a way out beside an error (#200, step 4)', () => {
 		for (const kind of [
 			'unreachable',
 			'unknown-device',
+			'hosted',
 			'origin',
 			'mail',
 			'llm',
