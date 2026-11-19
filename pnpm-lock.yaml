@@ -9,7 +9,7 @@ overrides:
 
 patchedDependencies:
   '@libp2p/circuit-relay-v2@4.2.9':
-    hash: 2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413
+    hash: efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122
     path: patches/@libp2p__circuit-relay-v2@4.2.9.patch
   playwright-core@1.61.1:
     hash: a083dc1d622051a32dba1602d5ddc0f08c46bf1680f64243117be69f979c62a9
@@ -87,7 +87,7 @@ importers:
         version: 0.2.0-draft.5
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
-        version: 4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)
+        version: 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
       '@libp2p/crypto':
         specifier: 5.1.23
         version: 5.1.23
@@ -280,7 +280,7 @@ importers:
         version: 0.1.0
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
-        version: 4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)
+        version: 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
       '@libp2p/crypto':
         specifier: 5.1.23
         version: 5.1.23
@@ -409,7 +409,7 @@ importers:
         version: link:../browser-test
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
-        version: 4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)
+        version: 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
       '@libp2p/identify':
         specifier: 4.1.10
         version: 4.1.10
@@ -5796,7 +5796,7 @@ snapshots:
       '@ipshipyard/libp2p-auto-tls': 2.0.2
       '@libp2p/autonat': 3.0.28
       '@libp2p/bootstrap': 12.0.32
-      '@libp2p/circuit-relay-v2': 4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)
+      '@libp2p/circuit-relay-v2': 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
       '@libp2p/config': 1.1.37
       '@libp2p/dcutr': 3.0.28
       '@libp2p/http': 2.0.6
@@ -5834,7 +5834,7 @@ snapshots:
       '@ipshipyard/libp2p-auto-tls': 2.0.2
       '@libp2p/autonat': 3.0.28
       '@libp2p/bootstrap': 12.0.32
-      '@libp2p/circuit-relay-v2': 4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)
+      '@libp2p/circuit-relay-v2': 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
       '@libp2p/config': 1.1.37
       '@libp2p/dcutr': 3.0.28
       '@libp2p/http': 2.0.6
@@ -6321,7 +6321,7 @@ snapshots:
       '@multiformats/multiaddr-matcher': 3.0.2
       main-event: 1.0.5
 
-  '@libp2p/circuit-relay-v2@4.2.9(patch_hash=2389db9cd809bc29cbf4686842a824a7a0c31f634237e5bc2c63c13f06f36413)':
+  '@libp2p/circuit-relay-v2@4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)':
     dependencies:
       '@libp2p/crypto': 5.1.23
       '@libp2p/interface': 3.3.0

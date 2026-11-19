@@ -20,6 +20,8 @@ ignoredOptionalDependencies:
 # @libp2p/circuit-relay-v2: after the first reservation it dropped a queued
 # reservation on a second configured relay without settling it, so the node's
 # start waited forever (#803). The patch keeps configured relays in the queue.
+# And a refreshed reservation took a configured relay's addresses away for good;
+# the patch gives them back to the listener, as 4.2.17 does.
 patchedDependencies:
   '@libp2p/circuit-relay-v2@4.2.9': patches/@libp2p__circuit-relay-v2@4.2.9.patch
   playwright-core@1.61.1: patches/playwright-core@1.61.1.patch

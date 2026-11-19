@@ -26,12 +26,13 @@ const base = () => ({
 	streamMuxers: [yamux()]
 });
 
-async function relay() {
+/** @param {Parameters<typeof circuitRelayServer>[0]} [options] */
+async function relay(options) {
 	const node = await createLibp2p({
 		...base(),
 		addresses: { listen: ['/ip4/127.0.0.1/tcp/0'] },
 		transports: [tcp()],
-		services: { identify: identify(), relay: circuitRelayServer() }
+		services: { identify: identify(), relay: circuitRelayServer(options) }
 	});
 	nodes.push(node);
 	return node.getMultiaddrs()[0].toString();
@@ -70,4 +71,32 @@ test('a node with two configured relays starts and holds a reservation on both',
 			);
 		}
 	}
+});
+
+// Second fault, same package: a reservation is refreshed before it runs out
+// (for the Le Space relays about a quarter of an hour after the start). The
+// refresh removed the relay and reserved again, and nothing gave a configured
+// relay's listener its addresses back: the node was reachable by nobody from
+// then on, with its relay connection open – and listening again found the
+// reservation in place and changed nothing. patches/ applies the refreshed
+// reservation as 4.2.17 does; this test fails without the patch.
+test('a node keeps its place at a relay when the reservation is refreshed', async () => {
+	// A short reservation: the client refreshes it 30 s after it was made.
+	const addr = await relay({ reservations: { reservationTtl: 60_000 } });
+	const node = await createLibp2p({
+		...base(),
+		addresses: { listen: [`${addr}/p2p-circuit`] },
+		transports: [tcp(), circuitRelayTransport()],
+		services: { identify: identify() }
+	});
+	nodes.push(node);
+	const places = () =>
+		node
+			.getMultiaddrs()
+			.map(String)
+			.filter((a) => a.startsWith(addr) && a.includes('/p2p-circuit')).length;
+	assert.equal(places(), 1);
+	await new Promise((resolve) => setTimeout(resolve, 36_000));
+	assert.equal(node.getConnections().length, 1, 'the relay connection is open');
+	assert.equal(places(), 1, 'the circuit address is still there after the refresh');
 });
