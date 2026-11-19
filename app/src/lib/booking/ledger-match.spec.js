@@ -7,7 +7,8 @@ import {
 	chartCandidates,
 	ledgersFromChart,
 	nameWords,
-	suggestWalletLedger
+	suggestWalletLedger,
+	walletLedgerCandidates
 } from './ledger-match.js';
 
 const chart = {
@@ -273,6 +274,52 @@ describe('a ledger account for a new wallet', () => {
 				chart
 			})?.number
 		).toBe('1313');
+	});
+
+	it('finds the chart account that names the wallet by its address', () => {
+		const named = {
+			accounts: [
+				{ number: '1330', name: 'NEAR Wallet beispiel.near' },
+				{ number: '1331', name: 'NEAR Wallet tresor.near' }
+			]
+		};
+		const near = { name: 'NEAR', nativeSymbol: 'NEAR' };
+		const ask = { address: 'beispiel.near', chain: near, wallets: [], accounts: [], chart: named };
+		expect(suggestWalletLedger(ask)?.number).toBe('1330');
+		expect(walletLedgerCandidates(ask)).toEqual([]);
+	});
+
+	it('offers the free chart accounts when several fit, and picks none', () => {
+		const several = {
+			accounts: [
+				{ number: '1330', name: 'NEAR Wallet A' },
+				{ number: '1331', name: 'NEAR Wallet B' },
+				{ number: '1332', name: 'NEAR Wallet C' },
+				{ number: '1340', name: 'Akash Wallet' }
+			]
+		};
+		const ask = {
+			address: 'beispiel.near',
+			chain: { name: 'NEAR', nativeSymbol: 'NEAR' },
+			wallets: [],
+			accounts: [{ ledgerAccount: '1331' }],
+			chart: several
+		};
+		expect(suggestWalletLedger(ask)).toBeNull();
+		expect(walletLedgerCandidates(ask).map((c) => c.number)).toEqual(['1330', '1332']);
+	});
+
+	it('follows the numbers the wallets’ accounts have, when the wallets carry none', () => {
+		const s = suggestWalletLedger({
+			chain: { name: 'Akash', nativeSymbol: 'AKT' },
+			wallets: [{}],
+			accounts: [
+				{ kind: 'wallet', ledgerAccount: '1322' },
+				{ kind: 'bank', ledgerAccount: '1800' }
+			],
+			chart
+		});
+		expect(s).toEqual({ number: '1323', name: '', source: 'next', inChart: false });
 	});
 
 	it('is nothing when there is nothing to go by', () => {

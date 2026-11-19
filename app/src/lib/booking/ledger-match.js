@@ -5,7 +5,7 @@
 // and that chart account for no other – since a wrong number goes into the
 // DATEV export unseen. Without a match nothing is guessed for an account that
 // exists; a new wallet is offered the next free number beside the other
-// wallets' (suggestWalletLedger). Pure.
+// wallets' (suggestWalletLedger, walletLedgerCandidates). Pure.
 
 import { ledgerLength } from './chart.js';
 import { isAccountNumber } from './skr03.js';
@@ -335,30 +335,27 @@ export function ledgersFromChart(accounts, chart) {
 
 /**
  * A ledger account for a wallet that is being added: the chart account that
- * names it (by the wallet's own name, else by its chain), when exactly one
- * does and nothing uses it yet; else the next free number after the other
- * wallets' ledger accounts – one the bookkeeping has to open first when the
- * chart does not have it. Null when there is nothing to go by.
+ * names it (by the wallet's own name, its address, else by its chain), when
+ * exactly one does and nothing uses it yet; else the next free number after
+ * the ledger accounts the other wallets have – on the wallet itself or on its
+ * accounts – one the bookkeeping has to open first when the chart does not
+ * have it. Null when there is nothing to go by.
+ *
+ * When the chart has several accounts that fit, none is picked: they come
+ * back as `candidates` (walletLedgerCandidates), for the person to choose.
  *
  * @param {object} p
  * @param {string} [p.name] the wallet's name, when it has one
+ * @param {string} [p.address] its address or account id (`name.near`): a chart may name the account by it
  * @param {{ name?: string, shortName?: string, nativeSymbol?: string } | null | undefined} p.chain
  * @param {{ ledgerAccount?: string }[]} p.wallets the wallets already kept
- * @param {{ ledgerAccount?: unknown, deleted?: boolean }[]} p.accounts every account of the books
+ * @param {{ ledgerAccount?: unknown, deleted?: boolean, kind?: unknown }[]} p.accounts every account of the books
  * @param {{ accounts: ChartAccount[] } | null | undefined} p.chart
  * @returns {{ number: string, name: string, source: 'chart' | 'next', inChart: boolean } | null}
  */
-export function suggestWalletLedger({ name = '', chain, wallets, accounts, chart }) {
-	const used = new Set(
-		[...wallets, ...accounts.filter((a) => !a.deleted)]
-			.map((x) => String(x.ledgerAccount ?? ''))
-			.filter((n) => isAccountNumber(n))
-	);
-	const candidates = ledgerAccounts(chart);
-	const free = candidates.filter((c) => !used.has(c.account.number));
-	for (const label of [name, chain?.name, chain?.shortName, chain?.nativeSymbol]) {
-		const words = nameWords(label).filter((w) => !GENERIC.has(w));
-		if (!words.length) continue;
+export function suggestWalletLedger({ name = '', address = '', chain, wallets, accounts, chart }) {
+	const { free, used } = freeLedgerAccounts({ wallets, accounts, chart });
+	for (const words of walletLabels({ name, address, chain })) {
 		const fits = free.filter((c) => words.every((w) => c.words.has(w)));
 		if (fits.length === 1) {
 			return {
@@ -369,7 +366,8 @@ export function suggestWalletLedger({ name = '', chain, wallets, accounts, chart
 			};
 		}
 	}
-	const ofWallets = wallets
+	// The numbers wallets have so far: on the wallet, or on its accounts (one per asset).
+	const ofWallets = [...wallets, ...accounts.filter((a) => !a.deleted && a.kind === 'wallet')]
 		.map((w) => String(w.ledgerAccount ?? ''))
 		.filter((n) => isAccountNumber(n));
 	if (!ofWallets.length) return null;
@@ -381,6 +379,54 @@ export function suggestWalletLedger({ name = '', chain, wallets, accounts, chart
 	const number = String(next).padStart(length, '0');
 	if (number.length !== length || used.has(number) || inChart.has(number)) return null;
 	return { number, name: '', source: 'next', inChart: false };
+}
+
+/**
+ * The chart's free accounts that fit a wallet being added, when more than one
+ * does and so none is picked for it (suggestWalletLedger): by the most telling
+ * label that has any – the name, the address, then the chain.
+ *
+ * @param {Parameters<typeof suggestWalletLedger>[0]} p
+ * @param {number} [limit]
+ * @returns {ChartAccount[]}
+ */
+export function walletLedgerCandidates(
+	{ name = '', address = '', chain, wallets, accounts, chart },
+	limit = 6
+) {
+	const { free } = freeLedgerAccounts({ wallets, accounts, chart });
+	for (const words of walletLabels({ name, address, chain })) {
+		const fits = free.filter((c) => words.every((w) => c.words.has(w)));
+		if (fits.length === 1) return [];
+		if (fits.length > 1) return fits.slice(0, limit).map((c) => c.account);
+	}
+	return [];
+}
+
+/**
+ * What a wallet may be called in a chart, most telling first, as words.
+ *
+ * @param {{ name?: string, address?: string, chain: { name?: string, shortName?: string, nativeSymbol?: string } | null | undefined }} p
+ * @returns {string[][]}
+ */
+function walletLabels({ name = '', address = '', chain }) {
+	return [name, address, chain?.name, chain?.shortName, chain?.nativeSymbol]
+		.map((label) => nameWords(label).filter((w) => !GENERIC.has(w)))
+		.filter((words) => words.length);
+}
+
+/**
+ * The chart's ledger accounts nothing in the books uses yet, and the numbers in use.
+ *
+ * @param {{ wallets: { ledgerAccount?: string }[], accounts: { ledgerAccount?: unknown, deleted?: boolean }[], chart: { accounts: ChartAccount[] } | null | undefined }} p
+ */
+function freeLedgerAccounts({ wallets, accounts, chart }) {
+	const used = new Set(
+		[...wallets, ...accounts.filter((a) => !a.deleted)]
+			.map((x) => String(x.ledgerAccount ?? ''))
+			.filter((n) => isAccountNumber(n))
+	);
+	return { used, free: ledgerAccounts(chart).filter((c) => !used.has(c.account.number)) };
 }
 
 /**
