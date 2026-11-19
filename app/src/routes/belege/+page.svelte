@@ -845,6 +845,8 @@
 			>
 		</p>
 	{:else}
+		<!-- Over the whole width and folded: in the column of sources it wrapped word by word. -->
+		<TechnicalNote class="mt-4" testid="belege-technical" folded lines={list('belege.technical')} />
 		<div
 			class="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[11rem_minmax(0,1fr)_minmax(0,20rem)]"
 		>
@@ -919,10 +921,9 @@
 						</select>
 					</label>
 				{/if}
-				<TechnicalNote class="mt-3 hidden lg:block" lines={list('belege.technical')} />
 			</nav>
 
-			<section aria-label={t('belege.list')} class="min-w-0">
+			<section aria-label={t('belege.list')} class="min-w-0" data-testid="receipt-list">
 				<div class="flex flex-wrap items-center gap-2">
 					<label class="sr-only" for="receipt-search">{t('belege.search')}</label>
 					<input
