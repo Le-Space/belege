@@ -18,6 +18,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- A hosted bridge on Aleph answers again. The published bridge image was built before the fix for a node that hangs while it takes its place at two relays (0.40.1), so the bridge in the VM never finished starting: a device could connect and prove itself, and was told "not reachable". The standard image is rebuilt from the current bridge; start a new VM to get it. An image of the books' own is still built from the earlier plain image and follows with a new builder.
 - Adding an own wallet suggests its ledger account in more cases. The chart account that names the wallet by its address (`name.near`) is found; when several free chart accounts fit, they are offered to pick from instead of nothing; the next free number follows the ledger accounts of the other wallets' accounts, not only a number kept on a wallet itself; and when there is no suggestion, the form says why.
 - The receipts page's technical note reads as text again. With the technical view on it stood in the narrow column of sources and months beside the list and wrapped word by word into a tall strip, and on a phone it was not shown at all. It is now a strip over the whole width above the list, folded to its first line, and opens to the same two sentences on a click – on a phone too. `TechnicalNote` has a `folded` variant for notes that are about a whole page.
 
