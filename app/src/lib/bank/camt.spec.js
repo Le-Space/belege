@@ -193,7 +193,8 @@ describe('CAMT.053 from Wise: no IBAN, no transaction details (#218)', () => {
 			issuer: 'Wise Example SA',
 			scheme: 'Wise balance id',
 			currency: 'EUR',
-			name: 'Wise Example SA EUR'
+			name: 'Wise Example SA EUR',
+			bank: 'Wise Example SA'
 		});
 		expect(statement.transactions).toHaveLength(5);
 		expect(statement.skipped).toBe(1);

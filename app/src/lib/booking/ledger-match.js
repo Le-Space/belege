@@ -24,7 +24,8 @@ const SAME_ASSET = [
 	['eur', 'euro'],
 	['usd', 'dollar'],
 	['btc', 'xbt', 'bitcoin'],
-	['eth', 'ether', 'ethereum'],
+	// Not "ethereum": that is the chain, which other assets live on too.
+	['eth', 'ether'],
 	['fil', 'filecoin'],
 	['xmr', 'monero'],
 	['akt', 'akash'],
@@ -71,12 +72,43 @@ function ledgerAccounts(chart) {
 		.map((a) => ({ account: a, words: new Set(nameWords(a.name)) }));
 }
 
+/** Words of a bank's name that many banks share, or that say only what kind of firm it is. */
+const BANK_GENERIC = new Set([
+	'bank',
+	'banque',
+	'ag',
+	'eg',
+	'sa',
+	'se',
+	'nv',
+	'uab',
+	'ltd',
+	'plc',
+	'gmbh',
+	'inc',
+	'europe',
+	'europa',
+	'business',
+	'payments',
+	'de',
+	'und'
+]);
+
+/**
+ * The word a bank is known by: the first of its name that is not shared by
+ * banks in general ("GLS" of "GLS Gemeinschaftsbank eG", "Revolut" of
+ * "Revolut Bank UAB"). '' when the account's record names no bank.
+ *
+ * @param {unknown} bank
+ */
+export const bankWord = (bank) => nameWords(bank).find((w) => !BANK_GENERIC.has(w)) ?? '';
+
 /**
  * The chart accounts whose name fits an account of the books: one that names
  * the IBAN's last four digits, else those that hold every word of the
- * account's own name.
+ * account's own name, else those that name its bank.
  *
- * @param {{ name?: unknown, ibanLast4?: unknown }} account
+ * @param {{ name?: unknown, ibanLast4?: unknown, bank?: unknown }} account
  * @param {ReturnType<typeof ledgerAccounts>} candidates
  * @returns {ChartAccount[]}
  */
@@ -87,8 +119,41 @@ function fitting(account, candidates) {
 		if (byIban.length) return byIban.map((c) => c.account);
 	}
 	const words = nameWords(account.name).filter((w) => !GENERIC.has(w));
-	if (!words.length) return [];
-	return candidates.filter((c) => words.every((w) => c.words.has(w))).map((c) => c.account);
+	const byName = words.length ? candidates.filter((c) => words.every((w) => c.words.has(w))) : [];
+	if (byName.length) return byName.map((c) => c.account);
+	const bank = bankWord(account.bank);
+	return bank ? candidates.filter((c) => c.words.has(bank)).map((c) => c.account) : [];
+}
+
+/**
+ * The chart accounts worth offering for an account that got none by itself:
+ * the free ones that share the most words with its name and its bank, best
+ * first. For the person to pick from – nothing here is taken over.
+ *
+ * @param {{ id: string, name?: unknown, bank?: unknown }} account
+ * @param {{ id: string, ledgerAccount?: unknown, deleted?: boolean }[]} accounts every account of the books
+ * @param {{ accounts: ChartAccount[] } | null | undefined} chart
+ * @param {number} [limit]
+ * @returns {ChartAccount[]}
+ */
+export function chartCandidates(account, accounts, chart, limit = 4) {
+	const used = new Set(
+		accounts
+			.filter((a) => !a.deleted && a.id !== account.id)
+			.map((a) => String(a.ledgerAccount ?? ''))
+			.filter((n) => isAccountNumber(n))
+	);
+	const words = new Set(
+		[...nameWords(account.name), bankWord(account.bank)].filter((w) => w && !GENERIC.has(w))
+	);
+	if (!words.size) return [];
+	return ledgerAccounts(chart)
+		.filter((c) => !used.has(c.account.number))
+		.map((c) => ({ account: c.account, shared: [...words].filter((w) => c.words.has(w)).length }))
+		.filter((c) => c.shared > 0)
+		.sort((a, b) => b.shared - a.shared || (a.account.number < b.account.number ? -1 : 1))
+		.slice(0, limit)
+		.map((c) => c.account);
 }
 
 /**
@@ -97,7 +162,7 @@ function fitting(account, candidates) {
  * gets none; neither do two accounts that fit the same one, nor an account
  * whose only fit is already another account's ledger account.
  *
- * @param {{ id: string, name?: unknown, ibanLast4?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} accounts
+ * @param {{ id: string, name?: unknown, ibanLast4?: unknown, bank?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} accounts
  * @param {{ accounts: ChartAccount[] } | null | undefined} chart
  * @returns {Map<string, ChartAccount>}
  */

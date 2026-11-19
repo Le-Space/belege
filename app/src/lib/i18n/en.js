@@ -2744,6 +2744,7 @@ export default {
 			title: 'Bookkeeping (DATEV export)',
 			hint: 'What the DATEV export needs to know about your bookkeeping. Check the values in your bookkeeping – it shows what it expects on import.',
 			fromChart: 'Taken from your chart of accounts – please check.',
+			candidates: 'From your chart of accounts, this may fit:',
 			ledger: 'Ledger account in your bookkeeping',
 			ledgerHint:
 				'The ledger account under which this bank account is kept in your bookkeeping. Suggestion per SKR 03: {suggestion} – only a placeholder, enter the number from your bookkeeping.',

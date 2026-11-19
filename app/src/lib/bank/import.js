@@ -338,10 +338,22 @@ export async function importTransactions({
 }
 
 /**
+ * The name of the bank that keeps an account, as kept on its record: plain
+ * text, one line, not long. '' when the source names none.
+ *
+ * @param {unknown} name
+ */
+export const bankName = (name) =>
+	String(name ?? '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, 80);
+
+/**
  * Find or create the account record for a source's account.
  *
  * @param {import('../store/repository.js').Collection} accounts
- * @param {{ source: string, sourceAccountId: string, ibanLast4: string, name: string, currency: string, kind?: 'exchange' | 'wallet' | 'outlay' | 'travel' | 'card', asset?: string, decimals?: number }} input
+ * @param {{ source: string, sourceAccountId: string, ibanLast4: string, name: string, currency: string, bank?: string, kind?: 'exchange' | 'wallet' | 'outlay' | 'travel' | 'card', asset?: string, decimals?: number }} input
  *   `kind`, `asset`, `decimals`: an account on an exchange or a wallet, holding one asset;
  *   `outlay`: what a person paid privately (outlays/outlays.js); `card`: a company credit card (bank/card-import.js)
  */
@@ -356,7 +368,9 @@ export async function upsertAccount(accounts, input) {
 		'currency',
 		'kind',
 		'asset',
-		'decimals'
+		'decimals',
+		// Only a source that names the bank sets it; another one leaves it as it is.
+		...('bank' in input ? /** @type {const} */ (['bank']) : [])
 	]).some((f) => !same(found[f], /** @type {any} */ (input)[f]));
 	return changed ? accounts.put({ ...found, ...input }) : found;
 }
@@ -366,7 +380,7 @@ export async function upsertAccount(accounts, input) {
  * bank names none (issue #218), of its other id with issuer and scheme – so
  * the number is not kept in full even inside the sealed store.
  *
- * @param {{ iban: string, otherId?: string, issuer?: string, scheme?: string, currency: string, name: string }} account
+ * @param {{ iban: string, otherId?: string, issuer?: string, scheme?: string, currency: string, name: string, bank?: string }} account
  */
 export async function camtAccountInput(account) {
 	const number = account.iban || account.otherId || '';
@@ -382,6 +396,7 @@ export async function camtAccountInput(account) {
 		// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 		name: account.name || `Konto ···${last4}`,
 		currency,
+		...(bankName(account.bank) ? { bank: bankName(account.bank) } : {}),
 		// An account in another currency keeps each booking's amount in it, valued in euros.
 		...(currency !== 'EUR' ? { asset: currency, decimals: 2 } : {})
 	};

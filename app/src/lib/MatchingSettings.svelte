@@ -10,7 +10,7 @@
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { forgetBankFee } from './matching/actions.js';
 	import { cleanChart, decodeChartBytes, parseChart } from './booking/chart.js';
-	import { takeLedgersFromChart } from './booking/ledger-match.js';
+	import { chartCandidates, takeLedgersFromChart } from './booking/ledger-match.js';
 	import { recordEvent } from './activity/events.js';
 	import { setSetting } from './store/settings.js';
 	import {
@@ -108,6 +108,12 @@
 	}
 
 	let bankAccounts = $derived(accountsInOrder(app.accounts));
+
+	// The accounts as the form has them now, so that a chart account picked for
+	// one is no longer offered to another before it is saved.
+	let accountsAsEdited = $derived(
+		bankAccounts.map((a) => ({ ...a, ledgerAccount: (ledgers[a.id] ?? '').trim() }))
+	);
 
 	// What people's links taught (matching/partners.js); wrong ones can go.
 	let learned = $derived(
@@ -502,6 +508,23 @@
 								<span class="mt-1 text-xs text-heading" data-testid="ledger-from-chart"
 									>{t('anweisungen.books.fromChart')}</span
 								>
+							{/if}
+							{#if chart && !(ledgers[a.id] ?? '').trim()}
+								{@const offered = chartCandidates(a, accountsAsEdited, chart)}
+								{#if offered.length}
+									<span class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-text">
+										{t('anweisungen.books.candidates')}
+										{#each offered as c (c.number)}
+											<button
+												type="button"
+												class="rounded-md border border-border px-2 py-0.5 hover:bg-surface-2 hover:text-heading"
+												onclick={() => (ledgers[a.id] = c.number)}
+												data-testid="ledger-candidate"
+												data-number={c.number}>{c.number} {c.name}</button
+											>
+										{/each}
+									</span>
+								{/if}
 							{/if}
 							{#if chart && isAccountNumber(ledgers[a.id] ?? '')}
 								{@const own = catalogueAccount(ledgers[a.id], chart)}

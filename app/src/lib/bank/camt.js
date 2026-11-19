@@ -48,7 +48,7 @@ import { isWise, readWiseLine } from './wise.js';
 /**
  * @typedef {object} CamtStatement
  * @property {string} id
- * @property {{ iban: string, otherId: string, issuer: string, scheme: string, currency: string, name: string }} account
+ * @property {{ iban: string, otherId: string, issuer: string, scheme: string, currency: string, name: string, bank?: string }} account
  *   `iban`, or – without one – `otherId` with who issued it and under which scheme
  * @property {CamtTransaction[]} transactions
  * @property {number} skipped entries that were not booked
@@ -170,7 +170,10 @@ export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } =
 				text(acct, 'Id', 'Othr', 'SchmeNm', 'Prtry') || text(acct, 'Id', 'Othr', 'SchmeNm', 'Cd'),
 			currency,
 			// Without an IBAN one servicer may keep several accounts: name the currency too.
-			name: text(acct, 'Nm') || (iban ? servicer : [servicer, currency].filter(Boolean).join(' '))
+			name: text(acct, 'Nm') || (iban ? servicer : [servicer, currency].filter(Boolean).join(' ')),
+			// The bank that keeps the account, as the statement names it: the
+			// account's own name ("Main", "Kontokorrent") often says nothing of it.
+			bank: servicer
 		};
 		if (!iban && !otherId) throw new Error(t('messages.camt.noIban'));
 		const wise = isWise(servicer);

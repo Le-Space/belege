@@ -14,7 +14,7 @@
 // when a person clicks.
 
 import { recordEvent } from '../activity/events.js';
-import { importTransactions, upsertAccount, valuedInEuros } from './import.js';
+import { bankName, importTransactions, upsertAccount, valuedInEuros } from './import.js';
 import { DEFAULT_DAYS, OVERLAP_DAYS } from './hibiscus-sync.js';
 
 /** @param {string} day YYYY-MM-DD @param {number} days */
@@ -36,16 +36,20 @@ export async function accountFor(accounts, account) {
 			a.sourceAccountId === key &&
 			(a.source === 'enablebanking' || a.source === 'camt')
 	});
-	const own = known.find((a) => a.source === 'enablebanking');
-	if (own) return own;
-	const camt = known.find((a) => a.source === 'camt');
-	if (camt) return camt;
+	const found =
+		known.find((a) => a.source === 'enablebanking') ?? known.find((a) => a.source === 'camt');
+	if (found) {
+		// An account from before the bank's name was kept learns it now.
+		const bank = bankName(account.bank);
+		return bank && found.bank !== bank ? accounts.put({ ...found, bank }) : found;
+	}
 	return upsertAccount(accounts, {
 		source: 'enablebanking',
 		sourceAccountId: key,
 		ibanLast4: account.ibanLast4,
 		name: account.name || `${account.bank} ···${account.ibanLast4}`,
-		currency: account.currency || 'EUR'
+		currency: account.currency || 'EUR',
+		...(bankName(account.bank) ? { bank: bankName(account.bank) } : {})
 	});
 }
 

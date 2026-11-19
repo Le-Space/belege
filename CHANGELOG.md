@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
+- Where no ledger account could be taken over, the settings offer the free chart accounts that share most with the account's name and bank as buttons – for a wallet's "ETH (Ethereum)" account the chart's "… - ETH (Ethereum)" accounts. One click fills the field in; it is saved with the rest.
+
 ### Fixed
 
 - Ledger accounts from the chart of accounts: an asset's ticker and its name count as the same word, so a chart that says "Kraken Bitcoin", "Kraken EURO" or "Kraken Filecoin" now names the accounts "Kraken BTC", "Kraken EUR" and "Kraken FIL". Before, only names spelled exactly alike were taken.
