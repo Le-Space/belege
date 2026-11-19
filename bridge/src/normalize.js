@@ -157,6 +157,18 @@ function sepaField(text, tag) {
 }
 
 /**
+ * A BIC as written (8 or 11 characters), upper case; '' for anything else.
+ *
+ * @param {unknown} bic
+ */
+export function bicOf(bic) {
+	const value = String(bic ?? '')
+		.replace(/\s/g, '')
+		.toUpperCase();
+	return /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(value) ? value : '';
+}
+
+/**
  * @param {Record<string, any>} account a Hibiscus `konto`
  */
 export function normalizeAccount(account) {
@@ -166,6 +178,9 @@ export function normalizeAccount(account) {
 		ibanMasked: maskIban(iban),
 		ibanLast4: iban.slice(-4),
 		name: String(account.bezeichnung || account.name || '').trim(),
+		// The bank's public code, so that the app can tell which bank keeps the
+		// account: Hibiscus names none, and the account's own name rarely does.
+		bic: bicOf(account.bic),
 		currency: String(account.waehrung || 'EUR').trim() || 'EUR',
 		balanceCents:
 			account.saldo === undefined || account.saldo === '' ? null : parseAmountCents(account.saldo),

@@ -134,6 +134,7 @@ function failed(message, status, body) {
  * @property {string} ibanMasked
  * @property {string} ibanLast4
  * @property {string} name
+ * @property {string} [bic] the bank's BIC, '' when Hibiscus has none; not from a bridge before this
  * @property {string} currency
  * @property {number | null} balanceCents
  * @property {string | null} balanceDate

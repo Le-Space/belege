@@ -94,11 +94,16 @@ test('fingerprint: stable, whitespace- and case-insensitive in the text, sensiti
 test('account and transaction normalisation', () => {
 	const { accounts, transactions } = sampleData();
 	const account = normalizeAccount(accounts[0]);
+	// The BIC as Hibiscus has it, upper case; nothing that is no BIC.
+	assert.equal(account.bic, 'GENODEM1GLS');
+	assert.equal(normalizeAccount({ ...accounts[0], bic: 'not a bic' }).bic, '');
+	assert.equal(normalizeAccount(accounts[1]).bic, '');
 	assert.deepEqual(account, {
 		id: '1',
 		ibanMasked: 'DE00 **** 4711',
 		ibanLast4: '4711',
 		name: 'Geschäftskonto Test',
+		bic: 'GENODEM1GLS',
 		currency: 'EUR',
 		balanceCents: 123456,
 		balanceDate: '2026-09-22'

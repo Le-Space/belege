@@ -21,6 +21,7 @@ export function sampleData() {
 				id: 1,
 				iban: 'DE00 0000 0000 0000 0047 11',
 				bezeichnung: 'Geschäftskonto Test',
+				bic: 'genodem1gls',
 				name: 'Test GmbH',
 				waehrung: 'EUR',
 				saldo: '1.234,56',

@@ -8,7 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
-- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
+- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank, but it has each account's BIC: the bridge passes the BIC on, and for a bank whose BIC says which it is (Revolut, Wise, GLS, N26, DKB, ING and a few more) Belege knows the bank from it – this needs the bridge updated and one Hibiscus sync. A savings bank or cooperative bank shares its code with many others and is not told that way.
 - Where no ledger account could be taken over, the settings offer the free chart accounts that share most with the account's name and bank as buttons – for a wallet's "ETH (Ethereum)" account the chart's "… - ETH (Ethereum)" accounts. One click fills the field in; it is saved with the rest.
 
 ### Fixed

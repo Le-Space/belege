@@ -1,6 +1,7 @@
 // "Jetzt synchronisieren": the chosen Hibiscus accounts, through the bridge,
 // into the sealed store.
 
+import { bankOfBic } from './bic.js';
 import { recordEvent } from '../activity/events.js';
 import { importTransactions, upsertAccount } from './import.js';
 
@@ -36,7 +37,10 @@ export async function syncHibiscus({ client, store, accounts, now = new Date(), 
 			ibanLast4: bridgeAccount.ibanLast4,
 			// eslint-disable-next-line belege/no-german -- stored in the books, see the follow-up on #192
 			name: bridgeAccount.name || `Konto ···${bridgeAccount.ibanLast4}`,
-			currency: bridgeAccount.currency || 'EUR'
+			currency: bridgeAccount.currency || 'EUR',
+			// Hibiscus names no bank; where the BIC tells which it is, it is kept
+			// (bic.js), so the chart of accounts can name the account by it.
+			...(bankOfBic(bridgeAccount.bic) ? { bank: bankOfBic(bridgeAccount.bic) } : {})
 		});
 		const since = from
 			? from
