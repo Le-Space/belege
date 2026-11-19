@@ -40,7 +40,7 @@ import { device } from './devices.js';
 import { stopBridge } from './bridge.js';
 
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
-const IMAGE = '4ee0ab57bb64da3b516b3ed6494275356119089241ef6ab533d3ab60ae08a526';
+const IMAGE = 'd5a2f85f4a0ca793c58c85cf2d5d25b591deee1f0519e5d649d6aaf7ada4618c';
 const VM = 'a'.repeat(64);
 const CRN = 'e'.repeat(64);
 const PUBLISHED = '11'.repeat(48);
