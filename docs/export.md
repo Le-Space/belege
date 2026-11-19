@@ -136,6 +136,8 @@ The chart is kept sealed in your books in the browser, like every record. _Entfe
 
 **Ledger accounts from the chart.** When the chart is taken, and whenever the settings are opened, every bank, exchange or wallet account that has no ledger account yet gets the one the chart names for it: the chart account whose name holds the last four digits of the IBAN, else every word of the account's own name ("1310 Kraken BTC" for "Kraken BTC"; an asset's ticker and its name are one word, so "Kraken Bitcoin" fits too). Only when that is unambiguous – one chart account for one account, used by no other; longer personal accounts (Debitoren, Kreditoren) are not looked at. A bank account whose own name does not fit ("Main", "Kontokorrent") is found by its bank where a CAMT statement or Enable Banking named it. It is written to the books at once, marked "Aus deinem Kontenplan übernommen" in the settings and noted in the Verlauf. Check the numbers: they go into the export.
 
+A wallet the chart calls by another name is found by what it holds: an asset account by its asset and chain when the chart has exactly one such account, and then – since those tell what the chart calls the wallet – its other assets under that name.
+
 Where nothing was taken over, the field offers the free chart accounts that share most with the account's name and bank; a click fills one in, and "Speichern" keeps it.
 
 **A new wallet** is offered a ledger account in the form: the chart account that names the wallet or its chain, else the next free number after the ledger accounts of your other wallets, with the note that the bookkeeping has to open that account first. The field can be changed or emptied.

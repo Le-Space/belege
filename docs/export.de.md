@@ -403,6 +403,8 @@ Passt der eigene Name eines Bankkontos nicht („Main“, „Kontokorrent“), z
 
 Die Nummer steht sofort in den Büchern. Die Einstellungen markieren sie mit „Aus deinem Kontenplan übernommen“, und der Verlauf hält die Übernahme fest. Prüfe die Nummern, denn sie gehen in den Export.
 
+Nennt der Plan eine Wallet anders als die Bücher, findet Belege sie über ihre Bestände. Ein Asset-Konto wird über Asset und Chain gesucht, wenn der Plan genau ein solches Konto hat. Daraus liest Belege, wie der Plan die Wallet nennt, und sucht ihre übrigen Assets unter diesem Namen.
+
 Wo nichts übernommen wurde, bietet das Feld die freien Konten des Plans an, die mit Name und Bank des Kontos am meisten gemeinsam haben. Ein Klick trägt eines ein, „Speichern“ hält es fest.
 
 ### Eine neue Wallet
