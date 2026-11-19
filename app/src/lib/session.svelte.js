@@ -6,6 +6,14 @@ import {
 	restorePasskeyCredential
 } from './passkey-identity.js';
 import { getSetting, setSetting } from './store/settings.js';
+import {
+	readBridgeRecord,
+	readHostedRecord,
+	readNearHostedRecord,
+	writeBridgeRecord,
+	writeHostedRecord,
+	writeNearHostedRecord
+} from './bridge-connection/record.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
 import { llmFromStatus, redactionFromStatus } from './llm-redaction.js';
@@ -335,7 +343,7 @@ let lanRelayAskedWith = '';
  */
 async function learnLanRelay() {
 	if (!session) return;
-	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	const saved = await readBridgeRecord(session.store.settings);
 	// A token over HTTP, or the bridge's node over the stream (#575).
 	const pairing = saved?.token ?? saved?.peerId ?? null;
 	if (!pairing || pairing === lanRelayAskedWith) return;
@@ -843,7 +851,7 @@ export async function refreshLlmRedaction() {
 /** Bridge client from the sealed settings, or null when none is paired. */
 export async function pairedClient() {
 	if (!session) return null;
-	const saved = await getSetting(session.store.settings, 'bridge');
+	const saved = await readBridgeRecord(session.store.settings);
 	const { createBridgeClient, pairedWith, setRedactTerms } = await import('./bridge/client.js');
 	if (!pairedWith(saved)) return null;
 	// The company's names are blacked out in whatever goes to the language model (#226).
@@ -1182,7 +1190,7 @@ async function startLoopbackBridge() {
 	if (!session || session.online || loopback || !session.devicePeerKey) return;
 	if (networkPause()) return;
 	const settings = session.store.settings;
-	const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+	const saved = await readBridgeRecord(settings);
 	if (!saved?.token && !saved?.peerId) return;
 	const { createBridgeClient, setBridgeTransport, holdBridgeTransport } = await import(
 		'./bridge/client.js'
@@ -1300,7 +1308,7 @@ export async function bridgeOnThisMachine() {
 	}
 	// Device sync on: its node is paired over device sync's node, as at an unlock.
 	if (!bridgeConsumer || !deviceSync) return;
-	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	const saved = await readBridgeRecord(session.store.settings);
 	if (saved?.peerId) {
 		await findBridgeNodeHere(saved);
 		return;
@@ -1359,7 +1367,7 @@ async function startBridgeForDevices() {
 	const settings = session.store.settings;
 	// The bridge's node, as the books know it (settings `bridge.peerId`, written at its pairing).
 	const readNode = async () => {
-		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		const saved = await readBridgeRecord(settings);
 		setBridgeNode(saved?.peerId ? { peerId: saved.peerId } : null);
 		await loadBridgeAuth();
 	};
@@ -1383,7 +1391,7 @@ async function startBridgeForDevices() {
 	// too (#580) – HTTP no longer carries the bridge's functions. Not awaited:
 	// the pairing waits for the node to come back armed.
 	(async () => {
-		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		const saved = await readBridgeRecord(settings);
 		// Paired already: where its node listens today, when it runs on this machine.
 		if (saved?.peerId) return findBridgeNodeHere(saved);
 		const { createBridgeClient } = await import('./bridge/client.js');
@@ -1431,7 +1439,7 @@ async function startBridgeForDevices() {
 	/** @type {{ url: string, token: string } | null} */
 	let own = null;
 	const readOwn = async () => {
-		const saved = /** @type {any} */ (await getSetting(settings, 'bridge'));
+		const saved = await readBridgeRecord(settings);
 		// Paired by code or by invitation: over the node it needs no token (#580).
 		own =
 			saved?.token || saved?.peerId
@@ -1504,7 +1512,7 @@ const keyGenerationOf = (saved) =>
  */
 async function loadBridgeAuth() {
 	if (!session?.bridgeAuthBase) return;
-	const saved = /** @type {any} */ (await getSetting(session.store.settings, 'bridge'));
+	const saved = await readBridgeRecord(session.store.settings);
 	const { bridgeAuthKeyOf } = await import('./database-keys.js');
 	const peerId = typeof saved?.peerId === 'string' ? saved.peerId : null;
 	session.bridgeAuth.key = peerId
@@ -1534,7 +1542,7 @@ export async function pairBridgeNode(invitation, { relays } = {}) {
 	const { setBridgeNode } = await import('./sync/remote-bridge.js');
 	const { bridgeAuthKeyOf } = await import('./database-keys.js');
 	const settings = session.store.settings;
-	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const saved = (await readBridgeRecord(settings)) ?? {};
 	const keyGeneration = keyGenerationOf(saved);
 	const key = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
 	const records = await settings.list({ includeDeleted: true });
@@ -1568,7 +1576,7 @@ export async function pairBridgeNode(invitation, { relays } = {}) {
 	session.bridgeAuth.peerId = peerId;
 	session.bridgeAuth.key = key;
 	setBridgeNode({ peerId });
-	await setSetting(settings, 'bridge', {
+	await writeBridgeRecord(settings, {
 		token: null,
 		...saved,
 		peerId,
@@ -1604,15 +1612,11 @@ export async function pairBridgeNode(invitation, { relays } = {}) {
  */
 export async function hostedBridgeRecord() {
 	if (!session?.store) return null;
-	const { HOSTED_SETTING } = await import('./integrations/hosted-bridge.js');
-	const kept = /** @type {any} */ (await getSetting(session.store.settings, HOSTED_SETTING));
+	const kept = await readHostedRecord(session.store.settings);
 	if (typeof kept?.instance !== 'string') return null;
 	const { instance, host, peerId, measurement, attestedAt } = kept;
 	return { instance, host, peerId, measurement, attestedAt };
 }
-
-/** The sealed settings record of the bridge on Phala, started through NEAR (#696). */
-const NEAR_HOSTED_SETTING = 'bridge/hosted-near';
 
 /**
  * The bridge on Phala this browser started last, as the books keep it (no
@@ -1622,7 +1626,7 @@ const NEAR_HOSTED_SETTING = 'bridge/hosted-near';
  */
 export async function nearHostedRecord() {
 	if (!session?.store) return null;
-	const kept = /** @type {any} */ (await getSetting(session.store.settings, NEAR_HOSTED_SETTING));
+	const kept = await readNearHostedRecord(session.store.settings);
 	if (typeof kept?.peerId !== 'string') return null;
 	return { peerId: kept.peerId, attestedAt: kept.attestedAt ?? null };
 }
@@ -1642,7 +1646,7 @@ export async function nearBridgeStatus() {
 	if (!seed) return null;
 	const near = nb.nearBooks({ seed });
 	const [balance, contract] = await Promise.all([near.balance(), near.view().catch(() => null)]);
-	const kept = /** @type {any} */ (await getSetting(settings, NEAR_HOSTED_SETTING)) ?? null;
+	const kept = await readNearHostedRecord(settings);
 	return { accountId: near.books.accountId, balance, contract, kept };
 }
 
@@ -1680,7 +1684,7 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 	if (!(session.relays ?? []).length) throw new Error(t('messages.nearBridge.noRelay'));
 
 	// The bridge's own peer key: the one these books' NEAR bridge had, or a new one.
-	const kept = /** @type {any} */ (await getSetting(settings, NEAR_HOSTED_SETTING));
+	const kept = await readNearHostedRecord(settings);
 	const peerKey =
 		kept?.books === near.books.accountId && typeof kept?.peerKey === 'string'
 			? privateKeyFromProtobuf(Uint8Array.from(atob(kept.peerKey), (c) => c.charCodeAt(0)))
@@ -1688,7 +1692,7 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 	const peerKeyBytes = privateKeyToProtobuf(peerKey);
 	const peerId = peerIdFromPrivateKey(peerKey).toString();
 
-	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const saved = (await readBridgeRecord(settings)) ?? {};
 	const keyGeneration = keyGenerationOf(saved);
 	const authKey = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
 
@@ -1718,7 +1722,7 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 	const { atMs, composeHash } = await nb.startNearBridge({ near, launcher, secrets, onPhase });
 
 	const attestedAt = isoNow();
-	await setSetting(settings, NEAR_HOSTED_SETTING, {
+	await writeNearHostedRecord(settings, {
 		books: near.books.accountId,
 		peerId,
 		peerKey: btoa(String.fromCharCode(...peerKeyBytes)),
@@ -1730,7 +1734,7 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 	session.bridgeAuth.peerId = peerId;
 	session.bridgeAuth.key = authKey;
 	setBridgeNode({ peerId });
-	await setSetting(settings, 'bridge', {
+	await writeBridgeRecord(settings, {
 		token: null,
 		...saved,
 		peerId,
@@ -1966,7 +1970,7 @@ export async function unlockHostedBridge({
 	}
 
 	// The bridge's own peer key: the one made for this VM before, or a new one.
-	const kept = /** @type {any} */ (await getSetting(settings, hosted.HOSTED_SETTING));
+	const kept = await readHostedRecord(settings);
 	const peerKey =
 		kept?.instance === hash && typeof kept?.peerKey === 'string'
 			? privateKeyFromProtobuf(Uint8Array.from(atob(kept.peerKey), (c) => c.charCodeAt(0)))
@@ -1974,7 +1978,7 @@ export async function unlockHostedBridge({
 	const peerKeyBytes = privateKeyToProtobuf(peerKey);
 	const peerId = peerIdFromPrivateKey(peerKey).toString();
 
-	const saved = /** @type {any} */ ((await getSetting(settings, 'bridge')) ?? {});
+	const saved = (await readBridgeRecord(settings)) ?? {};
 	const keyGeneration = keyGenerationOf(saved);
 	const authKey = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
 	const records = await settings.list({ includeDeleted: true });
@@ -2041,7 +2045,7 @@ export async function unlockHostedBridge({
 		});
 	const attestedAt = isoNow();
 	if (crn) await rememberNode((h) => nodesOf.noteUnlocked(h, crn, attestedAt));
-	await setSetting(settings, hosted.HOSTED_SETTING, {
+	await writeHostedRecord(settings, {
 		instance: hash,
 		host,
 		peerId,
@@ -2053,7 +2057,7 @@ export async function unlockHostedBridge({
 	session.bridgeAuth.peerId = peerId;
 	session.bridgeAuth.key = authKey;
 	setBridgeNode({ peerId });
-	await setSetting(settings, 'bridge', {
+	await writeBridgeRecord(settings, {
 		token: null,
 		...saved,
 		peerId,

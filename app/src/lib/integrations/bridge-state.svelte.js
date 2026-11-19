@@ -12,7 +12,7 @@ import {
 	refreshLlmRedaction,
 	removeSyncDevice
 } from '$lib/session.svelte.js';
-import { getSetting, setSetting } from '$lib/store/settings.js';
+import { readBridgeRecord, writeBridgeRecord } from '$lib/bridge-connection/record.js';
 import { t } from '$lib/i18n/index.js';
 import { noteWayOut } from '$lib/help/way-out.js';
 
@@ -97,7 +97,7 @@ function watchForToken(store) {
 			do {
 				again = false;
 				const read = ++reads;
-				const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
+				const saved = await readBridgeRecord(store.settings);
 				if (saved?.token && read === reads && !bridge.token && currentStore() === store) {
 					if (saved.url) bridge.url = saved.url;
 					bridge.token = saved.token;
@@ -118,7 +118,7 @@ export async function loadBridge() {
 	if (!store) return;
 	watchForToken(store);
 	const read = ++reads;
-	const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
+	const saved = await readBridgeRecord(store.settings);
 	// A later read – the watcher's, with a token that just came – knows better.
 	if (read === reads) {
 		if (saved?.url) bridge.url = saved.url;
@@ -174,7 +174,7 @@ export async function pairBridge(code) {
 	bridge.error = null;
 	try {
 		const token = await createBridgeClient({ url: bridge.url }).pair(code.trim());
-		await setSetting(store.settings, 'bridge', {
+		await writeBridgeRecord(store.settings, {
 			url: bridge.url,
 			token,
 			pairedAt: now().toISOString()
@@ -255,9 +255,10 @@ export async function unpairBridge() {
 		}
 		await removeSyncDevice(bridge.peerId).catch(() => {});
 	}
-	const saved = /** @type {any} */ (await getSetting(store.settings, 'bridge'));
-	const generation = Number.isSafeInteger(saved?.keyGeneration) ? saved.keyGeneration : 1;
-	await setSetting(store.settings, 'bridge', {
+	const saved = await readBridgeRecord(store.settings);
+	const kept = saved?.keyGeneration;
+	const generation = typeof kept === 'number' && Number.isSafeInteger(kept) ? kept : 1;
+	await writeBridgeRecord(store.settings, {
 		url: bridge.url,
 		token: null,
 		...(saved?.peerId
