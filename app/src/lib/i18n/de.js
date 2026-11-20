@@ -3419,7 +3419,8 @@ export default {
 			matching: 'Abgleich',
 			decision: 'Entscheidung',
 			export: 'DATEV-Export',
-			'books-moved': 'Bücher übernommen'
+			'books-moved': 'Bücher übernommen',
+			'import-removed': 'Datei-Import zurückgenommen'
 		},
 		text: {
 			bookingChanged: 'vorher {from}, jetzt {to}{flipped}{unconfirmed}{receipt}',
@@ -3449,6 +3450,8 @@ export default {
 				'{model} · {legs} Fahrten, {receipts} Belege geprüft, {notes} Hinweise · {seconds} s · {tokens} Tokens',
 			bookingAssist: '{model} · {picks} Konten vorgeschlagen · {seconds} s · {tokens} Tokens',
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
+			importRemoved:
+				'Konto {account} herausgenommen, mit {bookings} Buchungen; {matches} Zuordnungen zu Belegen gelöst',
 			booksMoved:
 				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
 			exportSuspense:
@@ -5472,7 +5475,14 @@ export default {
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
 			wallet: 'Eigene Wallet',
-			card: 'Kreditkarte'
+			card: 'Kreditkarte',
+			undo: 'Import zurücknehmen',
+			undoLabel: 'Import von {account} zurücknehmen',
+			undoBusy: 'Nimmt zurück …',
+			undoConfirm:
+				'Das Konto {account} mit seinen {bookings} Buchungen aus den Büchern nehmen? Davon haben {withReceipt} einen Beleg und {confirmed} ein bestätigtes Konto. Die Belege bleiben und sind danach wieder offen. Auf deinen anderen Geräten verschwinden die Buchungen mit dem nächsten Abgleich; in schon gemachten Backups stehen sie weiter.',
+			undoDone: 'Konto {account} herausgenommen, mit {bookings} Buchungen. Steht im Verlauf.',
+			undoFailed: 'Zurücknehmen ging nicht: {error}'
 		},
 		wallets: {
 			all: {
