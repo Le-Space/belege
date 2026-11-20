@@ -54,15 +54,15 @@ All of it, with links: [docs/features.md](docs/features.md) ([Deutsch](docs/feat
 
 What Belege is built from is usable on its own:
 
-| Package                                                                                                        | What it is                                                                                     |
-| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [`@belege/device-gate`](packages/device-gate)                                                                  | Only the books' own devices get anything: a device proof as a libp2p service, a quiet identify |
-| [`@le-space/bridge-protocol`](packages/bridge-protocol)                                                        | The bridge's commands with their schemas, over a libp2p stream or HTTP; big answers as blocks  |
-| [`@le-space/chains`](packages/chains)                                                                          | Own wallets on public chains, read only, by address; Aleph and Filecoin Pay usage statements   |
-| [`@le-space/ledger`](packages/ledger), [`@le-space/rates`](packages/rates)                                     | One booking format for chain readers, and the euro rate of a day with its source               |
-| [`@le-space/eigenbeleg`](packages/eigenbeleg), [`@le-space/pdf`](packages/pdf)                                 | A payer's own receipt as PDF/A                                                                 |
-| [`@le-space/ucep`](https://github.com/Le-Space/ucep-js)                                                        | Extensions between peers: pairing, grants and calls over libp2p                                |
-| [`@le-space/orbitdb-storage-bridge`](https://github.com/NiKrause/orbitdb-storage-bridge)                       | OrbitDB databases backed up to and restored from decentralised storage                         |
+| Package                                                                                                                  | What it is                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [`@belege/device-gate`](packages/device-gate)                                                                            | Only the books' own devices get anything: a device proof as a libp2p service, a quiet identify |
+| [`@le-space/bridge-protocol`](packages/bridge-protocol)                                                                  | The bridge's commands with their schemas, over a libp2p stream or HTTP; big answers as blocks  |
+| [`@le-space/chains`](packages/chains)                                                                                    | Own wallets on public chains, read only, by address; Aleph and Filecoin Pay usage statements   |
+| [`@le-space/ledger`](packages/ledger), [`@le-space/rates`](packages/rates)                                               | One booking format for chain readers, and the euro rate of a day with its source               |
+| [`@le-space/eigenbeleg`](packages/eigenbeleg), [`@le-space/pdf`](packages/pdf)                                           | A payer's own receipt as PDF/A                                                                 |
+| [`@le-space/ucep`](https://github.com/Le-Space/ucep-js)                                                                  | Extensions between peers: pairing, grants and calls over libp2p                                |
+| [`@le-space/orbitdb-storage-bridge`](https://github.com/NiKrause/orbitdb-storage-bridge)                                 | OrbitDB databases backed up to and restored from decentralised storage                         |
 | [`@le-space/orbitdb-identity-provider-webauthn-did`](https://github.com/Le-Space/orbitdb-identity-provider-webauthn-did) | A passkey as an OrbitDB identity                                                               |
 
 The packages in this repository are AGPL-3.0-or-later; the crypto-ledger schema is MIT.
