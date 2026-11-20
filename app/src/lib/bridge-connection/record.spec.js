@@ -3,6 +3,7 @@ import {
 	BRIDGE_SETTING,
 	HOSTED_SETTING,
 	NEAR_HOSTED_SETTING,
+	keyGenerationOf,
 	readBridgeRecord,
 	readHostedRecord,
 	readNearHostedRecord,
@@ -75,5 +76,14 @@ describe('the bridge’s records', () => {
 		await writeBridgeRecord(settings, { url: 'http://127.0.0.1:8765', token: 'made-up-token' });
 		await writeBridgeRecord(settings, { url: 'http://127.0.0.1:8765', token: null });
 		expect(await readBridgeRecord(settings)).toEqual({ url: 'http://127.0.0.1:8765', token: null });
+	});
+
+	it('the generation of the bridge’s key: from 1, whatever else the record holds', () => {
+		expect(keyGenerationOf(null)).toBe(1);
+		expect(keyGenerationOf({})).toBe(1);
+		expect(keyGenerationOf({ keyGeneration: 3 })).toBe(3);
+		for (const bad of [0, -1, 1.5, '2', Number.MAX_SAFE_INTEGER + 1]) {
+			expect(keyGenerationOf(/** @type {any} */ ({ keyGeneration: bad }))).toBe(1);
+		}
 	});
 });

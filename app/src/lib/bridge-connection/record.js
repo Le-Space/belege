@@ -95,3 +95,13 @@ export const readNearHostedRecord = (settings) => getSetting(settings, NEAR_HOST
  */
 export const writeNearHostedRecord = (settings, record) =>
 	setSetting(settings, NEAR_HOSTED_SETTING, record);
+
+/**
+ * The generation of the bridge's key the books keep (`keyGeneration`), from 1.
+ *
+ * @param {BridgeRecord | null | undefined} record
+ */
+export const keyGenerationOf = (record) => {
+	const kept = record?.keyGeneration;
+	return typeof kept === 'number' && Number.isSafeInteger(kept) && kept >= 1 ? kept : 1;
+};
