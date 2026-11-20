@@ -61,7 +61,7 @@ Belege decrypts a company's books in the browser and runs a bridge next to bank,
 
 **Web app**
 
-- No `{@html}` with anything a third party can influence (mail, PDF text, file names, bank purposes, QR payloads, URL parameters, synced records). No `eval`, no remote scripts, fonts or trackers.
+- No `{@html}` at all: what a third party can influence (mail, PDF text, file names, bank purposes, QR payloads, URL parameters, synced records) is only ever rendered as text (`app/src/lib/no-raw-html.spec.js`). No `eval`, no remote scripts, fonts or trackers; the page's Content-Security-Policy (`app/csp.js`) forbids them, and a loosened directive needs a reason in that file.
 - Test hooks (`window.__belegeE2E`, the PRF override, key export) exist only behind `VITE_E2E`; a production build has none.
 
 **Claims**

@@ -83,7 +83,7 @@
 	import { loadWallets } from './wallets/wallet-sync.js';
 	import { goto } from '$app/navigation';
 	import { normalizeTxRef } from './matching/context.js';
-	import { renderSVG } from 'uqr';
+	import Qr from './Qr.svelte';
 	import {
 		addressBook,
 		payeeName,
@@ -1818,8 +1818,7 @@
 					class="mt-2 inline-block rounded-md bg-white p-2 [&_svg]:block [&_svg]:size-40"
 					data-testid="tx-explorer-qr"
 				>
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked https explorer link -->
-					{@html renderSVG(/** @type {string} */ (safeExplorerUrl(tx.explorerUrl)), { border: 1 })}
+					<Qr text={safeExplorerUrl(tx.explorerUrl) ?? ''} border={1} />
 				</div>
 			{/if}
 			{#if walletPurposeExtra(tx)}

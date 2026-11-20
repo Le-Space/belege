@@ -6,7 +6,7 @@
 	// In the mode "Ohne Relay, per QR" (#148) there is no id to type: one
 	// device shows an invite, the other scans it and shows its answer, the
 	// first scans that back (sync/qr-link.js).
-	import { renderSVG } from 'uqr';
+	import Qr from '../Qr.svelte';
 	import {
 		app,
 		addSyncDevice,
@@ -383,8 +383,7 @@
 								data-testid="devices-qr"
 								data-code={deviceCode(state.self)}
 							>
-								<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a checked peer id -->
-								{@html renderSVG(deviceCode(state.self), { border: 2 })}
+								<Qr text={deviceCode(state.self)} />
 							</div>
 							<p class="mt-1 text-xs text-faint">{t('devices.qrHint')}</p>
 						{/if}

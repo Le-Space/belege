@@ -75,11 +75,13 @@ describe('link previews (#343)', () => {
 	}
 
 	it('the English entry opens the app in English, unless a language was chosen', () => {
-		const html = String(read('static/en/index.html'));
-		expect(html).toContain(
+		// A script file of the page's own, not inline: the page's policy allows nothing else (#535).
+		expect(String(read('static/en/index.html'))).toContain('<script src="open.js"></script>');
+		const script = String(read('static/en/open.js'));
+		expect(script).toContain(
 			"if (!localStorage.getItem('belege.locale')) localStorage.setItem('belege.locale', 'en');"
 		);
-		expect(html).toContain("location.replace('../')");
+		expect(script).toContain("location.replace('../')");
 	});
 
 	it('robots.txt: the preview crawlers in, everyone else out', () => {
