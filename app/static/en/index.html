@@ -2,6 +2,12 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<!-- This page is not built by SvelteKit, so its policy is written here
+		     (#535): one script of its own, nothing else. -->
+		<meta
+			http-equiv="content-security-policy"
+			content="default-src 'none'; script-src 'self'; base-uri 'none'; form-action 'none'"
+		/>
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Le Space Belege</title>
@@ -32,12 +38,7 @@
 		<meta name="twitter:image:alt" content="Le Space Belege: payments and their receipts, matched and encrypted only on your own devices" />
 		<!-- The English entry (issue #343): a link to share in English. It opens
 		     the app in English unless this browser already chose a language. -->
-		<script>
-			try {
-				if (!localStorage.getItem('belege.locale')) localStorage.setItem('belege.locale', 'en');
-			} catch (e) {}
-			location.replace('../');
-		</script>
+		<script src="open.js"></script>
 	</head>
 	<body>
 		<p><a href="../">Le Space Belege</a></p>

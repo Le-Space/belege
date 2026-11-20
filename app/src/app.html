@@ -5,18 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<!-- Theme before paint (after Le-Space/simple-todo apps/escrow01): the
 		     stored choice, else the system's. -->
-		<script>
-			(function () {
-				try {
-					var t = localStorage.getItem('belege.theme');
-					if (t !== 'light' && t !== 'dark') {
-						t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-					}
-					document.documentElement.classList.toggle('dark', t === 'dark');
-					document.documentElement.style.background = t === 'dark' ? '#0B0E15' : '#EDF1F8';
-				} catch (e) {}
-			})();
-		</script>
+		<script src="%sveltekit.assets%/theme.js"></script>
 		<link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
 		<!-- Installable (issue #141): the manifest, and the icon iOS asks for. -->
 		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />

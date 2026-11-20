@@ -8,6 +8,7 @@
 // (e2e/secret-spy.js); e2e/passkey-books.spec.js checks that the listener
 // hears every key the E2E build names.
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { addVirtualAuthenticator } from '../e2e/webauthn.js';
 import { acceptConsent } from '../e2e/consent.js';
@@ -29,6 +30,21 @@ const testGlobals = (/** @type {import('@playwright/test').Page} */ page) =>
 			(name) => name.startsWith('__belege') && name !== '__belegeSkipPasskeySteps'
 		)
 	}));
+
+test('the published pages carry the Content-Security-Policy, with no allowance for tests', () => {
+	// The files as they are published (`vite preview` renders the fallback itself).
+	for (const file of ['index.html', '200.html']) {
+		const html = readFileSync(new URL(`../build/${file}`, import.meta.url), 'utf8');
+		const policy = /<meta\s+http-equiv="content-security-policy"\s+content="([^"]+)"/i.exec(
+			html
+		)?.[1];
+		expect(policy, file).toContain("default-src 'none'");
+		expect(policy, file).toMatch(/script-src 'self' 'wasm-unsafe-eval' 'sha256-[^;]+;/);
+		expect(policy, file).not.toMatch(/'unsafe-eval'|script-src[^;]*'unsafe-inline'/);
+		// The E2E build lets the stand-in for the payment page be framed; this one does not.
+		expect(policy, file).toContain('frame-src https://credits.le-space.de;');
+	}
+});
 
 test('no test hook, and no key or booking at rest', async ({ page, context }) => {
 	await spyOnSecrets(context);

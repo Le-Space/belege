@@ -14,7 +14,7 @@
 	// passphrase Belege generates and shows once, to write down; the target
 	// asks for it when the chosen file says it is sealed that way.
 	import { onMount } from 'svelte';
-	import { renderSVG } from 'uqr';
+	import Qr from '../Qr.svelte';
 	import { currentBlobs, currentStore, refreshNow } from '$lib/session.svelte.js';
 	import { releaseName } from '$lib/build-info.js';
 	import { formatDate } from '$lib/bank/format.js';
@@ -249,8 +249,7 @@
 						class="mt-2 w-48 rounded-lg bg-white p-2 leading-none [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
 						data-testid="move-key-qr"
 					>
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a key made here -->
-						{@html renderSVG(ownKey.text, { border: 2 })}
+						<Qr text={ownKey.text} />
 					</div>
 					<input
 						class="mt-2 w-full max-w-md rounded-md border border-border bg-surface-2 px-2 py-1 font-mono text-xs"

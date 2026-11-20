@@ -5,7 +5,7 @@
 	// is needed after every reload (`compact`: a smaller code, fewer words).
 	// The QR session is the module's (qr-link.js): an invite made in one place
 	// is answered wherever the answer is scanned.
-	import { renderSVG } from 'uqr';
+	import Qr from '../Qr.svelte';
 	import { app, qrInvite, qrScanned } from '$lib/session.svelte.js';
 	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
@@ -120,8 +120,7 @@
 			data-code={qrCode}
 			data-link={qrPhase === 'invite' ? shown : undefined}
 		>
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of a signed code, or of the link carrying it -->
-			{@html renderSVG(shown, { border: 2 })}
+			<Qr text={shown} />
 		</div>
 		{#if byLink && qrPhase === 'answer'}
 			<p class="mt-1 text-xs text-text" data-testid="{prefix}-by-link">
