@@ -66,6 +66,11 @@ export default defineConfig({
 		baseURL: `http://localhost:${port}`,
 		// The suite reads German; with English complete, an English browser would start in English (#192).
 		locale: 'de-DE',
+		// Two browsers of one test meet over WebRTC. Without a media permission
+		// Chromium offers only the address of the default route; behind a VPN that
+		// is the tunnel's, which does not reach itself, and the two never connect.
+		// With one it offers every interface. The app never asks for a microphone.
+		permissions: ['microphone'],
 		screenshot: 'only-on-failure',
 		video: 'retain-on-failure',
 		trace: 'on-first-retry',
