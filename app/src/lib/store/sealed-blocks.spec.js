@@ -72,6 +72,19 @@ beforeAll(async () => {
 		id: 'sealed-blocks-spec',
 		directory
 	});
+	const encryptionKey = await deriveDatabaseKey(prfOutput);
+	const replicationKey = await deriveReplicationKey(prfOutput);
+	keys = { replicationKey, blobKey: await deriveBlobKey(prfOutput) };
+	sealAccessLists(await sealedEncryption(encryptionKey, replicationKey));
+	store = await openStore({
+		orbitdb,
+		encryptionKey,
+		replicationKey,
+		prfOutput,
+		// As the app does since the books have an identity of their own (#496).
+		accessController: booksAccessController(orbitdb.identity.id),
+		openOptions: memoryStorages
+	});
 });
 
 afterAll(async () => {
