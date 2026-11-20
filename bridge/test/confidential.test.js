@@ -5,7 +5,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ATTESTATION_FAILED, createConfidentialFetch } from '../src/llm/confidential.js';
+import {
+	ATTESTATION_FAILED,
+	ENCLAVE_UNREACHABLE,
+	createConfidentialFetch,
+	reachOf,
+	unreachedOrigins
+} from '../src/llm/confidential.js';
+import { errorJson } from '../src/commands.js';
 import { createExtractor } from '../src/llm/extract.js';
 
 const PIN = {
@@ -235,4 +242,164 @@ test('in the attested enclave nothing is blacked out, unless setup:llm was told 
 	});
 	assert.match(sent[0], /Erika Beispielkund/);
 	assert.match(sent[0], /DE89 3704 0044 0532 0130 00/);
+});
+
+// An enclave that is not reached is not a failed proof (the bridge looks itself).
+const refusedPort = () =>
+	Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+
+test('a port that takes no connection while the node answers: said as a blocked port', async () => {
+	/** @type {string[]} */ const probed = [];
+	const fake = fakeConnect({
+		answer: () => {
+			throw refusedPort();
+		}
+	});
+	const tee = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: fake.connect,
+		probe: async (host, port) => {
+			probed.push(`${host}:${port}`);
+			return port === 443 ? null : 'ECONNREFUSED';
+		}
+	});
+	await assert.rejects(tee.fetch(`${BASE}/chat/completions`, {}), (/** @type {any} */ e) => {
+		assert.equal(e.code, ENCLAVE_UNREACHABLE);
+		assert.deepEqual(e.reach, { kind: 'port', port: 26334, code: 'ECONNREFUSED' });
+		assert.match(e.message, /port 26334.*answers on 443.*VPN/);
+		return true;
+	});
+	assert.deepEqual(probed, ['203.0.113.7:443'], 'only the node, and nothing but a connection');
+	assert.equal(tee.status().error, null, 'not reached is not a failed proof');
+	// The node may have given the enclave another port: looked up afresh.
+	await assert.rejects(tee.fetch(`${BASE}/chat/completions`, {}), { code: ENCLAVE_UNREACHABLE });
+	assert.equal(fake.calls.length, 2);
+});
+
+test('the node silent too, an address that cannot be cross-checked, a slow answer', async () => {
+	const fake = fakeConnect({
+		answer: () => {
+			throw refusedPort();
+		}
+	});
+	const gone = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: fake.connect,
+		probe: async () => 'ETIMEDOUT'
+	});
+	await assert.rejects(gone.fetch(`${BASE}/chat/completions`, {}), (/** @type {any} */ e) => {
+		assert.equal(e.reach.kind, 'host');
+		return true;
+	});
+
+	// The enclave's own IPv6 address, a private address: nothing to compare with, nothing probed.
+	for (const origin of ['https://[2001:db8::7]:8443', 'https://10.0.0.7:26334']) {
+		const reach = await reachOf(origin, {
+			code: 'ECONNREFUSED',
+			probe: async () => assert.fail('no probe')
+		});
+		assert.equal(reach.kind, 'unknown');
+	}
+
+	const slow = fakeConnect({
+		answer: () => {
+			throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+		}
+	});
+	const waiting = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: slow.connect,
+		probe: async () => assert.fail('no probe')
+	});
+	await assert.rejects(waiting.fetch(`${BASE}/chat/completions`, {}), { name: 'TimeoutError' });
+});
+
+test('found but no address connects at the first proof: unreachable, not a failed proof', async () => {
+	const message = [
+		'no deployment could be verified and reached:',
+		'  https://203.0.113.7:26334: fetch failed',
+		'  https://[2001:db8::7]:8443: 2001:db8::7 did not answer in time'
+	].join('\n');
+	assert.deepEqual(unreachedOrigins(message), [
+		'https://203.0.113.7:26334',
+		'https://[2001:db8::7]:8443'
+	]);
+	assert.deepEqual(
+		unreachedOrigins(`${message}\n  https://203.0.113.8:26334: measurement is not allowed`),
+		[],
+		'one failed proof and it is a failed proof'
+	);
+	const tee = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: async () => {
+			throw new Error(message);
+		},
+		probe: async (_host, port) => (port === 443 ? null : 'ECONNREFUSED')
+	});
+	await assert.rejects(tee.fetch(`${BASE}/chat/completions`, {}), (/** @type {any} */ e) => {
+		assert.equal(e.code, ENCLAVE_UNREACHABLE);
+		assert.deepEqual(e.reach, { kind: 'port', port: 26334, code: 'ECONNREFUSED' });
+		return true;
+	});
+	assert.equal(tee.status().error, null);
+});
+
+test('the extractor hands the reason on: a blocked port, a failed proof', async () => {
+	const config = {
+		baseUrl: BASE,
+		model: 'qwen3.8-27b-tee',
+		retryModel: '',
+		redactTerms: [],
+		redaction: 'on',
+		tee: PIN,
+		configured: true
+	};
+	const text = 'Rechnung über 23,80 EUR von Beispiel GmbH';
+	const blocked = fakeConnect({
+		answer: () => {
+			throw refusedPort();
+		}
+	});
+	const tee = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: blocked.connect,
+		probe: async (_host, port) => (port === 443 ? null : 'ECONNREFUSED')
+	});
+	const extractor = createExtractor({
+		config: /** @type {any} */ (config),
+		getKey: async () => 'k',
+		fetch: tee.fetch
+	});
+	await assert.rejects(extractor.extract({ text }), (/** @type {any} */ e) => {
+		assert.equal(e.code, 'LLM_UNREACHABLE');
+		assert.deepEqual(e.reach, { kind: 'port', port: 26334, code: 'ECONNREFUSED' });
+		assert.match(e.message, /port 26334/);
+		assert.equal(e.attempts[0].reason, 'unreachable: ECONNREFUSED');
+		const { json, line } = errorJson(e);
+		assert.deepEqual(json.reach, e.reach);
+		assert.match(line, /blocks the port/);
+		return true;
+	});
+
+	const unproved = createConfidentialFetch({
+		pin: PIN,
+		baseUrl: BASE,
+		connect: fakeConnect({ measurement: 'c'.repeat(96) }).connect
+	});
+	const strict = createExtractor({
+		config: /** @type {any} */ (config),
+		getKey: async () => 'k',
+		fetch: unproved.fetch
+	});
+	await assert.rejects(strict.extract({ text }), (/** @type {any} */ e) => {
+		assert.equal(e.code, 'LLM_UNREACHABLE');
+		assert.deepEqual(e.reach, { kind: 'proof' });
+		assert.match(e.message, /could not be verified/);
+		return true;
+	});
 });

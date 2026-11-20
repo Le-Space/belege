@@ -211,7 +211,9 @@ export function errorJson(error) {
 			...(attempts ? { attempts } : {}),
 			...(error.step ? { step: error.step } : {}),
 			...(error.provider ? { provider: error.provider } : {}),
-			...(error.reason ? { reason: error.reason } : {})
+			...(error.reason ? { reason: error.reason } : {}),
+			// Why a model's enclave was not reached (llm/confidential.js): a kind, a port, a code.
+			...(error.reach ? { reach: error.reach } : {})
 		},
 		line: `${error.code ?? error.name}: ${error.message}${tried}`
 	};
