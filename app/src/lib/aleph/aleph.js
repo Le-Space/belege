@@ -32,6 +32,8 @@ import { t } from '../i18n/index.js';
  * @typedef {object} AlephSettings
  * @property {boolean} scan own EVM wallets are asked at Aleph
  * @property {string[]} extra accounts typed in, 0x…
+ * @property {Record<string, string>} names what the person calls a typed-in account, by its address in lower case
+ * @property {string | null} scannedAt when Aleph was last asked, ISO; null: never
  * @property {{ address: string, credits: number, entries: number, checkedAt: string }[]} accounts found
  * @property {AlephPurchase[]} purchases the credit purchases of these accounts, with the paying transaction
  */
@@ -123,8 +125,62 @@ export async function loadAleph(settings) {
 		accounts: Array.isArray(v.accounts)
 			? v.accounts.filter((/** @type {any} */ a) => ADDRESS.test(String(a?.address)))
 			: [],
-		purchases: cleanPurchases(v.purchases)
+		purchases: cleanPurchases(v.purchases),
+		names: cleanNames(v.names),
+		scannedAt: typeof v.scannedAt === 'string' ? v.scannedAt : null
 	};
+}
+
+/** Names by address: only for addresses, trimmed and short. @param {unknown} value @returns {Record<string, string>} */
+function cleanNames(value) {
+	/** @type {Record<string, string>} */
+	const out = {};
+	if (!value || typeof value !== 'object') return out;
+	for (const [address, name] of Object.entries(value)) {
+		const text = String(name ?? '')
+			.trim()
+			.slice(0, 80);
+		if (ADDRESS.test(address) && text) out[address.toLowerCase()] = text;
+	}
+	return out;
+}
+
+/**
+ * A typed-in account, with what the person calls it: kept, or its name changed.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {string} address 0x…
+ * @param {string} [name]
+ */
+export async function addAlephAccount(settings, address, name = '') {
+	const aleph = await loadAleph(settings);
+	const names = { ...aleph.names };
+	const text = name.trim();
+	if (text) names[address.toLowerCase()] = text;
+	else delete names[address.toLowerCase()];
+	const known = aleph.extra.some((a) => a.toLowerCase() === address.toLowerCase());
+	return saveAleph(settings, { extra: known ? aleph.extra : [...aleph.extra, address], names });
+}
+
+/**
+ * A typed-in account taken off the list. Its found account goes with it,
+ * unless `keep` says the address is asked anyway (an own wallet, with the
+ * scan on). Statements made and purchases known stay.
+ *
+ * @param {import('../store/repository.js').Collection} settings
+ * @param {string} address
+ * @param {{ keep?: boolean }} [options]
+ */
+export async function removeAlephAccount(settings, address, { keep = false } = {}) {
+	const aleph = await loadAleph(settings);
+	const same = (/** @type {string} */ a) => a.toLowerCase() === address.toLowerCase();
+	const names = { ...aleph.names };
+	delete names[address.toLowerCase()];
+	return saveAleph(settings, {
+		extra: aleph.extra.filter((a) => !same(a)),
+		names,
+		accounts: keep ? aleph.accounts : aleph.accounts.filter((a) => !same(a.address))
+	});
 }
 
 /** @param {import('../store/repository.js').Collection} settings @param {Partial<AlephSettings>} change */
@@ -139,7 +195,7 @@ export async function saveAleph(settings, change) {
  * and the accounts typed in; each once.
  *
  * @param {{ chain: string, address: string }[]} wallets
- * @param {AlephSettings} aleph
+ * @param {Pick<AlephSettings, 'scan' | 'extra'>} aleph
  */
 export function candidateAddresses(wallets, aleph) {
 	const from = [
@@ -171,7 +227,7 @@ export async function scanAleph({ client, settings, wallets, now = () => new Dat
 	const accounts = found
 		.filter((a) => a.credits > 0 || a.entries > 0)
 		.map((a) => ({ ...a, checkedAt }));
-	await saveAleph(settings, { accounts });
+	await saveAleph(settings, { accounts, scannedAt: checkedAt });
 	// The accounts' credit purchases, so that the bookings that paid them are
 	// known (matching/classify.js). The running month's statement lists every
 	// purchase up to now; an account that cannot be read is left for next time.

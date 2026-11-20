@@ -21,6 +21,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- An Aleph account entered by hand can be seen, named and taken off again (Integrationen → Aleph Cloud). Adding one showed nothing until the next check, and an address Aleph holds nothing for never showed at all, with no way to remove it. Now the account is checked at once, the entered accounts are listed with their name and what Aleph said (found, or neither credits nor entries), each with "Entfernen"; the name stands on the account and on its usage statement.
 - Three timing switches of the backup tests (the quiet time before an automatic backup, the wait for Aleph's decision, the recheck schedule) are compiled out of every build but the one for the end-to-end tests, like the other test hooks. They only shortened waits.
 
 ## [0.43.0] – 2026-11-19

@@ -16,7 +16,9 @@
 		loadAleph,
 		previousMonth,
 		saveAleph,
-		scanAleph
+		scanAleph,
+		addAlephAccount,
+		removeAlephAccount
 	} from './aleph.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
@@ -24,10 +26,18 @@
 	const client = $derived(createBridgeClient({ url, token }));
 
 	/** @type {import('./aleph.js').AlephSettings} */
-	let aleph = $state({ scan: false, extra: [], accounts: [], purchases: [] });
+	let aleph = $state({
+		scan: false,
+		extra: [],
+		accounts: [],
+		purchases: [],
+		names: {},
+		scannedAt: null
+	});
 	/** @type {import('$lib/wallets/wallet-sync.js').Wallet[]} */
 	let wallets = $state([]);
 	let extra = $state('');
+	let extraName = $state('');
 	let scanning = $state(false);
 	/** @type {string | null} */
 	let scanNote = $state(null);
@@ -63,7 +73,25 @@
 
 	/** A wallet's name for an address, when the person gave it one. @param {string} address */
 	const nameOf = (address) =>
-		wallets.find((w) => w.address.toLowerCase() === address.toLowerCase())?.name ?? '';
+		wallets.find((w) => w.address.toLowerCase() === address.toLowerCase())?.name ||
+		aleph.names[address.toLowerCase()] ||
+		'';
+
+	/** What Aleph said about a typed-in account at the last check. @param {string} address */
+	const stateOf = (address) =>
+		aleph.accounts.some((a) => a.address.toLowerCase() === address.toLowerCase())
+			? 'has'
+			: aleph.scannedAt
+				? 'nothing'
+				: 'unchecked';
+
+	/** @param {string} address */
+	async function removeExtra(address) {
+		const store = currentStore();
+		if (!store) return;
+		const own = wallets.some((w) => w.address.toLowerCase() === address.toLowerCase());
+		aleph = await removeAlephAccount(store.settings, address, { keep: aleph.scan && own });
+	}
 
 	/** @param {boolean} on */
 	async function setScan(on) {
@@ -81,8 +109,11 @@
 		}
 		const store = currentStore();
 		if (!store) return;
-		aleph = await saveAleph(store.settings, { extra: [...new Set([...aleph.extra, a])] });
+		aleph = await addAlephAccount(store.settings, a, extraName);
 		extra = '';
+		extraName = '';
+		// Asked at once: the person sees what Aleph holds for it.
+		await scan();
 	}
 
 	async function scan() {
@@ -185,6 +216,17 @@
 					data-testid="aleph-extra-input"
 				/></label
 			>
+			<label class="flex min-w-40 flex-col text-sm text-faint"
+				>{t('aleph.extraName')}
+				<input
+					class="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-heading"
+					bind:value={extraName}
+					maxlength="80"
+					autocomplete="off"
+					placeholder={t('aleph.extraNamePlaceholder')}
+					data-testid="aleph-extra-name"
+				/></label
+			>
 			<button type="submit" class={button} disabled={!extra.trim()} data-testid="aleph-extra-add"
 				>{t('aleph.extraAdd')}</button
 			>
@@ -204,6 +246,38 @@
 		{#if error}
 			<p class="mt-2 text-sm text-danger" role="alert" data-testid="aleph-error">{error}</p>
 			<WayOut message={error} />
+		{/if}
+
+		{#if aleph.extra.length}
+			<div class="mt-3 text-sm" data-testid="aleph-extras">
+				<p class="text-xs text-faint">{t('aleph.extras')}</p>
+				<ul class="mt-1 divide-y divide-border">
+					{#each aleph.extra as address (address)}
+						{@const state = stateOf(address)}
+						<li
+							class="flex flex-wrap items-baseline justify-between gap-2 py-1.5"
+							data-testid="aleph-extra"
+							data-state={state}
+						>
+							<span class="min-w-0">
+								{#if nameOf(address)}<span class="block text-heading">{nameOf(address)}</span>{/if}
+								<span class="block font-mono text-xs break-all text-faint">{address}</span>
+							</span>
+							<span class="flex items-baseline gap-3 text-xs">
+								<span class={state === 'has' ? 'text-success' : 'text-faint'}
+									>{t(`aleph.extraState.${state}`)}</span
+								>
+								<button
+									type="button"
+									class="underline hover:text-heading"
+									onclick={() => removeExtra(address)}
+									data-testid="aleph-extra-remove">{t('aleph.extraRemove')}</button
+								>
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</div>
 		{/if}
 
 		{#if aleph.accounts.length}

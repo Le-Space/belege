@@ -1653,6 +1653,15 @@ export default {
 			'Die Adressen unter „Eigene Wallets“ (Ethereum und andere EVM-Chains) werden bei Aleph nach Credits gefragt. Aleph kann daraus schließen, dass sie zusammengehören.',
 		extraLabel: 'Weiteres Aleph-Konto (0x…)',
 		extraAdd: 'Hinzufügen',
+		extraName: 'Bezeichnung (optional)',
+		extraNamePlaceholder: 'z. B. Projekt oder Zweck',
+		extras: 'Von Hand eingetragene Konten – sie werden bei jeder Prüfung mitgefragt:',
+		extraRemove: 'Entfernen',
+		extraState: {
+			has: 'bei Aleph gefunden',
+			nothing: 'Aleph führt hier weder Credits noch Buchungen',
+			unchecked: 'noch nicht geprüft'
+		},
 		badAddress: 'Das ist keine Aleph-Kontoadresse (0x und 40 Hex-Zeichen).',
 		scan: 'Bei Aleph prüfen',
 		scanning: 'Prüfe …',
