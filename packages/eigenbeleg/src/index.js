@@ -26,7 +26,9 @@ export {
 	monthly,
 	reconciled,
 	STATEMENT_NOTE,
-	USAGE_NOTE
+	USAGE_NOTE,
+	USAGE_NOTES,
+	FILECOIN_PAY_USAGE_NOTE
 } from './statement.js';
 /** @typedef {import('./statement.js').MonthlyLine} MonthlyLine */
 export { statementPdf } from './statement-pdf.js';

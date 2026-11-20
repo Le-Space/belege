@@ -44,6 +44,8 @@ export async function statementPdf(
 	const created = new Date(st.issuedAt);
 	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
 	const aleph = st.chain === 'aleph';
+	// Filecoin Pay: the same, in USDFC and by rail.
+	const pay = st.chain === 'filecoin-pay';
 	const title = `${st.title} ${st.number}`;
 	const subject = `${st.title} ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
@@ -109,7 +111,7 @@ export async function statementPdf(
 		bold.draw(l.page, `${s.asset} · ${st.account}`, { x: M + 6, y: l.y - 12.5, size: 9.5 });
 		l.y -= 24;
 		// The month in sums, first (#24): what the books take as one booking each; the rows below are the proof.
-		if (aleph) {
+		if (aleph || pay) {
 			const m = s.monthly;
 			const lines = [m.usage, m.usageTotal, m.purchases, m.transfersIn, m.transfersOut]
 				.flat()
@@ -117,7 +119,7 @@ export async function statementPdf(
 			if (lines.length) {
 				l.ensure(14 + lines.length * 11 + 8);
 				l.at('Monatsübersicht', M, 8, bold, GREY);
-				l.right('Credits', M + 371 - 4, 7.5, bold, GREY);
+				l.right(pay ? s.asset : 'Credits', M + 371 - 4, 7.5, bold, GREY);
 				l.right('Wert EUR', M + 507 - 4, 7.5, bold, GREY);
 				l.y -= 12;
 				for (const ml of lines) {
@@ -228,15 +230,17 @@ export async function statementPdf(
 			);
 		} else {
 			text(
-				`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : 'die Chain hält keine alten Kontostände vor'}).`,
+				`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : pay ? 'der Zahlungsvertrag nennt nur den heutigen Stand' : 'die Chain hält keine alten Kontostände vor'}).`,
 				{ size: 7.5, color: GREY }
 			);
 		}
 		l.y -= 4;
 		text(
-			aleph
-				? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages.`
-				: `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
+			pay
+				? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`
+				: aleph
+					? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages.`
+					: `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
 			{ size: 7.5, color: GREY }
 		);
 		l.y -= 12;
