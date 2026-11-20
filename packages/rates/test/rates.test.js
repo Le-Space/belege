@@ -121,6 +121,81 @@ describe('rate service', () => {
 		assert.equal(rate.at, '2026-08-28T00:00:00Z');
 	});
 
+	test('ECB: the days of a month are one request, each with its own rate', async () => {
+		// Thu 1, Fri 2, Mon 5 October 2026 and Mon 2 November; the weekend has none.
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': {
+				dataSets: [
+					{ series: { '0:0:0:0:0': { observations: { 0: [1.25], 1: [1.6], 2: [2], 3: [4] } } } }
+				],
+				structure: {
+					dimensions: {
+						observation: [
+							{
+								values: [
+									{ id: '2026-10-01' },
+									{ id: '2026-10-02' },
+									{ id: '2026-10-05' },
+									{ id: '2026-11-02' }
+								]
+							}
+						]
+					}
+				}
+			}
+		});
+		const rates = createRateService({ fetch, now: () => new Date('2026-11-20T10:00:00Z') });
+		const got = [];
+		for (const day of ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05']) {
+			const r = await rates.rate('USD', day);
+			got.push(`${r.at.slice(0, 10)} ${r.rate}`);
+		}
+		assert.deepEqual(got, [
+			'2026-10-01 0.8',
+			'2026-10-02 0.625',
+			'2026-10-02 0.625',
+			'2026-10-02 0.625',
+			'2026-10-05 0.5'
+		]);
+		assert.equal(calls.length, 1);
+		// The window reaches 45 days to each side of the first day asked for.
+		assert.match(calls[0], /startPeriod=2026-08-17&endPeriod=2026-11-15/);
+	});
+
+	test('ECB: a day the window has no later rate for is asked for again', async () => {
+		// Asked on Friday 20 November before the day's rate is out: Thursday's counts, and is not kept for the 20th.
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': {
+				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [1.25], 1: [2] } } } }],
+				structure: {
+					dimensions: { observation: [{ values: [{ id: '2026-11-18' }, { id: '2026-11-19' }] }] }
+				}
+			}
+		});
+		const rates = createRateService({
+			fetch,
+			now: () => new Date('2026-11-20T10:00:00Z'),
+			cacheSize: 0
+		});
+		assert.equal((await rates.rate('USD', '2026-11-18')).at, '2026-11-18T00:00:00Z');
+		assert.equal((await rates.rate('USD', '2026-11-19')).at, '2026-11-19T00:00:00Z');
+		assert.equal(calls.length, 1);
+		assert.equal((await rates.rate('USD', '2026-11-20')).at, '2026-11-19T00:00:00Z');
+		assert.equal(calls.length, 2);
+		assert.match(calls[1], /endPeriod=2026-11-20/);
+	});
+
+	test('ECB: a rate more than a week before the day does not count', async () => {
+		const { fetch } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': {
+				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [1.25] } } } }],
+				structure: { dimensions: { observation: [{ values: [{ id: '2026-10-01' }] }] } }
+			}
+		});
+		const rates = createRateService({ fetch, now: () => new Date('2026-11-20T10:00:00Z') });
+		await assert.rejects(rates.rate('USD', '2026-10-20'), RateError);
+	});
+
 	test('another ECB currency: TRY, inverted, without a USD rate', async () => {
 		const { fetch, calls } = fakeFetch({
 			'https://data-api.ecb.europa.eu/': {
