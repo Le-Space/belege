@@ -585,4 +585,32 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		});
 		expect(stale.status()).toBe(401);
 	}
+
+	// "Import zurücknehmen": an account from a file goes, with its bookings; an
+	// account a sync fills has no such button. Asked first, and said in the Verlauf.
+	await openIntegration(page, 'bank');
+	const kept = await page.getByTestId('book-account').count();
+	const prepaid = page.getByTestId('book-account').filter({ hasText: 'Prepaid Testkonto' });
+	await expect(
+		page
+			.getByTestId('book-account')
+			.filter({ hasText: 'Hibiscus' })
+			.getByTestId('book-account-undo')
+	).toHaveCount(0);
+	page.once('dialog', (dialog) => {
+		expect(dialog.message()).toContain('Prepaid Testkonto ···0003 mit seinen 2 Buchungen');
+		dialog.dismiss();
+	});
+	await prepaid.getByTestId('book-account-undo').click();
+	await expect(page.getByTestId('book-account')).toHaveCount(kept);
+	page.once('dialog', (dialog) => dialog.accept());
+	await prepaid.getByTestId('book-account-undo').click();
+	await expect(page.getByTestId('book-account-undo-note')).toHaveText(
+		'Konto Prepaid Testkonto ···0003 herausgenommen, mit 2 Buchungen. Steht im Verlauf.'
+	);
+	await expect(page.getByTestId('book-account')).toHaveCount(kept - 1);
+	await page.getByRole('link', { name: 'Zahlungen' }).click();
+	await expect(
+		page.getByTestId('account-filter').locator('option', { hasText: 'Prepaid Testkonto' })
+	).toHaveCount(0);
 });

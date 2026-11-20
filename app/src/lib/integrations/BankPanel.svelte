@@ -10,6 +10,7 @@
 	import { syncHibiscus } from '$lib/bank/hibiscus-sync.js';
 	import { parseCamt053 } from '$lib/bank/camt.js';
 	import { importCamtStatements } from '$lib/bank/import.js';
+	import { fileImportContents, isFileAccount, removeFileImport } from '$lib/bank/remove-import.js';
 	import { accountLabel, formatDate, formatMoney } from '$lib/bank/format.js';
 	import { isWalletSource } from '$lib/wallets/chains.js';
 	import { t } from '$lib/i18n/index.js';
@@ -19,6 +20,43 @@
 
 	/** @typedef {import('$lib/bridge/client.js').BridgeAccount} BridgeAccount */
 	/** @typedef {{ new: number, updated: number, skipped: number }} Counts */
+
+	/** The account whose import is being taken back. @type {string | null} */
+	let undoing = $state(null);
+	/** @type {{ ok: boolean, text: string } | null} */
+	let undoNote = $state(null);
+
+	/**
+	 * Take a file import back (bank/remove-import.js): asked first, with what goes.
+	 * @param {Record<string, any>} account
+	 */
+	async function undoImport(account) {
+		const store = currentStore();
+		if (!store) return;
+		const label = accountLabel(account);
+		undoNote = null;
+		const has = await fileImportContents(store, account.id);
+		if (!confirm(t('integrationen.books.undoConfirm', { account: label, ...has }))) return;
+		undoing = account.id;
+		try {
+			const done = await removeFileImport(store, account.id);
+			await refreshNow();
+			await runMatchingNow();
+			undoNote = {
+				ok: true,
+				text: t('integrationen.books.undoDone', { account: label, bookings: done.bookings })
+			};
+		} catch (error) {
+			undoNote = {
+				ok: false,
+				text: t('integrationen.books.undoFailed', {
+					error: error instanceof Error ? error.message : String(error)
+				})
+			};
+		} finally {
+			undoing = null;
+		}
+	}
 
 	/** @type {BridgeAccount[]} */
 	let bridgeAccounts = $state([]);
@@ -282,8 +320,31 @@
 									: isWalletSource(account.source)
 										? t('integrationen.books.wallet')
 										: t('integrationen.books.hibiscus')} · {account.asset ?? account.currency}
+					{#if isFileAccount(account)}
+						<button
+							type="button"
+							class="ml-2 text-xs text-faint underline hover:text-danger"
+							disabled={undoing !== null}
+							aria-label={t('integrationen.books.undoLabel', { account: accountLabel(account) })}
+							onclick={() => undoImport(account)}
+							data-testid="book-account-undo"
+						>
+							{undoing === account.id
+								? t('integrationen.books.undoBusy')
+								: t('integrationen.books.undo')}
+						</button>
+					{/if}
 				</li>
 			{/each}
 		</ul>
+		{#if undoNote}
+			<p
+				class="mt-2 text-sm {undoNote.ok ? 'text-heading' : 'text-danger'}"
+				role={undoNote.ok ? 'status' : 'alert'}
+				data-testid="book-account-undo-note"
+			>
+				{undoNote.text}
+			</p>
+		{/if}
 	</section>
 {/if}

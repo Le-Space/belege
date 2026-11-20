@@ -3363,7 +3363,8 @@ export default {
 			matching: 'Matching',
 			decision: 'Decision',
 			export: 'DATEV export',
-			'books-moved': 'Books taken over'
+			'books-moved': 'Books taken over',
+			'import-removed': 'File import taken back'
 		},
 		text: {
 			bookingChanged: 'before {from}, now {to}{flipped}{unconfirmed}{receipt}',
@@ -3392,6 +3393,8 @@ export default {
 				'{model} · {legs} rides, {receipts} receipts checked, {notes} notes · {seconds} s · {tokens} tokens',
 			bookingAssist: '{model} · {picks} accounts suggested · {seconds} s · {tokens} tokens',
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
+			importRemoved:
+				'Account {account} taken out, with {bookings} bookings; {matches} links to receipts undone',
 			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
 			exportSuspense:
 				'DATEV export {month}: {bookings} bookings, {suspense} of them on the suspense account, {receipts} receipts',
@@ -5401,7 +5404,14 @@ export default {
 			hibiscus: 'Hibiscus',
 			kraken: 'Kraken',
 			wallet: 'Own wallet',
-			card: 'Credit card'
+			card: 'Credit card',
+			undo: 'Take import back',
+			undoLabel: 'Take the import of {account} back',
+			undoBusy: 'Taking back …',
+			undoConfirm:
+				'Take the account {account} with its {bookings} bookings out of the books? Of these, {withReceipt} have a receipt and {confirmed} a confirmed ledger account. The receipts stay and are open again afterwards. On your other devices the bookings disappear with the next sync; backups already made still hold them.',
+			undoDone: 'Account {account} taken out, with {bookings} bookings. It is in the history.',
+			undoFailed: 'Taking back failed: {error}'
 		},
 		wallets: {
 			all: {

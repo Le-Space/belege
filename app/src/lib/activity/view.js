@@ -274,6 +274,16 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 					files: e.files ?? 0
 				})
 			};
+		case 'import-removed':
+			return {
+				...base,
+				title: t('verlauf.kind.import-removed'),
+				text: t('verlauf.text.importRemoved', {
+					account: String(e.account ?? ''),
+					bookings: e.bookings ?? 0,
+					matches: e.matches ?? 0
+				})
+			};
 		default:
 			return { ...base, title: String(e.kind), text: '' };
 	}

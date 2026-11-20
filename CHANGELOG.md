@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A file import can be taken back.** In Integrationen → Bank, an account that came from a file (a CAMT.053 statement, a card statement) has "Import zurücknehmen": after a question that says how many bookings go, and how many of them have a receipt or a confirmed ledger account, the account and its bookings are taken out of the books, with the matches and questions that point at them. Receipts stay and are open again. It is a soft delete, as everywhere in the books, it syncs to the other devices, and the Verlauf says it. For the wrong file, or a test file, imported into real books. Accounts a sync fills have no such button.
+
 ### Fixed
 
 - **The picture of what leaves the device no longer says receipt files are "not stored on IPFS".** They are sealed, cut into IPFS blocks and held by Helia in the browser; they travel as ciphertext to own devices and invited peers, and lie in the sealed backup file on Aleph's IPFS when the backup is switched on. The picture ([docs/backup.md](docs/backup.md), German twin) now shows that, with the backup as a third destination, and is an SVG.
