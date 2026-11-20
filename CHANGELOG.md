@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The picture of what leaves the device no longer says receipt files are "not stored on IPFS".** They are sealed, cut into IPFS blocks and held by Helia in the browser; they travel as ciphertext to own devices and invited peers, and lie in the sealed backup file on Aleph's IPFS when the backup is switched on. The picture ([docs/backup.md](docs/backup.md), German twin) now shows that, with the backup as a third destination, and is an SVG.
+
 ## [0.44.0] – 2026-11-20
 
 ### Security

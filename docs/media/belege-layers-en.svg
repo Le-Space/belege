@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 800" width="1600" height="800" role="img" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif">
+<title>Belege app: where the secret lives</title><desc>Passkey, HKDF and the data key stay on the device. Receipt files and the OrbitDB log are sealed there and kept as blocks in Helia. Only ciphertext crosses the device boundary: to own devices, to invited peers and, if switched on, as one sealed file to the backup on Aleph's IPFS.</desc>
+<defs><marker id="k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#333333"/></marker><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1E7B34"/></marker></defs>
+<rect width="1600" height="800" fill="#FFFFFF"/>
+<text x="800" y="58" text-anchor="middle" font-size="32" font-weight="700" fill="#222222">Belege app: where the secret lives</text>
+<text x="800" y="93" text-anchor="middle" font-size="20" fill="#666666">Nothing left of the line ever leaves the device. Only ciphertext crosses it.</text>
+<rect x="80" y="133" width="933" height="587" rx="20" fill="#F8F8F8" stroke="#333333" stroke-width="2.5" stroke-dasharray="12 8"/>
+<text x="107" y="171" text-anchor="start" font-size="19" font-weight="600" fill="#444444">User's device (browser PWA)</text>
+<line x1="1013" y1="133" x2="1013" y2="720" stroke="#C0392B" stroke-width="4"/>
+<text x="1029" y="171" text-anchor="start" font-size="18" font-weight="600" fill="#C0392B">Device boundary</text>
+<rect x="133" y="213" width="240" height="93" rx="12" fill="#E8F0FE" stroke="#1D4ED8" stroke-width="2.5"/>
+<text x="253.0" y="253.5" text-anchor="middle" font-size="21" font-weight="600" fill="#1E3A8A">Passkey</text>
+<text x="253.0" y="282.5" text-anchor="middle" font-size="17" fill="#1E3A8A">WebAuthn PRF</text>
+<rect x="443" y="213" width="173" height="93" rx="12" fill="#F2F2F2" stroke="#333333" stroke-width="2.5"/>
+<text x="529.5" y="253.5" text-anchor="middle" font-size="21" font-weight="600" fill="#222222">HKDF</text>
+<text x="529.5" y="282.5" text-anchor="middle" font-size="17" fill="#555555">derivation</text>
+<rect x="685" y="213" width="267" height="93" rx="12" fill="#FFF4D6" stroke="#B7791F" stroke-width="2.5"/>
+<text x="818.5" y="253.5" text-anchor="middle" font-size="21" font-weight="600" fill="#7A4B00">Data key</text>
+<text x="818.5" y="282.5" text-anchor="middle" font-size="17" fill="#7A4B00">exists nowhere else</text>
+<line x1="373" y1="260" x2="441" y2="260" stroke="#333333" stroke-width="2.5" marker-end="url(#k)"/>
+<line x1="616" y1="260" x2="683" y2="260" stroke="#333333" stroke-width="2.5" marker-end="url(#k)"/>
+<path d="M747 306V349H333V398" fill="none" stroke="#B7791F" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#k)"/>
+<text x="540" y="341" text-anchor="middle" font-size="17" fill="#7A4B00">encrypts</text>
+<line x1="818" y1="306" x2="818" y2="398" stroke="#B7791F" stroke-width="2.5" marker-end="url(#k)"/>
+<text x="835" y="360" text-anchor="start" font-size="17" fill="#7A4B00">encrypts</text>
+<rect x="133" y="400" width="400" height="106" rx="12" fill="#F2F2F2" stroke="#333333" stroke-width="2.5"/>
+<text x="333.0" y="434.0" text-anchor="middle" font-size="21" font-weight="600" fill="#222222">Receipt files (PDF, photos)</text>
+<text x="333.0" y="463.0" text-anchor="middle" font-size="17" fill="#555555">sealed, then cut into IPFS blocks</text>
+<text x="333.0" y="488.0" text-anchor="middle" font-size="17" fill="#555555">leave the device only as ciphertext</text>
+<rect x="587" y="400" width="400" height="106" rx="12" fill="#E8F3E8" stroke="#1E7B34" stroke-width="2.5"/>
+<text x="787.0" y="434.0" text-anchor="middle" font-size="21" font-weight="600" fill="#14532D">OrbitDB (append-only log)</text>
+<text x="787.0" y="463.0" text-anchor="middle" font-size="17" fill="#14532D">metadata, receipt ↔ payment matching</text>
+<text x="787.0" y="488.0" text-anchor="middle" font-size="17" fill="#14532D">every entry encrypted + signed</text>
+<rect x="587" y="560" width="400" height="93" rx="12" fill="#E8F3E8" stroke="#1E7B34" stroke-width="2.5"/>
+<text x="787.0" y="600.5" text-anchor="middle" font-size="21" font-weight="600" fill="#14532D">Helia (IPFS in the browser)</text>
+<text x="787.0" y="629.5" text-anchor="middle" font-size="15.5" fill="#14532D">holds the sealed blocks · no DHT announcements</text>
+<line x1="787" y1="506" x2="787" y2="558" stroke="#333333" stroke-width="2.5" marker-end="url(#k)"/>
+<path d="M333 506V606H585" fill="none" stroke="#333333" stroke-width="2.5" marker-end="url(#k)"/>
+<text x="459" y="596" text-anchor="middle" font-size="17" fill="#555555">blocks</text>
+<rect x="1178" y="200" width="348" height="120" rx="12" fill="#FDECEC" stroke="#C0392B" stroke-width="2.5"/>
+<text x="1352.0" y="241.0" text-anchor="middle" font-size="21" font-weight="600" fill="#8B1E1E">What an outsider sees</text>
+<text x="1352.0" y="270.0" text-anchor="middle" font-size="17" fill="#8B1E1E">CIDs of ciphertext blocks –</text>
+<text x="1352.0" y="295.0" text-anchor="middle" font-size="17" fill="#8B1E1E">worthless without the key</text>
+<rect x="1178" y="360" width="348" height="86" rx="12" fill="#FFFFFF" stroke="#1E7B34" stroke-width="2.5"/>
+<text x="1352.0" y="397.0" text-anchor="middle" font-size="21" font-weight="600" fill="#14532D">Own other devices</text>
+<text x="1352.0" y="426.0" text-anchor="middle" font-size="17" fill="#14532D">phone, second computer</text>
+<rect x="1178" y="476" width="348" height="86" rx="12" fill="#FFFFFF" stroke="#1E7B34" stroke-width="2.5"/>
+<text x="1352.0" y="513.0" text-anchor="middle" font-size="21" font-weight="600" fill="#14532D">Invited peers</text>
+<text x="1352.0" y="542.0" text-anchor="middle" font-size="17" fill="#14532D">e.g. your accountant</text>
+<rect x="1178" y="592" width="348" height="86" rx="12" fill="#FFFFFF" stroke="#1E7B34" stroke-width="2.5"/>
+<text x="1352.0" y="629.0" text-anchor="middle" font-size="21" font-weight="600" fill="#14532D">Backup, if switched on</text>
+<text x="1352.0" y="658.0" text-anchor="middle" font-size="17" fill="#14532D">one sealed file on Aleph's IPFS</text>
+<path d="M989 606H1140V519" fill="none" stroke="#1E7B34" stroke-width="3" marker-start="url(#g)"/>
+<path d="M1140 403V635" fill="none" stroke="#1E7B34" stroke-width="3"/>
+<line x1="1140" y1="403" x2="1176" y2="403" stroke="#1E7B34" stroke-width="3" marker-end="url(#g)"/>
+<line x1="1140" y1="519" x2="1176" y2="519" stroke="#1E7B34" stroke-width="3" marker-end="url(#g)"/>
+<line x1="1140" y1="635" x2="1176" y2="635" stroke="#1E7B34" stroke-width="3" marker-end="url(#g)"/>
+<rect x="1021" y="564" width="112" height="30" rx="8" fill="#FFFFFF" stroke="#1E7B34" stroke-width="2"/>
+<text x="1077" y="584" text-anchor="middle" font-size="15" font-weight="600" fill="#14532D">ciphertext</text>
+<text x="800" y="773" text-anchor="middle" font-size="18" fill="#888888">The key never leaves the device – like an SSH private key.</text>
+</svg>
