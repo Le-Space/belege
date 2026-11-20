@@ -4764,6 +4764,9 @@ export default {
 			codeHintPaired: 'a device is already paired: restart with --pair',
 			codeHintFirst: 'one-time, valid for 10 minutes',
 			unpair: 'Remove pairing',
+			unpairLocal: 'Remove pairing with the bridge on this computer',
+			unpairHostedOnly:
+				'The bridge of these books is the hosted one. It is stopped on its own card, not here; no bridge on this computer is paired.',
 			nodeNotPaired:
 				'Paired by code, but the bridge’s network node could not be paired: {error} Without it none of the bridge’s functions answers. “Status prüfen” tries again.',
 			unpairOffline:

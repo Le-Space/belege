@@ -105,3 +105,38 @@ export const keyGenerationOf = (record) => {
 	const kept = record?.keyGeneration;
 	return typeof kept === 'number' && Number.isSafeInteger(kept) && kept >= 1 ? kept : 1;
 };
+
+/**
+ * The pairing after "Kopplung lösen" (#880). While the books' bridge is a
+ * hosted one, only the pairing with the bridge on this computer goes: its
+ * token. The hosted bridge's node, the generation of its key and when it was
+ * paired stay. Otherwise the node goes too and the books move to the next
+ * generation of the bridge's key (#575).
+ *
+ * @param {BridgeRecord | null | undefined} saved
+ * @param {string} url where the bridge on this computer answers
+ * @param {boolean} hosted the node in the record is a hosted bridge's
+ * @returns {BridgeRecord}
+ */
+export function recordAfterUnpair(saved, url, hosted) {
+	if (hosted && saved?.peerId) {
+		return {
+			url,
+			token: null,
+			peerId: saved.peerId,
+			keyGeneration: keyGenerationOf(saved),
+			...(saved.nodePairedAt ? { nodePairedAt: saved.nodePairedAt } : {})
+		};
+	}
+	const kept = saved?.keyGeneration;
+	const generation = typeof kept === 'number' && Number.isSafeInteger(kept) ? kept : 1;
+	return {
+		url,
+		token: null,
+		...(saved?.peerId
+			? { keyGeneration: generation + 1 }
+			: saved?.keyGeneration
+				? { keyGeneration: generation }
+				: {})
+	};
+}

@@ -12,7 +12,14 @@ import {
 	refreshLlmRedaction,
 	removeSyncDevice
 } from '$lib/session.svelte.js';
-import { readBridgeRecord, writeBridgeRecord } from '$lib/bridge-connection/record.js';
+import {
+	readBridgeRecord,
+	readHostedRecord,
+	readNearHostedRecord,
+	recordAfterUnpair,
+	writeBridgeRecord
+} from '$lib/bridge-connection/record.js';
+import { hostedBridgeOf } from './bridge-status.js';
 import { t } from '$lib/i18n/index.js';
 import { noteWayOut } from '$lib/help/way-out.js';
 
@@ -226,6 +233,10 @@ export async function pairBridgeByInvitation(invitation) {
  * worthless. Its node is asked to forget its key and leaves the books'
  * devices, and the books move to the next generation of the bridge's key
  * (#575): a copy of the old key opens nothing, on any device.
+ *
+ * Not while the books' bridge is a hosted one (#880): its node is not the
+ * bridge on this computer. Only the token goes then; the hosted bridge is
+ * stopped on its own card.
  */
 export async function unpairBridge() {
 	const store = currentStore();
@@ -233,6 +244,13 @@ export async function unpairBridge() {
 	// The pairing is in the books, which own devices share: dropping it here would unpair the Mac.
 	if (bridgeViaDevice()) return;
 	bridge.error = null;
+	const [aleph, near] = await Promise.all([
+		readHostedRecord(store.settings).catch(() => null),
+		readNearHostedRecord(store.settings).catch(() => null)
+	]);
+	const hosted = Boolean(
+		hostedBridgeOf(bridge.peerId, { aleph: aleph?.peerId ?? null, near: near?.peerId ?? null })
+	);
 	if (bridge.token) {
 		try {
 			await bridgeClient().unpair();
@@ -240,7 +258,7 @@ export async function unpairBridge() {
 			bridge.error = t('integrationen.bridge.unpairOffline');
 		}
 	}
-	if (bridge.peerId) {
+	if (bridge.peerId && !hosted) {
 		try {
 			await forgetBridgeNode();
 		} catch (error) {
@@ -256,17 +274,7 @@ export async function unpairBridge() {
 		await removeSyncDevice(bridge.peerId).catch(() => {});
 	}
 	const saved = await readBridgeRecord(store.settings);
-	const kept = saved?.keyGeneration;
-	const generation = typeof kept === 'number' && Number.isSafeInteger(kept) ? kept : 1;
-	await writeBridgeRecord(store.settings, {
-		url: bridge.url,
-		token: null,
-		...(saved?.peerId
-			? { keyGeneration: generation + 1 }
-			: saved?.keyGeneration
-				? { keyGeneration: generation }
-				: {})
-	});
+	await writeBridgeRecord(store.settings, recordAfterUnpair(saved, bridge.url, hosted));
 	bridge.token = null;
-	bridge.peerId = null;
+	if (!hosted) bridge.peerId = null;
 }
