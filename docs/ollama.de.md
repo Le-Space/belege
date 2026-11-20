@@ -11,10 +11,10 @@ Was das Modell tut und was gesendet wird, steht in [ai.de.md](ai.de.md).
 1. **Ollama selbst**: [ollama.com/download](https://ollama.com/download) oder `brew install --cask ollama`. Die App einmal starten; sie läuft in der Menüleiste und antwortet unter `http://127.0.0.1:11434`.
 2. **Ein Modell**, das in deinen Arbeitsspeicher passt. Belege braucht ein Modell, das in JSON antwortet, ohne vorher „nachzudenken“ (ein Reasoning-Modell braucht auf dem Prozessor Minuten pro Beleg), und das Deutsch, Englisch und andere Sprachen liest:
 
-   | Dein Rechner                    | Modell                               | Download | Hinweis                                                                                                                                              |
-   | ------------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | 32 GB Arbeitsspeicher oder mehr | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Liest am besten. Mixture of Experts: Pro Wort arbeiten etwa 3B Parameter, deshalb schnell für seine Größe.                                           |
-   | 16 GB Arbeitsspeicher           | `qwen3:4b-instruct-2507-q4_K_M`      | 2,5 GB   | **Voreinstellung der Bridge**: passt auf einen normalen Laptop. Schwächer: Mehrere Steuersätze, lange oder fremdsprachige Belege gehen öfter schief. |
+   | Dein Rechner                    | Modell                               | Download | Hinweis                                                                                                    |
+   | ------------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------- |
+   | 32 GB Arbeitsspeicher oder mehr | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Liest am besten. Mixture of Experts: Pro Wort arbeiten etwa 3B Parameter, deshalb schnell für seine Größe. |
+   | 16 GB Arbeitsspeicher           | `qwen3:4b-instruct-2507-q4_K_M`      | 2,5 GB   | **Voreinstellung der Bridge**: passt auf einen normalen Laptop.                                            |
 
    ```bash
    ollama pull qwen3:4b-instruct-2507-q4_K_M          # voreingestellt

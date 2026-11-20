@@ -11,10 +11,10 @@ What the model does and what is sent is in [ai.md](ai.md).
 1. **Ollama itself**: [ollama.com/download](https://ollama.com/download), or `brew install --cask ollama`. Start the app once; it runs in the menu bar and answers on `http://127.0.0.1:11434`.
 2. **One model** that fits your memory. Belege needs a model that answers in JSON without "thinking" first (a reasoning model spends minutes per receipt on a CPU) and reads German, English and other languages:
 
-   | Your computer        | Model                                | Download | Note                                                                                                                     |
-   | -------------------- | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
-   | 32 GB memory or more | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Reads best. A mixture of experts: about 3B parameters work per word, so it is fast for its size.                         |
-   | 16 GB memory         | `qwen3:4b-instruct-2507-q4_K_M`      | 2.5 GB   | **The bridge's default**: fits a normal laptop. Weaker: several VAT rates, long or foreign receipts go wrong more often. |
+   | Your computer        | Model                                | Download | Note                                                                                             |
+   | -------------------- | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
+   | 32 GB memory or more | `qwen3:30b-a3b-instruct-2507-q4_K_M` | 18 GB    | Reads best. A mixture of experts: about 3B parameters work per word, so it is fast for its size. |
+   | 16 GB memory         | `qwen3:4b-instruct-2507-q4_K_M`      | 2.5 GB   | **The bridge's default**: fits a normal laptop.                                                  |
 
    ```bash
    ollama pull qwen3:4b-instruct-2507-q4_K_M          # the default
