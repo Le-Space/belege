@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.44.0] – 2026-11-20
+
 ### Security
 
 - **A Content-Security-Policy in every page** (#535, part of the audit plan #209). Each built page carries it as a `<meta>` tag (`app/csp.js`, SvelteKit's `kit.csp` with the hash of its start script): no script but the app's own files – no inline script, no `eval`, nothing from another host; WebAssembly may be compiled –, stylesheets, fonts and workers from the app only, no plugin content, no `<base>` elsewhere, no form posted anywhere, one frame (the payment page of Le Space Credits). Connections stay open to any host over TLS and to this computer, because relays, Aleph's nodes and a hosted bridge's name are not known at build time. The theme script and the English entry's script moved from inline into files. `e2e/csp.spec.js` checks the tag in the built pages and that the browser refuses an inline script, `eval`, a foreign script and an inline handler; the production spec checks the published pages. `docs/threat-model.md` says what a meta policy cannot do.
