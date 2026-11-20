@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.45.0] – 2026-11-20
+
 ### Added
 
 - **A file import can be taken back.** In Integrationen → Bank, an account that came from a file (a CAMT.053 statement, a card statement) has "Import zurücknehmen": after a question that says how many bookings go, and how many of them have a receipt or a confirmed ledger account, the account and its bookings are taken out of the books, with the matches and questions that point at them. Receipts stay and are open again. It is a soft delete, as everywhere in the books, it syncs to the other devices, and the Verlauf says it. For the wrong file, or a test file, imported into real books. Accounts a sync fills have no such button.
