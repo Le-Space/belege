@@ -9,9 +9,7 @@ import { getSetting, setSetting } from './store/settings.js';
 import {
 	keyGenerationOf,
 	readBridgeRecord,
-	readNearHostedRecord,
-	writeBridgeRecord,
-	writeNearHostedRecord
+	writeBridgeRecord
 } from './bridge-connection/record.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
@@ -1599,207 +1597,49 @@ export async function pairBridgeNode(invitation, { relays } = {}) {
 	return { peerId };
 }
 
-/**
- * The bridge on Phala this browser started last, as the books keep it (no
- * network): its peer id and when it was attested; never the peer key.
- *
- * @returns {Promise<{ peerId: string, attestedAt: string | null } | null>}
- */
-export async function nearHostedRecord() {
-	if (!session?.store) return null;
-	const kept = await readNearHostedRecord(session.store.settings);
-	if (typeof kept?.peerId !== 'string') return null;
-	return { peerId: kept.peerId, attestedAt: kept.attestedAt ?? null };
+// The hosted bridge on Phala and the settings kept for a hosted bridge live in
+// bridge-connection/hosted-near.js and kept-settings.js (#844): loaded when first
+// asked for, and handed what they need of the open session (`hostedContext` below).
+async function hostedNear() {
+	const module = await import('./bridge-connection/hosted-near.js');
+	module.bindSession(hostedContext);
+	return module;
 }
 
-/**
- * The books on NEAR for the hosted bridge on Phala: their account (made on
- * the owner's device), its balance, the contract's view and the bridge this
- * browser last started.
- *
- * @returns {Promise<{ accountId: string, balance: bigint | null, contract: any, kept: any } | null>}
- */
-export async function nearBridgeStatus() {
-	if (!session?.store) return null;
-	const nb = await import('./integrations/near-bridge.js');
-	const settings = session.store.settings;
-	const seed = await nb.ensureNearKey(settings, { create: !app.member });
-	if (!seed) return null;
-	const near = nb.nearBooks({ seed });
-	const [balance, contract] = await Promise.all([near.balance(), near.view().catch(() => null)]);
-	const kept = await readNearHostedRecord(settings);
-	return { accountId: near.books.accountId, balance, contract, kept };
+async function keptSettings() {
+	const module = await import('./bridge-connection/kept-settings.js');
+	module.bindSession(hostedContext);
+	return module;
 }
 
-/**
- * "Gehostete Bridge auf Phala, über NEAR" (#696): start the bridge in a TDX
- * VM through the NEAR contract and Le Space's launcher, and pair it in the
- * same step – what goes in is what goes into an Aleph VM (`hostedSecrets`):
- * its key of the books, its own peer key (made here, so its peer id is known
- * before it runs), the books' relays and devices. It goes only to the VM
- * whose quote the contract checked, sealed to that VM's key. The bridge
- * dials out to the relays; there is no inbound route to the VM.
- *
- * @param {{ onPhase?: (phase: string, detail?: any) => void }} [p]
- * @returns {Promise<{ peerId: string, composeHash: string }>}
- */
-export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
-	if (!session?.online || !session.bridgeAuthBase || !deviceSync || !bridgeConsumer) {
-		throw new Error(t('messages.bridge.needsSync'));
-	}
-	const nb = await import('./integrations/near-bridge.js');
-	const hosted = await import('./integrations/hosted-bridge.js');
-	const { knownDevices } = await import('./sync/device-sync.js');
-	const { setBridgeNode } = await import('./sync/remote-bridge.js');
-	const { bridgeAuthKeyOf } = await import('./database-keys.js');
-	const { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } = await import(
-		'@libp2p/crypto/keys'
-	);
-	const { peerIdFromPrivateKey } = await import('@libp2p/peer-id');
+/** @typedef {typeof import('./bridge-connection/hosted-near.js')} HostedNear */
+/** @typedef {typeof import('./bridge-connection/kept-settings.js')} KeptSettings */
 
-	const settings = session.store.settings;
-	const seed = await nb.ensureNearKey(settings, { create: !app.member });
-	if (!seed) throw new Error(t('messages.nearBridge.noKey'));
-	const near = nb.nearBooks({ seed });
-	if ((await near.balance()) === null) throw new Error(t('messages.nearBridge.notFunded'));
-	if (!(session.relays ?? []).length) throw new Error(t('messages.nearBridge.noRelay'));
-
-	// The bridge's own peer key: the one these books' NEAR bridge had, or a new one.
-	const kept = await readNearHostedRecord(settings);
-	const peerKey =
-		kept?.books === near.books.accountId && typeof kept?.peerKey === 'string'
-			? privateKeyFromProtobuf(Uint8Array.from(atob(kept.peerKey), (c) => c.charCodeAt(0)))
-			: await generateKeyPair('Ed25519');
-	const peerKeyBytes = privateKeyToProtobuf(peerKey);
-	const peerId = peerIdFromPrivateKey(peerKey).toString();
-
-	const saved = (await readBridgeRecord(settings)) ?? {};
-	const keyGeneration = keyGenerationOf(saved);
-	const authKey = await bridgeAuthKeyOf(session.bridgeAuthBase, keyGeneration);
-
-	// Made only once the contract shows the VM attested.
-	const secrets = async () => {
-		const records = await settings.list({ includeDeleted: true });
-		const { whose } = await import('./members/whose.js');
-		const members = whose(records);
-		const own = knownDevices(records)
-			.filter((d) => !d.bridge && members.mayUseBridge(d.peerId))
-			.map((d) => d.peerId);
-		const all = hosted.hostedSecrets({
-			host: '',
-			authKey,
-			peerKey: peerKeyBytes,
-			relays: session?.relays ?? [],
-			devices: [session?.peerId ?? '', ...own].filter(Boolean)
-		});
-		// No HTTPS name: the VM on Phala has no inbound route.
-		delete all.https_hostname;
-		// What else it starts with (#728): the accounts and settings kept for a hosted bridge.
-		const { withHostedSettings } = await import('./integrations/hosted-settings.js');
-		return withHostedSettings(all, await keptHostedSettings());
-	};
-
-	const launcher = nb.launcherClient({ books: near.books });
-	const { atMs, composeHash } = await nb.startNearBridge({ near, launcher, secrets, onPhase });
-
-	const attestedAt = isoNow();
-	await writeNearHostedRecord(settings, {
-		books: near.books.accountId,
-		peerId,
-		peerKey: btoa(String.fromCharCode(...peerKeyBytes)),
-		composeHash,
-		atMs,
-		attestedAt
-	});
-	// The books' bridge from now on, as after a handover.
-	session.bridgeAuth.peerId = peerId;
-	session.bridgeAuth.key = authKey;
-	setBridgeNode({ peerId });
-	await writeBridgeRecord(settings, {
-		token: null,
-		...saved,
-		peerId,
-		keyGeneration,
-		nodePairedAt: attestedAt
-	});
-	await deviceSync.addDevice(peerId, t('messages.nearBridge.deviceLabel'), { bridge: true });
-	return { peerId, composeHash };
-}
-
-/** Stop the bridge on Phala: the contract forgets the VM at once, the launcher deletes it. */
-export async function stopNearHostedBridge() {
-	if (!session?.store) throw new Error(t('messages.bridge.needsSync'));
-	const nb = await import('./integrations/near-bridge.js');
-	const seed = await nb.ensureNearKey(session.store.settings, { create: false });
-	if (!seed) throw new Error(t('messages.nearBridge.noKey'));
-	return nb.stopNearBridge({ near: nb.nearBooks({ seed }) });
-}
-
-/**
- * The settings a hosted bridge starts with besides its pairing (#728),
- * from the books' sealed settings; empty when none are kept.
- *
- * @returns {Promise<import('./integrations/hosted-settings.js').HostedSettings>}
- */
-async function keptHostedSettings() {
-	const hs = await import('./integrations/hosted-settings.js');
-	if (!session?.store) return hs.emptySettings();
-	return hs.cleanSettings(await getSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY));
-}
-
-/**
- * What is kept for a hosted bridge, by name only (never a value): for the cards.
- *
- * @returns {Promise<{ accounts: string[], sections: string[] }>}
- */
-export async function hostedSettingsNames() {
-	const hs = await import('./integrations/hosted-settings.js');
-	return hs.keptNames(await keptHostedSettings());
-}
-
-/**
- * What is kept for a hosted bridge, for the cards: per integration its
- * non-secret values and whether its secret part is there – never a secret
- * (integrations/hosted-settings.js `keptView`).
- *
- * @returns {Promise<import('./integrations/hosted-settings.js').KeptEntry[]>}
- */
-export async function hostedSettingsView() {
-	const hs = await import('./integrations/hosted-settings.js');
-	return hs.keptView(await keptHostedSettings());
-}
-
-/**
- * Keep settings for a hosted bridge, sealed in the books: over what is kept,
- * a section or an account replacing the one before. Only an owner's device.
- *
- * @param {unknown} settings `{ config, secrets }`
- */
-export async function keepHostedSettings(settings) {
-	if (!session?.store || app.member) throw new Error(t('messages.hostedSettings.ownerOnly'));
-	const hs = await import('./integrations/hosted-settings.js');
-	const merged = hs.mergeSettings(await keptHostedSettings(), hs.cleanSettings(settings));
-	await setSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY, merged);
-	return hs.keptNames(merged);
-}
-
-/** Forget what is kept for a hosted bridge. */
-export async function forgetHostedSettings() {
-	if (!session?.store || app.member) throw new Error(t('messages.hostedSettings.ownerOnly'));
-	const hs = await import('./integrations/hosted-settings.js');
-	await setSetting(session.store.settings, hs.HOSTED_SETTINGS_KEY, hs.emptySettings());
-}
-
-/**
- * Take over the settings of the bridge on a computer (#728): it hands them
- * over the stream to the device that paired it, and they are kept sealed as
- * if typed in. The bridge on the computer keeps them and keeps working.
- */
-export async function takeOverBridgeSettings() {
-	const { createBridgeClient } = await import('./bridge/client.js');
-	const exported = await createBridgeClient().settingsExport();
-	return keepHostedSettings(exported);
-}
+/** @type {HostedNear['nearHostedRecord']} */
+export const nearHostedRecord = async (...args) => (await hostedNear()).nearHostedRecord(...args);
+/** @type {HostedNear['nearBridgeStatus']} */
+export const nearBridgeStatus = async (...args) => (await hostedNear()).nearBridgeStatus(...args);
+/** @type {HostedNear['startNearHostedBridge']} */
+export const startNearHostedBridge = async (...args) =>
+	(await hostedNear()).startNearHostedBridge(...args);
+/** @type {HostedNear['stopNearHostedBridge']} */
+export const stopNearHostedBridge = async (...args) =>
+	(await hostedNear()).stopNearHostedBridge(...args);
+/** @type {KeptSettings['hostedSettingsNames']} */
+export const hostedSettingsNames = async (...args) =>
+	(await keptSettings()).hostedSettingsNames(...args);
+/** @type {KeptSettings['hostedSettingsView']} */
+export const hostedSettingsView = async (...args) =>
+	(await keptSettings()).hostedSettingsView(...args);
+/** @type {KeptSettings['keepHostedSettings']} */
+export const keepHostedSettings = async (...args) =>
+	(await keptSettings()).keepHostedSettings(...args);
+/** @type {KeptSettings['forgetHostedSettings']} */
+export const forgetHostedSettings = async (...args) =>
+	(await keptSettings()).forgetHostedSettings(...args);
+/** @type {KeptSettings['takeOverBridgeSettings']} */
+export const takeOverBridgeSettings = async (...args) =>
+	(await keptSettings()).takeOverBridgeSettings(...args);
 
 /** "Kopplung lösen" over the stream: the bridge's node forgets its key and offers pairing again. */
 export async function forgetBridgeNode() {
@@ -1847,7 +1687,7 @@ const hostedContext = {
 	get bridgeConsumer() {
 		return bridgeConsumer;
 	},
-	keptHostedSettings: () => keptHostedSettings()
+	keptHostedSettings: async () => (await keptSettings()).keptHostedSettings()
 };
 
 /** @typedef {typeof import('./bridge-connection/hosted-aleph.js')} HostedAleph */
