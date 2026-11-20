@@ -10,6 +10,8 @@
 // at the end shows that. The last tests read the sources: a database is opened
 // only where this spec knows of it, each time with the sealing.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -33,6 +35,8 @@ const prfOutput = crypto.getRandomValues(new Uint8Array(32));
 
 /** @type {any} */ let helia;
 /** @type {any} */ let orbitdb;
+/** Where OrbitDB keeps what is not handed memory storages (the access lists): not in the checkout. */
+/** @type {string} */ let directory;
 /** @type {Awaited<ReturnType<typeof openStore>>} */ let store;
 /** @type {{ replicationKey: Uint8Array, blobKey: Uint8Array }} */ let keys;
 
@@ -60,8 +64,14 @@ beforeAll(async () => {
 	).start();
 	const keystore = await KeyStore({ storage: await MemoryStorage() });
 	const identities = await Identities({ ipfs: helia, keystore });
-	// @ts-expect-error `identities` is a documented option the bundled types omit
-	orbitdb = await createOrbitDB({ ipfs: helia, identities, id: 'sealed-blocks-spec' });
+	directory = await mkdtemp(join(tmpdir(), 'belege-sealed-blocks-'));
+	orbitdb = await createOrbitDB({
+		ipfs: helia,
+		// @ts-expect-error `identities` is a documented option the bundled types omit
+		identities,
+		id: 'sealed-blocks-spec',
+		directory
+	});
 	const encryptionKey = await deriveDatabaseKey(prfOutput);
 	const replicationKey = await deriveReplicationKey(prfOutput);
 	keys = { replicationKey, blobKey: await deriveBlobKey(prfOutput) };
@@ -82,6 +92,7 @@ afterAll(async () => {
 	sealAccessLists(null);
 	await orbitdb?.stop();
 	await helia?.stop();
+	if (directory) await rm(directory, { recursive: true, force: true });
 });
 
 describe('what the books write to the block store', () => {

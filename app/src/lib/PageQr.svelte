@@ -8,12 +8,11 @@
 	// whatever the address bar says when it is opened. Drawn here with `uqr`,
 	// bundled: no request leaves the page to render it. It sits on a white
 	// plaque in both themes, because a camera reads it, not the theme.
-	import { renderSVG } from 'uqr';
+	import Qr from './Qr.svelte';
 	import { t } from './i18n/index.js';
 
 	let open = $state(false);
 	let url = $state('');
-	let svg = $state('');
 	/** @type {HTMLElement | undefined} */
 	let root = $state();
 
@@ -21,7 +20,6 @@
 		open = !open;
 		if (!open) return;
 		url = location.href;
-		svg = renderSVG(url, { border: 2 });
 	}
 
 	/** @param {MouseEvent} event */
@@ -61,8 +59,7 @@
 			data-testid="page-qr-dialog"
 		>
 			<div class="rounded-lg bg-white p-2 leading-none [&_svg]:block [&_svg]:h-auto [&_svg]:w-full">
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -- uqr's own SVG of our own URL -->
-				{@html svg}
+				<Qr text={url} />
 			</div>
 			<p
 				class="mt-2.5 font-mono text-[0.66rem] leading-normal break-all text-faint"
