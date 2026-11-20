@@ -474,6 +474,12 @@ export default {
 				BRIDGE_LLM_DAY:
 					'Dieses Gerät hat heute so viele Tokens des Sprachmodells verbraucht, wie die Bridge einem Gerät am Tag erlaubt. Morgen geht es weiter; die Grenze steht in bridge.json (node.limits).'
 			},
+			enclave: {
+				port: 'Die Enklave von {provider} nimmt auf Port {port} keine Verbindung an ({code}), ihr Rechner antwortet aber. Meist sperrt das Netz, in dem die Bridge läuft, diesen Port (VPN, Firewall): ein anderes Netz oder einen anderen VPN-Ausgang nehmen. Sonst startet die Enklave gerade neu. Dann „Weitermachen“ auf Home.',
+				host: 'Der Rechner, auf dem die Enklave von {provider} läuft, antwortet der Bridge gar nicht ({code}). Ist die Bridge online? Sonst ist er gerade nicht am Netz. Später „Weitermachen“ auf Home.',
+				proof:
+					'Die Enklave von {provider} ließ sich nicht beweisen, also ging nichts an sie. Wurde sie ersetzt? Auf dem Rechner der Bridge pnpm setup:llm ausführen, ansehen und neu festlegen.'
+			},
 			llmNotSetUp: 'Das Auslesen ist auf der Bridge nicht eingerichtet (pnpm setup:llm).',
 			paperless: {
 				PAPERLESS_UNREACHABLE:

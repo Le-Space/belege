@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **A model's enclave that cannot be reached now says why.** When the connection to LibertAI's enclave is refused, the bridge looks for itself: if the enclave's port takes no connection while its node answers on 443, the message names the port and says that the network the bridge runs in probably blocks it (a VPN exit, a firewall), or that the enclave is restarting; if the node does not answer either, it says that; a failed proof is said as one, with `pnpm setup:llm`. Before, all three read "cannot be reached. Is the service running?". After a refused connection the bridge also looks the enclave's address up afresh, so a port the node has changed is found without a restart.
 - **The picture of what leaves the device no longer says receipt files are "not stored on IPFS".** They are sealed, cut into IPFS blocks and held by Helia in the browser; they travel as ciphertext to own devices and invited peers, and lie in the sealed backup file on Aleph's IPFS when the backup is switched on. The picture ([docs/backup.md](docs/backup.md), German twin) now shows that, with the backup as a third destination, and is an SVG.
 
 ## [0.44.0] – 2026-11-20

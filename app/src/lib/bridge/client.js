@@ -54,6 +54,8 @@ export const LLM_REFUSALS = new Set([
 	// The bridge's own limit for this device: the model's tokens for today (#579).
 	'BRIDGE_LLM_DAY'
 ]);
+/** Why a model's enclave was not reached, as the bridge found it: each with its own message. */
+const ENCLAVE_REACH = new Set(['port', 'host', 'proof']);
 /** The bridge's codes for a Paperless that cannot be used (bridge/src/paperless.js), each with its own message. */
 const PAPERLESS_ERRORS = new Set([
 	'PAPERLESS_UNREACHABLE',
@@ -464,8 +466,19 @@ export function createBridgeClient({
 			}
 			// The provider refused (#417): every further call would be refused the same way.
 			if (LLM_REFUSALS.has(body?.code)) {
+				// An enclave the bridge looked at itself says why (bridge/src/llm/confidential.js).
+				const why =
+					body.code === 'LLM_UNREACHABLE' && ENCLAVE_REACH.has(body.reach?.kind)
+						? body.reach
+						: null;
 				throw failed(
-					t(`messages.bridge.refused.${body.code}`, { provider: providerName(body.provider) }),
+					why
+						? t(`messages.bridge.enclave.${why.kind}`, {
+								provider: providerName(body.provider),
+								port: String(why.port ?? '?'),
+								code: String(why.code ?? '').slice(0, 24)
+							})
+						: t(`messages.bridge.refused.${body.code}`, { provider: providerName(body.provider) }),
 					res.status,
 					body
 				);

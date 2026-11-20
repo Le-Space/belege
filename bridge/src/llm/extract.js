@@ -16,6 +16,7 @@
 
 import { redactionOff } from '../config.js';
 import { redact, sumCounts } from './redact.js';
+import { ATTESTATION_FAILED, reachMessage } from './confidential.js';
 
 export const MAX_TOKENS = 6000;
 export const MAX_TEXT = 30_000;
@@ -147,12 +148,23 @@ export function refusalOf(r) {
  * @param {(keyof typeof REFUSALS | null)[]} kinds one per attempt
  * @param {any[]} attempts
  * @param {string} provider the host the text went to
+ * @param {any} [reach] why an enclave was not reached, when the bridge looked (llm/confidential.js)
  */
-export function failed(kinds, attempts, provider) {
+export function failed(kinds, attempts, provider, reach = null) {
 	const [first] = kinds;
 	if (first && kinds.every((k) => k === first)) {
 		const r = REFUSALS[first];
-		return Object.assign(new ExtractError(r.message, r.status, r.code, attempts), { provider });
+		const why = first === 'unreachable' ? reach : null;
+		const message =
+			why?.kind === 'proof'
+				? "the model's enclave could not be verified – run `pnpm setup:llm` to look and re-pin"
+				: why
+					? reachMessage(why)
+					: r.message;
+		return Object.assign(new ExtractError(message, r.status, r.code, attempts), {
+			provider,
+			...(why ? { reach: why } : {})
+		});
 	}
 	return new ExtractError('no model gave a usable answer', 502, 'EXTRACT_FAILED', attempts);
 }
@@ -417,13 +429,16 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			});
 		} catch (/** @type {any} */ error) {
 			const timeout = error.name === 'TimeoutError';
+			// An enclave (llm/confidential.js) says why: a blocked port, a node gone, a failed proof.
+			const reach = error.reach ?? (error.code === ATTESTATION_FAILED ? { kind: 'proof' } : null);
 			return {
 				ok: false,
 				reason: timeout
 					? `no answer within ${timeoutMs / 1000} s`
-					: `unreachable: ${error.cause?.code ?? error.code ?? error.name}`,
+					: `unreachable: ${error.reach?.code ?? error.cause?.code ?? error.code ?? error.name}`,
 				// A timeout is this text taking too long, not the provider being gone.
-				unreachable: !timeout
+				unreachable: !timeout,
+				...(reach && !timeout ? { reach } : {})
 			};
 		}
 		if (!res.ok) {
@@ -508,10 +523,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const attempts = [];
 			/** @type {(keyof typeof REFUSALS | null)[]} */
 			const kinds = [];
+			/** @type {any} why the last attempt did not reach an enclave */
+			let reach = null;
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content, { system, check });
+				reach = r.reach ?? null;
 				kinds.push(refusalOf(r));
 				attempts.push({
 					model,
@@ -525,7 +543,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				}
 				if (ACCOUNT_WIDE.has(String(kinds.at(-1)))) break;
 			}
-			throw remember(failed(kinds, attempts, provider));
+			throw remember(failed(kinds, attempts, provider, reach));
 		},
 		/**
 		 * @param {{ text: string, hints?: Record<string, string> }} input
@@ -554,10 +572,13 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 			const attempts = [];
 			/** @type {(keyof typeof REFUSALS | null)[]} */
 			const kinds = [];
+			/** @type {any} why the last attempt did not reach an enclave */
+			let reach = null;
 			const started = Date.now();
 			for (const model of models) {
 				const t0 = Date.now();
 				const r = await ask(model, key, content);
+				reach = r.reach ?? null;
 				kinds.push(refusalOf(r));
 				attempts.push({
 					model,
@@ -587,7 +608,7 @@ export function createExtractor({ config, getKey, ownDomains = [], fetch: f = fe
 				// No credit, a wrong key, no provider: the same for every model.
 				if (ACCOUNT_WIDE.has(String(kinds.at(-1)))) break;
 			}
-			throw remember(failed(kinds, attempts, provider));
+			throw remember(failed(kinds, attempts, provider, reach));
 		}
 	};
 }
