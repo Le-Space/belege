@@ -1,0 +1,34 @@
+# Dependabot (#534, audit plan #209).
+#
+# The actions are pinned to commits (scripts/workflow-pins.test.mjs), so
+# somebody has to move the pins: Dependabot proposes the new commit with its
+# version, once a week, in one pull request.
+#
+# The npm dependencies get no version updates here (the limit of 0): they are
+# pinned to exact versions on purpose, and several are patched or held back
+# (pnpm-workspace.yaml). With "Dependabot security updates" switched on in the
+# repository's settings, a known vulnerability still opens a pull request – for
+# the workspace and for the deploy tool's own lockfile.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: npm
+    directory: /deploy
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0

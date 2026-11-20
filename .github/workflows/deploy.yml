@@ -3,7 +3,13 @@
 # Modelled on Le-Space/ablage's deploy.yml (same tooling, same retention).
 # It runs for a published GitHub release, or by hand – never for a plain push:
 # whoever can change what this domain serves can read the books a browser
-# decrypts there, so only a tested, released state goes out.
+# decrypts there, so only a tested, released state goes out. The chain, link
+# by link, is in docs/deploy.md ("Who can change what the domain serves"):
+#   - only a release tag (vX.Y.Z) that is on main is built, also by hand;
+#   - every action is pinned to a commit (scripts/workflow-pins.test.mjs);
+#   - the deploy tool comes from its own lockfile (deploy/);
+#   - both jobs that hold the key run in the environment `production`, where
+#     a required reviewer can be set.
 #
 # Needs the repository secret ALEPH_PRIVATE_KEY: the key of the account whose
 # address is in the TXT record _control.belege.le-space.de (the same account
@@ -16,6 +22,7 @@ permissions:
 on:
   release:
     types: [published]
+  # By hand: choose a release tag under "Use workflow from". A branch is refused.
   workflow_dispatch:
     inputs:
       link_domain:
@@ -45,21 +52,76 @@ env:
   SITE_DOMAIN: belege.le-space.de
 
 jobs:
+  # What is deployed: a release tag, and one that is on main. Not a branch, not
+  # a commit, not a tag put on something that never went through main.
+  tag:
+    name: A release tag on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Which tag
+        id: tag
+        env:
+          EVENT: ${{ github.event_name }}
+          GIVEN: ${{ inputs.ref }}
+          RELEASED: ${{ github.event.release.tag_name }}
+          REF: ${{ github.ref }}
+        run: |
+          set -eo pipefail
+          # Called by release.yml, the tag is handed in – and the event is the
+          # caller's, so it is not asked first. A published release names its tag.
+          # By hand, the tag is what the run was started from.
+          if [ -n "$GIVEN" ]; then
+            tag="$GIVEN"
+          elif [ "$EVENT" = release ]; then
+            tag="$RELEASED"
+          else
+            tag="${REF#refs/tags/}"
+            if [ "$REF" = "$tag" ]; then
+              echo "::error::Run this from a release tag, not from $REF."
+              exit 1
+            fi
+          fi
+          # The whole value, not a line of it.
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Not a release tag: '$tag'."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+      - name: The tag is on main
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -eo pipefail
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "refs/tags/$TAG" origin/main; then
+            echo "::error::$TAG is not on main."
+            exit 1
+          fi
+
   test:
+    needs: tag
     uses: ./.github/workflows/ci.yml
 
   publish:
-    needs: test
+    needs: [tag, test]
     runs-on: ubuntu-latest
+    environment: production
     outputs:
       cid: ${{ steps.publish.outputs.ipfs_cid }}
       item_hash: ${{ steps.publish.outputs.item_hash }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          ref: ${{ inputs.ref || github.ref }}
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+          ref: refs/tags/${{ needs.tag.outputs.tag }}
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
           cache: pnpm
@@ -69,11 +131,15 @@ jobs:
       - run: pnpm run build
       - name: No test hook in what is published
         run: node scripts/check-production-build.mjs app/build
-      - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.7
+      # The tool that signs the publish: from its own lockfile (deploy/), apart
+      # from the app's dependencies, and without running any install script.
+      - name: Install the deploy tool from its lockfile
+        working-directory: deploy
+        run: pnpm install --frozen-lockfile --ignore-workspace --ignore-scripts
       - name: Publish to Aleph IPFS
         id: publish
         env:
+          DEPLOY_TOOL: ${{ github.workspace }}/deploy/node_modules/@le-space/node/index.js
           ALEPH_VM_MODE: site-publish
           ALEPH_SITE_DIRECTORY: ${{ github.workspace }}/app/build
           ALEPH_SITE_PIN: 'true'
@@ -99,7 +165,7 @@ jobs:
           # Retry only a failed upload; a STORE that stays pending is not
           # helped by publishing it a second time.
           for attempt in 1 2 3; do
-            if node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())" 2> >(tee /tmp/publish-err.txt >&2); then
+            if node --input-type=module -e "import(process.env.DEPLOY_TOOL).then((m) => m.runSiteMode())" 2> >(tee /tmp/publish-err.txt >&2); then
               exit 0
             fi
             if grep -q 'stayed pending after the wait window' /tmp/publish-err.txt; then
@@ -121,17 +187,27 @@ jobs:
           exit 1
 
   link-domain:
-    needs: publish
+    needs: [tag, publish]
     # A release moves the domain; a manual run only when asked.
     if: github.event_name == 'release' || inputs.link_domain
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: write # the CID goes onto the release
     steps:
-      - name: Install isolated Aleph deploy tooling
-        run: npm install --prefix /tmp/le-space-deployer @le-space/node@0.12.7
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: refs/tags/${{ needs.tag.outputs.tag }}
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22.x'
+      - name: Install the deploy tool from its lockfile
+        working-directory: deploy
+        run: pnpm install --frozen-lockfile --ignore-workspace --ignore-scripts
       - name: Link the custom domain
         env:
+          DEPLOY_TOOL: ${{ github.workspace }}/deploy/node_modules/@le-space/node/index.js
           ALEPH_VM_MODE: site-domain-link
           ALEPH_SITE_ITEM_HASH: ${{ needs.publish.outputs.item_hash }}
           ALEPH_SITE_IPFS_CID: ${{ needs.publish.outputs.cid }}
@@ -142,18 +218,17 @@ jobs:
           # from a path gateway (https://ipfs.aleph.sh/ipfs/<cid>/).
           ALEPH_SITE_DOMAIN_CATCH_ALL_PATH: /200.html
           ALEPH_PRIVATE_KEY: ${{ secrets.ALEPH_PRIVATE_KEY }}
-        run: node --input-type=module -e "import('/tmp/le-space-deployer/node_modules/@le-space/node/index.js').then((m) => m.runSiteMode())"
+        run: node --input-type=module -e "import(process.env.DEPLOY_TOOL).then((m) => m.runSiteMode())"
       - name: Summary
         run: |
           echo "**Live:** https://${SITE_DOMAIN}" >> "$GITHUB_STEP_SUMMARY"
           echo "CID: ${{ needs.publish.outputs.cid }}" >> "$GITHUB_STEP_SUMMARY"
       - name: Note the CID on the release
         # The run's summary dies with the run; the release is the record that
-        # stays. A hand run has no release to write to.
-        if: github.event_name == 'release' || inputs.ref != ''
+        # stays.
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name || inputs.ref }}
+          TAG: ${{ needs.tag.outputs.tag }}
           CID: ${{ needs.publish.outputs.cid }}
         run: |
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body > notes.md

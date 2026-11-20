@@ -31,7 +31,7 @@ jobs:
     outputs:
       bridge: ${{ steps.needs.outputs.bridge }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           # A pull request's checkout is its merge commit: HEAD^1 is the base.
           fetch-depth: 2
@@ -55,9 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
           cache: pnpm
@@ -82,6 +82,10 @@ jobs:
       # release.yml's steps run only at a release: check their shell here.
       - name: Workflow shell syntax
         run: ruby scripts/check-workflow-shell.rb
+      # The deploy chain (#534): every action pinned to a commit, nothing
+      # installed outside a lockfile, a deploy only from a release tag.
+      - name: Workflow pins
+        run: node --test scripts/workflow-pins.test.mjs
       - name: Tests
         run: pnpm run test:bridge
       # The hosted bridge's launcher (bridge/tee/launcher, #696).
@@ -98,10 +102,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
       - name: Round trip through the real Credential Manager
         run: node --test --test-reporter=spec bridge/test/windows-keychain.real.test.js
-
