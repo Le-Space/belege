@@ -203,7 +203,7 @@ Einträge behalten ihre IDs, Verknüpfungen und Zeiten. Belegdateien werden mit 
 
 ## Was hinausgeht
 
-![Wo das Geheimnis sitzt: Passkey, HKDF und Datenschlüssel bleiben auf dem Gerät; Belegdateien und das OrbitDB-Log liegen dort verschlüsselt; über die Gerätegrenze geht nur Chiffretext zu eigenen Geräten, eingeladenen Peers und ins Backup](media/belege-schichten.png)
+![Wo das Geheimnis sitzt: Passkey, HKDF und Datenschlüssel bleiben auf dem Gerät; Belegdateien und das OrbitDB-Log liegen dort verschlüsselt; über die Gerätegrenze geht nur Chiffretext zu eigenen Geräten, eingeladenen Peers und ins Backup](media/belege-schichten.svg)
 
 _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffretext. Der Datenschlüssel wird aus dem Passkey abgeleitet und existiert nirgends sonst — wie ein privater SSH-Schlüssel._
 
