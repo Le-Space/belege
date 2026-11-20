@@ -41,6 +41,19 @@ export const USAGE_NOTE =
 	'Kein Dokument eines Kreditinstituts und keine Rechnung von Aleph. Verbrauch je Tag und Ressource; Euro-Wert: USD-Preis je Credit ' +
 	'(letzter Kauf am oder vor dem Tag, sonst Alephs Listenpreis von 1 USD je 1.000.000 Credits) zum EZB-Referenzkurs des Tages.';
 
+/** Filecoin Pay: a payer's balance in the payment contract, as a monthly Verbrauchsauszug. */
+export const FILECOIN_PAY_USAGE_NOTE =
+	'Verbrauchsauszug eines Guthabens im Zahlungsvertrag Filecoin Pay (Filecoin Onchain Cloud), erstellt vom Zahler aus öffentlichen Chain-Daten. ' +
+	'Kein Dokument eines Kreditinstituts und keine Rechnung eines Speicheranbieters. Verbrauch ist jede Abrechnung einer Rail an ihren Anbieter; ' +
+	'sie bezahlt bis zu dem Zeitpunkt, den sie nennt, und deckt darum nicht genau den Monat. Gelesen wird nur USDFC; was der Zahler selbst über Rails einnimmt, fehlt. ' +
+	'Euro-Wert: USDFC ist an den US-Dollar gebunden und wird zum Tageskurs von USDC bewertet.';
+
+/** The chains whose statement is a Verbrauchsauszug (consumption from a prepaid balance), with its note. */
+export const USAGE_NOTES = /** @type {Record<string, string>} */ ({
+	aleph: USAGE_NOTE,
+	'filecoin-pay': FILECOIN_PAY_USAGE_NOTE
+});
+
 export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
@@ -59,10 +72,10 @@ export const STATEMENT_NOTE =
  * @property {string} eur signed EUR value at the day's rate, or ''
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
- * @property {boolean} usage consumption billed from the balance (Aleph credits)
+ * @property {boolean} usage consumption billed from the balance (Aleph credits, a Filecoin Pay settlement)
  * @property {boolean} purchase credits bought from Aleph (the payment is on another chain, with its own Eigenbeleg)
  * @property {string} label the counterparty's label alone (the resource's name, for usage)
- * @property {string} hashLabel what the hash is: `Tx`, or `Ressource` for usage
+ * @property {string} hashLabel what the hash is: `Tx`, or `Ressource` for Aleph's usage
  */
 
 /**
@@ -166,7 +179,8 @@ export function buildStatement({
 			rows.push({
 				date: e.date,
 				time: e.time.slice(11, 19),
-				text: `${kindText(e)}${e.type === 'received' ? ' (Eingang)' : ''}`,
+				// Filecoin Pay: up to when a settlement paid its rail (the entry's memo).
+				text: `${kindText(e)}${e.type === 'received' ? ' (Eingang)' : ''}${e.chain === 'filecoin-pay' && e.kind === 'usage' && e.memo ? `, ${e.memo}` : ''}`,
 				counterparty: e.counterpartyLabel
 					? `${e.counterpartyLabel} · ${e.counterparty}`
 					: e.counterparty,
@@ -181,7 +195,8 @@ export function buildStatement({
 				usage: e.kind === 'usage',
 				purchase: e.type === 'received' && e.counterparty === 'aleph',
 				label: e.counterpartyLabel,
-				hashLabel: e.kind === 'usage' ? 'Ressource' : 'Tx'
+				// Aleph's usage names a resource; a Filecoin Pay settlement is a transaction.
+				hashLabel: e.kind === 'usage' && e.chain === 'aleph' ? 'Ressource' : 'Tx'
 			});
 		}
 		const debit = sum(rows.map((r) => r.debit || '0'));
@@ -207,8 +222,8 @@ export function buildStatement({
 			unvalued: rows.filter((r) => !r.eur).length
 		};
 	});
-	// Aleph credits: a monthly usage statement, laid out as the Kontoauszug.
-	const usage = chain === 'aleph';
+	// Aleph credits, Filecoin Pay: a monthly usage statement, laid out as the Kontoauszug.
+	const usage = Object.hasOwn(USAGE_NOTES, chain);
 	return {
 		kind: 'kontoauszug',
 		title: usage ? 'Verbrauchsauszug' : 'Kontoauszug',
@@ -225,7 +240,7 @@ export function buildStatement({
 		at,
 		sections,
 		unlisted: mine.filter((e) => !e.priceAs && !assets.includes(e.asset)).length,
-		note: usage ? USAGE_NOTE : STATEMENT_NOTE
+		note: usage ? USAGE_NOTES[chain] : STATEMENT_NOTE
 	};
 }
 

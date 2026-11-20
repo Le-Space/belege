@@ -7,8 +7,18 @@ import { extractText, getDocumentProxy } from 'unpdf';
 import { pdfaStructure } from '@le-space/pdf/testing/pdfa-structure';
 
 import {
+	FILECOIN_PAY,
+	createFilecoinPayClient,
+	filecoinPayEntries
+} from '@le-space/chains/filecoin-pay';
+import { filecoinPayFetch } from '@le-space/chains/testing/filecoin-pay';
+
+import {
 	ALEPH_NOTE,
+	FILECOIN_PAY_USAGE_NOTE,
 	USAGE_NOTE,
+	fixedRates,
+	valueEntries,
 	buildStatement,
 	eigenbelegCsv,
 	eigenbelegPdf,
@@ -238,4 +248,104 @@ test('the statement layout: head, fields, a table whose header repeats, page num
 	assert.equal(s.xmp.creator, 'Wolkenfabrik Hosting GmbH', 'the issuer from the head');
 	assert.equal(s.xmp.title, 'Eigenbeleg EB-2026-003 – Aleph-Verbrauch 2026-08');
 	assert.deepEqual(await sheet(), bytes);
+});
+
+test('Filecoin Pay: a Verbrauchsauszug of the balance in the contract, each settlement a row, by rail in sums', async () => {
+	const PAYER = `0x${'1a'.repeat(20)}`;
+	const PROVIDER = `0x${'a1'.repeat(20)}`;
+	const USDFC = FILECOIN_PAY.token.contract;
+	const WARM = Object.keys(FILECOIN_PAY.services)[0];
+	const client = createFilecoinPayClient({
+		fetch: filecoinPayFetch({
+			contract: FILECOIN_PAY.contract,
+			token: USDFC,
+			funds: { [PAYER]: '7.3' },
+			events: [
+				{ at: '2026-07-01T10:00:00Z', deposit: '10', token: USDFC, from: PAYER, to: PAYER },
+				{
+					at: '2026-07-01T10:05:00Z',
+					rail: 7,
+					payer: PAYER,
+					payee: PROVIDER,
+					token: USDFC,
+					operator: WARM
+				},
+				{
+					at: '2026-08-03T09:00:00Z',
+					settled: '1.2',
+					railId: 7,
+					toPayee: '1.19',
+					commission: '0',
+					fee: '0.01',
+					upTo: '2026-08-03T00:00:00Z'
+				},
+				{ at: '2026-08-22T12:00:00Z', oneTime: '0.5', railId: 7 },
+				{ at: '2026-08-28T12:00:00Z', withdraw: '1', token: USDFC, from: PAYER, to: PAYER }
+			]
+		}),
+		sleep: async () => {},
+		pauseMs: 0,
+		now: () => new Date('2026-09-10T00:00:00Z')
+	});
+	const month = await client.statement({ address: PAYER, month: '2026-08' });
+	// Priced as a dollar stablecoin: 0.9 EUR per USDC on every day.
+	const entries = await valueEntries(filecoinPayEntries(month), fixedRates({ USDC: '0.9' }));
+	const st = buildStatement({
+		payer,
+		account: PAYER,
+		chain: 'filecoin-pay',
+		network: 'mainnet',
+		period: { from: '2026-08-01', to: '2026-08-31' },
+		entries,
+		opening: { USDFC: month.opening },
+		closing: { USDFC: month.closing },
+		method: 'derived',
+		number: 'VA-2026-08-01',
+		issuedAt: '2026-09-10T08:00:00.000Z'
+	});
+	assert.equal(st.title, 'Verbrauchsauszug');
+	assert.equal(st.note, FILECOIN_PAY_USAGE_NOTE);
+	assert.equal(st.chainName, 'Filecoin Pay');
+	const [s] = st.sections;
+	assert.deepEqual([s.asset, s.opening, s.closing, s.difference], ['USDFC', '10', '7.3', '0']);
+	assert.deepEqual(
+		s.rows.map((r) => [r.usage, r.hashLabel, r.debit, r.text]),
+		[
+			[true, 'Tx', '1.2', 'Verbrauch (aus Guthaben abgerechnet), bezahlt bis 2026-08-03'],
+			[true, 'Tx', '0.5', 'Verbrauch (aus Guthaben abgerechnet), Einmalzahlung'],
+			[false, 'Tx', '1', 'Überweisung']
+		]
+	);
+	// 1.7 USDFC × 0.9.
+	assert.equal(s.eurUsage, '1.53');
+	assert.deepEqual(
+		[s.monthly.usage.map((l) => [l.label, l.amount, l.eur, l.rows]), s.monthly.usageTotal?.amount],
+		[[['Verbrauch Filecoin Warm Storage (Rail 7)', '1.7', '1.53', 2]], '1.7']
+	);
+	assert.equal(s.monthly.transfersOut?.amount, '1');
+	const bytes = await statementPdf(st);
+	const text = (await pages(bytes)).join('\n').replace(/\s+/g, ' ');
+	for (const expected of [
+		'Verbrauchsauszug',
+		'Auszug-Nr. VA-2026-08-01',
+		'Filecoin Pay (mainnet)',
+		'Monatsübersicht',
+		'Verbrauch Filecoin Warm Storage (Rail 7)',
+		'bezahlt bis 2026-08-03',
+		'davon Verbrauch (Aufwand) 1,53 €',
+		'der Zahlungsvertrag nennt nur den heutigen Stand',
+		'Daten: Index von Filecoin Pay (Goldsky), Blockscout, Filfox'
+	])
+		assert.ok(text.includes(expected), expected);
+	assert.deepEqual(pdfaStructure(bytes).pdfaid, { part: '2', conformance: 'B' });
+	// A settlement is no payment to put on an Eigenbeleg: it stands in the Verbrauchsauszug.
+	const doc = buildDocument({
+		payer: { ...payer, addresses: [PAYER] },
+		chain: 'filecoin-pay',
+		network: 'mainnet',
+		period: { from: '2026-08-01', to: '2026-08-31' },
+		entries
+	});
+	assert.equal(doc.positions.length, 0);
+	assert.match(eigenbelegCsv(doc), /Verbrauch aus Guthaben: steht im Verbrauchsauszug/);
 });

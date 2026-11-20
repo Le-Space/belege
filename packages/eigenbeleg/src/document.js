@@ -93,6 +93,7 @@ export const CHAIN_NAMES = {
 	akash: 'Akash',
 	filecoin: 'Filecoin',
 	aleph: 'Aleph Cloud (Credits)',
+	'filecoin-pay': 'Filecoin Pay',
 	ethereum: 'Ethereum',
 	base: 'Base'
 };
@@ -107,6 +108,7 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
 	filecoin: 'Filfox',
 	akash: 'Akash-RPC, Akash Console',
 	aleph: 'Aleph-API (api2.aleph.im)',
+	'filecoin-pay': 'Index von Filecoin Pay (Goldsky), Blockscout, Filfox',
 	ethereum: 'Alchemy APIs (Ethereum Mainnet)',
 	base: 'Alchemy APIs (Base Mainnet)'
 });
