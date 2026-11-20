@@ -147,6 +147,17 @@ export function invert(rate) {
 /** `2026-09-01` → `01-09-2026` (CoinGecko's date format) */
 const ddmmyyyy = (/** @type {string} */ day) => day.split('-').reverse().join('-');
 
+/** A day, `n` days later (earlier for a negative `n`). */
+const addDays = (/** @type {string} */ day, /** @type {number} */ n) =>
+	new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+
+/** How far back from a day its ECB rate may lie (weekends, holidays). */
+const ECB_LOOKBACK_DAYS = 7;
+/** How many days before and after a day one ECB request reads. */
+const ECB_WINDOW_DAYS = 45;
+/** How many such windows are kept per currency. */
+const ECB_WINDOWS_KEPT = 8;
+
 /** @param {string} day */
 const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
 
@@ -189,6 +200,8 @@ export function createRateService({
 	const cache = new Map();
 	/** @type {Map<string, string | null>} `<platform>:<contract>` → CoinGecko coin id */
 	const ids = new Map();
+	/** @type {Map<string, { from: string, days: { date: string, perEur: string }[] }[]>} currency → the ECB windows read */
+	const ecbWindows = new Map();
 
 	/**
 	 * @param {string} url
@@ -404,33 +417,65 @@ export function createRateService({
 	}
 
 	/**
+	 * The ECB's reference rates of a currency in a window of days, or null when
+	 * the ECB did not answer with a series.
+	 *
+	 * @param {string} currency
+	 * @param {string} from YYYY-MM-DD
+	 * @param {string} to YYYY-MM-DD
+	 * @returns {Promise<{ date: string, perEur: string }[] | null>} newest first
+	 */
+	async function ecbWindow(currency, from, to) {
+		const body = await getJson(
+			`https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A?startPeriod=${from}&endPeriod=${to}&format=jsondata`
+		);
+		const series = body?.dataSets?.[0]?.series?.['0:0:0:0:0']?.observations;
+		const dates = body?.structure?.dimensions?.observation?.[0]?.values;
+		if (!series || !Array.isArray(dates)) return null;
+		/** @type {{ date: string, perEur: string }[]} */
+		const days = [];
+		for (const [index, obs] of Object.entries(series)) {
+			const date = dates[Number(index)]?.id;
+			const value = toDecimal(/** @type {any} */ (obs)?.[0]);
+			if (typeof date === 'string' && value) days.push({ date, perEur: value });
+		}
+		return days.sort((a, b) => (a.date < b.date ? 1 : -1));
+	}
+
+	/**
 	 * EUR per unit of a currency from the ECB reference rate of the day or the
 	 * last one before it.
+	 *
+	 * One request reads the weeks around the day, and the days near it are
+	 * answered from that: a month of daily rates is one request, not thirty.
+	 * A window answers a day only when it reaches a week back from it and holds
+	 * a rate of that day or a later one – then the ECB has published everything
+	 * up to the day, and a published reference rate does not change. The newest
+	 * days, which may still get a rate of their own, are asked for each time.
 	 *
 	 * @param {string} currency
 	 * @param {string} day
 	 */
 	async function fromEcb(currency, day) {
-		const start = new Date(Date.parse(`${day}T00:00:00Z`) - 7 * 86400_000)
-			.toISOString()
-			.slice(0, 10);
-		const body = await getJson(
-			`https://data-api.ecb.europa.eu/service/data/EXR/D.${currency}.EUR.SP00.A?startPeriod=${start}&endPeriod=${day}&format=jsondata`
-		);
-		const series = body?.dataSets?.[0]?.series?.['0:0:0:0:0']?.observations;
-		const dates = body?.structure?.dimensions?.observation?.[0]?.values;
-		if (!series || !Array.isArray(dates)) return null;
-		/** @type {{ date: string, usdPerEur: string }[]} */
-		const days = [];
-		for (const [index, obs] of Object.entries(series)) {
-			const date = dates[Number(index)]?.id;
-			const value = toDecimal(/** @type {any} */ (obs)?.[0]);
-			if (typeof date === 'string' && date <= day && value) days.push({ date, usdPerEur: value });
+		const start = addDays(day, -ECB_LOOKBACK_DAYS);
+		let windows = ecbWindows.get(currency);
+		let days = windows?.find((w) => w.from <= start && w.days[0]?.date >= day)?.days;
+		if (!days) {
+			const today = now().toISOString().slice(0, 10);
+			const from = addDays(day, -ECB_WINDOW_DAYS);
+			const ahead = addDays(day, ECB_WINDOW_DAYS);
+			const to = ahead < today ? ahead : day > today ? day : today;
+			const fetched = await ecbWindow(currency, from, to);
+			if (!fetched) return null;
+			days = fetched;
+			if (!windows) ecbWindows.set(currency, (windows = []));
+			if (windows.length >= ECB_WINDOWS_KEPT) windows.shift();
+			windows.push({ from, days });
 		}
-		const last = days.sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+		const last = days.find((d) => d.date <= day && d.date >= start);
 		if (!last) return null;
 		return {
-			rate: invert(last.usdPerEur),
+			rate: invert(last.perEur),
 			usdRate: currency === 'USD' ? '1' : null,
 			source: 'ecb',
 			at: `${last.date}T00:00:00Z`
