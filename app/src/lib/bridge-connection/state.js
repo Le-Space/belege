@@ -96,10 +96,14 @@ function computer(f) {
 function aleph(f) {
 	const vm = f.aleph?.vm ?? null;
 	const kept = f.aleph?.kept ?? null;
+	// Its node proved on this connection: it answers, whatever the records say
+	// (a page may not have read them yet).
+	if (f.streamUp) return reachable('stream-sync');
+	// An own desktop shares its bridge and answered for this device (#142).
+	if (f.deviceUp) return reachable('device');
 	if (vm?.stoppedAt) return silent('vm-stopped');
 	if (!kept || (vm && kept.instance !== vm.instance))
 		return silent(vm ? 'vm-locked' : 'vm-stopped');
-	if (f.streamUp) return reachable('stream-sync');
 	// What the VM says about its own start outranks this device's clock.
 	const hint = hostedStartHint(f.aleph?.start ?? null);
 	if (hint === 'starting') return starting('vm-boot');
@@ -114,8 +118,10 @@ function aleph(f) {
 
 /** @param {ConnectionFacts} f */
 function near(f) {
-	if (!f.near?.running) return f.near?.pending ? starting('vm-boot') : silent('vm-stopped');
+	// As on Aleph: a proved node answers, before the contract was asked.
 	if (f.streamUp) return reachable('stream-sync');
+	if (f.deviceUp) return reachable('device');
+	if (!f.near?.running) return f.near?.pending ? starting('vm-boot') : silent('vm-stopped');
 	return awaitedNode(f);
 }
 

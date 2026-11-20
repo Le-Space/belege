@@ -15,12 +15,8 @@
 	import { bridge, bridgeClient, bridgePaired, checkBridge } from './bridge-state.svelte.js';
 	import { llmAttested } from './bridge-status.js';
 	import { ollamaHelp, providerText } from './llm-provider.js';
-	import {
-		booksExpectedBridge,
-		hostedBridgeAnswers,
-		loadAleph,
-		loadHostedPeers
-	} from './hosted-status.svelte.js';
+	import { booksExpectedBridge, hostedBridgeAnswers } from '$lib/bridge-connection/state.svelte.js';
+	import { loadAleph, loadHostedPeers } from './hosted-status.svelte.js';
 
 	/** @type {Awaited<ReturnType<ReturnType<typeof bridgeClient>['llmStatus']>> | null} */
 	let llmStatus = $state(null);

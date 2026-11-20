@@ -167,6 +167,16 @@ describe('connectionOf', () => {
 			expect(of({ ...hosted, streamUp: true })).toBe('aleph:reachable:stream-sync');
 		});
 
+		it('its node proved before this page read the records: it answers all the same', () => {
+			expect(of({ ...hosted, aleph: { vm: null, kept: null }, streamUp: true })).toBe(
+				'aleph:reachable:stream-sync'
+			);
+		});
+
+		it('an own desktop’s bridge answered for this device', () => {
+			expect(of({ ...hosted, deviceUp: true })).toBe('aleph:reachable:device');
+		});
+
 		it('never "is pnpm bridge running", whatever HTTP on this machine says', () => {
 			expect(of({ ...hosted, health: 'offline' })).toBe('aleph:starting:vm-boot');
 			expect(of({ ...hosted, health: 'online', node: armed })).toBe('aleph:starting:vm-boot');
@@ -240,6 +250,16 @@ describe('connectionOf', () => {
 		it('running and proved', () => {
 			expect(of({ ...near, near: { running: true }, streamUp: true })).toBe(
 				'near:reachable:stream-sync'
+			);
+		});
+
+		it('proved before the contract was asked: it answers all the same', () => {
+			expect(of({ ...near, streamUp: true })).toBe('near:reachable:stream-sync');
+		});
+
+		it('an own desktop’s bridge answered for this device', () => {
+			expect(of({ ...near, near: { running: true }, deviceUp: true })).toBe(
+				'near:reachable:device'
 			);
 		});
 

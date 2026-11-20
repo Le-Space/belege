@@ -27,7 +27,8 @@
 	import IntegrationHelp from '$lib/help/IntegrationHelp.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
-	import { hostedBridgeAnswers, loadHostedPeers } from '$lib/integrations/hosted-status.svelte.js';
+	import { hostedBridgeAnswers } from '$lib/bridge-connection/state.svelte.js';
+	import { loadHostedPeers } from '$lib/integrations/hosted-status.svelte.js';
 
 	const KNOWN = [
 		'bridge',
