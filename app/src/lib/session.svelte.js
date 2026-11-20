@@ -6,16 +6,29 @@ import {
 	restorePasskeyCredential
 } from './passkey-identity.js';
 import { getSetting, setSetting } from './store/settings.js';
-import { readBridgeRecord } from './bridge-connection/record.js';
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
 import { t } from './i18n/index.js';
 import { requestPersistence } from './storage/safety.js';
 import {
+	applyStoredMode,
+	bindSession as bindNetwork,
+	forgetLanRelayAsked,
+	startUcepIfPaired
+} from './session/network.js';
+import {
+	bindSession as bindDevices,
+	currentDeviceSync,
+	currentFilePrefetch,
+	deviceLabel,
+	startDeviceSyncIfOn,
+	stopFilePrefetch,
+	watchQrConnections,
+	watchSync
+} from './session/devices.js';
+import {
 	bindSession as bindLocalBridge,
 	currentBridgeConsumer,
-	loadBridgeAuth,
-	startBridgeForDevices,
 	startLoopbackBridge
 } from './bridge-connection/local.js';
 import {
@@ -198,346 +211,6 @@ export const app = $state({
 	}
 });
 
-/** @type {{ node: any, consumer: any, relays: string[] } | null} */
-let ucep = null;
-
-/** The running consumer and its relays, for the pairing card and the Eigenbeleg form. */
-export function currentUcep() {
-	return ucep;
-}
-
-/** Only when a paired app exists; see `startUcep`. */
-async function startUcepIfPaired() {
-	if (!session || readOnly()) return;
-	if (networkPause()) return;
-	const { pairedApp } = await import('./ucep/consumer.js');
-	if (await pairedApp(session.store.settings)) await startUcep();
-}
-
-/**
- * Take UCEP offline again: after unpairing, Belege has no reason to keep a
- * connection to the relay (the consent screen promises as much).
- */
-export async function stopUcep() {
-	const running = ucep;
-	ucep = null;
-	app.ucep.status = 'off';
-	app.ucep.peerId = null;
-	if (!running) return;
-	await running.consumer.stop?.().catch(() => {});
-	await running.node.stop().catch(() => {});
-}
-
-// The header's network menu (issue: switch the network off from the badge).
-// Device sync runs on the books' own libp2p node, which cannot stop without
-// closing the books: its connection gater is shut instead
-// (sync/device-sync.js `setSyncGateClosed`) and every connection hung up.
-// The invoicing app has a node of its own, stopped and started as it is.
-
-/** Shut or open the sync node's gate: shut while paused or device sync is off. */
-async function applySyncGate() {
-	const { deviceSyncOn, setSyncGateClosed } = await import('./sync/device-sync.js');
-	const closed = Boolean(networkPause()) || !deviceSyncOn();
-	setSyncGateClosed(closed);
-	return closed;
-}
-
-function hangUpSync() {
-	for (const c of session?.libp2p?.getConnections?.() ?? []) {
-		c.close().catch(() => {});
-	}
-}
-
-async function redialRelays() {
-	if (!session?.libp2p || !session.relays?.length) return;
-	const { multiaddr } = await import('@multiformats/multiaddr');
-	for (const relay of session.relays) {
-		session.libp2p.dial(multiaddr(relay)).catch(() => {});
-	}
-}
-
-/** "Alles pausieren": nothing online, now and at the next unlock, until resumed. */
-export async function pauseNetwork() {
-	const { setNetworkPause } = await import('./network-pause.js');
-	setNetworkPause({ ucep: app.ucep.status === 'running' || app.ucep.status === 'starting' });
-	app.network.paused = true;
-	await applySyncGate();
-	hangUpSync();
-	await stopUcep();
-}
-
-/** "Fortsetzen": what was on goes online again – at once where the node can. */
-export async function resumeNetwork() {
-	const { setNetworkPause } = await import('./network-pause.js');
-	const pause = networkPause();
-	setNetworkPause(null);
-	app.network.paused = false;
-	const closed = await applySyncGate();
-	const { deviceSyncOn } = await import('./sync/device-sync.js');
-	if (!closed && session?.online) await redialRelays();
-	if (!closed) filePrefetch?.retryAll();
-	// Paused at unlock: the node has no transports; going online takes a new unlock.
-	app.network.reloadNeeded = deviceSyncOn() && !session?.online;
-	if (pause?.ucep) await startUcep();
-}
-
-/**
- * "Eigene Geräte" on or off, in the menu and in the consent screen alike
- * (#327). Off: now, and at the next unlock. On: at once when this session's
- * node went online at unlock, else from the next unlock (`reloadNeeded`).
- * Before an unlock only the choice is kept: the unlock applies it.
- *
- * @param {boolean} on
- */
-export async function setDevicesNetwork(on) {
-	const { setDeviceSync } = await import('./sync/device-sync.js');
-	setDeviceSync(on);
-	if (!session) return;
-	const closed = await applySyncGate();
-	if (!on) {
-		hangUpSync();
-		app.sync.online = false;
-		app.network.reloadNeeded = false;
-		return;
-	}
-	if (!closed && session?.online) {
-		app.sync.online = true;
-		await redialRelays();
-	} else {
-		app.network.reloadNeeded = true;
-	}
-}
-
-/**
- * The books' mode, when they name one: a newer choice from another device
- * becomes this browser's too, and applies at the next unlock.
- */
-async function applyStoredMode() {
-	if (!session) return;
-	const { NETWORK_MODE_SETTING, modeOfSetting, setNetworkModeMirror } = await import(
-		'./sync/network-mode.js'
-	);
-	// Two devices may choose at once: the newest choice counts.
-	const [newest] = (
-		await session.store.settings.list({ where: (r) => r.key === NETWORK_MODE_SETTING })
-	).sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
-	const stored = modeOfSetting(newest?.value);
-	if (stored) {
-		setNetworkModeMirror(stored);
-		app.network.modeWanted = stored;
-	}
-	await applyStoredLanRelay();
-}
-
-/** The own bridge's relay as the books know it, copied into this browser for the next unlock. */
-async function applyStoredLanRelay() {
-	if (!session) return;
-	const { LAN_RELAY_SETTING, isLanRelayAddr, lanRelayAddr, setLanRelayMirror } = await import(
-		'./sync/network-mode.js'
-	);
-	const addr = /** @type {any} */ (await getSetting(session.store.settings, LAN_RELAY_SETTING))
-		?.addr;
-	if (isLanRelayAddr(addr)) setLanRelayMirror(addr);
-	app.network.lanRelay = lanRelayAddr();
-	// Not awaited: the books open whatever the bridge answers.
-	learnLanRelay().catch(() => {});
-}
-
-/** The bridge token the relay's address was last asked with: once per pairing, not per change. */
-let lanRelayAskedWith = '';
-
-/**
- * Ask the paired bridge for its relay in the own network (bridge/src/lan-relay.js)
- * and keep a new address in the books, so every device learns it.
- */
-async function learnLanRelay() {
-	if (!session) return;
-	const saved = await readBridgeRecord(session.store.settings);
-	// A token over HTTP, or the bridge's node over the stream (#575).
-	const pairing = saved?.token ?? saved?.peerId ?? null;
-	if (!pairing || pairing === lanRelayAskedWith) return;
-	lanRelayAskedWith = pairing;
-	const client = await pairedClient();
-	const relay = await client?.lanRelay().catch(() => null);
-	const { LAN_RELAY_SETTING, isLanRelayAddr } = await import('./sync/network-mode.js');
-	if (!relay?.running || !isLanRelayAddr(relay.addr) || relay.addr === app.network.lanRelay) {
-		return;
-	}
-	const { setSetting } = await import('./store/settings.js');
-	await setSetting(session.store.settings, LAN_RELAY_SETTING, { addr: relay.addr });
-}
-
-/**
- * "Wo sich Geräte treffen" in the header menu: kept in the books, so every
- * device learns it, and in this browser; the node follows at the next unlock.
- *
- * @param {import('./sync/network-mode.js').NetworkMode} mode
- */
-export async function setNetworkMode(mode) {
-	const { NETWORK_MODE_SETTING, isNetworkMode, setNetworkModeMirror } = await import(
-		'./sync/network-mode.js'
-	);
-	if (!isNetworkMode(mode)) throw new Error(t('messages.sync.unknownMode', { mode }));
-	setNetworkModeMirror(mode);
-	app.network.modeWanted = mode;
-	if (session) {
-		const { setSetting } = await import('./store/settings.js');
-		await setSetting(session.store.settings, NETWORK_MODE_SETTING, { mode });
-	}
-}
-
-// "Ohne Relay, per QR" (sync/qr-link.js, #148). The device that shows the
-// invite reads the answer back and is connected; the one that answered learns
-// of the connection from the session. Either way the other device is added to
-// the books only once it proved the passkey on that connection (device-gate.js).
-
-/** How long a device connected by QR has to prove the passkey. */
-const QR_PROOF_MS = 30_000;
-
-/**
- * What a device added from the Geräte card may use at the bridge (#579): the
- * boxes ticked there; null: every scope, as before. Kept in the device's
- * record, and the bridge gives it to a device new to it.
- *
- * @type {string[] | null}
- */
-let newDeviceBridgeScopes = null;
-
-/** @param {string[] | null} scopes */
-export function setNewDeviceBridgeScopes(scopes) {
-	newDeviceBridgeScopes = scopes ? [...scopes] : null;
-}
-
-/**
- * A device added from the Geräte card, with what it may use at the bridge.
- *
- * @param {string} peerId
- * @param {string[] | null} scopes as ticked when the add began
- */
-const addOwnDevice = (peerId, scopes) =>
-	/** @type {NonNullable<typeof deviceSync>} */ (deviceSync).addDevice(peerId, '', {
-		bridgeScopes: scopes
-	});
-
-/**
- * @param {string} peerId
- * @param {string[] | null} [scopes] what it may use at the bridge, as ticked when the add began:
- *   the proof may take a while, and the card may change or close meanwhile
- */
-async function addWhenProved(peerId, scopes = newDeviceBridgeScopes) {
-	const gate = session?.deviceGate;
-	if (!gate) throw new Error(t('messages.sync.off'));
-	const until = Date.now() + QR_PROOF_MS;
-	// The first proof may run before the other side's muxer is ready: again, until it holds.
-	while (!gate.isProved(peerId)) {
-		if (Date.now() > until) {
-			const { qrSession } = await import('./sync/qr-link.js');
-			qrSession()?.forget(peerId);
-			throw new Error(t('messages.sync.notProved'));
-		}
-		await gate.proveTo(peerId);
-		if (!gate.isProved(peerId)) await new Promise((r) => setTimeout(r, 1000));
-	}
-	if (!deviceSync) throw new Error(t('messages.sync.off'));
-	await addOwnDevice(peerId, scopes);
-}
-
-/** Watch the QR session for the connections this device answered. */
-async function watchQrConnections() {
-	if (!session?.online || (session.mode !== 'qr' && session.mode !== 'both')) return;
-	const { qrSession } = await import('./sync/qr-link.js');
-	qrSession()?.addEventListener('connect', (/** @type {any} */ e) => {
-		if (e.detail?.direction !== 'inbound') return;
-		app.sync.error = null;
-		addWhenProved(String(e.detail.peerId)).catch((error) => {
-			app.sync.error = error instanceof Error ? error.message : String(error);
-		});
-	});
-}
-
-/** "Einladung zeigen": a signed invite for the other device to scan. */
-export async function qrInvite() {
-	const { qrSession } = await import('./sync/qr-link.js');
-	const qr = qrSession();
-	if (!qr) throw new Error(t('messages.sync.noQrSession'));
-	return qr.createOffer();
-}
-
-/**
- * A scanned code: an invite is answered (its answer returned, to show), an
- * answer to this device's invite connects, and the other device is added once
- * it proved the passkey.
- *
- * @param {string} text
- * @returns {Promise<{ answer: string } | { connected: string }>}
- */
-export async function qrScanned(text) {
-	const { qrSession, payloadKind, payloadPeer, qrPeers } = await import('./sync/qr-link.js');
-	const qr = qrSession();
-	if (!qr) throw new Error(t('messages.sync.noQrSession'));
-	const kind = await payloadKind(text);
-	if (kind !== 'offer' && kind !== 'answer') {
-		throw new Error(t('messages.sync.notQrCode'));
-	}
-	// Met in the room: a path in the own network ("Beides", sync/first-contact.js).
-	// Noted before the connection opens; dropped when the signature fails.
-	const peer = await payloadPeer(text);
-	if (peer) qrPeers.add(peer);
-	/** @type {string} */
-	let peerId;
-	try {
-		if (kind === 'offer') return { answer: await qr.acceptOffer(text.trim()) };
-		({ peerId } = await qr.acceptAnswer(text.trim()));
-	} catch (error) {
-		if (peer) qrPeers.delete(peer);
-		throw error;
-	}
-	await addWhenProved(peerId);
-	return { connected: peerId };
-}
-
-/** Read the paired app again, after pairing or unpairing. */
-export async function refreshUcep() {
-	if (!session) return;
-	const { pairedApp } = await import('./ucep/consumer.js');
-	app.ucep.app = await pairedApp(session.store.settings);
-}
-
-/**
- * Start UCEP: after unlocking only when Belege is paired (the relay sees our
- * IP address, and nobody who does not use UCEP should pay that), otherwise
- * when the person asks for it on the Integrationen card. In the background: an
- * unreachable relay must not keep anybody from their books.
- */
-export async function startUcep() {
-	if (!session || ucep) return;
-	app.ucep.status = 'starting';
-	app.ucep.error = null;
-	try {
-		const { startUcepNode, relayAddrs } = await import('./ucep/net.js');
-		const { createBelegeConsumer, forgetStoredCatalogue } = await import('./ucep/consumer.js');
-		// The Le-Space relays as Aleph knows them now (ucep/net.js); the ones
-		// device sync already found, when it is on.
-		const relays = session.relays?.length ? session.relays : await relayAddrs();
-		const node = await startUcepNode({ seed: session.ucepSeed, relays });
-		const consumer = createBelegeConsumer({
-			libp2p: node,
-			settings: session.store.settings,
-			label: 'Belege'
-		});
-		await consumer.start();
-		await forgetStoredCatalogue(session.store.settings).catch(() => 0);
-		ucep = { node, consumer, relays };
-		app.ucep.peerId = node.peerId.toString();
-		await refreshUcep();
-		app.ucep.status = 'running';
-	} catch (error) {
-		console.error('UCEP did not start:', error);
-		app.ucep.status = 'failed';
-		app.ucep.error = error instanceof Error ? error.message : String(error);
-	}
-}
-
 /** @type {Session | null} */
 let session = null;
 
@@ -656,163 +329,46 @@ export { checkFolderNow, dropPendingJob, extractAgain, resumeJob } from './sessi
 /** @type {(() => void) | null} */
 let stopFolderWatch = null;
 
-/** @type {Awaited<ReturnType<typeof import('./sync/device-sync.js').startDeviceSync>> | null} */
-let deviceSync = null;
-
-/** @type {ReturnType<typeof import('./sync/sync-log.js').createSyncLog> | null} */
-let syncLog = null;
-
-/**
- * The sync log and the data light (sync/sync-log.js): every entry a
- * collection takes, as written here or come by sync. Written here counts
- * only while device sync is on – then it goes to the others; what came is
- * attributed to the device its database last exchanged heads with (OrbitDB's
- * `join`), else to the one own device connected.
- */
-async function watchSync() {
-	if (!session) return;
-	const { createSyncLog, describeEntry } = await import('./sync/sync-log.js');
-	const { callsForRun, debounced } = await import('./matching/catch-up.js');
-	const catchUpSoon = debounced(() => runMatchingNow());
-	syncLog = createSyncLog(session.syncLogSealer);
-	app.sync.log = await syncLog.load();
-	app.sync.lastIn = {};
-	for (const line of [...app.sync.log].reverse()) {
-		if (line.direction === 'in' && line.peerId) app.sync.lastIn[line.peerId] = line.at;
+// The network (the invoicing app's node, the header's menu, where devices meet)
+// lives in session/network.js, the own devices (QR, device sync, the list) in
+// session/devices.js (#844); both read the session through what is handed to
+// them here.
+bindNetwork({
+	get session() {
+		return session;
+	},
+	app,
+	readOnly: () => readOnly(),
+	get filePrefetch() {
+		return currentFilePrefetch();
 	}
-	/** @type {Record<string, { peer: string, at: number }>} the last heads exchange, by collection */
-	const lastJoin = {};
-	const databases = session.store.databases();
-	const own = session.store;
-	for (const [name, db] of Object.entries(databases)) {
-		db.events?.on?.('join', (/** @type {unknown} */ peer) => {
-			lastJoin[name] = { peer: String(peer), at: Date.now() };
-		});
-		const collection = /** @type {any} */ (own)[name];
-		collection?.onEntry?.((/** @type {any} */ entry) => {
-			// After the write that made it has returned: only then is its hash known as ours.
-			setTimeout(() => {
-				const here = collection.wroteHere(entry.hash);
-				if (here && !app.sync.online) return;
-				const at = Date.now();
-				const connected = (app.sync.state?.devices ?? []).filter((d) => d.connected);
-				const joined = lastJoin[name];
-				const peerId = here
-					? null
-					: joined && at - joined.at < 120_000
-						? joined.peer
-						: connected.length === 1
-							? connected[0].peerId
-							: null;
-				/** @type {import('./sync/sync-log.js').SyncLine} */
-				const line = {
-					at,
-					direction: here ? 'out' : 'in',
-					collection: name,
-					peerId,
-					...describeEntry(name, entry)
-				};
-				app.sync.data = line;
-				if (!here && peerId) app.sync.lastIn = { ...app.sync.lastIn, [peerId]: at };
-				// What came may pair with what is here: one run once the burst is over (#473).
-				if (callsForRun(line)) catchUpSoon();
-				app.sync.log = /** @type {ReturnType<typeof createSyncLog>} */ (syncLog).add(line);
-			}, 50);
-		});
-	}
-}
-
-/** "Protokoll leeren": the sync log of this browser. */
-export async function clearSyncLog() {
-	await syncLog?.clear();
-	app.sync.log = [];
-}
-
-/** Device sync (#123): only when this device switched it on, so the node is online. */
-async function startDeviceSyncIfOn() {
-	app.sync.online = Boolean(session?.online);
-	if (!session?.online || deviceSync) return;
-	try {
-		const { startDeviceSync, deviceSyncSince, setDeviceSync, deviceSyncOn } = await import(
-			'./sync/device-sync.js'
-		);
-		// Before anyone is dialled: the books' bridge proves with its own key (#575).
-		await loadBridgeAuth().catch(() => {});
-		deviceSync = await startDeviceSync({
-			libp2p: session.libp2p,
-			store: session.store,
-			relays: session.relays,
-			label: deviceLabel(),
-			since: deviceSyncSince(),
-			onState: (state) => {
-				const before = ownDevicesConnected();
-				const directBefore = ownDevicesConnected({ direct: true });
-				app.sync.state = state;
-				// An own device came, or is reached directly now – where the books'
-				// Bitswap runs: what did not come before may come now.
-				if (ownDevicesConnected() > before || ownDevicesConnected({ direct: true }) > directBefore)
-					filePrefetch?.retryAll();
-			},
-			onPulse: (pulse) => {
-				app.sync.pulse = pulse;
-			},
-			gate: session.deviceGate ?? undefined,
-			onRemoved: () => {
-				setDeviceSync(false);
-				app.sync.removed = true;
-				app.sync.state = null;
-			}
-		});
-		startFilePrefetch(deviceSyncOn);
-		await startBridgeForDevices();
-	} catch (error) {
-		app.sync.error = error instanceof Error ? error.message : String(error);
-	}
-}
-
-/**
- * Own devices connected now – the books' bridge is none: it holds no books.
- * With `direct`, only those reached without a relay.
- *
- * @param {{ direct?: boolean }} [options]
- */
-export function ownDevicesConnected({ direct = false } = {}) {
-	return (app.sync.state?.devices ?? []).filter(
-		(d) => d.connected && !d.bridge && (!direct || d.direct)
-	).length;
-}
-
-/** @type {ReturnType<typeof import('./receipts/prefetch.js').createFilePrefetcher> | null} */
-let filePrefetch = null;
-
-/**
- * Receipt files to this device in the background (receipts/prefetch.js):
- * what the receipts name and this device lacks, from the own devices
- * connected – at once for what came while it was locked, then whenever a
- * receipt comes by sync or an own device connects. Never while paused.
- *
- * @param {() => boolean} deviceSyncOn
- */
-async function startFilePrefetch(deviceSyncOn) {
-	if (!session?.online || filePrefetch) return;
-	const { createFilePrefetcher } = await import('./receipts/prefetch.js');
-	const open = session;
-	filePrefetch = createFilePrefetcher({
-		blobs: open.blobs,
-		receipts: () => open.store.receipts.list(),
-		canFetch: () => !networkPause() && deviceSyncOn() && ownDevicesConnected() > 0,
-		onState: (state) => {
-			app.files = state;
-		}
-	});
-	open.store.receipts.onChange(() => filePrefetch?.kick());
-	filePrefetch.run().catch(() => {});
-}
-
-function stopFilePrefetch() {
-	filePrefetch?.stop();
-	filePrefetch = null;
-}
+});
+bindDevices({
+	get session() {
+		return session;
+	},
+	app
+});
+export {
+	currentUcep,
+	pauseNetwork,
+	refreshUcep,
+	resumeNetwork,
+	setDevicesNetwork,
+	setNetworkMode,
+	startUcep,
+	stopUcep
+} from './session/network.js';
+export {
+	addSyncDevice,
+	answerAskingDevice,
+	clearSyncLog,
+	ownDevicesConnected,
+	qrInvite,
+	qrScanned,
+	removeSyncDevice,
+	setNewDeviceBridgeScopes
+} from './session/devices.js';
 
 // The bridge on a computer lives in bridge-connection/local.js, the client for
 // the paired bridge in bridge-connection/paired-client.js (#844); both read the
@@ -823,7 +379,7 @@ bindLocalBridge({
 	},
 	app,
 	get deviceSync() {
-		return deviceSync;
+		return currentDeviceSync();
 	},
 	deviceLabel: () => deviceLabel()
 });
@@ -902,7 +458,7 @@ const hostedContext = {
 	},
 	app,
 	get deviceSync() {
-		return deviceSync;
+		return currentDeviceSync();
 	},
 	get bridgeConsumer() {
 		return currentBridgeConsumer();
@@ -966,7 +522,7 @@ async function members() {
 		},
 		app,
 		get deviceSync() {
-			return deviceSync;
+			return currentDeviceSync();
 		},
 		ownerVault: () => ownerVault()
 	});
@@ -996,79 +552,6 @@ export const cancelJoining = (...args) => membersModule?.cancelJoining(...args);
 
 /** The books are open to read only: a member in the role `reader` (#641). */
 export const readOnly = () => session?.member?.role === 'reader';
-
-/** How this device calls itself in the list: the browser and system, as it says. */
-function deviceLabel() {
-	try {
-		const ua = navigator.userAgent;
-		const system = /iPhone|iPad/.test(ua)
-			? 'iPhone/iPad'
-			: /Android/.test(ua)
-				? 'Android'
-				: /Mac OS X/.test(ua)
-					? 'Mac'
-					: /Windows/.test(ua)
-						? 'Windows'
-						: 'Linux';
-		const browser = /Edg\//.test(ua)
-			? 'Edge'
-			: /Firefox\//.test(ua)
-				? 'Firefox'
-				: /Chrome\//.test(ua)
-					? 'Chrome'
-					: /Safari\//.test(ua)
-						? 'Safari'
-						: 'Browser';
-		return t('messages.sync.deviceLabel', { browser, system });
-	} catch {
-		return 'Browser';
-	}
-}
-
-/**
- * "Gerät hinzufügen": the other device's id, as it shows it.
- *
- * @param {string} peerId
- */
-export async function addSyncDevice(peerId) {
-	if (!deviceSync) throw new Error(t('messages.sync.off'));
-	const id = peerId.trim();
-	const scopes = newDeviceBridgeScopes;
-	if (session?.mode !== 'both') return addOwnDevice(id, scopes);
-	// "Beides": a new device only over the own network – through the bridge's
-	// relay here, and into the books once it proved the passkey on that path.
-	const { lanRelayAddr } = await import('./sync/network-mode.js');
-	const relay = session.relays.find((r) => r === lanRelayAddr());
-	if (!relay) {
-		throw new Error(t('messages.sync.bothNeedsLocal'));
-	}
-	const { multiaddr } = await import('@multiformats/multiaddr');
-	await session.libp2p.dial(multiaddr(`${relay}/p2p-circuit/p2p/${id}`), {
-		signal: AbortSignal.timeout(15_000)
-	});
-	await addWhenProved(id, scopes);
-}
-
-/**
- * A device that proved the books' key but is not on their list (first-contact.js):
- * let in by the person – it goes on the list and is dialled – or turned away.
- *
- * @param {string} peerId
- * @param {boolean} letIn
- */
-export async function answerAskingDevice(peerId, letIn) {
-	if (!deviceSync) throw new Error(t('messages.sync.off'));
-	const { asking } = await import('./sync/device-sync.js');
-	asking.delete(peerId);
-	if (letIn) await addOwnDevice(peerId, newDeviceBridgeScopes);
-	else deviceSync.refresh();
-}
-
-/** "Entfernen" in Integrationen → Eigene Geräte. @param {string} peerId */
-export async function removeSyncDevice(peerId) {
-	if (!deviceSync) throw new Error(t('messages.sync.off'));
-	await deviceSync.removeDevice(peerId);
-}
 
 /**
  * @typedef {{ opened: import('./books-vault.js').OpenedVault, owner: string, label: string }} Recovered
@@ -1123,7 +606,7 @@ async function unlockWith(
 	app.network.reloadNeeded = false;
 	app.network.mode = session.mode;
 	app.network.modeWanted = session.mode;
-	lanRelayAskedWith = '';
+	forgetLanRelayAsked();
 	app.did = session.did;
 	for (const name of /** @type {const} */ ([
 		'transactions',
@@ -1451,6 +934,7 @@ async function takeOverAfterNewKeys() {
 async function dialAfterNewKeys() {
 	const { DIAL_STORAGE_KEY } = await import('./move/rekey.js');
 	const raw = globalThis.localStorage.getItem(DIAL_STORAGE_KEY);
+	const deviceSync = currentDeviceSync();
 	if (!raw || !deviceSync) return;
 	/** @type {unknown} */
 	let peers;
@@ -1782,7 +1266,7 @@ function installE2EHooks() {
 		fileHere: (/** @type {string} */ cid) => currentBlobs()?.has(cid) ?? false,
 		filesState: () => ({ missing: [...app.files.missing], fetching: [...app.files.fetching] }),
 		// Ask the prefetch to look now (receipts/prefetch.js), as unlock does.
-		filesCheck: () => filePrefetch?.run(),
+		filesCheck: () => currentFilePrefetch()?.run(),
 		// The matching over what a test put in (questions, own transfers).
 		runMatching: () => runMatchingNow(),
 		// A bank account as an import creates it (bank/import.js), for the export spec.
