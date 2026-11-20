@@ -10,7 +10,9 @@
  * @typedef {object} StatusFacts
  * @property {{ state: string, route?: string, paired: boolean, peerId?: string | null }} local
  *   the bridge as this device reaches it (bridge-state)
- * @property {{ vm?: any, kept?: any }} [aleph] the VM the books started and the one unlocked last
+ * @property {{ vm?: any, kept?: any, startHint?: 'starting' | 'nodeStuck' | 'noRelay' | null, notUp?: boolean }} [aleph]
+ *   the VM the books started and the one unlocked last; what the unlocked VM says about its own
+ *   start (hosted-start.js `hostedStartHint`), and whether it never came up (`hostedNotUp`)
  * @property {{ running: boolean, pending?: string | null, peerId?: string | null } | null} [near]
  */
 
@@ -61,9 +63,14 @@ export function bridgeStatusRows(f) {
 	const alephRow = alephUnlocked
 		? answering === 'aleph'
 			? { id: 'aleph', kind: 'ok', state: 'answers', answers: true }
-			: paired === 'aleph' && silent
-				? { id: 'aleph', kind: 'err', state: 'silent', answers: false }
-				: { id: 'aleph', kind: 'ok', state: 'unlocked', answers: false }
+			: // Unlocked is not up: the VM says its bridge is still starting, or it never came.
+				f.aleph?.startHint === 'starting'
+				? { id: 'aleph', kind: 'warn', state: 'starting', answers: false }
+				: f.aleph?.startHint || f.aleph?.notUp
+					? { id: 'aleph', kind: 'err', state: 'notUp', answers: false }
+					: paired === 'aleph' && silent
+						? { id: 'aleph', kind: 'err', state: 'silent', answers: false }
+						: { id: 'aleph', kind: 'ok', state: 'unlocked', answers: false }
 		: alephRunning
 			? { id: 'aleph', kind: 'warn', state: 'locked', answers: false }
 			: { id: 'aleph', kind: 'idle', state: vm ? 'stopped' : 'none', answers: false };

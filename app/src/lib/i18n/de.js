@@ -4824,6 +4824,8 @@ export default {
 					answers: 'entsperrt · vertraulich · antwortet',
 					unlocked: 'entsperrt · vertraulich',
 					silent: 'entsperrt, antwortet nicht',
+					starting: 'entsperrt · startet noch',
+					notUp: 'entsperrt, kam nicht hoch',
 					locked: 'läuft · noch gesperrt',
 					stopped: 'gestoppt',
 					none: 'keine VM'
@@ -4840,6 +4842,8 @@ export default {
 				locked: 'Passphrase des Images unten eingeben und entsperren.',
 				attested: 'zuletzt attestiert {date}',
 				stopped: 'seit {date}',
+				starting: 'Ihre Bridge startet noch; das dauert meist ein, zwei Minuten.',
+				notUp: 'Was fehlt, steht unten bei der gehosteten Bridge.',
 				localSilent: 'Läuft sie (pnpm bridge)?'
 			}
 		},
