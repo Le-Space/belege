@@ -14,11 +14,17 @@ import {
 import { passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
 import { llmFromStatus, redactionFromStatus } from './llm-redaction.js';
-import { classifyTransaction, cleanMatchingSettings } from './matching/classify.js';
-import { buildMatchingContext } from './matching/context.js';
-import { cleanChart } from './booking/chart.js';
+import { cleanMatchingSettings } from './matching/classify.js';
 import { t } from './i18n/index.js';
 import { requestPersistence } from './storage/safety.js';
+import {
+	bindSession as bindRefresh,
+	fillExchangeRates,
+	refresh,
+	runMatchingNow,
+	scheduleRefresh
+} from './session/refresh.js';
+import { bindSession as bindJobs, checkFolderNow } from './session/jobs.js';
 
 /** @typedef {import('./node.js').Session} Session */
 /** @typedef {import('./store/repository.js').StoredRecord} StoredRecord */
@@ -613,221 +619,33 @@ export async function restoreBackup(sealed, onProgress, chain) {
 	return session.restoreBackup(sealed, onProgress, chain);
 }
 
-/** @type {Promise<void> | null} the refresh running now */
-let refreshing = null;
-/** Whether something asked for a refresh while one was running. */
-let refreshAgain = false;
-
-/**
- * Read the lists again. One at a time: asked while one runs, it runs once
- * more after that one (so a caller that just wrote sees its write), instead
- * of a second full read side by side.
- *
- * @returns {Promise<void>}
- */
-function refresh() {
-	if (refreshing) {
-		refreshAgain = true;
-		return refreshing;
-	}
-	refreshing = (async () => {
-		do {
-			refreshAgain = false;
-			await readAll();
-		} while (refreshAgain && session);
-	})().finally(() => {
-		refreshing = null;
-	});
-	return refreshing;
-}
-
-async function readAll() {
-	if (!session) return;
-	const [
-		transactions,
-		receipts,
-		partners,
-		accounts,
-		matches,
-		questions,
-		events,
-		travel,
-		matchingSettings,
-		datevSettings,
-		chart,
-		alephSettings
-	] = await Promise.all([
-		session.store.transactions.list(),
-		session.store.receipts.list(),
-		session.store.partners.list(),
-		session.store.accounts.list(),
-		session.store.matches.list(),
-		session.store.questions.list(),
-		session.store.events.list(),
-		session.store.travel.list(),
-		getSetting(session.store.settings, 'matching'),
-		getSetting(session.store.settings, 'datev'),
-		getSetting(session.store.settings, 'chart'),
-		getSetting(session.store.settings, 'aleph')
-	]);
-	const ctx = await buildMatchingContext({
-		accounts,
-		transactions,
-		settings: matchingSettings,
-		partners,
-		alephPurchases: Array.isArray(alephSettings?.purchases) ? alephSettings.purchases : []
-	});
-	/** @type {Record<string, import('./matching/classify.js').Classification>} */
-	const classifications = {};
-	for (const tx of transactions) {
-		const c = classifyTransaction(tx, ctx);
-		if (c) classifications[tx.id] = c;
-	}
-	app.transactions = transactions;
-	app.receipts = receipts;
-	app.partners = partners;
-	app.accounts = accounts;
-	app.matches = matches;
-	app.questions = questions;
-	app.events = events;
-	app.travel = travel;
-	app.classifications = classifications;
-	app.matchingSettings = matchingSettings;
-	app.datevSettings = datevSettings;
-	app.chart = cleanChart(chart);
-}
-
-/** @type {Promise<unknown>} */
-let matchingQueue = Promise.resolve();
-
-/**
- * "Abgleich": receipts against transactions (matching/engine.js). Runs one at
- * a time; the lists are read again afterwards.
- *
- * @param {'manual' | 'auto'} [trigger] "Abgleich starten" is manual; after a sync, fetch or read it is auto
- * @returns {Promise<import('./matching/engine.js').MatchingResult | null>}
- */
-export function runMatchingNow(trigger = 'auto') {
-	const next = matchingQueue.then(async () => {
-		// A member who only reads (#641) writes no matches: the owner's devices do.
-		if (!session || readOnly()) return null;
-		app.matching = true;
-		app.matchingProgress = null;
-		try {
-			const { runMatching } = await import('./matching/engine.js');
-			const result = await runMatching({
-				store: session.store,
-				trigger,
-				onProgress: (p) => (app.matchingProgress = p)
-			});
-			// New network fees take the account the person set for all of them (#305).
-			const { applyFeeRule } = await import('./booking/fee-rule.js');
-			await applyFeeRule(/** @type {any} */ (session.store));
-			return result;
-		} catch (error) {
-			console.error('matching failed:', error);
-			return null;
-		} finally {
-			app.matching = false;
-			app.matchingProgress = null;
-			await refresh();
-			// Links the run made may be to an invoice in another currency.
-			fillExchangeRates();
-			// The books as this run left them, for the catch-up after the next unlock (#473).
-			if (app.did) {
-				const { fingerprint, noteRun } = await import('./matching/catch-up.js');
-				noteRun(globalThis.localStorage, app.did, fingerprint(app));
-			}
-		}
-	});
-	matchingQueue = next;
-	return next;
-}
-
-/** Quiet this long after the last write, and the lists are read again. */
-export const REFRESH_QUIET_MS = 250;
-/** A long burst (an import, reading many receipts) still shows progress this often. */
-export const REFRESH_MAX_WAIT_MS = 2000;
-
-/** @type {ReturnType<typeof setTimeout> | null} */
-let refreshTimer = null;
-/** When the first write of the current burst came; 0 when none waits. */
-let burstStart = 0;
-/**
- * An import writes hundreds of records; the lists are read again once the
- * writes stop (REFRESH_QUIET_MS), and during a long burst at most every
- * REFRESH_MAX_WAIT_MS – not after every write: each read goes through all
- * the books (docs/performance.md). A matching run reads them itself when it
- * ends, so its writes schedule nothing.
- */
-function scheduleRefresh() {
-	if (app.matching) return;
-	const now = Date.now();
-	if (!burstStart) burstStart = now;
-	if (refreshTimer) clearTimeout(refreshTimer);
-	const wait = Math.max(0, Math.min(REFRESH_QUIET_MS, burstStart + REFRESH_MAX_WAIT_MS - now));
-	refreshTimer = setTimeout(() => {
-		refreshTimer = null;
-		burstStart = 0;
-		void refresh();
-	}, wait);
-}
-
-/** Read the lists again now (after an import, so its result shows at once). */
-export function refreshNow() {
-	return refresh();
-}
-
-/** @type {Promise<number>} */
-let fxQueue = Promise.resolve(0);
-
-/**
- * The ECB rate of the day for payments linked to an invoice in another
- * currency, where none is kept yet (matching/fx.js): so instalments in euros
- * – a bank transfer, a Monero payment valued in euros – count in the
- * invoice's currency. And for euro bookings that, at it, come near an open
- * receipt in another currency (#474), with matching run again for them.
- * Through the bridge; without one, nothing happens.
- * One run at a time; the books are read again when a rate came.
- *
- * @returns {Promise<number>} bookings that got a rate
- */
-export function fillExchangeRates() {
-	const next = fxQueue
-		.then(async () => {
-			if (!session || readOnly()) return 0;
-			const { fxGaps, fxCandidateGaps, fillFx } = await import('./matching/fx.js');
-			const books = {
-				receipts: app.receipts,
-				matches: app.matches,
-				transactions: app.transactions
-			};
-			const linked = fxGaps(books);
-			const candidates = fxCandidateGaps(books);
-			if (!linked.length && !candidates.length) return 0;
-			const client = await pairedClient();
-			if (!client || !session) return 0;
-			const filled = await fillFx({
-				client,
-				transactions: session.store.transactions,
-				gaps: [...linked, ...candidates]
-			});
-			if (!filled) return 0;
-			await refresh();
-			// A booking that now comes near an open receipt in another currency
-			// may be its payment (#474): matching counts it on the next run.
-			const kept = (/** @type {any} */ g) =>
-				app.transactions.some((t) => t.id === g.tx.id && t.fx?.[g.currency]?.rate);
-			if (candidates.some(kept)) runMatchingNow();
-			return filled;
-		})
-		.catch((error) => {
-			console.error('exchange rates:', error);
-			return 0;
-		});
-	fxQueue = next;
-	return next;
-}
+// Reading the lists again, matching and the day's rates live in session/refresh.js,
+// what a click starts over the books in session/jobs.js (#844); both read the
+// session through what is handed to them here.
+bindRefresh({
+	get session() {
+		return session;
+	},
+	app,
+	readOnly: () => readOnly(),
+	pairedClient: () => pairedClient()
+});
+bindJobs({
+	get session() {
+		return session;
+	},
+	pairedClient: () => pairedClient(),
+	currentStore,
+	currentBlobs
+});
+export {
+	REFRESH_MAX_WAIT_MS,
+	REFRESH_QUIET_MS,
+	fillExchangeRates,
+	refreshNow,
+	runMatchingNow
+} from './session/refresh.js';
+export { checkFolderNow, dropPendingJob, extractAgain, resumeJob } from './session/jobs.js';
 
 /**
  * Ask the paired bridge whether it blacks out what goes to its model; never
@@ -854,117 +672,6 @@ export async function pairedClient() {
 	// The company's names are blacked out in whatever goes to the language model (#226).
 	setRedactTerms(() => cleanMatchingSettings(app.matchingSettings).companyNames);
 	return createBridgeClient({ url: saved.url, token: saved.token ?? null });
-}
-
-/**
- * "✦ Belege der Reise neu auslesen" (#693): receipts read before, once more,
- * on the app-wide queue (receipts/extract-queue.svelte.js), then matching.
- * Only on a click.
- *
- * @param {string[]} ids
- * @returns {Promise<'started' | 'noBridge' | 'busy'>}
- */
-export async function extractAgain(ids) {
-	if (!session) return 'noBridge';
-	const client = await pairedClient();
-	if (!client) return 'noBridge';
-	const { extractAll } = await import('./receipts/extract-queue.svelte.js');
-	const ctx = { client, store: currentStore, blobs: currentBlobs, refresh };
-	if (!(await extractAll(ctx, ids, { again: true }))) return 'busy';
-	await runMatchingNow();
-	return 'started';
-}
-
-/**
- * "Weitermachen" (Home): an AI run the page left behind (a reload, the books
- * locked) takes up the ids it had not done yet (jobs/pending.js). Only on a
- * click; nothing starts by itself after an unlock.
- *
- * @param {'extract' | 'suggest'} kind
- * @param {string[]} ids
- * @returns {Promise<boolean>} false without a paired bridge, or while a run goes
- */
-export async function resumeJob(kind, ids) {
-	if (!session) return false;
-	const client = await pairedClient();
-	if (!client) return false;
-	if (kind === 'extract') {
-		const { extractAll } = await import('./receipts/extract-queue.svelte.js');
-		const ctx = { client, store: currentStore, blobs: currentBlobs, refresh };
-		if (!(await extractAll(ctx, ids))) return false;
-		await runMatchingNow();
-		return true;
-	}
-	const { suggestAll } = await import('./matching/ai-suggest.svelte.js');
-	const ctx = { client, store: () => /** @type {any} */ (currentStore()), refresh };
-	const started = await suggestAll(ctx, ids);
-	await refresh();
-	return started;
-}
-
-/**
- * "Verwerfen" (Home): what a run left is forgotten.
- *
- * @param {'extract' | 'suggest'} kind
- */
-export async function dropPendingJob(kind) {
-	if (!session) return;
-	const { savePending } = await import('./jobs/pending.js');
-	await savePending(session.store.settings, kind, []);
-}
-
-/**
- * The shared folder, checked again (receipts/folder-watch.js): new files are
- * imported, read while "gleich auslesen" is on and a bridge is paired, and matched.
- *
- * @param {{ prompt?: boolean }} [options] `prompt` only from a click: asks for read permission
- * @returns {Promise<{ configured: boolean, permitted: boolean, created: number, counts: any, read?: number, waiting?: number, images?: number } | null>}
- */
-export async function checkFolderNow({ prompt = false } = {}) {
-	if (!session) return null;
-	const { savedFolder } = await import('./receipts/folder.js');
-	const handle = await savedFolder();
-	if (!handle) return { configured: false, permitted: false, created: 0, counts: null };
-	const { checkFolder } = await import('./receipts/folder-watch.js');
-	const store = session.store;
-	const blobs = session.blobs;
-	const r = await checkFolder({ store, blobs, handle, prompt });
-	/** @type {{ read: number, waiting: number, images: number }} */
-	let reading = { read: 0, waiting: 0, images: 0 };
-	if (r.created.length) {
-		// Read with the model only while "gleich auslesen" is on, as an upload is (#475).
-		const { getSetting } = await import('./store/settings.js');
-		const readAfter = (await getSetting(store.settings, 'uploadRead'))?.readAfter !== false;
-		const client = readAfter ? await pairedClient() : null;
-		const { readNewFiles } = await import('./receipts/folder-watch.js');
-		const { extractReceipt } = await import('./receipts/extract.js');
-		const { needsConfirmation } = await import('./receipts/import.js');
-		/** @type {any} only called when there is one (`canRead`) */
-		const reader = client;
-		reading = await readNewFiles({
-			created: r.created,
-			readAfter,
-			canRead: Boolean(client),
-			needsConfirmation,
-			read: (record) =>
-				extractReceipt({
-					client: reader,
-					receipts: store.receipts,
-					blobs,
-					record,
-					events: store.events
-				})
-		});
-		await refresh();
-		await runMatchingNow();
-	}
-	return {
-		configured: true,
-		permitted: r.permitted,
-		created: r.created.length,
-		counts: r.counts,
-		...reading
-	};
 }
 
 /** @type {(() => void) | null} */
