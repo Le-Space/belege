@@ -16,6 +16,7 @@
 		unpairBridge
 	} from './bridge-state.svelte.js';
 	import { hostsBridge } from './host.js';
+	import { booksBridgeHosted, loadHostedPeers } from './hosted-status.svelte.js';
 
 	/** @type {{ intro?: boolean }} */
 	let { intro = true } = $props();
@@ -23,6 +24,13 @@
 	let code = $state('');
 	let invitation = $state('');
 	let pairing = $state(false);
+
+	// Whose node the books' bridge is: a hosted one's is not unpaired here (#880).
+	$effect(() => {
+		if (bridge.loaded) loadHostedPeers().catch(() => {});
+	});
+	/** The books' bridge is a hosted one and no bridge on this computer is paired: nothing to unpair here. */
+	const hostedOnly = $derived(Boolean(booksBridgeHosted()) && !bridge.token);
 
 	/** @param {SubmitEvent} event */
 	async function pair(event) {
@@ -147,23 +155,39 @@
 		<p class="mt-3 text-sm text-text" data-testid="bridge-via-stream">
 			{t('integrationen.bridge.viaStreamHint')}
 		</p>
-		<button
-			type="button"
-			class="mt-3 min-h-11 text-sm text-text underline hover:text-heading"
-			onclick={unpairBridge}
-			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
-		>
+		{#if hostedOnly}
+			<p class="mt-3 text-sm text-text" data-testid="unpair-hosted-stays">
+				{t('integrationen.bridge.unpairHostedOnly')}
+			</p>
+		{:else}
+			<button
+				type="button"
+				class="mt-3 min-h-11 text-sm text-text underline hover:text-heading"
+				onclick={unpairBridge}
+				data-testid="unpair"
+				>{t(
+					booksBridgeHosted() ? 'integrationen.bridge.unpairLocal' : 'integrationen.bridge.unpair'
+				)}</button
+			>
+		{/if}
 	{:else if bridge.state === 'offline' && !hostsBridge()}
 		<!-- A phone never runs a bridge (#142): no terminal, no unpairing – the computer's bridge, over device sync. -->
 		<p class="mt-3 text-sm text-text" data-testid="bridge-on-a-phone">
 			{t('integrationen.bridge.onAPhone')}
+		</p>
+	{:else if hostedOnly}
+		<p class="mt-3 text-sm text-text" data-testid="unpair-hosted-stays">
+			{t('integrationen.bridge.unpairHostedOnly')}
 		</p>
 	{:else}
 		<button
 			type="button"
 			class="mt-3 min-h-11 text-sm text-text underline hover:text-heading"
 			onclick={unpairBridge}
-			data-testid="unpair">{t('integrationen.bridge.unpair')}</button
+			data-testid="unpair"
+			>{t(
+				booksBridgeHosted() ? 'integrationen.bridge.unpairLocal' : 'integrationen.bridge.unpair'
+			)}</button
 		>
 	{/if}
 	{#if bridge.error && (bridge.state !== 'offline' || hostsBridge())}

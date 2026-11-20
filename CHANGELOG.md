@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Kopplung lösen" no longer drops the hosted bridge.** While the books' bridge is a hosted one, the button in the panel of the bridge on this computer removes only the pairing with that bridge (its token) and says so; the hosted bridge's node, its place among the books' devices and the generation of its key stay. Before, it cleared both, and a running, unlocked VM was "not paired" until a new one was started. Without a bridge paired on this computer the panel says that the hosted bridge is stopped on its own card (#880).
+
 ## [0.45.0] – 2026-11-20
 
 ### Added

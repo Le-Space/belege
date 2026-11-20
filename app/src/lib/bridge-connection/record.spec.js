@@ -7,6 +7,7 @@ import {
 	readBridgeRecord,
 	readHostedRecord,
 	readNearHostedRecord,
+	recordAfterUnpair,
 	writeBridgeRecord,
 	writeHostedRecord,
 	writeNearHostedRecord
@@ -85,5 +86,44 @@ describe('the bridge’s records', () => {
 		for (const bad of [0, -1, 1.5, '2', Number.MAX_SAFE_INTEGER + 1]) {
 			expect(keyGenerationOf(/** @type {any} */ ({ keyGeneration: bad }))).toBe(1);
 		}
+	});
+});
+
+describe('recordAfterUnpair', () => {
+	const paired = {
+		url: 'http://127.0.0.1:8765',
+		token: 'a-token',
+		pairedAt: '2026-01-01T00:00:00.000Z',
+		peerId: '12D3KooWExample',
+		keyGeneration: 3,
+		nodePairedAt: '2026-01-02T00:00:00.000Z'
+	};
+
+	it('keeps a hosted bridge’s node and its key generation, drops only the token', () => {
+		expect(recordAfterUnpair(paired, 'http://127.0.0.1:8765', true)).toEqual({
+			url: 'http://127.0.0.1:8765',
+			token: null,
+			peerId: '12D3KooWExample',
+			keyGeneration: 3,
+			nodePairedAt: '2026-01-02T00:00:00.000Z'
+		});
+	});
+
+	it('drops the node of a bridge on a computer and moves to the next generation', () => {
+		expect(recordAfterUnpair(paired, 'http://127.0.0.1:8765', false)).toEqual({
+			url: 'http://127.0.0.1:8765',
+			token: null,
+			keyGeneration: 4
+		});
+	});
+
+	it('keeps the generation when no node was paired, and adds none where none was', () => {
+		expect(recordAfterUnpair({ token: 'a-token', keyGeneration: 2 }, 'u', false)).toEqual({
+			url: 'u',
+			token: null,
+			keyGeneration: 2
+		});
+		expect(recordAfterUnpair({ token: 'a-token' }, 'u', true)).toEqual({ url: 'u', token: null });
+		expect(recordAfterUnpair(null, 'u', false)).toEqual({ url: 'u', token: null });
 	});
 });

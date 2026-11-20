@@ -4823,6 +4823,9 @@ export default {
 			codeHintPaired: 'schon ein Gerät gekoppelt: mit --pair neu starten',
 			codeHintFirst: 'einmalig, 10 Minuten gültig',
 			unpair: 'Kopplung lösen',
+			unpairLocal: 'Kopplung mit der Bridge auf diesem Rechner lösen',
+			unpairHostedOnly:
+				'Die Bridge dieser Bücher ist die gehostete. Sie wird auf ihrer Karte gestoppt, nicht hier; auf diesem Rechner ist keine Bridge gekoppelt.',
 			nodeNotPaired:
 				'Per Code gekoppelt, aber der Netzknoten der Bridge ließ sich nicht koppeln: {error} Ohne ihn antwortet keine Funktion der Bridge. „Status prüfen“ versucht es noch einmal.',
 			unpairOffline:
