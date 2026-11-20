@@ -457,10 +457,8 @@ export default {
 					'This device has used as many of the language model’s tokens today as the bridge allows one device a day. It goes on tomorrow; the limit is in bridge.json (node.limits).'
 			},
 			enclave: {
-				port:
-					'{provider}’s enclave takes no connection on port {port} ({code}), but its machine answers. Mostly the network the bridge runs in blocks this port (VPN, firewall): use another network or another VPN exit. Otherwise the enclave is restarting. Then “Continue” on Home.',
-				host:
-					'The machine {provider}’s enclave runs on does not answer the bridge at all ({code}). Is the bridge online? Otherwise it is off the network right now. “Continue” on Home later.',
+				port: '{provider}’s enclave takes no connection on port {port} ({code}), but its machine answers. Mostly the network the bridge runs in blocks this port (VPN, firewall): use another network or another VPN exit. Otherwise the enclave is restarting. Then “Continue” on Home.',
+				host: 'The machine {provider}’s enclave runs on does not answer the bridge at all ({code}). Is the bridge online? Otherwise it is off the network right now. “Continue” on Home later.',
 				proof:
 					'{provider}’s enclave could not be verified, so nothing was sent to it. Was it replaced? Run pnpm setup:llm on the bridge’s machine, look, and pin it again.'
 			},
