@@ -53,6 +53,63 @@ describe('bridgeStatusRows', () => {
 		expect(states(rows)).toEqual(['local:idle:none', 'aleph:err:silent', 'near:idle:none']);
 	});
 
+	it('an unlocked VM whose bridge is still starting, as the VM says: starting, not an error', () => {
+		const unlocked = { vm: { instance: HASH }, kept: { instance: HASH, peerId: 'peer-vm' } };
+		for (const local of [
+			{ state: 'offline', paired: true, peerId: 'peer-vm' },
+			{ state: 'checking', paired: true, peerId: 'peer-vm' },
+			{ state: 'offline', paired: false }
+		]) {
+			const rows = bridgeStatusRows({ local, aleph: { ...unlocked, startHint: 'starting' } });
+			expect(states(rows)).toEqual(['local:idle:none', 'aleph:warn:starting', 'near:idle:none']);
+		}
+	});
+
+	it('an unlocked VM that did not come up: said as that, not as "unlocked"', () => {
+		const unlocked = { vm: { instance: HASH }, kept: { instance: HASH, peerId: 'peer-vm' } };
+		const local = { state: 'offline', paired: false };
+		for (const more of [{ startHint: 'nodeStuck' }, { startHint: 'noRelay' }, { notUp: true }]) {
+			const rows = bridgeStatusRows({
+				local,
+				aleph: { ...unlocked, .../** @type {any} */ (more) }
+			});
+			expect(states(rows)[1]).toBe('aleph:err:notUp');
+		}
+	});
+
+	it('a VM that answers is answering, whatever was read about its start before', () => {
+		const rows = bridgeStatusRows({
+			local: { state: 'online', route: 'stream', paired: true, peerId: 'peer-vm' },
+			aleph: {
+				vm: { instance: HASH },
+				kept: { instance: HASH, peerId: 'peer-vm' },
+				startHint: 'starting',
+				notUp: true
+			}
+		});
+		expect(states(rows)[1]).toBe('aleph:ok:answers');
+	});
+
+	it('what a VM said about its start does not show for a locked or a stopped one', () => {
+		const said = /** @type {const} */ ({ startHint: 'starting', notUp: true });
+		const local = { state: 'offline', paired: false };
+		expect(
+			states(bridgeStatusRows({ local, aleph: { vm: { instance: HASH }, kept: null, ...said } }))[1]
+		).toBe('aleph:warn:locked');
+		expect(
+			states(
+				bridgeStatusRows({
+					local,
+					aleph: {
+						vm: { instance: HASH, stoppedAt: '2026-01-01T00:00:00Z' },
+						kept: { instance: HASH, peerId: 'peer-vm' },
+						...said
+					}
+				})
+			)[1]
+		).toBe('aleph:idle:stopped');
+	});
+
 	it('a stopped VM is stopped, even with the record of its unlock', () => {
 		const rows = bridgeStatusRows({
 			local: { state: 'offline', paired: false },

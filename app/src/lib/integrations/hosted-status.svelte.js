@@ -11,8 +11,33 @@ export const hosted = $state({
 	/** @type {{ running: boolean, pending: string | null, peerId: string | null, attestedAt: string | null } | null} */
 	near: null,
 	/** @type {{ aleph: string | null, near: string | null }} the hosted bridges' nodes, as the books keep them */
-	peers: { aleph: null, near: null }
+	peers: { aleph: null, near: null },
+	/**
+	 * What the unlocked VM on Aleph says about its own start, as its card last read it
+	 * (HostedBridgeCard, hosted-start.js): for which instance, the sentence that fits, and
+	 * whether it never came up. The status block says the same as the card.
+	 * @type {{ instance: string | null, hint: 'starting' | 'nodeStuck' | 'noRelay' | null, notUp: boolean }}
+	 */
+	start: { instance: null, hint: null, notUp: false }
 });
+
+/**
+ * @param {string | null} instance the unlocked VM
+ * @param {'starting' | 'nodeStuck' | 'noRelay' | null} hint hosted-start.js `hostedStartHint`
+ * @param {boolean} notUp unlocked for minutes, its node never reached this device (bridge-status.js `hostedNotUp`)
+ */
+export function noteAlephStart(instance, hint, notUp) {
+	const s = hosted.start;
+	if (s.instance === instance && s.hint === hint && s.notUp === notUp) return;
+	hosted.start = { instance, hint, notUp };
+}
+
+/** The start of the VM unlocked last, for the status block: nothing of another VM's. */
+export function alephStart() {
+	const mine =
+		Boolean(hosted.start.instance) && hosted.start.instance === hosted.aleph.kept?.instance;
+	return { startHint: mine ? hosted.start.hint : null, notUp: mine && hosted.start.notUp };
+}
 
 /**
  * @param {any} kept the VM unlocked last (hostedBridgeRecord)

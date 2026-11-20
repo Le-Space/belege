@@ -4781,6 +4781,8 @@ export default {
 					answers: 'unlocked · confidential · answers',
 					unlocked: 'unlocked · confidential',
 					silent: 'unlocked, not answering',
+					starting: 'unlocked · still starting',
+					notUp: 'unlocked, did not come up',
 					locked: 'running · still locked',
 					stopped: 'stopped',
 					none: 'no VM'
@@ -4797,6 +4799,8 @@ export default {
 				locked: 'Type the image’s passphrase below and unlock.',
 				attested: 'last attested {date}',
 				stopped: 'since {date}',
+				starting: 'Its bridge is still starting; that usually takes a minute or two.',
+				notUp: 'What is missing is said below, at the hosted bridge.',
 				localSilent: 'Is it running (pnpm bridge)?'
 			}
 		},

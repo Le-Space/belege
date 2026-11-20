@@ -7,7 +7,7 @@
 	import { app } from '$lib/session.svelte.js';
 	import { bridge, bridgePaired } from './bridge-state.svelte.js';
 	import { bridgeStatusRows } from './bridge-status.js';
-	import { hosted, loadAleph } from './hosted-status.svelte.js';
+	import { alephStart, hosted, loadAleph } from './hosted-status.svelte.js';
 
 	$effect(() => {
 		// Whenever the books' settings may have changed underneath (sync, an unlock elsewhere).
@@ -23,7 +23,7 @@
 				paired: bridgePaired(),
 				peerId: bridge.peerId
 			},
-			aleph: hosted.aleph,
+			aleph: { ...hosted.aleph, ...alephStart() },
 			near: hosted.near
 		})
 	);
@@ -36,6 +36,8 @@
 		if (row.id === 'aleph') {
 			const { vm, kept } = hosted.aleph;
 			if (row.state === 'locked') return t('integrationen.bridgeStatus.detail.locked');
+			if (row.state === 'starting' || row.state === 'notUp')
+				return t(`integrationen.bridgeStatus.detail.${row.state}`);
 			if (row.kind === 'ok' || row.state === 'silent')
 				return t('integrationen.bridgeStatus.detail.attested', { date: when(kept?.attestedAt) });
 			if (row.state === 'stopped')

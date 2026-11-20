@@ -38,7 +38,7 @@
 	import { keepAwake } from '$lib/wake-lock.js';
 	import { holdAlive, keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { bridge, checkBridge } from './bridge-state.svelte.js';
-	import { noteAleph } from './hosted-status.svelte.js';
+	import { noteAleph, noteAlephStart } from './hosted-status.svelte.js';
 	import { usage } from './hosted-vm.js';
 	import { nodeHistoryOf, preferredNode } from './hosted-nodes.js';
 	import { hostedNotUp } from './bridge-status.js';
@@ -136,6 +136,15 @@
 	});
 	/** The sentence for a bridge that is still starting, or whose node is not. */
 	const startHint = $derived(hostedStartHint(startStatus));
+	// The status block above says what this card says (bridge-status.js `bridgeStatusRows`).
+	$effect(() => {
+		const shown = app.sync.online && !busy;
+		noteAlephStart(
+			/** @type {any} */ (kept)?.instance ?? null,
+			shown ? startHint : null,
+			shown && notUp && !startStatus
+		);
+	});
 
 	async function reload() {
 		[kept, vm, history, ownImage] = await Promise.all([
