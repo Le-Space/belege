@@ -1,0 +1,11 @@
+{
+	"name": "@belege/deploy",
+	"private": true,
+	"description": "The tool that publishes the built app to Aleph (deploy.yml). A package of its own with its own lockfile, outside the workspace: what signs the publish with the domain's key is installed from pinned, hashed versions, and shares no dependency with the app.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"packageManager": "pnpm@10.33.0",
+	"dependencies": {
+		"@le-space/node": "0.12.7"
+	}
+}

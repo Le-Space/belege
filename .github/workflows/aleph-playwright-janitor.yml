@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   cleanup:
-    uses: NiKrause/relay-button/.github/workflows/playwright-runner-janitor.yml@main
+    uses: NiKrause/relay-button/.github/workflows/playwright-runner-janitor.yml@cc2c140875ff5f9c39ae692e3cf59c86a0caa4cc # main on 2026-11-19
     with:
       repository_scope: Le-Space/belege
       ttl_ms: 3600000

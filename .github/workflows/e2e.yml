@@ -32,7 +32,7 @@ jobs:
     outputs:
       e2e: ${{ steps.needs.outputs.e2e }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           # A pull request's checkout is its merge commit: HEAD^1 is the base.
           fetch-depth: 2
@@ -68,15 +68,15 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       # The Playwright image runs as root, and git refuses a checkout owned by
       # someone else without a word: `git log` then prints nothing and the
       # build stamp (commit and its time) is missing from the footer.
       - name: Let git read the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       # The version comes from packageManager in the root package.json.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
           cache: pnpm
@@ -92,7 +92,7 @@ jobs:
         run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/5 --pass-with-no-tests
       - name: Keep the evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-results-${{ matrix.shard }}
           path: app/test-results/
@@ -115,11 +115,11 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Let git read the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
           cache: pnpm
@@ -131,7 +131,7 @@ jobs:
         run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/2 --pass-with-no-tests
       - name: Keep the evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-results-stream-${{ matrix.shard }}
           path: app/test-results/
@@ -150,11 +150,11 @@ jobs:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Let git read the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '22.x'
           cache: pnpm
@@ -166,7 +166,7 @@ jobs:
         run: node scripts/check-production-build.mjs app/build
       - name: Keep the evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-results-production
           path: app/test-results/

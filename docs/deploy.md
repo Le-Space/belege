@@ -2,8 +2,8 @@
 
 The app is a static build (`app/build`) published to Aleph IPFS and served under
 `belege.le-space.de`. `.github/workflows/deploy.yml` does it for every published
-GitHub release (and by hand, optionally without moving the domain). It runs the
-CI gates first.
+GitHub release (and by hand from a release tag, optionally without moving the domain).
+It runs the CI gates first.
 
 **The domain stays, the host may change.** Passkeys and the browser's stored books belong
 to the origin `https://belege.le-space.de`. Moving the app to another domain would leave
@@ -27,6 +27,35 @@ is the gateway's, shared by every CID it serves – storage, caches and passkeys
 included. Under `/ipfs/` or `/ipns/` the app shows where to open it instead, asks for
 no passkey, opens no books and removes its service worker
 (`app/src/lib/shared-origin.js`).
+
+## Who can change what the domain serves
+
+Whoever can change what `belege.le-space.de` serves can read the books a browser decrypts there. So the way from a commit to the domain is short, and each link of it is pinned, locked or gated:
+
+| Link                           | What holds it                                                                                                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| What is built                  | Only a release tag `vX.Y.Z` that is on `main` – for a release, and for a run by hand (choose the tag under "Use workflow from"; a branch is refused). The first job of `deploy.yml` checks it.                                       |
+| That it was tested             | `deploy.yml` runs every test workflow before it publishes; the built site is read for test hooks (`scripts/check-production-build.mjs`).                                                                                             |
+| The actions the workflows run  | Each is named by a commit, with its version beside it. `scripts/workflow-pins.test.mjs` fails on a tag or a branch; Dependabot proposes new pins once a week (`.github/dependabot.yml`).                                             |
+| The app's dependencies         | `pnpm install --frozen-lockfile` from `pnpm-lock.yaml`, exact versions.                                                                                                                                                              |
+| The tool that publishes        | `@le-space/node`, from a lockfile of its own (`deploy/`), installed frozen and without install scripts. The same test fails on an install outside a lockfile in the site's workflows.                                                |
+| The key that signs the publish | The repository secret `ALEPH_PRIVATE_KEY`, read by two jobs only (`publish`, `link-domain`), both in the environment `production`.                                                                                                   |
+| Who may start it               | Whoever may publish a release or run a workflow in Le-Space/belege, that is: people with write access. With a required reviewer on the environment `production` (a repository setting, below), a second person approves each deploy. |
+| The domain                     | The DNS records below, in the Cloudflare zone of `le-space.de`; the `_control` record names the one account whose publish the domain follows.                                                                                        |
+
+**Settings that are not files.** These live in the repository's settings on GitHub and are part of the chain; check them with `gh api`:
+
+- the environment `production` with a required reviewer (`gh api repos/Le-Space/belege/environments/production`) – without one, the environment is a name and nothing waits;
+- branch protection on `main`: a pull request and the test checks required (`gh api repos/Le-Space/belege/branches/main/protection`);
+- secret scanning with push protection, and Dependabot security updates (`gh api repos/Le-Space/belege --jq .security_and_analysis`).
+
+**Compare what is served with a release.** Each release names its CID on its release page ("On IPFS"). What the domain serves is in its DNSLink record:
+
+```bash
+dig +short TXT _dnslink.belege.le-space.de   # "dnslink=/ipfs/<cid>"
+```
+
+The two are the same CID for the release that is live. A CID is the hash of the published files, so the same CID is the same site, wherever it is fetched from. Building a tag again does not yet give the same CID byte for byte; a reproducible build is its own piece of work.
 
 ## DNS (Cloudflare, once)
 
