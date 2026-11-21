@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The browser specs' runners finish together, and a test that needs a second try is named.** The five shards got the same number of tests each, so one of them ran three times as long as another and a pull request waited for it. The specs are now dealt out by the time they take (`app/e2e/durations.json`, `scripts/e2e-shards.mjs`); a spec without a time counts as a middling one. Each shard keeps Playwright's JSON report, and the run's summary lists the tests that passed only on a second try, each shard's time and the ten longest specs (`scripts/e2e-report.mjs`, which also renews the times from a run's reports). Nothing fails for it: the retry stays, it is only no longer silent.
+
 ## [0.49.1] – 2026-11-21
 
 ## [0.49.0] – 2026-11-21

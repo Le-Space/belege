@@ -5,7 +5,9 @@
 // suite once tested another branch's preview that happened to be running).
 // Since UCEP: a circuit relay on this machine (e2e/relay.js, global-setup.js)
 // for the invoicing-app spec; the app is built with its address.
+import { readdirSync, readFileSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { parseShard, shardOf } from '../scripts/e2e-shards.mjs';
 import { relayAddr } from './e2e/relay.js';
 import { BRIDGE_SPECS, viaStream } from './e2e/bridge.js';
 
@@ -23,7 +25,6 @@ const relay = await relayAddr();
 // stream to the bridge's own node – HTTP to the bridge refused (e2e/bridge.js).
 const streamOnly = viaStream
 	? {
-			testMatch: BRIDGE_SPECS.map((name) => `${name}.spec.js`),
 			storageState: {
 				cookies: [],
 				origins: [
@@ -40,13 +41,47 @@ const streamOnly = viaStream
 // runs for a pull request that changes the bridge and not the app
 // (scripts/ci-changes.mjs). A push to main and a release run every spec.
 const bridgeSpecsOnly = process.env.E2E_SPECS === 'bridge';
+const everySpec = readdirSync(new URL('./e2e/', import.meta.url))
+	.filter((file) => file.endsWith('.spec.js'))
+	.map((file) => file.slice(0, -'.spec.js'.length))
+	.sort();
+const narrowed = streamOnly || bridgeSpecsOnly;
+const specs = narrowed ? BRIDGE_SPECS.filter((name) => everySpec.includes(name)) : everySpec;
+
+// E2E_SHARD=3/5: the third of five runners. The specs are dealt out by the
+// time they take (e2e/durations.json, scripts/e2e-shards.mjs), so the runners
+// finish together; Playwright's own --shard deals them out by count.
+const shard = parseShard(process.env.E2E_SHARD);
+const mine = shard
+	? shardOf(
+			specs,
+			JSON.parse(readFileSync(new URL('./e2e/durations.json', import.meta.url), 'utf8')),
+			shard
+		)
+	: specs;
+// By the file's whole name: `export` is not `export-month`. A shard without a
+// spec matches nothing (CI passes --pass-with-no-tests).
 const testMatch =
-	streamOnly?.testMatch ?? (bridgeSpecsOnly ? BRIDGE_SPECS.map((name) => `${name}.spec.js`) : null);
+	shard || narrowed
+		? mine.length
+			? mine.map((name) => new RegExp(`[\\\\/]e2e[\\\\/]${name}\\.spec\\.js$`))
+			: [/^$/]
+		: null;
 
 export default defineConfig({
 	testDir: 'e2e',
 	...(testMatch ? { testMatch } : {}),
 	globalSetup: './e2e/global-setup.js',
+	// E2E_REPORT: also a JSON report, which CI keeps and reads for the tests
+	// that passed only on a second try (scripts/e2e-report.mjs).
+	...(process.env.E2E_REPORT
+		? {
+				reporter: [
+					[process.env.CI ? 'dot' : 'list'],
+					['json', { outputFile: process.env.E2E_REPORT }]
+				]
+			}
+		: {}),
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
 	timeout: 90_000,
