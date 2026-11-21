@@ -70,6 +70,7 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @typedef {object} MonthPlan
  * @property {string} month
  * @property {Rec[]} bookings the month's bookings, by date
+ * @property {number} fakeTokens fake-token entries of the month left out (address poisoning: nothing moved)
  * @property {PlannedLine[]} lines what goes into the Buchungsstapel
  * @property {{ tx: Rec, other: Rec }[]} transferSides bookings left out: the other side of a transfer line
  * @property {Map<string, string>} numbers receipt id → its number
@@ -309,7 +310,14 @@ export function planMonth({
 	const ofMonth = live.filter((t) => String(t.bookedOn ?? '').slice(0, 7) === month);
 	// Test bookings (sample/test-bookings.js) only on request.
 	const tests = ofMonth.filter((t) => isTestBooking(t)).length;
-	const bookings = ofMonth.filter((t) => includeTests || !isTestBooking(t)).sort(byDate);
+	// A fake token's "transfer" (address poisoning, matching/classify.js `token-spam`) moved
+	// nothing: a stranger's contract only reported it. It is no booking – it needs no account
+	// and has no rate – so it stays out of the export, and the page says how many did.
+	const isFake = (/** @type {Rec} */ t) => classifications[t.id]?.kind === 'token-spam';
+	const fakeTokens = ofMonth.filter(isFake).length;
+	const bookings = ofMonth
+		.filter((t) => !isFake(t) && (includeTests || !isTestBooking(t)))
+		.sort(byDate);
 	const accountOf = (/** @type {Rec} */ tx) => accounts.find((a) => a.id === tx.accountId) ?? null;
 	const receiptOf = (/** @type {string} */ id) =>
 		receipts.find((r) => r.id === id && !r.deleted) ?? null;
@@ -334,7 +342,7 @@ export function planMonth({
 		? monthStatements({
 				month,
 				accounts,
-				transactions: live,
+				transactions: live.filter((t) => !isFake(t)),
 				classifications,
 				receiptNumbers
 			})
@@ -457,6 +465,7 @@ export function planMonth({
 		checks,
 		sample,
 		tests,
+		fakeTokens,
 		testsIncluded: includeTests && tests > 0,
 		blocked:
 			bookings.length === 0 ||

@@ -563,6 +563,11 @@
 					</label>
 				</li>
 			{/if}
+			{#if plan.fakeTokens}
+				<li class="text-faint" data-testid="export-fake-tokens">
+					{t('export.check.fakeTokens', { count: plan.fakeTokens })}
+				</li>
+			{/if}
 			{#if plan.sample !== 'none'}
 				{@render item(
 					'sample',
