@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
+- **An account's statement as a PDF, straight from Zahlungen.** With one account chosen in the filter and a month open, "Kontoauszug (PDF)" hands out that account's statement of that month: the same file, with the same number, as the month's export puts into its ZIP, so a DATEV line that names the statement names this file too. A month without a booking on the account says so instead. The PDF code is loaded on the click.
 - **An Aleph usage proof can be corrected.** On the Aleph page, a month that already has its proof shows "Berichtigen": the app reads the month from Aleph again and issues a new proof with a new number that names the one it replaces (and its amount) on the PDF. The old one keeps its number and its file, is marked as replaced and leaves the lists; its number is never given out again. Refused when Aleph's figures are the same as before, which is also what a bridge still running the old reader would give. For the proofs made while a purchase paid in ALEPH valued every credit many times too high. The Verlauf says it.
 
 ### Changed

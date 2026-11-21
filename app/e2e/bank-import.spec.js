@@ -259,6 +259,16 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 		page.getByTestId('transaction').filter({ hasText: names.revolutDebit })
 	).toContainText('CAMT ···0001');
 
+	// The account's statement of the open month as a PDF: the file the month's export also holds.
+	const [kontoauszug] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByTestId('account-statement').click()
+	]);
+	expect(kontoauszug.suggestedFilename()).toMatch(/^KA-2026-09-\d+_.*Revolut.*\.pdf$/i);
+	const pdfBytes = readFileSync(await kontoauszug.path());
+	expect(pdfBytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+	await expect(page.getByTestId('account-statement-note')).toHaveCount(0);
+
 	// "Als Gegenbuchung verknüpfen …": the other side by hand, on another
 	// account and the other way; neither needs a receipt, each names the other.
 	await page.getByTestId('transaction').filter({ hasText: names.revolutDebit }).click();

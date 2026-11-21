@@ -4,6 +4,7 @@
 	// fflate) and downloaded. Before that, the check list (export/plan.js):
 	// without a confirmed account for every booking and a ledger account for
 	// every bank account there is no export.
+	import { saveFile } from '$lib/ui/save-file.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
@@ -234,7 +235,7 @@
 				accounts: app.accounts,
 				classifications: app.classifications
 			});
-			save(new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' }), fileName);
+			saveFile(new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' }), fileName);
 			done = t('export.done', { file: fileName, ...counts });
 			await refreshNow();
 		} catch (e) {
@@ -242,18 +243,6 @@
 		} finally {
 			busy = false;
 		}
-	}
-
-	/** Only a download: a Blob and a click, nothing sent anywhere. @param {Blob} blob @param {string} fileName */
-	function save(blob, fileName) {
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = fileName;
-		document.body.append(a);
-		a.click();
-		a.remove();
-		setTimeout(() => URL.revokeObjectURL(url), 60_000);
 	}
 
 	let cryptoAccountIds = $derived(
@@ -298,7 +287,7 @@
 				...(release ? { generator: `Belege ${release}` } : {})
 			});
 			const fileName = `crypto-ledger-${cryptoYear || 'all'}-${ledger.createdAt.slice(0, 10)}.${kind}`;
-			save(
+			saveFile(
 				kind === 'json'
 					? new Blob([`${JSON.stringify(ledger, null, '\t')}\n`], { type: 'application/json' })
 					: new Blob([cryptoLedgerCsv(ledger)], { type: 'text/csv;charset=utf-8' }),
