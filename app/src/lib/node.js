@@ -100,6 +100,35 @@ export const SEALED_BOOKS_FLAG = 'belege.sealed-books';
  */
 export const BOOKS_IDENTITY_FLAG = 'belege.books-identity';
 
+/**
+ * Who wrote the books' databases before the books' own identity (#496), per
+ * books identity, when it is not the passkey unlocking (#555): the DID a
+ * restored backup of them names in their access controller – the founding
+ * passkey's, while this browser opens the books with a later passkey or one
+ * made with the recovery words. The next unlock moves them in under it. A
+ * DID, nothing secret.
+ */
+export const FORMER_WRITER_KEY = 'belege.former-writer';
+
+/** @param {string} booksId @returns {string | null} */
+function formerWriterOf(booksId) {
+	try {
+		const value = localStorage.getItem(`${FORMER_WRITER_KEY}:${booksId}`);
+		return value && value.startsWith('did:') ? value : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {string} booksId @param {string} writer */
+function keepFormerWriter(booksId, writer) {
+	try {
+		localStorage.setItem(`${FORMER_WRITER_KEY}:${booksId}`, writer);
+	} catch {
+		// Not kept: the next unlock moves them in under this passkey's DID, as before.
+	}
+}
+
 /** @param {string} key */
 function flagSet(key) {
 	try {
@@ -555,6 +584,9 @@ export async function startSession(
 		// passkey's databases, to the books' identity (#496).
 		const moveFlag = `${SEALED_BOOKS_FLAG}:${did}`;
 		const booksFlag = `${BOOKS_IDENTITY_FLAG}:${booksIdentity.id}`;
+		// Who wrote the databases before #496: the passkey unlocking, unless a
+		// restored backup named another – the founding passkey (#555).
+		const formerWriter = formerWriterOf(booksIdentity.id) ?? did;
 		// A member's device has never made the books' identity: its block, from
 		// the bundle and checked against its hash, so every entry of the books
 		// verifies without fetching it first (#612).
@@ -592,7 +624,7 @@ export async function startSession(
 						: {
 								accessController: booksAccessController(booksIdentity.id),
 								author: did,
-								formerWriter: did,
+								formerWriter,
 								moveFromPasskey: !flagSet(booksFlag)
 							}),
 					move: !flagSet(moveFlag),
@@ -921,32 +953,43 @@ export async function startSession(
 				const addresses = Object.fromEntries(
 					Object.entries(store.databases()).map(([name, db]) => [name, String(db.address)])
 				);
-				// A backup made before the replication layer names the old databases:
-				// their addresses, from opening them (without sync) once.
-				const oldOptions = await oldBooksOpenOptions(encryptionKey, did);
-				/** @type {Record<string, string>} */
-				const oldAddresses = {};
-				// A member's books are the sealed ones only: the older ones need the books' root.
-				if (prfOutput) {
-					for (const [name, dbName] of Object.entries(await oldBooksNames(prfOutput))) {
-						const db = await orbitdb.open(dbName, oldOptions);
-						oldAddresses[name] = String(db.address);
+				/**
+				 * The addresses of databases by name, opened once (without sync) as
+				 * `options` open them: they depend on who may write (#555).
+				 *
+				 * @param {Record<string, string>} names by collection
+				 * @param {Record<string, any>} options
+				 */
+				const addressesFor = async (names, options) => {
+					/** @type {Record<string, string>} */
+					const out = {};
+					for (const [collection, dbName] of Object.entries(names)) {
+						const db = await orbitdb.open(dbName, options);
+						out[collection] = String(db.address);
 						await db.close();
 					}
-				}
-				// A backup made before the books' own identity (#496) names the
-				// passkey's databases: their addresses, from opening them likewise.
-				const passkeyOptions = await passkeyBooksOpenOptions(encryptionKey, replicationKey, did);
+					return out;
+				};
+				// A member's books are the sealed ones only: the older ones need the books' root.
+				// A backup made before the replication layer names the old databases;
+				// one made before the books' own identity (#496), the passkey's.
+				const oldNames = prfOutput ? await oldBooksNames(prfOutput) : {};
 				/** @type {Record<string, string>} */
-				const passkeyAddresses = {};
+				const passkeyNames = {};
 				for (const name of prfOutput ? Object.keys(addresses) : []) {
-					const db = await orbitdb.open(
-						await deriveSealedDatabaseName(/** @type {Uint8Array} */ (prfOutput), name),
-						passkeyOptions
+					passkeyNames[name] = await deriveSealedDatabaseName(
+						/** @type {Uint8Array} */ (prfOutput),
+						name
 					);
-					passkeyAddresses[name] = String(db.address);
-					await db.close();
 				}
+				const oldOptions = await oldBooksOpenOptions(encryptionKey, formerWriter);
+				const passkeyOptions = await passkeyBooksOpenOptions(
+					encryptionKey,
+					replicationKey,
+					formerWriter
+				);
+				const oldAddresses = await addressesFor(oldNames, oldOptions);
+				const passkeyAddresses = await addressesFor(passkeyNames, passkeyOptions);
 				let closed = false;
 				const result = await restoreBackup({
 					orbitdb,
@@ -966,8 +1009,33 @@ export async function startSession(
 						},
 						...(prfOutput
 							? [
-									{ name: 'passkey', addresses: passkeyAddresses, open: passkeyOptions },
-									{ name: 'old', addresses: oldAddresses, open: oldOptions }
+									// Written by another passkey than this one – the founding one,
+									// when this is a later passkey or the recovery words' (#555):
+									// fitted by name, the writer read from the backup.
+									{
+										name: 'passkey',
+										addresses: passkeyAddresses,
+										open: passkeyOptions,
+										names: passkeyNames,
+										resolve: async (/** @type {string} */ writer) => {
+											const open = await passkeyBooksOpenOptions(
+												encryptionKey,
+												replicationKey,
+												writer
+											);
+											return { open, addresses: await addressesFor(passkeyNames, open) };
+										}
+									},
+									{
+										name: 'old',
+										addresses: oldAddresses,
+										open: oldOptions,
+										names: oldNames,
+										resolve: async (/** @type {string} */ writer) => {
+											const open = await oldBooksOpenOptions(encryptionKey, writer);
+											return { open, addresses: await addressesFor(oldNames, open) };
+										}
+									}
 								]
 							: [])
 					],
@@ -986,6 +1054,10 @@ export async function startSession(
 					}
 					throw error;
 				});
+				// Written by another passkey: the next unlock moves them in under it.
+				// (A restore with an earlier root's keys, #628, names none.)
+				const writer = 'writer' in result ? result.writer : undefined;
+				if (writer) keepFormerWriter(booksIdentity.id, writer);
 				// Back into the old databases: they move in on the next unlock.
 				if (result.target === 'old') clearFlag(moveFlag);
 				if (result.target === 'passkey') clearFlag(booksFlag);

@@ -10,7 +10,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHeliaLight } from 'helia';
 import { withLibp2p } from '@helia/libp2p';
 import { withBitswap } from '@helia/bitswap';
-import { Identities, KeyStore, MemoryStorage, createOrbitDB } from '@orbitdb/core';
+import {
+	IPFSAccessController,
+	Identities,
+	KeyStore,
+	MemoryStorage,
+	createOrbitDB
+} from '@orbitdb/core';
 import * as dagCbor from '@ipld/dag-cbor';
 import { CID } from 'multiformats/cid';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -38,7 +44,8 @@ import {
 	buildIncrement,
 	openBackup,
 	readEarlierBackup,
-	restoreBackup
+	restoreBackup,
+	writerOf
 } from './archive.js';
 import { chainAfter, chainFromBase } from './chain.js';
 import { setSetting } from '../store/settings.js';
@@ -381,6 +388,99 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			await b.stop();
 		}
 	}, 60_000);
+
+	it('restoreBackup reads the writer from the backup when another passkey wrote it (#555)', async () => {
+		const b = await diskNode();
+		try {
+			const { manifest } = await openBackup(backup.sealed, backupKey);
+			const named = manifest.metadata.databases.filter(
+				(/** @type {any} */ d) => !String(d.collection).startsWith('_')
+			);
+			/** @type {Record<string, string>} */
+			const names = Object.fromEntries(
+				named.map((/** @type {any} */ d) => [d.collection, String(d.name)])
+			);
+			// As this passkey would open them: another DID, so other addresses.
+			const elsewhere = Object.fromEntries(
+				Object.keys(names).map((k) => [k, `/orbitdb/zdpuElsewhere${k}`])
+			);
+			/** @type {string[]} */
+			const asked = [];
+			/** @param {string} writer */
+			const forWriter = async (writer) => {
+				const open = {
+					...(await b.options()),
+					AccessController: IPFSAccessController({ write: [writer] })
+				};
+				/** @type {Record<string, string>} */
+				const addresses = {};
+				for (const [collection, name] of Object.entries(names)) {
+					const db = await b.orbitdb.open(name, open);
+					addresses[collection] = String(db.address);
+					await db.close();
+				}
+				return { open, addresses };
+			};
+			const target = {
+				name: 'passkey',
+				addresses: elsewhere,
+				open: await b.options(),
+				names
+			};
+			// A resolver that names other addresses than the backup's: refused.
+			await expect(
+				restoreBackup({
+					orbitdb: b.orbitdb,
+					sealed: backup.sealed,
+					key: backupKey,
+					targets: [
+						{
+							...target,
+							resolve: async (writer) => {
+								asked.push(writer);
+								return forWriter('did:key:zOtherWriter');
+							}
+						}
+					]
+				})
+			).rejects.toThrow(/do not have/);
+			expect(asked).toEqual([a.orbitdb.identity.id]);
+
+			const result = await restoreBackup({
+				orbitdb: b.orbitdb,
+				sealed: backup.sealed,
+				key: backupKey,
+				targets: [{ ...target, resolve: forWriter }]
+			});
+			expect(result.target).toBe('passkey');
+			expect(result.writer).toBe(a.orbitdb.identity.id);
+			const store = await b.open();
+			expect((await store.transactions.list()).map((t) => t.counterparty)).toContain(MARKER);
+			await store.close();
+		} finally {
+			await b.stop();
+		}
+	}, 60_000);
+
+	it('writerOf reads the one writer a database’s access controller names, else null', async () => {
+		const [d] = backup.manifest.metadata.databases;
+		const read = async (/** @type {CID} */ cid) => {
+			try {
+				/** @type {any} */
+				const got = await a.helia.blockstore.get(cid, { offline: true });
+				if (got instanceof Uint8Array) return got;
+				/** @type {Uint8Array[]} */
+				const parts = [];
+				for await (const part of got) parts.push(part);
+				return Uint8Array.from(parts.flatMap((p) => [...p]));
+			} catch {
+				return undefined;
+			}
+		};
+		expect(await writerOf(String(d.address), read)).toBe(a.orbitdb.identity.id);
+		expect(await writerOf('/orbitdb/zdpuNotACid', read)).toBeNull();
+		expect(await writerOf(String(d.address), async () => undefined)).toBeNull();
+	});
 
 	/** The sealed file as a gateway sends it: in pieces, never whole. */
 	async function* pieces(/** @type {Uint8Array} */ bytes, size = 64 * 1024) {
