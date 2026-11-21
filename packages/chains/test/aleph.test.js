@@ -35,8 +35,9 @@ test('a month: opening + in − out = closing, consumption at the purchase price
 	assert.deepEqual(
 		s.usage.map((u) => [u.date, u.kind, u.credits, u.usdPerCredit, u.priceSource]),
 		[
-			['2026-08-01', 'execution', 2000, '0.000002', 'purchase'],
-			['2026-08-01', 'storage', 200, '0.000002', 'purchase']
+			// 1 USD for 1,200,000 credits: the bonus makes a credit cheaper than the list price.
+			['2026-08-01', 'execution', 2000, '0.000000833333', 'purchase'],
+			['2026-08-01', 'storage', 200, '0.000000833333', 'purchase']
 		]
 	);
 	assert.deepEqual(s.resources, { [VM]: { type: 'INSTANCE', name: 'test-relay' } });
@@ -62,7 +63,7 @@ test('as ledger entries: in, out and usage, signed from the account, with the US
 	assert.equal(vm.priceAs, '');
 	assert.equal(vm.hash, VM);
 	assert.equal(vm.counterpartyLabel, 'Aleph Cloud (test-relay)');
-	assert.deepEqual(vm.unitPrice, { currency: 'USD', amount: '0.000002', source: 'purchase' });
+	assert.deepEqual(vm.unitPrice, { currency: 'USD', amount: '0.000000833333', source: 'purchase' });
 	assert.equal(new Set(entries.map((e) => e.id)).size, entries.length);
 });
 
@@ -86,25 +87,34 @@ test('a purchase in the month is an entry with its price and paying transaction'
 		[bought.type, bought.amount, bought.hash, bought.counterpartyLabel, bought.unitPrice?.amount],
 		[
 			'received',
-			'1000000',
+			'1200000',
 			`0x${'ab'.repeat(32)}`,
-			'Aleph Cloud (Kauf mit ALEPH auf ETH)',
-			'0.000002'
+			'Aleph Cloud (Kauf mit ALEPH auf ethereum)',
+			'0.000000833333'
 		]
 	);
 });
 
-test('the payment behind a purchase: a swap in USD, credits × price, linked on the chain it was paid on', async () => {
+test('the payment behind a purchase in ALEPH: in USD at the list price, never the token amount; linked on the chain it was paid on', async () => {
 	const july = await client().statement({ address: ACCOUNT, month: '2026-07' });
 	const [paid] = purchaseEntries(july);
 	assert.deepEqual(
 		[paid.chain, paid.type, paid.kind, paid.asset, paid.decimals, paid.amount, paid.priceAs],
-		['aleph', 'sent', 'swap', 'USD', 6, '-2', 'USD'],
-		'1,000,000 credits × 0.000002 USD'
+		['aleph', 'sent', 'swap', 'USD', 6, '-1', 'USD'],
+		"1,000,000 credits paid for × the list price; the row's price, 0.00008, is ALEPH per credit"
+	);
+	// What the old reading made of it: credits × price as dollars, 96 instead of 1.
+	assert.notEqual(paid.amount, '-96');
+	assert.deepEqual(
+		[july.topUps[0].tokenAmount, july.topUps[0].usd, july.topUps[0].priceBasis],
+		['80', '1', 'list']
 	);
 	assert.equal(paid.counterparty, 'aleph');
-	assert.equal(paid.counterpartyLabel, 'Aleph Cloud (Kauf von 1000000 Credits mit ALEPH auf ETH)');
-	assert.equal(paid.memo, '1000000 Credits × 0.000002 USD');
+	assert.equal(
+		paid.counterpartyLabel,
+		'Aleph Cloud (Kauf von 1200000 Credits mit ALEPH auf ethereum)'
+	);
+	assert.equal(paid.memo, '1000000 Credits × 0.000001 USD (+ 200000 Bonus); bezahlt mit 80 ALEPH');
 	assert.equal(paid.hash, `0x${'ab'.repeat(32)}`);
 	assert.equal(paid.explorerUrl, `https://etherscan.io/tx/0x${'ab'.repeat(32)}`);
 	const [bought] = alephEntries(july);
@@ -128,8 +138,29 @@ test('the payment behind a purchase: a swap in USD, credits × price, linked on 
 	assert.equal(unknown.explorerUrl, `https://explorer.aleph.cloud/address/ETH/${july.address}`);
 	assert.equal(
 		unknown.counterpartyLabel,
-		'Aleph Cloud (Kauf von 1000000 Credits mit ALEPH auf SOL)'
+		'Aleph Cloud (Kauf von 1200000 Credits mit ALEPH auf SOL)'
 	);
+	// Aleph's older code for the chain links the same explorer.
+	const [coded] = purchaseEntries({ ...july, topUps: [{ ...july.topUps[0], chain: 'ETH' }] });
+	assert.equal(coded.explorerUrl, paid.explorerUrl);
+	// A purchase in a dollar token: the row's price is the dollar price.
+	const [dollars] = purchaseEntries({
+		...july,
+		topUps: [
+			{
+				...july.topUps[0],
+				credits: 2_000_000,
+				bonus: 0,
+				price: '0.000001',
+				token: 'USDC',
+				tokenAmount: '2',
+				usd: '2',
+				usdPerCredit: '0.000001',
+				priceBasis: 'price'
+			}
+		]
+	});
+	assert.deepEqual([dollars.amount, dollars.memo], ['-2', '2000000 Credits × 0.000001 USD']);
 });
 
 test('a month without credit rows: Aleph answers 404 in plain text, the statement is empty', async () => {

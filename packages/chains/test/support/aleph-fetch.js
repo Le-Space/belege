@@ -7,7 +7,8 @@
  * @typedef {object} Row
  * @property {string} at ISO
  * @property {number} amount credits; negative leaves
- * @property {string} [price] USD per credit, a purchase's
+ * @property {string} [price] a purchase's: units of the payment token per credit paid for
+ * @property {number} [bonus] of `amount`, the credits given on top
  * @property {string} [txHash]
  * @property {string} [token]
  * @property {string} [chain]
@@ -66,6 +67,7 @@ export function alephFetch({ accounts, messages = {} }) {
 				message_timestamp: r.at,
 				amount: r.amount,
 				price: r.price ?? null,
+				bonus_amount: r.bonus ?? null,
 				tx_hash: r.txHash ?? null,
 				token: r.token ?? null,
 				chain: r.chain ?? null,

@@ -251,7 +251,7 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {string} until ISO, UTC
  * @property {number} opening credits
  * @property {number} closing credits
- * @property {{ time: string, credits: number, bonus: number, how: 'purchase' | 'transfer', price: string | null, token: string | null, chain: string | null, txHash: string | null, from: string }[]} topUps
+ * @property {{ time: string, credits: number, bonus: number, how: 'purchase' | 'transfer', price: string | null, usd?: string | null, usdPerCredit?: string | null, tokenAmount?: string | null, priceBasis?: 'price' | 'list' | null, token: string | null, chain: string | null, txHash: string | null, from: string }[]} topUps
  * @property {{ time: string, credits: number, price: string, token: string | null, chain: string | null, txHash: string }[]} [purchases] every purchase up to the month's end, with its paying transaction; not from an older bridge
  * @property {{ time: string, credits: number, to: string }[]} transfersOut
  * @property {{ date: string, kind: string, resource: string | null, credits: number, entries: number, resources: number, sizeMib: number | null, usdPerCredit: string, priceSource: 'purchase' | 'list', eurPerUsd: string | null, eurCents: number | null }[]} usage

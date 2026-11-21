@@ -113,7 +113,10 @@ describe('summarise', () => {
 		}));
 		const { usage, topUps, transfersOut } = summarise({
 			rows: raw,
-			purchases: [{ message_timestamp: '2026-07-20T08:00:00.000Z', price: '0.000002' }]
+			purchases: [
+				// A purchase in dollars (no token named): 1,000,000 credits at 0.000002 USD.
+				{ message_timestamp: '2026-07-20T08:00:00.000Z', amount: 1_000_000, price: '0.000002' }
+			]
 		});
 		assert.deepEqual(
 			usage.map((u) => [

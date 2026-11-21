@@ -78,7 +78,7 @@ export default async function scenario() {
 		keys: [...new Set(keys)],
 		alephEur: alephCreditsInEur(
 			2778,
-			alephCreditPrice([{ time: '2026-07-20T08:00:00Z', price: '0.000002' }])('2026-08-01')
+			alephCreditPrice([{ time: '2026-07-20T08:00:00Z', usdPerCredit: '0.000002' }])('2026-08-01')
 				.usdPerCredit,
 			(await rates.rate('USD', '2026-08-30')).rate
 		),
