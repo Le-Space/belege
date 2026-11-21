@@ -1170,6 +1170,14 @@ export default {
 				title: 'Jetzt der Schlüssel für deine Bücher',
 				why: 'Dein Passkey gibt Belege ein Geheimnis. Daraus entsteht der Schlüssel, mit dem deine Bücher und Belege verschlüsselt sind; gespeichert wird er nirgends.'
 			},
+			added: {
+				title: 'Jetzt öffnet der neue Passkey die Bücher',
+				why: 'Der neue Passkey gibt Belege sein Geheimnis. Damit bekommt er seinen Platz im Tresor der Bücher; gespeichert wird es nirgends.'
+			},
+			stays: {
+				title: 'Jetzt der Passkey „{label}“',
+				why: 'Jeder Passkey, der bleibt, bestätigt einmal und bekommt so seinen Platz im neuen Tresor. Wähle im Fenster des Browsers diesen Passkey.'
+			},
 			notALoop:
 				'Jede Abfrage hat ihren eigenen Zweck, es ist keine Wiederholung. Mit einem Sicherheitsschlüssel: berühren und, falls gefragt, die PIN eingeben.',
 			continue: 'Weiter',
@@ -1347,6 +1355,9 @@ export default {
 			'network-mode': 'Netzwerkmodus',
 			'lan-relay': 'Relay im eigenen Netz',
 			pendingJobs: 'wartende Aufgaben',
+			'vault/index': 'auf Aleph hinterlegte Schlüssel',
+			'books/successor': 'Verweis auf neuere Schlüssel',
+			members: 'Mitglieder',
 			devices: 'eigene Geräte'
 		},
 		done: 'Übernommen: {records} Einträge, {files} Dateien.',

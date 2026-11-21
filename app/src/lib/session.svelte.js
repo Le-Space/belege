@@ -7,7 +7,7 @@ import {
 	restorePasskeyCredential
 } from './passkey-identity.js';
 import { getSetting, setSetting } from './store/settings.js';
-import { passkeyStepsFor } from './passkey-steps.svelte.js';
+import { confirmPasskeyStep, passkeyStepsFor } from './passkey-steps.svelte.js';
 import { sharedOrigin } from './shared-origin.js';
 import { t } from './i18n/index.js';
 import { requestPersistence } from './storage/safety.js';
@@ -906,19 +906,8 @@ export async function renewBooksKeys(stay) {
 	if (!session) throw new Error('The books are not open.');
 	const opened = ownerVault();
 	if (!stay.includes(opened.kid)) throw new Error(t('settings.keys.rekey.thisOne'));
-	const [
-		vaultModule,
-		{ readPrfOutput },
-		{ WebAuthnDIDProvider },
-		{ packBooks },
-		rekey,
-		keys,
-		sync,
-		{ releaseName }
-	] = await Promise.all([
+	const [vaultModule, { packBooks }, rekey, keys, sync, { releaseName }] = await Promise.all([
 		import('./books-vault.js'),
-		import('./passkey-identity.js'),
-		import('@le-space/orbitdb-identity-provider-webauthn-did'),
 		import('./move/book-move.js'),
 		import('./move/rekey.js'),
 		import('./database-keys.js'),
@@ -926,19 +915,9 @@ export async function renewBooksKeys(stay) {
 		import('./build-info.js')
 	]);
 	const wordsKid = await vaultModule.wordsSlotId();
-	/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
-	const answers = [];
-	for (const slot of opened.record.slots.filter(
-		(x) => stay.includes(x.kid) && x.kid !== wordsKid
-	)) {
-		const rawCredentialId = new Uint8Array(
-			WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
-		);
-		answers.push({
-			prfOutput: await readPrfOutput({ credentialId: slot.credentialId, rawCredentialId }),
-			rawCredentialId
-		});
-	}
+	const answers = await answersOf(
+		opened.record.slots.filter((x) => stay.includes(x.kid) && x.kid !== wordsKid)
+	);
 	const root = crypto.getRandomValues(new Uint8Array(32));
 	try {
 		const next = await vaultModule.newBooksVault(opened, answers, root);
@@ -1069,6 +1048,8 @@ export async function addBooksPasskey(label, { publish = false } = {}) {
 			import('./backup/vault-index.js')
 		]);
 	const credential = await createAdditionalPasskey({ displayName: name });
+	// A second prompt: from its own click, as Safari wants (#555).
+	await confirmPasskeyStep({ n: 2, of: 2, purpose: 'added' });
 	const prfOutput = await readPrfOutput(credential);
 	session.vault = await addPasskey(
 		ownerVault(),
@@ -1083,7 +1064,45 @@ export async function addBooksPasskey(label, { publish = false } = {}) {
 	const key = await passkeyIndexKey(prfOutput);
 	prfOutput.fill(0);
 	await showVault();
-	if (publish || app.vault.indexOn) await publishBooksVault([key]);
+	if ((publish || app.vault.indexOn) && !networkPause()) await publishBooksVault([key]);
+}
+
+/**
+ * Every passkey that stays answers once (#555): the first prompt from the
+ * click that asked for it, each further one from "Weiter" in a step that
+ * names the passkey – Safari wants a gesture per WebAuthn call.
+ *
+ * @param {import('./books-vault.js').SlotInfo[]} slots
+ * @returns {Promise<{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]>}
+ */
+async function answersOf(slots) {
+	const [{ readPrfOutput }, { WebAuthnDIDProvider }] = await Promise.all([
+		import('./passkey-identity.js'),
+		import('@le-space/orbitdb-identity-provider-webauthn-did')
+	]);
+	/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
+	const answers = [];
+	try {
+		for (const [i, slot] of slots.entries()) {
+			if (i > 0) {
+				await confirmPasskeyStep({
+					n: i + 1,
+					of: slots.length,
+					purpose: 'stays',
+					label: slot.label || t('settings.keys.unnamed')
+				});
+			}
+			const rawCredentialId = new Uint8Array(
+				WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
+			);
+			const prfOutput = await readPrfOutput({ credentialId: slot.credentialId, rawCredentialId });
+			answers.push({ prfOutput, rawCredentialId });
+		}
+	} catch (e) {
+		for (const a of answers) a.prfOutput.fill(0);
+		throw e;
+	}
+	return answers;
 }
 
 /**
@@ -1100,23 +1119,11 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
 	if (!renew) {
 		session.vault = vaultModule.removePasskey(ownerVault(), kid, globalThis.localStorage);
 	} else {
-		const { readPrfOutput } = await import('./passkey-identity.js');
-		const { WebAuthnDIDProvider } = await import(
-			'@le-space/orbitdb-identity-provider-webauthn-did'
-		);
-		/** @type {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }[]} */
-		const answers = [];
 		const wordsKid = await vaultModule.wordsSlotId();
 		// The recovery words cannot answer here: a renewed vault has none, and says so.
-		for (const slot of ownerVault().record.slots.filter(
-			(s) => s.kid !== kid && s.kid !== wordsKid
-		)) {
-			const rawCredentialId = new Uint8Array(
-				WebAuthnDIDProvider.base64urlToArrayBuffer(slot.credentialId)
-			);
-			const prfOutput = await readPrfOutput({ credentialId: slot.credentialId, rawCredentialId });
-			answers.push({ prfOutput, rawCredentialId });
-		}
+		const answers = await answersOf(
+			ownerVault().record.slots.filter((s) => s.kid !== kid && s.kid !== wordsKid)
+		);
 		session.vault = await vaultModule.renewBooksVault(
 			ownerVault(),
 			answers,

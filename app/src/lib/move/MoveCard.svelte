@@ -218,7 +218,11 @@
 	/** @param {import('./book-move.js').MoveHeader} header */
 	const leftOutText = (header) =>
 		header.leftOut
-			.map((k) => t(`move.leftOut.${k.startsWith('device:') ? 'devices' : k}`))
+			.map((k) =>
+				t(
+					`move.leftOut.${k.startsWith('device:') ? 'devices' : k.startsWith('member:') ? 'members' : k}`
+				)
+			)
 			.join(', ');
 </script>
 

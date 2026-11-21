@@ -35,7 +35,7 @@
 			{t('onboarding.steps.count', { n: step.n, of: step.of })}
 		</p>
 		<h2 id="passkey-step-h" class="mt-1 text-lg font-semibold text-heading">
-			{t(`onboarding.steps.${step.purpose}.title`)}
+			{t(`onboarding.steps.${step.purpose}.title`, { label: step.label ?? '' })}
 		</h2>
 		<p class="mt-2 text-sm leading-relaxed">{t(`onboarding.steps.${step.purpose}.why`)}</p>
 		<p class="mt-2 text-sm leading-relaxed text-faint">{t('onboarding.steps.notALoop')}</p>

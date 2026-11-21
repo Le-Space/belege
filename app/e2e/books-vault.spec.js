@@ -261,3 +261,37 @@ test('a device that founded its own books finds the vault its passkey belongs to
 	expect(await books(page)).toEqual(booksOfA);
 	await expect(page.getByTestId('other-books-result')).toHaveCount(0);
 });
+
+// #555: the vault is kept on Aleph, then the network is paused. A passkey
+// added now is added – and said so –, and Aleph is not asked until the pause ends.
+test('a passkey added while the network is paused is added, and Aleph is not asked', async ({
+	page
+}) => {
+	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('Laptop');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	const keys = await openKeys(page);
+	await keys.getByTestId('keys-add-label').fill('YubiKey');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-done')).toContainText('öffnet dieselben Bücher', {
+		timeout: 30_000
+	});
+
+	await page.evaluate(() =>
+		localStorage.setItem(
+			'belege.network-paused',
+			JSON.stringify({ ucep: false, at: '2026-01-01T00:00:00.000Z' })
+		)
+	);
+	const asked = aleph.calls.length;
+	await keys.getByTestId('keys-add-label').fill('Telefon');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(3, { timeout: 30_000 });
+	await expect(keys.getByTestId('keys-done')).toContainText('öffnet dieselben Bücher');
+	await expect(keys.getByTestId('keys-error')).toHaveCount(0);
+	expect(aleph.calls.length).toBe(asked);
+});
