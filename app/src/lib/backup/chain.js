@@ -1,6 +1,7 @@
 // Where the chain of backups stands (#454): the full backup it starts from,
 // the last increment, the heads each database had when last shipped and the
-// receipt files shipped so far. Kept in the sealed settings, so it travels
+// receipt files shipped so far – those in a record per backup of the chain
+// (#558, CHAIN_FILES_PREFIX). Kept in the sealed settings, so it travels
 // with the books to own devices: the next backup there continues the chain.
 //
 // It moves once Aleph has taken a backup (not refused it). Aleph may answer
@@ -165,21 +166,134 @@ export async function reconcileChain(chain, backups) {
 	};
 }
 
+/**
+ * The receipt files a chain has shipped are not in its record (#558): that
+ * record is written with every backup, each write a log entry the next
+ * increment ships and every device syncs, and a list of every file ever
+ * shipped grew with the books. Each backup of the chain has a record of its
+ * own instead, under this prefix, the chain's full backup and its number:
+ * the files that backup added, written once. The chain's `files` is put
+ * together from them when it is loaded, from its full backup up to its
+ * number – so a chain gone back leaves out what the increments after the
+ * point it went back to shipped, and the next increment under that number
+ * writes its own.
+ */
+export const CHAIN_FILES_PREFIX = 'backup/chain-files/';
+
+/** @param {string} base @param {number} sequence */
+export const chainFilesKey = (base, sequence) => `${CHAIN_FILES_PREFIX}${base}/${sequence}`;
+
+/**
+ * The file records of the chain on `base`, by number.
+ *
+ * @param {import('../store/repository.js').Collection} settings @param {string} base
+ * @returns {Promise<Map<number, string[]>>}
+ */
+async function fileRecords(settings, base) {
+	const prefix = `${CHAIN_FILES_PREFIX}${base}/`;
+	/** @type {Map<number, string[]>} */
+	const out = new Map();
+	for (const r of await settings.list({
+		where: (r) => typeof r.key === 'string' && r.key.startsWith(prefix)
+	})) {
+		const sequence = Number(String(r.key).slice(prefix.length));
+		if (Number.isInteger(sequence) && sequence >= 0 && Array.isArray(r.value)) {
+			out.set(sequence, r.value.map(String));
+		}
+	}
+	return out;
+}
+
+/**
+ * Every file shipped from the full backup up to `sequence`, in the order shipped.
+ *
+ * @param {Map<number, string[]>} records @param {number} sequence
+ */
+function filesUpTo(records, sequence) {
+	/** @type {Set<string>} */
+	const files = new Set();
+	for (const s of [...records.keys()].sort((a, b) => a - b)) {
+		if (s > sequence) break;
+		for (const f of records.get(s) ?? []) files.add(f);
+	}
+	return [...files];
+}
+
+/** @param {string[]} a @param {string[]} b */
+const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
 /** @param {import('../store/repository.js').Collection} settings @returns {Promise<BackupChain | null>} */
 export async function loadChain(settings) {
-	const chain = /** @type {any} */ (await getSetting(settings, CHAIN_SETTING));
-	if (!(chain && typeof chain.base === 'string' && chain.heads && Array.isArray(chain.files))) {
-		return null;
-	}
+	const stored = /** @type {any} */ (await getSetting(settings, CHAIN_SETTING));
+	if (!(stored && typeof stored.base === 'string' && stored.heads)) return null;
+	// A chain written before #558 carries its files itself; saved again, they
+	// move into records of their own.
+	const before = Array.isArray(stored.files);
+	/** @type {BackupChain} */
+	const chain = {
+		...stored,
+		sequence: Number(stored.sequence ?? 0),
+		files: before
+			? stored.files.map(String)
+			: filesUpTo(await fileRecords(settings, stored.base), Number(stored.sequence ?? 0))
+	};
 	// As far as Aleph keeps it, by what the history says now (reconcileChain).
 	const now = await reconcileChain(chain, await loadBackups(settings));
-	if (now !== chain) await setSetting(settings, CHAIN_SETTING, now);
+	if (now !== chain || before) await saveChain(settings, now);
 	return now;
 }
 
-/** @param {import('../store/repository.js').Collection} settings @param {BackupChain | null} chain */
+/**
+ * Keep the chain: its record without the files, and the files its newest
+ * backup added in that backup's own record (see CHAIN_FILES_PREFIX). A new
+ * chain clears the file records of the chains before it.
+ *
+ * @param {import('../store/repository.js').Collection} settings @param {BackupChain | null} chain
+ */
 export async function saveChain(settings, chain) {
-	await setSetting(settings, CHAIN_SETTING, chain);
+	if (!chain) {
+		await setSetting(settings, CHAIN_SETTING, null);
+		return chain;
+	}
+	const { files, ...record } = chain;
+	const records = await fileRecords(settings, chain.base);
+	/** @type {[number, string[]][]} */
+	const writes = [];
+	if (records.size === 0 && chain.sequence > 0) {
+		// A chain from before #558: its files split by what each point had shipped.
+		const points = [chain.kept, ...(chain.pending ?? [])]
+			.filter((p) => p && p.sequence < chain.sequence)
+			.sort((a, b) => /** @type {any} */ (a).sequence - /** @type {any} */ (b).sequence);
+		let from = 0;
+		for (const p of /** @type {import('./archive.js').ChainPoint[]} */ (points)) {
+			const to = Math.max(from, Math.min(files.length, p.files ?? 0));
+			writes.push([p.sequence, files.slice(from, to)]);
+			from = to;
+		}
+		writes.push([chain.sequence, files.slice(from)]);
+	} else {
+		const had = new Set(filesUpTo(records, chain.sequence - 1));
+		writes.push([chain.sequence, files.filter((f) => !had.has(f))]);
+	}
+	for (const [sequence, own] of writes) {
+		const existing = records.get(sequence);
+		if (existing ? sameList(existing, own) : own.length === 0) continue;
+		await setSetting(settings, chainFilesKey(chain.base, sequence), own);
+	}
+	if (chain.sequence === 0) {
+		// The chains before this one are not continued: their lists go.
+		const own = `${CHAIN_FILES_PREFIX}${chain.base}/`;
+		for (const r of await settings.list({
+			where: (r) =>
+				typeof r.key === 'string' &&
+				r.key.startsWith(CHAIN_FILES_PREFIX) &&
+				!r.key.startsWith(own) &&
+				r.value !== null
+		})) {
+			await settings.put({ ...r, value: null });
+		}
+	}
+	await setSetting(settings, CHAIN_SETTING, record);
 	return chain;
 }
 

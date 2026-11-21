@@ -12,6 +12,7 @@ import { withLibp2p } from '@helia/libp2p';
 import { withBitswap } from '@helia/bitswap';
 import { Identities, KeyStore, MemoryStorage, createOrbitDB } from '@orbitdb/core';
 import * as dagCbor from '@ipld/dag-cbor';
+import { CID } from 'multiformats/cid';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -646,13 +647,33 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		const increment = (chain) =>
 			buildIncrement({
 				databases: a.store.databases(),
-				blockstore: a.helia.blockstore,
+				blockstore,
 				receipts: a.store.receipts,
 				key: backupKey,
 				chain,
 				appVersion: '0.0.0-test',
 				now: () => new Date('2026-10-23T08:00:00Z')
 			});
+
+		/** Blocks this device does not have yet, as one that got a receipt by sync before its file. */
+		const hidden = new Set();
+		const blockstore = {
+			/** @param {CID} cid @param {any} [options] */
+			get: (cid, options) =>
+				hidden.has(cid.toV1().toString())
+					? {
+							[Symbol.asyncIterator]: () => ({ next: () => Promise.reject(new Error('not here')) })
+						}
+					: a.helia.blockstore.get(cid, options)
+		};
+		/** A block's bytes from the blockstore. @param {CID} cid */
+		const blockOf = async (cid) => {
+			const got = /** @type {any} */ (await a.helia.blockstore.get(cid, { offline: true }));
+			if (got instanceof Uint8Array) return got;
+			const parts = [];
+			for await (const p of got) parts.push(p);
+			return new Uint8Array(parts.flatMap((p) => [...p]));
+		};
 
 		it('nothing new since the full backup: no increment', async () => {
 			expect(await increment(chainFromBase(backup.manifest, BASE))).toBeNull();
@@ -780,6 +801,121 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 				await books.close();
 			} finally {
 				await b.stop();
+			}
+		}, 120_000);
+
+		it('a receipt file whose blocks are not all here: not counted as shipped, and sent once they are (#558)', async () => {
+			// As a device that has the receipt by sync before its file's blocks arrived.
+			const bytes = new Uint8Array(1024 * 1024 + 2000).fill(0x43);
+			const cid = await a.blobs.put(bytes);
+			const root = /** @type {any} */ (dagCbor.decode(await blockOf(CID.parse(cid))));
+			const chunk = CID.asCID(root.chunks[1]) ?? CID.parse(String(root.chunks[1]));
+			hidden.add(chunk.toV1().toString());
+			await a.store.receipts.put({ fileName: 'halb.pdf', fileCid: cid });
+			try {
+				// A full backup now carries the record, not the file, and does not name it.
+				const full = await buildBackup({
+					databases: a.store.databases(),
+					blockstore,
+					receipts: a.store.receipts,
+					key: backupKey,
+					appVersion: '0.0.0-test'
+				});
+				expect(full.manifest.files).not.toContain(cid);
+				expect(full.manifest.missing).toBe(1);
+				expect(chainFromBase(full.manifest, BASE).files).not.toContain(cid);
+
+				// An increment likewise: the record goes, the file waits.
+				const chain = chainFromBase(backup.manifest, BASE);
+				const one = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+					await increment(chain)
+				);
+				expect(one.files).not.toContain(cid);
+				expect(one.missing).toBe(1);
+				const after = await chainAfter(
+					chain,
+					one,
+					'bafkreihalfhalfhalfhalfhalfhalfhalfhalfhalfhalfhalfhalf'
+				);
+				expect(after.files).not.toContain(cid);
+				// Still not all here: nothing new – no increment every few minutes for it.
+				expect(await increment(after)).toBeNull();
+
+				// The blocks arrive: the next increment carries the file.
+				hidden.clear();
+				const two = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+					await increment(after)
+				);
+				expect(two.files).toEqual([cid]);
+				expect(two.missing).toBe(0);
+				expect(two.entries).toBe(0);
+			} finally {
+				hidden.clear();
+			}
+		}, 120_000);
+
+		it('a second increment in a session does not walk the logs again (#558)', async () => {
+			const databases = Object.values(a.store.databases());
+			let reads = 0;
+			const originals = databases.map((db) => db.log.get);
+			databases.forEach((db, i) => {
+				db.log.get = (/** @type {any[]} */ ...args) => {
+					reads++;
+					return originals[i].apply(db.log, args);
+				};
+			});
+			try {
+				await a.store.transactions.put({
+					bookedOn: '2026-10-24',
+					counterparty: 'Lauf-Probe-Eins',
+					amountCents: -100
+				});
+				const chain = chainFromBase(
+					(
+						await buildBackup({
+							databases: a.store.databases(),
+							blockstore: a.helia.blockstore,
+							receipts: a.store.receipts,
+							key: backupKey,
+							appVersion: '0.0.0-test'
+						})
+					).manifest,
+					BASE
+				);
+				await a.store.transactions.put({
+					bookedOn: '2026-10-25',
+					counterparty: 'Lauf-Probe-Zwei',
+					amountCents: -200
+				});
+				reads = 0;
+				const one = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+					await increment(chain)
+				);
+				// Heads this session has not shipped from: their log is walked.
+				expect(reads).toBeGreaterThan(0);
+				const after = await chainAfter(
+					chain,
+					one,
+					'bafkreiwalkwalkwalkwalkwalkwalkwalkwalkwalkwalkwalkwal'
+				);
+				await a.store.transactions.put({
+					bookedOn: '2026-10-26',
+					counterparty: 'Lauf-Probe-Drei',
+					amountCents: -300
+				});
+				reads = 0;
+				const two = /** @type {NonNullable<Awaited<ReturnType<typeof increment>>>} */ (
+					await increment(after)
+				);
+				expect(two.entries).toBe(1);
+				// The next one starts from what the last one shipped: no walk.
+				expect(reads).toBe(0);
+				// The same chain again – the increment was not kept – is known too.
+				reads = 0;
+				expect((await increment(after))?.entries).toBe(1);
+				expect(reads).toBe(0);
+			} finally {
+				databases.forEach((db, i) => (db.log.get = originals[i]));
 			}
 		}, 120_000);
 	});

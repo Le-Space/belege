@@ -81,7 +81,7 @@ const startsWith = (bytes, magic) =>
  * @property {string} createdAt ISO
  * @property {string} appVersion
  * @property {any} metadata the storage bridge's: `databases` [{ name, address, type, manifestCID, entryCount, heads }]
- * @property {string[]} files receipt files' root CIDs
+ * @property {string[]} files receipt files' root CIDs it carries whole (a file lacking blocks here is left out, #558)
  * @property {number} fileBlocks the receipt files' blocks in the backup
  * @property {number} missing receipt-file blocks this browser did not have
  */
@@ -109,29 +109,44 @@ async function collect(got) {
 }
 
 /**
- * The receipt files' blocks, from this browser only.
+ * The receipt files' blocks, from this browser only. A file goes in only
+ * whole – its root and every chunk here (#558): a device that has a receipt
+ * by sync before its file's blocks arrived has the file in `incomplete`, and
+ * none of its blocks go along. The chain counts only `complete` ones as
+ * shipped, so the next increment tries the others again.
  *
  * @param {any} blockstore Helia's blockstore
  * @param {string[]} files root CIDs
  * @param {(done: number) => void} [onFile]
+ * @returns {Promise<{ blocks: Map<string, { cid: CID, bytes: Uint8Array }>, missing: number,
+ *   complete: string[], incomplete: string[] }>} `missing`: the blocks this browser lacked
  */
 export async function fileBlocks(blockstore, files, onFile) {
 	/** @type {Map<string, { cid: CID, bytes: Uint8Array }>} */
 	const blocks = new Map();
 	let missing = 0;
-	/** @param {CID} cid */
-	const take = async (cid) => {
-		const name = cid.toV1().toString();
-		if (blocks.has(name)) return blocks.get(name)?.bytes;
-		const bytes = await collect(blockstore.get(cid, { offline: true })).catch(() => undefined);
-		if (!bytes) {
-			missing++;
-			return undefined;
-		}
-		blocks.set(name, { cid, bytes });
-		return bytes;
-	};
+	/** @type {string[]} */
+	const complete = [];
+	/** @type {string[]} */
+	const incomplete = [];
 	for (const [i, file] of files.entries()) {
+		/** This file's blocks, put with the others once all of them are here. */
+		/** @type {Map<string, { cid: CID, bytes: Uint8Array }>} */
+		const own = new Map();
+		let lacking = 0;
+		/** @param {CID} cid */
+		const take = async (cid) => {
+			const name = cid.toV1().toString();
+			const had = blocks.get(name) ?? own.get(name);
+			if (had) return had.bytes;
+			const bytes = await collect(blockstore.get(cid, { offline: true })).catch(() => undefined);
+			if (!bytes) {
+				lacking++;
+				return undefined;
+			}
+			own.set(name, { cid, bytes });
+			return bytes;
+		};
 		const root = await take(CID.parse(file));
 		if (root) {
 			/** @type {any} */
@@ -140,9 +155,16 @@ export async function fileBlocks(blockstore, files, onFile) {
 				await take(CID.asCID(chunk) ?? CID.parse(String(chunk)));
 			}
 		}
+		if (lacking === 0) {
+			for (const [name, block] of own) blocks.set(name, block);
+			complete.push(file);
+		} else {
+			missing += lacking;
+			incomplete.push(file);
+		}
 		onFile?.(i + 1);
 	}
-	return { blocks, missing };
+	return { blocks, missing, complete, incomplete };
 }
 
 /**
@@ -263,10 +285,16 @@ export async function buildBackup({
 		}
 	);
 
-	const files = await receiptFiles(receipts);
-	onProgress?.({ stage: 'files', done: 0, total: files.length });
-	const { blocks: own, missing } = await fileBlocks(blockstore, files, (done) =>
-		onProgress?.({ stage: 'files', done, total: files.length })
+	const named = await receiptFiles(receipts);
+	onProgress?.({ stage: 'files', done: 0, total: named.length });
+	// Only whole files go in, and only they are named: the chain takes them as
+	// shipped (chain.js), and the next increment tries the others again.
+	const {
+		blocks: own,
+		missing,
+		complete: files
+	} = await fileBlocks(blockstore, named, (done) =>
+		onProgress?.({ stage: 'files', done, total: named.length })
 	);
 	for (const [name, block] of own) if (!blocks.has(name)) blocks.set(name, block);
 
@@ -305,7 +333,8 @@ export async function buildBackup({
  * @property {number} sequence of the last increment; 0 right after the base
  * @property {string | null} previous the last increment's CID
  * @property {Record<string, string[]>} heads by database address
- * @property {string[]} files receipt files' root CIDs in the chain, in the order shipped
+ * @property {string[]} files receipt files' root CIDs the chain has shipped whole, in the order shipped;
+ *   not in the chain's record but one per backup of it (chain.js CHAIN_FILES_PREFIX, #558)
  * @property {ChainPoint} [kept] how far Aleph has confirmed it keeps the chain (chain.js);
  *   absent in a chain from before
  * @property {(ChainPoint & { cid: string })[]} [pending] increments shipped after `kept` that
@@ -321,6 +350,44 @@ export async function buildBackup({
  * @property {Record<string, string[]>} heads
  * @property {number} files how many of the chain's `files` had been shipped
  */
+
+/**
+ * What the chain has shipped of a database, by the heads it shipped last,
+ * kept for the session (#558): walking a whole log costs one read per entry,
+ * and a chain that backs up by itself would pay that for every increment.
+ * Each increment adds its own entries under its new heads; a walk is needed
+ * only for heads not seen here – the first run, or a chain gone back. By the
+ * database object, so books closed take theirs along; two sets per database,
+ * the heads before and after the last increment.
+ *
+ * @type {WeakMap<object, Map<string, Set<string>>>}
+ */
+const shippedSets = new WeakMap();
+
+/** @param {string[]} heads */
+const headsKey = (heads) => [...heads].sort().join(' ');
+
+/** @param {any} database @param {string[]} heads @param {Set<string>} set */
+function rememberShipped(database, heads, set) {
+	const known = shippedSets.get(database) ?? new Map();
+	known.delete(headsKey(heads));
+	known.set(headsKey(heads), set);
+	while (known.size > 2) known.delete(/** @type {string} */ (known.keys().next().value));
+	shippedSets.set(database, known);
+}
+
+/**
+ * Every log entry reachable from these heads, as known for the session or walked.
+ *
+ * @param {any} database @param {string[]} heads
+ */
+async function shippedOf(database, heads) {
+	const known = shippedSets.get(database)?.get(headsKey(heads));
+	if (known) return known;
+	const set = await reachable(database, heads);
+	rememberShipped(database, heads, set);
+	return set;
+}
 
 /**
  * Every log entry reachable from these heads: what the chain has shipped.
@@ -379,7 +446,8 @@ export async function buildIncrement({
 	for (const [index, [collection, database]] of Object.entries(databases).entries()) {
 		const address = String(database.address);
 		const since = chain.heads[address] ?? [];
-		const shipped = await reachable(database, since);
+		// Only read from by the storage bridge: the session's set itself.
+		const shipped = await shippedOf(database, since);
 		// The storage bridge reads the heads it continues from off the set.
 		/** @type {any} */ (shipped).heads = since;
 		watched.set(address, { database, shipped, collection });
@@ -393,10 +461,16 @@ export async function buildIncrement({
 	}
 
 	const had = new Set(chain.files);
-	const files = (await receiptFiles(receipts)).filter((f) => !had.has(f));
-	onProgress?.({ stage: 'files', done: 0, total: files.length });
-	const { blocks: own, missing } = await fileBlocks(blockstore, files, (done) =>
-		onProgress?.({ stage: 'files', done, total: files.length })
+	const wanted = (await receiptFiles(receipts)).filter((f) => !had.has(f));
+	onProgress?.({ stage: 'files', done: 0, total: wanted.length });
+	// A file whose blocks are not all here yet stays out, and is tried again
+	// with the next increment (#558); only whole files count as shipped.
+	const {
+		blocks: own,
+		missing,
+		complete: files
+	} = await fileBlocks(blockstore, wanted, (done) =>
+		onProgress?.({ stage: 'files', done, total: wanted.length })
 	);
 	// Belege's word on it, beside the storage bridge's manifest.
 	const info = dagCbor.encode({ kind: 'belege-increment', v: 1, appVersion, files, missing });
@@ -419,7 +493,17 @@ export async function buildIncrement({
 
 	/** @type {Record<string, string[]>} */
 	const heads = { ...chain.heads };
-	for (const [address, shipped] of increment.shipped) heads[address] = shipped.heads;
+	for (const [address, shipped] of increment.shipped) {
+		heads[address] = shipped.heads;
+		// What the chain will have shipped once this one is kept: the next run
+		// starts from there without a walk.
+		const before = watched.get(address);
+		if (before) {
+			const after = new Set(before.shipped);
+			for (const hash of shipped.hashes) after.add(hash);
+			rememberShipped(before.database, shipped.heads, after);
+		}
+	}
 	const car = await createCARFromBlocks(
 		rootFirst(increment.blocks, String(increment.root)),
 		increment.root
