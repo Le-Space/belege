@@ -11,6 +11,7 @@
 	import { cleanMatchingSettings } from './matching/classify.js';
 	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
+	import { offeredTaxKeys, taxKeyLabel, taxKeyName } from './booking/tax-key-names.js';
 	import { accountsForAssist, learnedForAssist } from './booking/assist-input.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
@@ -321,7 +322,7 @@
 						: ''}</span
 			>
 		</label>
-		<label class="flex w-28 flex-col text-sm">
+		<label class="flex w-44 flex-col text-sm">
 			<span class="text-faint">{t('booking.taxKey')}</span>
 			<input
 				class="{input} font-mono"
@@ -333,11 +334,17 @@
 				data-testid="tx-booking-key"
 			/>
 			<datalist id="tax-keys-{tx.id}">
-				{#each [...new Set(Object.values(keys).filter(Boolean))] as k (k)}
-					<option value={k}></option>
+				{#each offeredTaxKeys(keys) as k (k)}
+					<option value={k}>{taxKeyLabel(k, keys)}</option>
 				{/each}
 			</datalist>
-			<span class="mt-1 min-h-4 text-xs text-faint">&nbsp;</span>
+			<!-- The key in words: a number alone tells few people anything. -->
+			<span class="mt-1 min-h-4 text-xs text-faint" data-testid="tx-booking-key-name"
+				>{keyText.trim()
+					? taxKeyName(keyText, keys) ||
+						(/^\d{1,4}$/.test(keyText.trim()) ? t('booking.taxKeyUnknown') : '')
+					: t('booking.taxKeyNone')}</span
+			>
 		</label>
 		<button
 			type="submit"

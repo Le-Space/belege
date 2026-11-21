@@ -3563,6 +3563,29 @@ export default {
 			'Suggestions from your imported chart of accounts ({count} accounts). Which account is right is for you to decide with your tax advisor.',
 		taxKey: 'BU key',
 		taxKeyPlaceholder: 'empty = none',
+		taxKeyNone: 'no key',
+		taxKeyUnknown: 'No meaning is on record for this key.',
+		// A key the books' settings give a role (Einstellungen → DATEV).
+		taxKeyRole: {
+			input19: 'Input VAT 19 %',
+			input7: 'Input VAT 7 %',
+			output19: 'VAT 19 %',
+			output7: 'VAT 7 %',
+			reverseCharge: '§ 13b UStG (reverse charge): 19 % input VAT and 19 % VAT'
+		},
+		// DATEV's standard keys (booking/tax-key-names.js).
+		taxKeyName: {
+			2: 'VAT 7 %',
+			3: 'VAT 19 %',
+			8: 'Input VAT 7 %',
+			9: 'Input VAT 19 %',
+			11: 'Tax-free intra-Community supply',
+			18: 'Intra-Community acquisition: 7 % input VAT and 7 % VAT',
+			19: 'Intra-Community acquisition: 19 % input VAT and 19 % VAT',
+			40: 'Lifts the account’s automatic tax',
+			91: '§ 13b UStG (reverse charge): 7 % input VAT and 7 % VAT',
+			94: '§ 13b UStG (reverse charge): 19 % input VAT and 19 % VAT'
+		},
 		taxVia: {
 			vat19: 'From the receipt: VAT 19 %',
 			vat7: 'From the receipt: VAT 7 %',

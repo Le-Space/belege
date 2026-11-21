@@ -3617,6 +3617,29 @@ export default {
 			'Vorschläge aus deinem eingelesenen Kontenplan ({count} Konten). Welches Konto richtig ist, entscheidest du mit deiner Steuerberatung.',
 		taxKey: 'BU-Schlüssel',
 		taxKeyPlaceholder: 'leer = ohne',
+		taxKeyNone: 'ohne Schlüssel',
+		taxKeyUnknown: 'Für diesen Schlüssel ist keine Bedeutung hinterlegt.',
+		// A key the books' settings give a role (Einstellungen → DATEV).
+		taxKeyRole: {
+			input19: 'Vorsteuer 19 %',
+			input7: 'Vorsteuer 7 %',
+			output19: 'Umsatzsteuer 19 %',
+			output7: 'Umsatzsteuer 7 %',
+			reverseCharge: '§ 13b UStG (Reverse Charge): 19 % Vorsteuer und 19 % Umsatzsteuer'
+		},
+		// DATEV's standard keys (booking/tax-key-names.js).
+		taxKeyName: {
+			2: 'Umsatzsteuer 7 %',
+			3: 'Umsatzsteuer 19 %',
+			8: 'Vorsteuer 7 %',
+			9: 'Vorsteuer 19 %',
+			11: 'Steuerfreie innergemeinschaftliche Lieferung',
+			18: 'Innergemeinschaftlicher Erwerb: 7 % Vorsteuer und 7 % Umsatzsteuer',
+			19: 'Innergemeinschaftlicher Erwerb: 19 % Vorsteuer und 19 % Umsatzsteuer',
+			40: 'Hebt die Steuerautomatik des Kontos auf',
+			91: '§ 13b UStG (Reverse Charge): 7 % Vorsteuer und 7 % Umsatzsteuer',
+			94: '§ 13b UStG (Reverse Charge): 19 % Vorsteuer und 19 % Umsatzsteuer'
+		},
 		taxVia: {
 			vat19: 'Aus dem Beleg: USt 19 %',
 			vat7: 'Aus dem Beleg: USt 7 %',
