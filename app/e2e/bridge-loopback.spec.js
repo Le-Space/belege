@@ -6,39 +6,27 @@
 // the card's status still comes, and over the stream. Made-up passkey;
 // nothing is real.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { viaStream, stopBridge } from './bridge.js';
+import { viaStream } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.skip(viaStream, 'device sync off is what this spec is about');
 
 test.beforeAll(async () => {
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-bridge-loopback-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'bridge-loopback',
+		config: {
 			llm: {
 				...defaultConfig().llm,
 				model: 'deepseek-flash',
@@ -47,21 +35,13 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY },
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 20_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 test('paired by code, device sync off: the bridge’s node is paired over 127.0.0.1 and every call goes over the stream', async ({
@@ -76,13 +56,13 @@ test('paired by code, device sync off: the bridge’s node is paired over 127.0.
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await openIntegration(page, 'bridge');
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
+	const code = bridge.code();
 	expect(code).not.toBe('');
 	await page.getByTestId('pairing-code').fill(code);
 	await page.getByRole('button', { name: 'Koppeln', exact: true }).click();
 	await expect(page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');
 	// The app paired the node by its invitation, over this machine: it came back armed.
-	await expect.poll(() => bridgeOut, { timeout: 60_000 }).toMatch(/node is armed/);
+	await expect.poll(() => bridge.out(), { timeout: 60_000 }).toMatch(/node is armed/);
 
 	// From now on no HTTP to the bridge at all.
 	/** @type {string[]} */

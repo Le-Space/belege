@@ -10,13 +10,7 @@
 // output. All addresses, hashes, keys and amounts are made up
 // (@belege/bridge/testing/alchemy).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { EVM, fakeEvmAddress } from '@belege/bridge/testing/chains';
 import {
 	FAKE_ALCHEMY_KEY,
@@ -54,29 +48,19 @@ const swapTx = fakeTx({
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const tail = (/** @type {string} */ a) => a.slice(-6);
 
 /** @type {Awaited<ReturnType<typeof startFakeAlchemy>>} */ let alchemy;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	alchemy = await startFakeAlchemy({ txs: [...evmChain(), swapTx] });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-alchemy-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
+	bridge = await startBridge({
+		name: 'alchemy',
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_ALCHEMY_KEY: FAKE_ALCHEMY_KEY,
 			BELEGE_BRIDGE_TEST_ALCHEMY_URL: alchemy.url,
 			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({
@@ -85,25 +69,14 @@ test.beforeAll(async () => {
 				// The token not in the list, by its contract (#115).
 				[XYZ_CONTRACT.toLowerCase()]: '0.0001'
 			})
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await alchemy?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('with an Alchemy key the card says so, and an Ethereum wallet is read there', async ({
 	page
@@ -116,7 +89,7 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
@@ -211,6 +184,6 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	expect(alchemy.paths.length).toBeGreaterThan(0);
 	expect(alchemy.paths.every((p) => p === `/eth-mainnet/v2/${FAKE_ALCHEMY_KEY}`)).toBe(true);
 	expect(await page.content()).not.toContain(FAKE_ALCHEMY_KEY);
-	expect(bridgeOut).not.toContain(FAKE_ALCHEMY_KEY);
-	expect(bridgeOut.includes(EVM.wallet)).toBe(false);
+	expect(bridge.out()).not.toContain(FAKE_ALCHEMY_KEY);
+	expect(bridge.out().includes(EVM.wallet)).toBe(false);
 });

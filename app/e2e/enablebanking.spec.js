@@ -7,14 +7,9 @@
 // that, a bank that says no. Every bank, IBAN and name is made up
 // (@belege/bridge/testing/enablebanking).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, enableBankingSecrets, memoryKeychain, saveConfig } from '@belege/bridge';
+import { enableBankingSecrets, memoryKeychain } from '@belege/bridge';
 import {
 	FAKE_EB_APP_ID,
 	FAKE_EB_PRIVATE_KEY,
@@ -23,33 +18,28 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const RETURN = `${APP_ORIGIN}/integrationen/bank/verbunden`;
 
 // The app's service worker would answer the routed bank page with the app itself.
 test.use({ serviceWorkers: 'block' });
 
 /** @type {Awaited<ReturnType<typeof startFakeEnableBanking>>} */ let eb;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	// The bank's page is said to be on the app's origin and routed to the fake
 	// (see `bank` below): Chrome's virtual authenticator does not survive a
 	// navigation to another site.
 	eb = await startFakeEnableBanking({ redirectUrls: [RETURN], bankUrl: `${APP_ORIGIN}/__bank` });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-eb-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	// The key to the sealed key, for the test mode.
+	const fileKey = randomBytes(32).toString('hex');
+	bridge = await startBridge({
+		name: 'eb',
+		config: {
 			enablebanking: {
 				configured: true,
 				appId: FAKE_EB_APP_ID,
@@ -59,27 +49,19 @@ test.beforeAll(async () => {
 				ibanSuffixes: ['1234']
 			}
 		},
-		configPath
-	);
-	// The sealed key, as setup:enablebanking leaves it; the key to it for the test mode.
-	const fileKey = randomBytes(32).toString('hex');
-	await enableBankingSecrets({ configPath, keychain: memoryKeychain(fileKey) }).write({
-		privateKey: FAKE_EB_PRIVATE_KEY,
-		sessions: {}
+		// The sealed key, as setup:enablebanking leaves it.
+		before: ({ configPath }) =>
+			enableBankingSecrets({ configPath, keychain: memoryKeychain(fileKey) }).write({
+				privateKey: FAKE_EB_PRIVATE_KEY,
+				sessions: {}
+			}),
+		env: { BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY: fileKey }
 	});
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY: fileKey },
-		stdio: ['ignore', 'pipe', 'pipe']
-	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await eb?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 /** @param {import('@playwright/test').Page} page */
@@ -102,8 +84,7 @@ async function pairedOnTheBankPage(page) {
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 	await openIntegration(page, 'bank');
 	return page.getByTestId('enablebanking-card');
 }
@@ -165,8 +146,8 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	// The bank sent the code in the address; it left the address before the passkey was asked.
 	expect(arrived.some((u) => /[?&]code=/.test(u))).toBe(true);
 	expect(page.url()).toBe(RETURN);
-	expect(bridgeOut).not.toContain('Beispielbank');
-	expect(bridgeOut).toContain('enablebanking: a bank was linked, 2 account(s)');
+	expect(bridge.out()).not.toContain('Beispielbank');
+	expect(bridge.out()).toContain('enablebanking: a bank was linked, 2 account(s)');
 
 	await page.getByTestId('enablebanking-back').click();
 	const listed = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
@@ -208,7 +189,7 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	const paid = new Date(Date.now() - 20 * 86_400_000).toISOString().slice(0, 7);
 	await page.locator(`[data-testid="transaction-month"][data-month="${paid}"]`).click();
 	await expect(page.getByText('Kundin Beispiel AG').first()).toBeVisible();
-	expect(bridgeOut).not.toContain('Wolkenfabrik');
+	expect(bridge.out()).not.toContain('Wolkenfabrik');
 	await openIntegration(page, 'bank');
 
 	page.once('dialog', (d) => d.accept());
@@ -240,7 +221,7 @@ test('a bank that says no links nothing; a bank that says yes is linked, listed 
 	const renewed = page.getByTestId('enablebanking-card').getByTestId('enablebanking-link');
 	await expect(renewed).toHaveCount(1);
 	await expect(renewed.getByTestId('enablebanking-renew')).toHaveCount(0);
-	expect(bridgeOut).toContain('enablebanking: 1 older consent(s) replaced');
+	expect(bridge.out()).toContain('enablebanking: 1 older consent(s) replaced');
 	await page.getByTestId('tab-integrationen').click();
 	await expect(page.getByText('(Enable Banking) endet am', { exact: false })).toHaveCount(0);
 });

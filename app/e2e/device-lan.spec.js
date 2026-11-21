@@ -6,51 +6,26 @@
 // and sync. From then on nothing asks Aleph and no WebSocket opens (no
 // public relay): checked on every request and WebSocket of both contexts.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { device, samePasskey } from './devices.js';
-import { stopBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
 const LAN_RELAY_PORT = 4998;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-device-lan-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
-			lanRelay: { host: '127.0.0.1', port: LAN_RELAY_PORT }
-		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'device-lan',
+		config: { lanRelay: { host: '127.0.0.1', port: LAN_RELAY_PORT } }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 20_000 }).toMatch(/Pairing code/);
-	expect(bridgeOut).toContain(`LAN relay for own devices on 127.0.0.1, UDP ${LAN_RELAY_PORT}`);
+	expect(bridge.out()).toContain(`LAN relay for own devices on 127.0.0.1, UDP ${LAN_RELAY_PORT}`);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
-	if (dir) await rm(dir, { recursive: true, force: true });
+	await bridge?.stop();
 });
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
@@ -88,7 +63,7 @@ test('two devices meet at the relay in the own bridge, and sync', async ({ brows
 		await mac.page.getByTestId('add-test-transaction').click();
 		await expect(mac.page.getByTestId('transaction')).toHaveCount(1);
 		await tab(mac.page, 'Integrationen');
-		const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
+		const code = bridge.code();
 		await mac.page.getByTestId('pairing-code').fill(code);
 		await mac.page.getByRole('button', { name: 'Koppeln', exact: true }).click();
 		await expect(mac.page.getByTestId('bridge-status')).toContainText('dieses Gerät ist gekoppelt');

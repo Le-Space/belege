@@ -6,47 +6,25 @@
 // it, the amount comes near. Real bridge in test mode, fixed rates; every
 // name, number and amount is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
-
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-match-fx-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
+	bridge = await startBridge({
+		name: 'match-fx',
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ USD: { rate: '0.92', source: 'ecb' } })
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
-	if (dir) await rm(dir, { recursive: true, force: true });
+	await bridge?.stop();
 });
 
 test('invoices in dollars and pounds link to their euro card payments by themselves', async ({
@@ -59,8 +37,7 @@ test('invoices in dollars and pounds link to their euro card payments by themsel
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 	// The rate is asked for over the bridge's stream (#580); paired by code,
 	// that stream comes up a moment after "gekoppelt". Matching that ran before
 	// it found no rate and did not link the dollar invoice (flaky on CI).

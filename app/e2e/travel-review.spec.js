@@ -5,26 +5,16 @@
 // receipts, one is dismissed – and nothing on the trip changed. Towns and
 // vendors are made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { pairBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { startBridge } from './bridge-process.js';
 
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	llm = await startFakeLlm();
@@ -38,13 +28,9 @@ test.beforeAll(async () => {
 					]
 				}
 			: undefined;
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-travel-review-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'travel-review',
+		config: {
 			llm: {
 				...defaultConfig().llm,
 				baseUrl: llm.url,
@@ -54,28 +40,13 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: {
-			...process.env,
-			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a trip checked by a model on this machine: notes naming its receipts, one dismissed, nothing changed (#693 d)', async ({
@@ -92,9 +63,8 @@ test('a trip checked by a model on this machine: notes naming its receipts, one 
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 	await tab('Integrationen').click();
-	await pairBridge(page, { code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	// The bus there and back, read before; nothing for the night between.
 	await page.evaluate(async () => {

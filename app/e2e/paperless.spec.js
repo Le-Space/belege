@@ -9,13 +9,8 @@
 // "Belege ruft das Postfach trotzdem selbst ab" brings it back, with the tags
 // to leave out. All documents made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import {
@@ -27,19 +22,15 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 /** The scan's size: well above what one stream answer carries (1 MiB, 64 KiB relayed). */
 const BIG_SCAN = 3 * 1024 * 1024;
 
 /** @type {Awaited<ReturnType<typeof startFakeHibiscus>>} */ let hibiscus;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 /** @type {Awaited<ReturnType<typeof startFakePaperless>>} */ let paperless;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: sampleData() });
@@ -52,13 +43,9 @@ test.beforeAll(async () => {
 			d.id === 12 ? { ...d, original: Buffer.concat([d.original, Buffer.alloc(BIG_SCAN, 7)]) } : d
 		)
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-paperless-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'paperless',
+		config: {
 			hibiscus: {
 				host: hibiscus.host,
 				port: hibiscus.port,
@@ -74,39 +61,20 @@ test.beforeAll(async () => {
 			},
 			paperless: { configured: true, baseUrl: paperless.url }
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY,
 			BELEGE_BRIDGE_TEST_PAPERLESS_TOKEN: FAKE_PAPERLESS_TOKEN
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await paperless?.close();
 	await llm?.close();
 	await hibiscus?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('documents from Paperless become receipts, scans read with its OCR text', async ({ page }) => {
 	test.setTimeout(180_000);
@@ -121,7 +89,7 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 	await expect(page.getByTestId('integration-paperless')).toBeVisible();
 
 	// Its fake model is on 127.0.0.1, but setup:llm was never told it runs here (#438):
@@ -149,7 +117,7 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 		.poll(() => llm.requests.some((r) => JSON.stringify(r.body).includes('SUMME EUR 4,99')))
 		.toBe(true);
 	expect(paperless.authHeaders.every((h) => h === `Token ${FAKE_PAPERLESS_TOKEN}`)).toBe(true);
-	expect(bridgeOut).not.toContain(FAKE_PAPERLESS_TOKEN);
+	expect(bridge.out()).not.toContain(FAKE_PAPERLESS_TOKEN);
 
 	// A second fetch asks only for what came after the newest.
 	await card.getByTestId('paperless-fetch').click();
@@ -198,5 +166,5 @@ test('documents from Paperless become receipts, scans read with its OCR text', a
 	await expect(detail.getByTestId('tx-upload-result')).toContainText('Zugeordnet');
 	await expect(detail.getByTestId('tx-linked-state')).toContainText('bestätigt');
 	// The words searched for never reach the bridge's log.
-	expect(bridgeOut).not.toContain('Schrauben');
+	expect(bridge.out()).not.toContain('Schrauben');
 });

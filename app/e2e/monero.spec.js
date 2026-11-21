@@ -6,21 +6,13 @@
 // euros at the day's rate. Importing the same file again adds nothing. Every
 // hash, address, amount and note is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const ADDRESS = `4${'A'.repeat(94)}`;
 const h = (/** @type {string} */ c) => c.repeat(64);
 const epoch = (/** @type {string} */ iso) => Math.round(Date.parse(iso) / 1000);
@@ -33,29 +25,17 @@ const EXPORT = [
 	`0,${epoch('2025-05-03T08:00:00Z')},2025-05-03 08:00,out,0.1,100000000000,0.00005,${h('d')},"",0,,""`
 ].join('\n');
 
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-monero-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ XMR: '150' }) },
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'monero',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ XMR: '150' }) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
-	if (dir) await rm(dir, { recursive: true, force: true });
+	await bridge?.stop();
 });
 
 test('a Monero wallet from its export: bookings in euros, the fee apart, nothing twice', async ({
@@ -68,8 +48,7 @@ test('a Monero wallet from its export: bookings in euros, the fee apart, nothing
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
@@ -109,5 +88,5 @@ test('a Monero wallet from its export: bookings in euros, the fee apart, nothing
 	await expect(rows.filter({ hasText: '180,00' })).toHaveCount(1);
 	await month('März 2025');
 	await expect(rows.filter({ hasText: '375,00' })).toHaveCount(1);
-	expect(bridgeOut).not.toContain(ADDRESS);
+	expect(bridge.out()).not.toContain(ADDRESS);
 });

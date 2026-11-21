@@ -8,64 +8,37 @@
 // readable on the way. Every key, address and amount is made up
 // (@belege/bridge/testing/aleph).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, memoryKeychain, saveConfig } from '@belege/bridge';
+import { memoryKeychain } from '@belege/bridge';
 import { alephAccountOf, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { runAlephGrants } from '../../bridge/src/setup-aleph.js';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openBackupAdvanced, openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const KEY = createHash('sha256').update('belege e2e backup key').digest('hex');
 const MARKER = 'Backupspur-Kieselweg';
 
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	// The fake answers the balance of the account the key pays from; the bridge
 	// names it, so it is found by asking the bridge's status below.
 	aleph = await startFakeAleph({ accounts: {} });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-backup-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
-			alephBackup: { configured: true }
-		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: {
-			...process.env,
-			BELEGE_BRIDGE_TEST_ALEPH_URL: aleph.url,
-			BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY: KEY
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'backup',
+		config: { alephBackup: { configured: true } },
+		env: { BELEGE_BRIDGE_TEST_ALEPH_URL: aleph.url, BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY: KEY }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await aleph?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 /**
@@ -86,8 +59,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	// Something in the books to back up: a payment with a marker in it.
 	await page.evaluate(async (marker) => {
@@ -197,11 +169,11 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	expect(store?.status).toBe('processed');
 	expect(store?.channel).toBe('BELEGE-BACKUP');
 	// Through the bridge, with its order: the log has the size, never the CID.
-	expect(bridgeOut).toMatch(
+	expect(bridge.out()).toMatch(
 		TWO_STEPS ? /backup: kept on Aleph, processed/ : /backup: \d+ byte\(s\) to Aleph, processed/
 	);
-	expect(bridgeOut).not.toContain(cid);
-	expect(bridgeOut).not.toContain(KEY);
+	expect(bridge.out()).not.toContain(cid);
+	expect(bridge.out()).not.toContain(KEY);
 	// "Wer hält es?": the peers announcing the backup's CID, named where they are
 	// Aleph's core nodes, and placed – all from the fake here, all made up.
 	aleph.holders({
@@ -341,10 +313,10 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 		ref: cid
 	});
 	// By the bridge: the backup it uploaded, and keeping it again; none since the grant.
-	expect(bridgeOut.match(/backup: \d+ byte\(s\) to Aleph, processed/g) ?? []).toHaveLength(
+	expect(bridge.out().match(/backup: \d+ byte\(s\) to Aleph, processed/g) ?? []).toHaveLength(
 		1 - TWO_STEPS
 	);
-	expect(bridgeOut.match(/backup: kept on Aleph/g)).toHaveLength(1 + TWO_STEPS);
+	expect(bridge.out().match(/backup: kept on Aleph/g)).toHaveLength(1 + TWO_STEPS);
 
 	// One chain so far: nothing older to delete.
 	await expect(card.getByTestId('backup-older-chain')).toHaveCount(0);

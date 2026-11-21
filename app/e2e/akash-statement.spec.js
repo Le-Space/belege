@@ -6,13 +6,7 @@
 // one collective line; the ACT account adds up. Every address, hash, dseq
 // and amount is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import {
 	akashDeployment,
 	cosmosTx,
@@ -23,20 +17,15 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const W = fakeCosmosAddress('e2e akash deployer', 'akash');
 const PROVIDER = fakeCosmosAddress('e2e akash provider', 'akash');
 
 /** @type {Awaited<ReturnType<typeof startFakeCosmos>>} */ let node;
 /** @type {Awaited<ReturnType<typeof startFakeAkashConsole>>} */ let indexer;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	// Heights 1000 and 1060 are 2026-09-01 00:00 and 01:00 UTC (fake-chains blockTime).
@@ -63,29 +52,16 @@ test.beforeAll(async () => {
 		]
 	});
 	indexer = await startFakeAkashConsole({ txs: [] });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-akash-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: {
-			...process.env,
-			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ AKT: '2', USD: '0.9' })
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'akash',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ AKT: '2', USD: '0.9' }) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await node?.close();
 	await indexer?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('an Akash month: the statement covers its fees, the export books them as one line', async ({
@@ -98,8 +74,7 @@ test('an Akash month: the statement covers its fees, the export books them as on
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
@@ -137,7 +112,7 @@ test('an Akash month: the statement covers its fees, the export books them as on
 	await expect(summary).toContainText('verbraucht 2,5 ACT');
 	await expect(summary).toContainText('übrig 1 ACT auf der Wallet und 0 ACT im Escrow');
 	await expect(wallet.getByTestId('akash-act-month').filter({ hasText: '2026-09' })).toBeVisible();
-	expect(bridgeOut).not.toContain(W);
+	expect(bridge.out()).not.toContain(W);
 
 	// The export: the fees' accounts confirmed, then one collective line.
 	await page.getByRole('navigation').getByRole('link', { name: 'Export' }).click();

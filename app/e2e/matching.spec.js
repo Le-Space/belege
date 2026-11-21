@@ -12,14 +12,9 @@
 // receipt links back to its booking → "Abgleich starten" changes nothing →
 // nothing readable at rest.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { openSettings } from './settings.js';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
 import {
 	ACCOUNTING,
@@ -35,10 +30,7 @@ import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { pairBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { startBridge } from './bridge-process.js';
 
 // The receipts lie 1–5 days before BASE; every booking is on BASE.
 const BASE = new Date(Date.now() - 2 * 864e5);
@@ -89,21 +81,15 @@ function bankData() {
 /** @type {Awaited<ReturnType<typeof startFakeHibiscus>>} */ let hibiscus;
 /** @type {Awaited<ReturnType<typeof startFakeImap>>} */ let imap;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: bankData() });
 	imap = await startFakeImap({ storage: sampleMailbox({ base: BASE, privateReceipt: true }) });
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-matching-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'matching',
+		config: {
 			hibiscus: {
 				host: hibiscus.host,
 				port: hibiscus.port,
@@ -129,39 +115,20 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
 			BELEGE_BRIDGE_TEST_IMAP_PASSWORD: FAKE_IMAP_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await llm?.close();
 	await imap?.close();
 	await hibiscus?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('matches, asks, covers, links by hand, finds the missing receipt in the private mailbox', async ({
 	page
@@ -180,7 +147,7 @@ test('matches, asks, covers, links by hand, finds the missing receipt in the pri
 
 	// Pair, tell the matcher who we are, sync.
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 	await openSettings(page, 'firma');
 	await page.getByTestId('company-names').fill(COMPANY);
 	await page.getByTestId('matching-save').click();

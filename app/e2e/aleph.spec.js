@@ -6,22 +6,13 @@
 // offered. Every address, hash and amount is made up
 // (@belege/bridge/testing/aleph).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { fakeAlephAddress, fakeItemHash, startFakeAleph } from '@belege/bridge/testing/aleph';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const ACCOUNT = fakeAlephAddress('e2e hosting');
 const VM = fakeItemHash('e2e vm');
@@ -33,9 +24,7 @@ const day = (/** @type {number} */ d, /** @type {string} */ time) =>
 	`${MONTH}-${String(d).padStart(2, '0')}T${time}.000Z`;
 
 /** @type {Awaited<ReturnType<typeof startFakeAleph>>} */ let aleph;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	const rows = [
@@ -73,29 +62,18 @@ test.beforeAll(async () => {
 		accounts: { [ACCOUNT]: { balance: 2_936_000, rows } },
 		messages: { [VM]: { type: 'INSTANCE', name: 'e2e-relay' } }
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-aleph-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
+	bridge = await startBridge({
+		name: 'aleph',
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_ALEPH_URL: aleph.url,
 			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ USD: '0.9' })
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await aleph?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('an Aleph account is found, and last month becomes an Eigenbeleg', async ({ page }) => {
@@ -107,8 +85,7 @@ test('an Aleph account is found, and last month becomes an Eigenbeleg', async ({
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'aleph');
 	const card = page.getByTestId('aleph-card');
@@ -146,6 +123,6 @@ test('an Aleph account is found, and last month becomes an Eigenbeleg', async ({
 	await page.getByRole('link', { name: 'Belege', exact: true }).click();
 	await expect(page.getByTestId('receipt').filter({ hasText: 'Aleph Cloud' })).toHaveCount(1);
 	// The address never reaches the bridge's log.
-	expect(bridgeOut).not.toContain(ACCOUNT);
-	expect(bridgeOut).toContain('aleph: statement');
+	expect(bridge.out()).not.toContain(ACCOUNT);
+	expect(bridge.out()).toContain('aleph: statement');
 });
