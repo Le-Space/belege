@@ -4,7 +4,13 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRateService, invert, toDecimal, RateError } from '../src/rates.js';
+import {
+	createRateService,
+	invert,
+	toDecimal,
+	RateError,
+	TARGET_CURRENCIES
+} from '../src/rates.js';
 
 const NOW = () => new Date('2026-09-26T10:00:00Z');
 const DAY_START = Date.parse('2026-09-01T00:00:00Z') / 1000;
@@ -696,4 +702,173 @@ test('a token not in the list: its rate by its contract, whatever it calls itsel
 		false
 	);
 	await assert.rejects(service.rate('XYZ', '2026-07-19', { contract, chain: 'nyx' }), /EVM chain/);
+});
+
+// A rate into another currency than the euro (Le-Space/eigenbeleg-agent#72).
+describe('a rate into another currency', () => {
+	/** An ECB answer with one rate per day. @param {Record<string, number>} days */
+	const ecb = (days) => ({
+		dataSets: [
+			{
+				series: {
+					'0:0:0:0:0': {
+						observations: Object.fromEntries(Object.values(days).map((v, i) => [i, [v]]))
+					}
+				}
+			}
+		],
+		structure: {
+			dimensions: { observation: [{ values: Object.keys(days).map((id) => ({ id })) }] }
+		}
+	});
+	const ECB_CHF = 'https://data-api.ecb.europa.eu/service/data/EXR/D.CHF.EUR';
+	const ECB_USD = 'https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR';
+	const LATER = () => new Date('2026-11-20T10:00:00Z');
+
+	test('CHF: the euro rate times the ECB reference rate of the day, both legs named', async () => {
+		const { fetch } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/near/history': coingecko(4, 5),
+			[ECB_CHF]: ecb({ '2026-10-01': 0.95, '2026-10-02': 0.9 })
+		});
+		const rate = await createRateService({ fetch, now: LATER }).rate('NEAR', '2026-10-01', {
+			currency: 'CHF'
+		});
+		assert.deepEqual(rate, {
+			asset: 'NEAR',
+			date: '2026-10-01',
+			currency: 'CHF',
+			rate: '3.8',
+			usdRate: '5',
+			source: 'coingecko',
+			at: '2026-10-01T00:00:00Z',
+			eurRate: '4',
+			fx: { currency: 'CHF', perEur: '0.95', source: 'ecb', at: '2026-10-01T00:00:00Z' }
+		});
+	});
+
+	test('a month of days costs one ECB request for the currency; a weekend takes the last rate before it', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/near/history': coingecko(4, 5),
+			[ECB_CHF]: ecb({ '2026-10-01': 0.95, '2026-10-02': 0.9, '2026-10-05': 0.8 })
+		});
+		const rates = createRateService({ fetch, now: LATER });
+		const got = [];
+		for (const day of ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05']) {
+			const r = await rates.rate('NEAR', day, { currency: 'CHF' });
+			got.push(`${r.fx?.at.slice(0, 10)} ${r.rate}`);
+		}
+		assert.deepEqual(got, [
+			'2026-10-01 3.8',
+			'2026-10-02 3.6',
+			'2026-10-02 3.6',
+			'2026-10-02 3.6',
+			'2026-10-05 3.2'
+		]);
+		assert.equal(calls.filter((u) => u.startsWith(ECB_CHF)).length, 1);
+		// The euro rate is the one an EUR document gets, and is kept: asked for again, nothing is fetched.
+		const before = calls.length;
+		assert.equal((await rates.rate('NEAR', '2026-10-01')).rate, '4');
+		await rates.rate('NEAR', '2026-10-03', { currency: 'CHF' });
+		assert.equal(calls.length, before);
+	});
+
+	test('USD where CoinGecko answered: its own USD price of the snapshot, no second leg', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/usd-coin/history': coingecko(0.8, 1.0002)
+		});
+		const rate = await createRateService({ fetch, now: LATER }).rate('USDC', '2026-10-01', {
+			currency: 'USD'
+		});
+		assert.equal(rate.rate, '1.0002');
+		assert.equal(rate.eurRate, '0.8');
+		assert.equal(rate.currency, 'USD');
+		assert.equal(rate.fx, undefined);
+		assert.ok(!calls.some((u) => u.includes('ecb.europa.eu')));
+	});
+
+	test('USD from a Kraken rate: crossed with the ECB rate like any other currency', async () => {
+		const { fetch } = fakeFetch({
+			'https://api.kraken.com/0/public/OHLC': {
+				error: [],
+				result: {
+					NEAREUR: [[Date.parse('2026-10-01T00:00:00Z') / 1000, '4', '5', '3', '4', '4', '1', 1]],
+					last: 0
+				}
+			},
+			[ECB_USD]: ecb({ '2026-10-01': 1.25 })
+		});
+		const rate = await createRateService({ fetch, now: LATER }).rate('NEAR', '2026-10-01', {
+			currency: 'USD'
+		});
+		assert.equal(rate.source, 'kraken');
+		assert.equal(rate.rate, '5');
+		assert.deepEqual(rate.fx, {
+			currency: 'USD',
+			perEur: '1.25',
+			source: 'ecb',
+			at: '2026-10-01T00:00:00Z'
+		});
+	});
+
+	test('RUB: the Bank of Russia rate valid on the day, per nominal', async () => {
+		const cbr = (/** @type {string} */ nominal, /** @type {string} */ value) =>
+			`<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="30.09.2026" name="x">` +
+			`<Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>${nominal}</Nominal><Name>x</Name><Value>${value}</Value></Valute></ValCurs>`;
+		for (const [nominal, value] of [
+			['1', '100,5000'],
+			['10', '1005,0000']
+		]) {
+			const { fetch } = fakeFetch({
+				'https://api.coingecko.com/api/v3/coins/near/history': coingecko(4, 5),
+				'https://data-api.ecb.europa.eu/': { dataSets: [{ series: {} }], structure: {} },
+				'https://www.cbr.ru/scripts/XML_daily.asp': cbr(nominal, value)
+			});
+			const rate = await createRateService({ fetch, now: LATER }).rate('NEAR', '2026-10-01', {
+				currency: 'RUB'
+			});
+			assert.equal(rate.rate, '402');
+			assert.equal(rate.fx?.source, 'cbr');
+			assert.equal(Number(rate.fx?.perEur), 100.5);
+			assert.equal(rate.fx?.at, '2026-09-30T00:00:00Z');
+		}
+	});
+
+	test('a currency in itself is 1; a currency in another goes through the euro', async () => {
+		const { fetch, calls } = fakeFetch({
+			[ECB_USD]: ecb({ '2026-10-01': 1.25 }),
+			[ECB_CHF]: ecb({ '2026-10-01': 0.95 })
+		});
+		const rates = createRateService({ fetch, now: LATER });
+		const same = await rates.rate('CHF', '2026-10-01', { currency: 'CHF' });
+		assert.equal(same.rate, '1');
+		assert.equal(same.source, 'same');
+		assert.equal(calls.length, 0);
+		const usd = await rates.rate('USD', '2026-10-01', { currency: 'CHF' });
+		assert.equal(usd.eurRate, '0.8');
+		assert.equal(usd.rate, '0.76');
+	});
+
+	test('no second leg on the day: no rate, and nothing made up', async () => {
+		const { fetch } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/near/history': coingecko(4, 5),
+			[ECB_CHF]: ecb({ '2026-09-01': 0.95 })
+		});
+		await assert.rejects(
+			createRateService({ fetch, now: LATER }).rate('NEAR', '2026-10-01', { currency: 'CHF' }),
+			(e) => e instanceof RateError && e.status === 502
+		);
+	});
+
+	test('only currencies with an official rate against the euro: a cross through the ruble is refused', async () => {
+		const { fetch, calls } = fakeFetch({});
+		const rates = createRateService({ fetch, now: LATER });
+		for (const currency of ['UAH', 'KZT', 'XXX', 'chf', 'BTC']) {
+			await assert.rejects(
+				rates.rate('NEAR', '2026-10-01', { currency }),
+				(e) => e instanceof RateError && e.status === 400
+			);
+		}
+		assert.equal(calls.length, 0);
+		assert.ok(TARGET_CURRENCIES.includes('EUR') && TARGET_CURRENCIES.includes('RUB'));
+	});
 });

@@ -13,6 +13,7 @@ export {
 	ECB_CURRENCIES,
 	RATE_SOURCES,
 	RateError,
+	TARGET_CURRENCIES,
 	createRateService,
 	invert,
 	toDecimal
