@@ -2,7 +2,7 @@
 
 _English: [threat-model.md](threat-model.md)_
 
-Belege hält die Bücher eines Unternehmens im Browser. Sie sind mit Schlüsseln versiegelt, die aus der Wurzel der Bücher kommen. Die Wurzel öffnet dein Passkey ([keys.de.md](keys.de.md)). Diese Seite sagt offen, gegen welche Risiken das hilft und gegen welche nicht. So kannst du entscheiden, wo und wie du Belege nutzt. Schwachstellen in Belege selbst meldest du bitte vertraulich ([SECURITY.md](../SECURITY.md)).
+Belege hält die Bücher eines Unternehmens im Browser. Sie sind mit Schlüsseln versiegelt, die aus der Wurzel der Bücher kommen. Die Wurzel öffnet dein Passkey ([keys.de.md](keys.de.md)). Diese Seite sagt offen, gegen welche Risiken das hilft und gegen welche nicht. So kannst du entscheiden, wo und wie du Belege nutzt. Schwachstellen in Belege selbst meldest du bitte vertraulich ([SECURITY.md](../SECURITY.md)). Was dafür geprüft wurde, Bereich für Bereich und mit den Tests, die es so halten, steht in [security-audit.de.md](security-audit.de.md).
 
 ## Wogegen Belege schützt
 

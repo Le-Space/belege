@@ -1,6 +1,6 @@
 # Security
 
-Belege keeps a company's payment and receipt records: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys. What it protects against, which risks it cannot answer (a compromised device or browser, browser extensions included), and what you can do: [docs/threat-model.md](docs/threat-model.md).
+Belege keeps a company's payment and receipt records: encrypted in the browser under a passkey, synced between own devices, with a local bridge next to bank, mail and keys. What it protects against, which risks it cannot answer (a compromised device or browser, browser extensions included), and what you can do: [docs/threat-model.md](docs/threat-model.md). What was checked, area by area, with the result and what is still open: [docs/security-audit.md](docs/security-audit.md).
 
 Le Space never asks for your recovery words, your passkey, keys, tokens or passwords.
 

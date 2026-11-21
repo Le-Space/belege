@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The security audit's written result** (#533, part of the audit plan #209): `docs/security-audit.md` and its German twin go through the plan's eleven areas – keys, sealing, databases, device sync, relays, foreign devices, the invoicing link, the bridge, the web app, the deploy chain, and the claims the product makes – with what was checked, the evidence, and a verdict for each point: fine, fixed, accepted with its reason, or open with its issue. It lists what is still to do and the tests that stand guard. Linked from `SECURITY.md`, the threat model and the README.
+- Three statements corrected against the code: `bridge/README.md` now names all three routes that answer without a token (`/health`, `/pair`, a read share's own link) and all kinds of attachment the bridge hands out (PDFs, images, e-invoices); `docs/device-proof.md` says that a member gets the device proof's key sealed in their key bundle, where it said the key was never sent or stored.
+
 ### Changed
 
 - **A purchase of Aleph credits paid in ALEPH is the ALEPH that left the wallet, valued at the token's rate of that day** (`@le-space/chains` 0.5.2, `purchaseEntries`): the payment's entry is in ALEPH with `priceAs: 'ALEPH'`, as for any other payment in a token, and its memo names what the credits cost at Aleph's list price, to compare. Until now it was in USD at the list price. A purchase in a dollar token stays in USD. The monthly statement's consumption is still valued at dollars per credit.

@@ -2,7 +2,7 @@
 
 _Deutsch: [threat-model.de.md](threat-model.de.md)_
 
-Belege keeps a company's books in the browser, sealed under keys from the books' root, which your passkey opens ([keys.md](keys.md)). This page says plainly which risks that answers and which it cannot – so you can decide where and how to use it. Weaknesses in Belege itself are reported privately ([SECURITY.md](../SECURITY.md)).
+Belege keeps a company's books in the browser, sealed under keys from the books' root, which your passkey opens ([keys.md](keys.md)). This page says plainly which risks that answers and which it cannot – so you can decide where and how to use it. Weaknesses in Belege itself are reported privately ([SECURITY.md](../SECURITY.md)). What was checked for that, area by area and with the tests that keep it so, is in [security-audit.md](security-audit.md).
 
 ## What Belege protects against
 
