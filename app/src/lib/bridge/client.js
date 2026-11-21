@@ -217,6 +217,8 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {{ asset: string, amount: string, decimals: number }[]} balances
  * @property {number} transactions
  * @property {number} unknownAssets denoms or tokens that are not booked
+ * @property {string[]} [superseded] ids of entries an earlier reading gave and this one leaves out,
+ *   because they are part of another entry now (NEAR handed to the wrap contract, wallets/wallet-sync.js)
  * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean, completedBy?: 'indexer', unknownAmounts?: number, indexerFrom?: string | null, indexerError?: string }} history
  *   `completedBy`: a pruned node's older part came from the chain's indexer (Akash, issue #105);
  *   `unknownAmounts`: older transactions whose amount only events carry, not booked

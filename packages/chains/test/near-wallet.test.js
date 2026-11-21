@@ -171,6 +171,9 @@ test('wNEAR is NEAR: wrapping leaves only its gas, the swap at the DEX is one sw
 	);
 	const [wrapGas, swapGas, gave] = result.entries;
 	assert.equal(wrapGas.swap, undefined, 'wrapping is no swap');
+	// What an earlier reading booked and this one leaves out: the NEAR handed
+	// to the wrap contract, and the wNEAR minted for it.
+	assert.deepEqual(result.superseded, [`${WRAP}:deposit`, `${WRAP}:ft:w1:0`]);
 	assert.deepEqual(gave.swap, {
 		gave: [{ asset: 'NEAR', amount: '2', listed: true }],
 		got: [{ asset: 'USDC', amount: '5.67', listed: true }],
