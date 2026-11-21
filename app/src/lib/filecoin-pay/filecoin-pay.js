@@ -31,6 +31,7 @@ import { getSetting, setSetting } from '../store/settings.js';
 import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 import { importFile } from '../receipts/import.js';
 import { t } from '../i18n/index.js';
+import { issuerLogoOf } from '../settings/issuer-logo.js';
 
 /** @typedef {import('../bridge/client.js').FilecoinPayStatement} FilecoinPayStatement */
 
@@ -278,7 +279,7 @@ export async function createFilecoinPayStatement({
 		createdBy
 	};
 	const { filecoinPayPdf } = await import('./statement-pdf.js');
-	const bytes = await filecoinPayPdf(doc);
+	const bytes = await filecoinPayPdf(doc, { issuerLogo: await issuerLogoOf(store) });
 	const { record } = await importFile({
 		receipts: store.receipts,
 		blobs,

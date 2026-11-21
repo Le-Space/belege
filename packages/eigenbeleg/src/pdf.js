@@ -19,7 +19,7 @@ import {
 	noInvoice,
 	sourceName
 } from './document.js';
-import { A4, BLACK, GREY, WARN, embedIssuerLogo, pageLayout } from './layout.js';
+import { A4, BLACK, GREY, MARK_SIZE, WARN, embedIssuerLogo, pageLayout } from './layout.js';
 
 /** What made the file, unless the caller says otherwise. */
 export const CREATOR = 'eigenbeleg';
@@ -28,8 +28,8 @@ export const PRODUCER = 'eigenbeleg (Le Space UG), pdf-lib';
 /**
  * @param {import('./document.js').EigenbelegDocument} doc
  * @param {{ creator?: string, producer?: string, logo?: boolean, issuerLogo?: Uint8Array | null }} [o] logo: the chain's
- *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS). issuerLogo: the issuer's own
- *   logo, a PNG or JPEG file's bytes, in the head's top right corner (none unless given; an
+ *   mark, very small, beside the title (off unless asked for; @le-space/pdf's LOGOS). issuerLogo: the issuer's own
+ *   logo, a PNG or JPEG file's bytes, large as a letterhead: top right, the text below it (none unless given; an
  *   ImageError of @le-space/pdf when the file is no small PNG or JPEG)
  * @returns {Promise<Uint8Array>}
  */
@@ -85,6 +85,8 @@ export async function eigenbelegPdf(
 	/** @param {string} number @param {string} subtitle */
 	function head(number, subtitle) {
 		current = number;
+		// The issuer's logo as a letterhead, above everything else on the page.
+		l.letterhead(own);
 		if (doc.testnet) {
 			text(
 				'TESTNET – keine echte Zahlung. Kurse des Mainnet-Assets nur zur Veranschaulichung; dieser Beleg ist kein Buchungsbeleg.',
@@ -92,8 +94,8 @@ export async function eigenbelegPdf(
 			);
 			gap(4);
 		}
-		l.issuerLogo(own, l.y);
-		heading('Eigenbeleg', { face: bold, size: 20 }, mark);
+		// The chain's mark only small: the document is the issuer's, not the network's.
+		heading('Eigenbeleg', { face: bold, size: 20 }, mark, MARK_SIZE.small);
 		text(`Nr. ${number}`, { face: bold, size: 12 });
 		gap(2);
 		text(subtitle, { size: 10 });

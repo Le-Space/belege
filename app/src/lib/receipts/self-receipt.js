@@ -32,6 +32,7 @@ import { hasQuantity, SOURCE_NAMES } from '../assets/valuation.js';
 import { confirmMatch } from '../matching/actions.js';
 import { importFile } from './import.js';
 import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
+import { issuerLogoOf } from '../settings/issuer-logo.js';
 
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
@@ -247,7 +248,7 @@ export async function createEigenbeleg({
 		books
 	});
 	const { bookingPdf } = await import('@le-space/eigenbeleg/booking-pdf');
-	const bytes = await bookingPdf(doc);
+	const bytes = await bookingPdf(doc, { issuerLogo: await issuerLogoOf(store) });
 
 	return storeEigenbeleg({
 		store,

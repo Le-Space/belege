@@ -10,6 +10,7 @@ import { recordEvent } from '../activity/events.js';
 import { nextStatementNumber } from './records.js';
 import { bookStatement } from './booking.js';
 import { lastDayOf, snapshotOf, statementOf } from './statement.js';
+import { issuerLogoOf } from '../settings/issuer-logo.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -86,16 +87,19 @@ export async function createTravelStatement({
 	const created = now();
 	const number = nextStatementNumber(travel, Number(month.slice(0, 4)));
 	const { travelStatementPdf } = await import('./statement-pdf.js');
-	const bytes = await travelStatementPdf({
-		number,
-		issuer,
-		traveller: String(traveller.name ?? ''),
-		role: String(traveller.role ?? ''),
-		month,
-		createdAt: created.toISOString(),
-		corrects: replaced?.number ?? null,
-		statement
-	});
+	const bytes = await travelStatementPdf(
+		{
+			number,
+			issuer,
+			traveller: String(traveller.name ?? ''),
+			role: String(traveller.role ?? ''),
+			month,
+			createdAt: created.toISOString(),
+			corrects: replaced?.number ?? null,
+			statement
+		},
+		{ issuerLogo: await issuerLogoOf(store) }
+	);
 	const { record } = await importFile({
 		receipts: store.receipts,
 		blobs: /** @type {any} */ (blobs),

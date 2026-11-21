@@ -12,7 +12,7 @@
 import { createPdfA, savePdfA } from '@le-space/pdf';
 
 import { deDate } from './document.js';
-import { A4, BLACK, GREY, pageLayout } from './layout.js';
+import { A4, BLACK, GREY, embedIssuerLogo, pageLayout } from './layout.js';
 
 /** The label column of a field: wide enough for "Übernachtungspauschalen". */
 const LABEL = 120;
@@ -26,15 +26,20 @@ const LABEL = 120;
  * @param {string} p.continuation printed on top of every further page
  * @param {string} [p.subject]
  * @param {string} [p.creator] what made it: `Belege` when not given
+ * @param {Uint8Array | null} [p.issuerLogo] the issuer's own logo, the bytes of a PNG or JPEG
+ *   file: a letterhead, top right above the title, fitted into ISSUER_LOGO_BOX (layout.js); a file
+ *   that cannot be one is an ImageError (@le-space/pdf) before anything is drawn
  */
 export async function statementLayout({
 	title,
 	created,
 	continuation,
 	subject = '',
-	creator = 'Belege'
+	creator = 'Belege',
+	issuerLogo = null
 }) {
 	const { pdf, fonts } = await createPdfA();
+	const own = await embedIssuerLogo(pdf, issuerLogo);
 	const { regular, bold, mono } = fonts;
 	const M = 48;
 	let number = '';
@@ -60,6 +65,8 @@ export async function statementLayout({
 	function head(no, by, subtitle, heading = 'Eigenbeleg') {
 		number = no;
 		issuer = by;
+		// The issuer's logo as a letterhead, the title below it.
+		l.letterhead(own);
 		l.text(heading, { face: bold, size: 20 });
 		l.text(`Nr. ${no}`, { face: bold, size: 12 });
 		l.gap(2);

@@ -23,14 +23,16 @@ const utc = (iso) => `${String(iso).slice(0, 16).replace('T', ' ')} UTC`;
 
 /**
  * @param {import('./statement.js').AkashStatementDocument} doc
+ * @param {{ issuerLogo?: Uint8Array | null }} [o] issuerLogo: the company's own logo (settings/issuer-logo.js), top right in the head
  * @returns {Promise<Uint8Array>}
  */
-export async function akashStatementPdf(doc) {
+export async function akashStatementPdf(doc, { issuerLogo = null } = {}) {
 	const s = doc.data;
 	const { width, head, field, rule, heading, table, signature, save } = await statementLayout({
 		title: `Eigenbeleg ${doc.number} – Akash-Verbrauch ${s.month}`,
 		created: new Date(doc.createdAt),
-		continuation: `${doc.number} · Akash-Verbrauch ${s.month} (Fortsetzung)`
+		continuation: `${doc.number} · Akash-Verbrauch ${s.month} (Fortsetzung)`,
+		issuerLogo
 	});
 
 	head(
