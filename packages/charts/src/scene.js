@@ -17,7 +17,8 @@
 /** @typedef {{ type: 'path', points: [number, number][], stroke: Role, width: number }} Path */
 /** @typedef {{ type: 'text', x: number, y: number, text: string, size: number, anchor: 'start' | 'middle' | 'end', fill: Role, bold: boolean }} Text y is the baseline */
 /** @typedef {Rect | Line | Path | Text} Shape */
-/** @typedef {{ width: number, height: number, shapes: Shape[] }} Scene */
+/** @typedef {{ left: number, right: number, top: number, bottom: number, lo: number, hi: number }} Plot the box the values are drawn in, and the values at its bottom and top: what a page needs to put a marker on a value */
+/** @typedef {{ width: number, height: number, shapes: Shape[], plot?: Plot }} Scene */
 /** @typedef {(text: string, size: number, bold: boolean) => number} Measure */
 
 /** The colours of the series, in this order; the rest of a chart is `other`. */
@@ -125,8 +126,9 @@ const LEGEND = 7;
  * @param {number} p.max
  * @param {(value: string) => string} p.format
  * @param {Measure} p.measure
+ * @param {number} [p.right] room right of the plot, for labels at the lines' ends
  */
-function frame({ width, height, title, legend, min, max, format, measure }) {
+function frame({ width, height, title, legend, min, max, format, measure, right = 10 }) {
 	/** @type {Shape[]} */
 	const shapes = [];
 	/** @param {number} x @param {number} y @param {string} text @param {Partial<Text>} [o] @returns {Text} */
@@ -163,7 +165,7 @@ function frame({ width, height, title, legend, min, max, format, measure }) {
 	const { lo, hi, ticks } = niceTicks(min, max);
 	const labels = ticks.map((t) => format(t.text));
 	const left = Math.ceil(Math.max(...labels.map((t) => measure(t, SMALL, false)))) + 5;
-	const plot = { left, right: width - 10, top: y + 4, bottom: height - SMALL - 5 };
+	const plot = { left, right: width - right, top: y + 4, bottom: height - SMALL - 5, lo, hi };
 	/** @param {number} v */
 	const yOf = (v) => plot.bottom - ((v - lo) / (hi - lo)) * (plot.bottom - plot.top);
 	ticks.forEach((t, i) => {
@@ -200,19 +202,24 @@ function frame({ width, height, title, legend, min, max, format, measure }) {
 
 /**
  * A line of values over time, drawn as steps: a value holds until the next
- * one. For a balance: `start` is where it stood before the first bucket.
+ * one. For a balance: `start` is where it stood before the first bucket. A
+ * value that is null (or not a number) is a gap: the line stops and starts
+ * again where there is a value.
  *
  * @param {object} p
  * @param {string} p.title what is shown, with its unit
  * @param {string[]} p.buckets what the values stand for (days, months)
- * @param {{ label: string, values: number[], start?: number, color?: Role }[]} p.series a value per bucket; at most four
+ * @param {{ label: string, values: (number | null)[], start?: number | null, color?: Role }[]} p.series a value per bucket;
+ *   the first four get the series colours, further ones `other`, unless they name their own
  * @param {number} [p.width]
  * @param {number} [p.height]
  * @param {boolean} [p.zero] the axis starts at zero (true unless said otherwise)
+ * @param {boolean} [p.legend] the legend above the plot (true unless said otherwise; from two series on)
+ * @param {boolean} [p.ends] each line's label at its right end, in the line's colour
  * @param {(value: string) => string} [p.format] a tick's decimal string as it is printed
  * @param {(bucket: string) => string} [p.bucketLabel]
  * @param {Measure} [p.measure] the width of a text, where the renderer knows its font
- * @returns {Scene}
+ * @returns {Scene & { plot: Plot }}
  */
 export function lineChart({
 	title,
@@ -221,48 +228,101 @@ export function lineChart({
 	width = 500,
 	height = 120,
 	zero = true,
+	legend = true,
+	ends = false,
 	format = (v) => v,
 	bucketLabel = (b) => b,
 	measure = estimate
 }) {
-	const lines = series.slice(0, SERIES.length).map((s, i) => ({
-		...s,
-		color: s.color ?? SERIES[i],
-		all: [s.start ?? s.values[0] ?? 0, ...s.values].map((v) => (Number.isFinite(v) ? v : 0))
+	/** @param {number | null | undefined} v */
+	const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+	const lines = series.map((s, i) => ({
+		label: s.label,
+		color: s.color ?? SERIES[i] ?? 'other',
+		// Without a start a line begins at its first value.
+		all: [num(s.start === undefined ? s.values[0] : s.start), ...s.values.map(num)]
 	}));
-	const every = lines.flatMap((s) => s.all);
+	const every = /** @type {number[]} */ (lines.flatMap((s) => s.all).filter((v) => v !== null));
 	const { shapes, plot, yOf, bottom } = frame({
 		width,
 		height,
 		title,
-		legend: lines.map((s) => ({ label: s.label, color: s.color })),
-		min: Math.min(...every, ...(zero ? [0] : [])),
-		max: Math.max(...every, ...(zero ? [0] : [])),
+		legend: legend ? lines.map((s) => ({ label: s.label, color: s.color })) : [],
+		min: Math.min(...every, ...(zero || !every.length ? [0] : [])),
+		max: Math.max(...every, ...(zero || !every.length ? [0] : [])),
 		format,
-		measure
+		measure,
+		...(ends
+			? { right: Math.ceil(Math.max(0, ...lines.map((s) => measure(s.label, SMALL, false)))) + 8 }
+			: {})
 	});
 	const n = buckets.length;
 	/** Position 0 is the start of the period, position i the end of bucket i. @param {number} i */
 	const xOf = (i) => plot.left + (n ? i / n : 0) * (plot.right - plot.left);
+	/** @type {{ label: string, color: Role, y: number }[]} */
+	const labels = [];
 	for (const s of lines) {
-		/** @type {[number, number][]} */
-		const points = [[r2(xOf(0)), r2(yOf(s.all[0]))]];
-		for (let i = 1; i <= n; i++) {
-			const [, py] = points[points.length - 1];
+		/** @type {[number, number][][]} */
+		const runs = [];
+		/** @type {[number, number][] | null} */
+		let points = null;
+		for (let i = 0; i <= n; i++) {
+			const v = s.all[i];
+			if (v === null || v === undefined) {
+				points = null;
+				continue;
+			}
 			const x = r2(xOf(i));
-			const y = r2(yOf(s.all[i]));
+			const y = r2(yOf(v));
+			if (!points) {
+				// After a gap the value stands for its own bucket: from the bucket's start.
+				points = i === 0 ? [[x, y]] : [[r2(xOf(i - 1)), y]];
+				if (i > 0) points.push([x, y]);
+				runs.push(points);
+				continue;
+			}
+			const [, py] = points[points.length - 1];
 			points.push([x, py]);
 			if (y !== py) points.push([x, y]);
 		}
-		// A run of steps on one level is one stroke.
-		const path = points.filter(
-			(p, i) =>
-				i === 0 || i === points.length - 1 || p[1] !== points[i - 1][1] || p[1] !== points[i + 1][1]
-		);
-		shapes.push({ type: 'path', points: path, stroke: s.color, width: 1.2 });
+		for (const run of runs) {
+			// A run of steps on one level is one stroke.
+			const path = run.filter(
+				(p, i) =>
+					i === 0 || i === run.length - 1 || p[1] !== run[i - 1][1] || p[1] !== run[i + 1][1]
+			);
+			shapes.push({ type: 'path', points: path, stroke: s.color, width: 1.2 });
+		}
+		const last = s.all[n];
+		if (ends && typeof last === 'number')
+			labels.push({ label: s.label, color: s.color, y: yOf(last) });
+	}
+	if (labels.length) {
+		// Labels that would sit on each other are pushed apart, top to bottom, and kept in the plot.
+		const gap = SMALL + 1.5;
+		labels.sort((a, b) => a.y - b.y);
+		for (let i = 1; i < labels.length; i++)
+			labels[i].y = Math.max(labels[i].y, labels[i - 1].y + gap);
+		const over = labels[labels.length - 1].y - plot.bottom;
+		if (over > 0) {
+			labels[labels.length - 1].y -= over;
+			for (let i = labels.length - 2; i >= 0; i--)
+				labels[i].y = Math.min(labels[i].y, labels[i + 1].y - gap);
+		}
+		for (const l of labels)
+			shapes.push({
+				type: 'text',
+				x: r2(plot.right + 4),
+				y: r2(l.y + SMALL * 0.35),
+				text: l.label,
+				size: SMALL,
+				anchor: 'start',
+				fill: l.color,
+				bold: false
+			});
 	}
 	bottom(buckets.map(bucketLabel), (i) => xOf(i + 1));
-	return { width, height, shapes };
+	return { width, height, shapes, plot };
 }
 
 /**

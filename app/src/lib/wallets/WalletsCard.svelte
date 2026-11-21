@@ -25,6 +25,7 @@
 	import AkashActAccount from '$lib/akash/AkashActAccount.svelte';
 	import { addWallet, loadWallets, removeWallet, updateWalletMeta } from './wallet-sync.js';
 	import { walletList } from './wallet-list.svelte.js';
+	import WalletValueChart from './WalletValueChart.svelte';
 	import {
 		dismissWalletSummary,
 		syncable,
@@ -589,6 +590,11 @@
 					<WayOut message={addError} />
 				{/if}
 			</form>
+		{/if}
+
+		{#if wallets.length}
+			<!-- Above the list: what the wallets were worth, day by day (#908). -->
+			<WalletValueChart {wallets} {client} {busy} />
 		{/if}
 
 		{#if syncableCount > 1}

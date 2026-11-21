@@ -67,9 +67,15 @@ importers:
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
+      '@le-space/charts':
+        specifier: workspace:^
+        version: link:../packages/charts
       '@le-space/eigenbeleg':
         specifier: workspace:^
         version: link:../packages/eigenbeleg
+      '@le-space/ledger':
+        specifier: workspace:^
+        version: link:../packages/ledger
       '@le-space/libp2p-webrtc-qr':
         specifier: 0.14.0
         version: 0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)
