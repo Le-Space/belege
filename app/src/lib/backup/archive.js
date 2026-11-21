@@ -889,6 +889,50 @@ async function joinAccessLists(orbitdb, lists, encryption, warn) {
 }
 
 /**
+ * A set of databases a backup may go back into. With `names` and `resolve`,
+ * a set whose addresses depend on who wrote it (#555): the databases a
+ * passkey wrote before the books' own identity (#496) carry that passkey's
+ * DID in their access controller, and a backup of them may be restored under
+ * a later passkey or the recovery words, whose DID is another. Such a set
+ * fits a backup by its databases' names; its writer is then read from the
+ * backup's own access controller, and `resolve` gives the addresses and
+ * options for it – which must name every database the backup holds.
+ *
+ * @typedef {{ name: string, addresses: Record<string, string>, open: Record<string, any>,
+ *   names?: Record<string, string>,
+ *   resolve?: (writer: string) => Promise<{ addresses: Record<string, string>, open: Record<string, any> }> }} RestoreTarget
+ */
+
+/**
+ * The writer a database's access controller names, from the backup's blocks
+ * (#555): the database's manifest (its address), then its access controller's
+ * (`/ipfs/<cid>`), whose `write` list names exactly one writer for the books'
+ * databases. Null when the blocks do not say so plainly.
+ *
+ * @param {string} address `/orbitdb/<cid>`
+ * @param {(cid: CID) => Promise<Uint8Array | undefined>} read
+ * @returns {Promise<string | null>}
+ */
+export async function writerOf(address, read) {
+	try {
+		const manifestCid = CID.parse(String(address).replace(/^\/orbitdb\//, ''));
+		const manifestBytes = await read(manifestCid);
+		if (!manifestBytes) return null;
+		const manifest = /** @type {any} */ (dagCbor.decode(manifestBytes));
+		const ac = String(manifest?.accessController ?? '');
+		if (!ac.startsWith('/ipfs/')) return null;
+		const acBytes = await read(CID.parse(ac.slice('/ipfs/'.length)));
+		if (!acBytes) return null;
+		const write = /** @type {any} */ (dagCbor.decode(acBytes))?.write;
+		return Array.isArray(write) && write.length === 1 && typeof write[0] === 'string' && write[0]
+			? write[0]
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Put a backup back into this browser's books.
  *
  * As it arrives (#512): each sealed file – the full backup, then its
@@ -931,7 +975,7 @@ async function joinAccessLists(orbitdb, lists, encryption, warn) {
  *   functions, each is asked for only when the one before is stored
  * @param {string} [params.base] the full backup's CID, which its increments name
  * @param {Uint8Array} params.key the backup key
- * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
+ * @param {RestoreTarget[]} params.targets
  *   each set of databases: its addresses by collection, and what `orbitdb.open` needs for it
  * @param {((cid: string) => Promise<Uint8Array>)} [params.fetchBytes] where a head
  *   the backup does not carry may still be found – Aleph's gateway, as the card
@@ -943,9 +987,10 @@ async function joinAccessLists(orbitdb, lists, encryption, warn) {
  *   with this key, fits these books and is wholly in the blockstore – where the
  *   caller closes its databases. A backup that does not fit, or that the browser
  *   has no room for, throws before this and leaves them open
- * @returns {Promise<{ manifest: BackupManifest, target: string, increments: number, streamed: boolean,
+ * @returns {Promise<{ manifest: BackupManifest, target: string, writer?: string, increments: number, streamed: boolean,
  *   blocks: number, databases: { collection: string, joined: number, entries: number | null }[] }>}
- *   `streamed`: every file was in frames, so none was held whole
+ *   `streamed`: every file was in frames, so none was held whole; `writer`: the
+ *   writer read from the backup, when the target fitted by its names (#555)
  */
 export async function restoreBackup({
 	orbitdb,
@@ -966,12 +1011,45 @@ export async function restoreBackup({
 	/** The set of databases a backup's metadata belongs to. @param {any} metadata */
 	const targetOf = (metadata) => {
 		const named = (metadata?.databases ?? []).filter((/** @type {any} */ d) => !isList(d));
-		const target = targets.find((t) => {
-			const ours = new Set(Object.values(t.addresses).map(String));
-			return named.every((/** @type {any} */ d) => ours.has(String(d.address)));
-		});
+		const target =
+			targets.find((t) => {
+				const ours = new Set(Object.values(t.addresses).map(String));
+				return named.every((/** @type {any} */ d) => ours.has(String(d.address)));
+			}) ??
+			// Written by another passkey of these books (#555): the same names, the
+			// writer read once the blocks are in (`resolve`, below).
+			targets.find((t) => {
+				if (!t.names || !t.resolve || !named.length) return false;
+				const ours = new Set(Object.values(t.names).map(String));
+				return named.every((/** @type {any} */ d) => ours.has(String(d.name)));
+			});
 		if (!target) throw new Error('This backup holds databases these books do not have.');
 		return target;
+	};
+
+	/**
+	 * A target that fitted by its names: its writer from the backup's blocks,
+	 * and the addresses for that writer, which must be the backup's.
+	 *
+	 * @param {RestoreTarget} target
+	 * @param {any[]} named the backup's databases, without the access lists
+	 */
+	const addressedTarget = async (target, named) => {
+		const fits = (/** @type {Record<string, string>} */ addresses) => {
+			const ours = new Set(Object.values(addresses).map(String));
+			return named.every((d) => ours.has(String(d.address)));
+		};
+		if (fits(target.addresses) || !target.resolve) return target;
+		const read = async (/** @type {CID} */ cid) =>
+			blocks?.get(cid.toV1().toString())?.bytes ??
+			blocks?.get(cid.toString())?.bytes ??
+			(await collect(orbitdb.ipfs.blockstore.get(cid, { offline: true })).catch(() => undefined));
+		const writer = named.length ? await writerOf(String(named[0].address), read) : null;
+		const resolved = writer ? await target.resolve(writer) : null;
+		if (!resolved || !fits(resolved.addresses)) {
+			throw new Error('This backup holds databases these books do not have.');
+		}
+		return { ...target, ...resolved, writer };
 	};
 
 	let {
@@ -1003,7 +1081,9 @@ export async function restoreBackup({
 		databases: all.databases.filter((/** @type {any} */ d) => !isList(d))
 	};
 	const target = targetOf(metadata);
-	const { addresses, open } = target;
+	const { addresses, open, writer } = /** @type {RestoreTarget & { writer?: string }} */ (
+		await addressedTarget(target, metadata.databases)
+	);
 	const byAddress = Object.fromEntries(
 		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
 	);
@@ -1056,6 +1136,7 @@ export async function restoreBackup({
 	return {
 		manifest,
 		target: target.name,
+		...(writer ? { writer } : {}),
 		increments: increments.length,
 		streamed,
 		blocks: restored.blocks,

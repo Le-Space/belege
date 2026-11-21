@@ -21,6 +21,7 @@ import { addVirtualAuthenticator, forgetThisDevice } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration, watchRestore } from './integrations.js';
 import { pairBridge } from './bridge.js';
+import { openSettings } from './settings.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
@@ -212,6 +213,100 @@ test('books the passkey wrote move to their own identity, and their backup still
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', before.did);
 	// Moved in on this unlock: in the books' own databases, and they write.
 	await expect.poll(() => transactions(page)).toEqual([MARKER]);
+	expect((await facts(page)).addresses).toEqual(after.addresses);
+	await book(page, LATER);
+	await expect.poll(async () => (await transactions(page)).sort()).toEqual([LATER, MARKER].sort());
+});
+
+// #555: the same books from before #496, and a second passkey added after.
+// On an empty device with that passkey alone, the backup from before still
+// comes back: its databases name the first passkey as their writer, which is
+// read from the backup, and the next unlock moves them in under it.
+test('a backup the first passkey wrote before #496 comes back under a later passkey', async ({
+	page
+}) => {
+	test.setTimeout(240_000);
+	if (!bridge) await startBridge();
+	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
+	const cdp = await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('Laptop');
+	await page.evaluate(() => {
+		/** @type {any} */ (globalThis).__belegeBeforeBooksIdentity = true;
+	});
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	const first = await facts(page);
+	await pair(page);
+	await book(page, MARKER);
+	await openIntegration(page, 'backup');
+	await page.getByTestId('backup-card').getByTestId('backup-now').click();
+	await expect(page.getByTestId('backup-made')).toContainText('von Aleph aufbewahrt', {
+		timeout: 30_000
+	});
+	const old = /** @type {any} */ (aleph.stores.at(-1));
+
+	// The new code, and a second passkey, its vault kept on Aleph.
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', first.did);
+	const after = await facts(page);
+	await openSettings(page, 'schluessel');
+	const keys = page.getByTestId('keys-card');
+	await keys.getByTestId('keys-add-label').fill('YubiKey');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-done')).toContainText('öffnet dieselben Bücher', {
+		timeout: 30_000
+	});
+
+	// The first passkey is gone, and so is everything this browser had.
+	const stored = await page.evaluate(() =>
+		JSON.parse(String(localStorage.getItem('belege.webauthnCredential')))
+	);
+	const toBase64 = (/** @type {string} */ u) => Buffer.from(u, 'base64url').toString('base64');
+	const { credentials } = await cdp.send('WebAuthn.getCredentials', {
+		authenticatorId: cdp.authenticatorId
+	});
+	const a = credentials.find((c) => c.credentialId === toBase64(stored.credentialId));
+	await cdp.send('WebAuthn.removeCredential', {
+		authenticatorId: cdp.authenticatorId,
+		credentialId: /** @type {any} */ (a).credentialId
+	});
+	await forgetThisDevice(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-restore').click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	const later = await facts(page);
+	expect(later.did).not.toBe(first.did);
+	expect(later.addresses).toEqual(after.addresses);
+	expect(await transactions(page)).toEqual([]);
+
+	// The backup from before #496, under the later passkey.
+	await stopBridge();
+	await openIntegration(page, 'backup');
+	const card = page.getByTestId('backup-card');
+	await expect(
+		card.getByTestId('backup-no-owner').or(card.getByTestId('backup-address'))
+	).toBeVisible({ timeout: 30_000 });
+	if (await card.getByTestId('backup-no-owner').isVisible()) {
+		await card.getByTestId('backup-owner').fill(alephAccountOf(KEY));
+		await card.getByTestId('backup-owner-save').click();
+	}
+	await card
+		.getByTestId('backup-chain-group')
+		.filter({ hasText: old.cid })
+		.getByTestId('backup-restore')
+		.click();
+	const restored = await watchRestore(page);
+	await card.getByTestId('restore-yes').click();
+	expect((await restored()).text).toContain('Wiederhergestellt');
+	await expect(page.getByTestId('passkey-unlock')).toBeVisible({ timeout: 30_000 });
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', later.did);
+	// Moved in on this unlock, under the first passkey's DID as the backup names it.
+	await expect.poll(() => transactions(page), { timeout: 30_000 }).toEqual([MARKER]);
 	expect((await facts(page)).addresses).toEqual(after.addresses);
 	await book(page, LATER);
 	await expect.poll(async () => (await transactions(page)).sort()).toEqual([LATER, MARKER].sort());
