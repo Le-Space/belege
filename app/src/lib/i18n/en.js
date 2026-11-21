@@ -4158,6 +4158,7 @@ export default {
 			take: 'Take',
 			placeholder: 'Account',
 			none: 'The AI names no account.',
+			share: '{percent} % of it private, on {account}',
 			failed: 'Stopped after {done} of {total}: {error}'
 		},
 		noReceiptBadge: 'no receipt',

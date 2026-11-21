@@ -382,7 +382,7 @@ describe('planMonth', () => {
 
 	it('a payment that is partly private use is two lines that add up to it (#935)', () => {
 		const b = books();
-		const transactions = b.transactions.map((t) =>
+		const transactions = b.transactions.map((/** @type {any} */ t) =>
 			t.id === 'T1'
 				? { ...t, booking: { ...t.booking, privateShare: { percent: 30, account: '1390' } } }
 				: t

@@ -4218,6 +4218,7 @@ export default {
 			take: 'Übernehmen',
 			placeholder: 'Konto',
 			none: 'Die KI nennt kein Konto.',
+			share: 'davon {percent} % privat auf {account}',
 			failed: 'Nach {done} von {total} abgebrochen: {error}'
 		},
 		noReceiptBadge: 'ohne Beleg',

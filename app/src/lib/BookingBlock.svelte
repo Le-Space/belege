@@ -22,7 +22,7 @@
 		searchAccounts
 	} from './booking/skr03.js';
 	import { matchesOfTx } from './matching/view.js';
-	import { formatDate } from './bank/format.js';
+	import { formatDate, formatMoney } from './bank/format.js';
 	import AiMark from './AiMark.svelte';
 	import AiCostHint from './AiCostHint.svelte';
 	import { recordEvent } from './activity/events.js';
