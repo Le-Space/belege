@@ -8,6 +8,7 @@ import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from '../receipts/blob-store.js';
 import {
 	candidateAddresses,
+	correctAlephStatement,
 	createAlephStatement,
 	addAlephAccount,
 	findStatement,
@@ -165,6 +166,58 @@ describe('the months', () => {
 });
 
 describe('the statement as an Eigenbeleg', () => {
+	it('a statement is corrected by a new one that names it; the old keeps its number and leaves the lists', async () => {
+		// First made with a valuation many times too high, then read again with the right one.
+		const wrong = statement({
+			totals: { topUps: 20_000, transfersOut: 0, usage: 70_000, eurCents: 480 }
+		});
+		const right = statement();
+		let answer = wrong;
+		const client = { alephStatement: async () => answer };
+		const p = { store, blobs, client, address: A, month: '2026-08', issuer: 'Beispiel GmbH' };
+		await expect(correctAlephStatement(p)).rejects.toThrow(/keinen Verbrauchsnachweis/);
+		const first = await createAlephStatement({ ...p, now: () => new Date('2026-09-02T08:00:00Z') });
+		expect(first.number).toBe('EB-2026-001');
+		// The bridge still answers the same: nothing to correct, nothing changed.
+		await expect(correctAlephStatement(p)).rejects.toThrow(/dieselben Zahlen wie in EB-2026-001/);
+		expect(await store.receipts.list()).toHaveLength(1);
+
+		answer = right;
+		const second = await correctAlephStatement({
+			...p,
+			now: () => new Date('2026-11-21T08:00:00Z')
+		});
+		expect([second.number, second.replaced]).toEqual(['EB-2026-002', 'EB-2026-001']);
+		// Only the new one is the month's statement and in the lists.
+		const listed = await store.receipts.list();
+		expect(listed.map((/** @type {any} */ r) => r.selfNumber)).toEqual(['EB-2026-002']);
+		expect(findStatement(listed, A, '2026-08')?.id).toBe(second.receipt.id);
+		expect(listed[0]).toMatchObject({ amountCents: 6, selfReceipt: { replaces: 'EB-2026-001' } });
+		// The old one: kept with its number and file, marked.
+		const old = await store.receipts.get(first.receipt.id);
+		expect(old).toMatchObject({
+			deleted: true,
+			selfNumber: 'EB-2026-001',
+			amountCents: 480,
+			fileCid: first.receipt.fileCid,
+			selfReceipt: { replacedBy: 'EB-2026-002', replacedAt: '2026-11-21T08:00:00.000Z' }
+		});
+		// Its number is never given out again.
+		answer = statement({ month: '2026-09' });
+		const next = await createAlephStatement({ ...p, month: '2026-09' });
+		expect(next.number).toBe('EB-2026-003');
+
+		const text = (
+			await extractText(await getDocumentProxy(await blobs.get(listed[0].fileCid)), {
+				mergePages: true
+			})
+		).text.replace(/\s+/g, ' ');
+		expect(text).toContain('Dieser Beleg ersetzt EB-2026-001 vom');
+		expect(text).toContain('4,80 EUR');
+		const actions = (await store.events.list()).map((/** @type {any} */ e) => e.action);
+		expect(actions).toContain('aleph-statement-corrected');
+	});
+
 	it('is a receipt in the EB range, with every line on the PDF, and only once per month', async () => {
 		const client = { alephStatement: async () => statement() };
 		const { receipt, number } = await createAlephStatement({

@@ -507,7 +507,10 @@ export default {
 		aleph: {
 			exists: 'This month already has usage proof {number}.',
 			nothing: 'The account moved no credits this month: no proof needed.',
-			saveFailed: 'The usage proof could not be saved.'
+			saveFailed: 'The usage proof could not be saved.',
+			noneToCorrect: 'There is no usage proof for this month yet that could be corrected.',
+			sameAgain:
+				'Aleph gives the same figures for this month as in {number}: nothing to correct. If the proof was made with a wrong valuation, the bridge has to run the new version first.'
 		},
 		filecoinPay: {
 			exists: 'This month already has the Filecoin Pay usage statement {number}.',
@@ -1730,7 +1733,11 @@ export default {
 		make: 'Create usage proof',
 		making: 'Creating …',
 		exists: 'Proof {number} is under Receipts.',
-		made: 'Eigenbeleg {number} for {month} created ({eur}); it is under Receipts.'
+		made: 'Eigenbeleg {number} for {month} created ({eur}); it is under Receipts.',
+		correct: 'Correct',
+		correctConfirm:
+			'Correct the usage proof {number} for {month}? The app reads the month from Aleph again and issues a new proof with a new number that replaces {number}. {number} stays in the books with its number and its file, but is no longer valid and leaves the lists.',
+		corrected: 'Proof {number} for {month} issued ({eur}); it replaces {replaced}.'
 	},
 	pwa: {
 		update: 'A new version of Belege is available. Reload – then unlock with the passkey.',
@@ -3454,6 +3461,7 @@ export default {
 			'receipt-moved': 'Receipt moved here from another payment',
 			eigenbeleg: 'Eigenbeleg created and linked',
 			'aleph-statement': 'Aleph usage proof {number} for {month} created',
+			'aleph-statement-corrected': 'Aleph usage proof {number} for {month} issued, as a correction',
 			'ledger-from-chart': 'Ledger accounts taken from the chart of accounts',
 			'filecoin-pay-statement': 'Filecoin Pay usage statement {number} for {month} created',
 			booking: 'Account adopted',
