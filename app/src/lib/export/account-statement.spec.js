@@ -64,4 +64,29 @@ describe('one account, one month, as a file', () => {
 		expect(accountStatement({ month: '2026-09', accountId: '', ...books })).toBeNull();
 		expect(accountStatement({ month: '2026-9', accountId: 'a', ...books })).toBeNull();
 	});
+
+	it('a fake token’s entry is no booking: not in the export, not a blocker, not on a statement', () => {
+		// Address poisoning: a stranger's contract reports a transfer from an own wallet. Nothing moved.
+		const fake = {
+			...tx('9', 'c', '2026-09-12', 0),
+			rateMissing: 'no-rate',
+			asset: 'ERC',
+			quantity: '-1000'
+		};
+		const withFake = {
+			...books,
+			transactions: [...books.transactions, fake],
+			classifications: { 9: { kind: 'token-spam' } }
+		};
+		const plan = planMonth({ month: '2026-09', ...withFake });
+		expect(plan.fakeTokens).toBe(1);
+		expect(plan.bookings.map((b) => b.id)).not.toContain('9');
+		expect(plan.checks.unpriced).toEqual([]);
+		expect(plan.checks.unassigned.map((b) => b.id)).not.toContain('9');
+		expect(plan.statements.map((s) => s.account.id)).not.toContain('c');
+		// The same entry without that verdict is a booking like any other, and blocks.
+		const real = planMonth({ month: '2026-09', ...withFake, classifications: {} });
+		expect(real.fakeTokens).toBe(0);
+		expect(real.checks.unpriced.map((b) => b.id)).toEqual(['9']);
+	});
 });

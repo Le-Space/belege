@@ -3672,6 +3672,8 @@ export default {
 			'Nicht abgestimmt: {accounts}. Der Endbestand passt nicht zu den Buchungen – es fehlt eine Bewegung, oder eine Buchung wurde gelöscht. Der Kontoauszug nennt die Differenz.',
 		checks: 'Vor dem Export',
 		check: {
+			fakeTokens:
+				'{count} Fake-Token-Einträge (Adressvergiftung) sind nicht im Export: Bewegt wurde nichts, sie brauchen weder Konto noch Kurs.',
 			tests:
 				'Testbuchungen mitexportieren ({count}) – das Paket heißt dann TEST_…, zum Ausprobieren des Exports, nicht für die Buchhaltung.',
 			sampleMixed:

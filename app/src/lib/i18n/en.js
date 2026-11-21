@@ -3617,6 +3617,8 @@ export default {
 			'Not reconciled: {accounts}. The closing balance does not match the bookings – a movement is missing, or a booking was deleted. The statement gives the difference.',
 		checks: 'Before the export',
 		check: {
+			fakeTokens:
+				'{count} fake-token entries (address poisoning) are not in the export: nothing moved, they need neither an account nor a rate.',
 			tests:
 				'Export test bookings too ({count}) – the package is then called TEST_…, for trying the export, not for the books.',
 			sampleMixed:
