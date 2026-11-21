@@ -8,13 +8,12 @@
 	import {
 		bridge,
 		bridgePaired,
-		bridgeViaDevice,
-		bridgeViaStream,
 		checkBridge,
 		pairBridge,
 		pairBridgeByInvitation,
 		unpairBridge
 	} from './bridge-state.svelte.js';
+	import { bridgeViaDevice, bridgeViaStream } from '$lib/bridge-connection/state.svelte.js';
 	import { hostsBridge } from './host.js';
 	import { booksBridgeHosted, loadHostedPeers } from './hosted-status.svelte.js';
 

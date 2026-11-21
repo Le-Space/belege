@@ -4,7 +4,6 @@
 // own page, so pairing on one shows on the others.
 import { createBridgeClient, DEFAULT_BRIDGE_URL } from '$lib/bridge/client.js';
 import {
-	app,
 	bridgeOnThisMachine,
 	currentStore,
 	forgetBridgeNode,
@@ -62,15 +61,6 @@ export const bridge = $state({
 	/** the saved pairing has been read */
 	loaded: false
 });
-
-/**
- * The bridge answers, but through an own device's (a phone using the Mac's,
- * #142): pairing, setup and unpairing belong to that device.
- */
-export const bridgeViaDevice = () => bridge.state === 'online' && app.sync.bridgeRoute === 'device';
-
-/** The bridge answers over the stream, from its own node (#573): a device of the books. */
-export const bridgeViaStream = () => bridge.state === 'online' && app.sync.bridgeRoute === 'stream';
 
 /** This device may use the bridge: by the token over HTTP, or as a device of the books over the stream. */
 export const bridgePaired = () => Boolean(bridge.token || bridge.peerId);
@@ -242,6 +232,7 @@ export async function unpairBridge() {
 	const store = currentStore();
 	if (!store) return;
 	// The pairing is in the books, which own devices share: dropping it here would unpair the Mac.
+	const { bridgeViaDevice } = await import('$lib/bridge-connection/state.svelte.js');
 	if (bridgeViaDevice()) return;
 	bridge.error = null;
 	const [aleph, near] = await Promise.all([

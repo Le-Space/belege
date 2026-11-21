@@ -4,7 +4,8 @@
 import { app, currentStore } from '$lib/session.svelte.js';
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { deviceSyncOn } from '$lib/sync/device-sync.js';
-import { bridge, bridgePaired, bridgeViaDevice } from '$lib/integrations/bridge-state.svelte.js';
+import { bridge, bridgePaired } from '$lib/integrations/bridge-state.svelte.js';
+import { bridgeViaDevice } from '$lib/bridge-connection/state.svelte.js';
 import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 import { asksForStart, cleanSetup, setupSteps, withStart } from './steps.js';
 import { isSample } from '$lib/sample/sample.js';
