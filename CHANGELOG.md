@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The issuer's own logo on its own documents** (#906, first slice: the packages; `@le-space/eigenbeleg` 0.5.0, `@le-space/pdf` 0.2.0). `eigenbelegPdf`, `statementPdf` and `bookingPdf` take `issuerLogo`, the bytes of a PNG or JPEG file, and draw it in the head's top right corner, level with the title, fitted into 120 × 40 pt; the text of the head stays where it is, and the chain's mark may stand beside the title as before. The file is checked before anything is unpacked (512 kB, 2048 pixels a side, no banner, no column) and reduced to an opaque picture: a PNG laid on white without transparency, text or profile, a JPEG without EXIF, comments or other application segments. SVG and CMYK are refused with a sentence for the person. The documents stay PDF/A-2b and the same bytes every time. Nothing uses it yet: the Eigenbeleg page and API and the app's setting come next.
+
 ### Security
 
 - **The hosted bridge on NEAR: the sealed secrets are handed only to the VM that was attested.** With its quote the VM's registrar names the hash of a fetch key it made for this start, and the launcher answers the fetch only for that key; anyone else gets the same answer as before the secrets came. The secrets were and are sealed to the VM's intake key, which never leaves it. This changes the bridge image (`registrar.mjs`), so its compose hash is a new one to approve; until then `LAUNCHER_LEGACY_SECRETS_FETCH=1` lets the launcher serve the image released before.

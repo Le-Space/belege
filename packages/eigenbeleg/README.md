@@ -12,6 +12,12 @@ An Eigenbeleg is a receipt the payer writes for a payment that has no receipt fr
 
 Every PDF has Eigenbeleg's look (`layout.js`): A4, grey labels beside their values, a note in a tinted box, page numbers at the foot, a line to sign. `creator` names the program in the metadata (`eigenbeleg` for the period's documents, `Belege` for a booking's and a statement's unless given).
 
+## The issuer's own logo
+
+An Eigenbeleg and a Kontoauszug are issued by the payer, so the logo that belongs on them is the payer's ([#906](https://github.com/Le-Space/belege/issues/906)). `eigenbelegPdf(doc, { issuerLogo })`, `statementPdf(st, { issuerLogo })` and `bookingPdf(doc, { issuerLogo })` take the bytes of a PNG or JPEG file and draw it in the head's top right corner, level with the title, fitted into 120 × 40 pt (`ISSUER_LOGO_BOX`) with its proportions kept. The text of the head is where it is without a logo; the chain's mark (`logo: true`) stays beside the title, and a document may carry both. The package ships no such picture and fetches none: the caller hands it in.
+
+The file goes through [`@le-space/pdf`](../pdf)'s `pdfImage` first: at most 512 kB and 2048 pixels a side, no wider than six times its height and no taller than twice its width (`IMAGE_LIMITS`); a PNG is laid on white and written again without transparency, text chunks or a colour profile, a JPEG loses EXIF, comments and its other application segments. SVG is refused, as is a JPEG in CMYK. A file that does not pass is an `ImageError` with a sentence for the person, never a document without its logo.
+
 ```bash
 pnpm --filter @le-space/eigenbeleg test           # Node, and every document byte for byte in Chromium
 pnpm --filter @le-space/eigenbeleg pdfa-samples out/   # one of each, for veraPDF (CI runs it)
