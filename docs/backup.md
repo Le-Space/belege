@@ -54,7 +54,7 @@ The page shows the backup's CID; keep it somewhere.
 
 **When Aleph's IPFS host takes no uploads.** Since 2026-10-26 Aleph's IPFS hosts answer `/api/v0/add` with 404; they only serve. Then the backup goes through one of Aleph's API nodes (`/api/v0/ipfs/add_file`, storage bridge `createAlephBackend`), with percentages. With this browser's key let in, the signed order goes along and Aleph keeps the file in the same call – up to 1 GB; where the bridge signs, it uploads the same way with its own key. Only with neither does the API take at most 25 MiB, and a bigger backup says why it cannot go now. The storage bridge computes the file's CID beforehand, as Aleph's node makes it; Aleph checks after the upload that the two agree.
 
-**On a phone.** Belege keeps the screen awake while a backup, a restore or the move of the books after an update runs (Screen Wake Lock – Chrome on Android, Safari 16.4+; elsewhere the hint to keep the screen on stays). The fetch says how many MB have arrived. A backup of several hundred MB still has to fit into the tab's memory whole when restoring; a browser that ends the tab reloads the page with nothing restored – see #512.
+**On a phone.** Belege keeps the screen awake while a backup, a restore or the move of the books after an update runs (Screen Wake Lock – Chrome on Android, Safari 16.4+; elsewhere the hint to keep the screen on stays). A restore does not hold the backup in memory ([#512](https://github.com/Le-Space/belege/issues/512)): the file is opened as it arrives, a megabyte at a time, and what it holds goes straight into the browser's storage. The step says how many MB have arrived and how many blocks are stored. This holds for backups made since they are sealed in frames (see [Technical](#technical)). A backup made before that can only be opened whole, and needs about three times its size in the tab's memory: several hundred MB are more than a phone gives, and a browser that ends the tab reloads the page with nothing restored. Make a new full backup with a current Belege, on a computer, and restore that one on the phone.
 
 **Switching apps on a phone.** The wake lock holds the screen, not the page: the moment the tab is hidden, Android freezes it after a few minutes and discards it under memory pressure, and the download or the import breaks off. A page that is audibly playing is not frozen. So on a phone or tablet the backup card offers, under "Erweitert", "Leiser Ton, solange es läuft" (on by default, remembered per browser): a soft note every two seconds while a backup, a restore or the move of the books after an update runs, and a media notification ("Belege stellt wieder her …") that leads back into the app. The note is made in the browser, not downloaded; it plays through the phone's media volume. Whether it carries a restore through a real app switch, and in which browsers, is being measured (#525); unticked, stay in Belege until it is done.
 
@@ -83,9 +83,16 @@ The list shows, grouped by chain – a full backup with its increments, the curr
 - the backups kept for the account, whether the bridge or an allowed key sent them. The browser asks Aleph directly, without the bridge. The address comes from the settings or the paired bridge, or you enter it;
 - the backups made from this browser.
 
-A CID can also be typed ("Per CID wiederherstellen"). After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
+A CID can also be typed ("Per CID wiederherstellen"). After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey as it arrives, and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.
 
-What comes back is checked before it is opened: against the size the backup's STORE names (backups since 0.26.2 carry it, the list shows it) and, for every backup, against its CID – the file is built again from the bytes the way Aleph's hosts built it. A download that came back short or damaged is refused at the gateway and asked for again ("nicht oder nicht vollständig zurückgegeben"); before, such a file reached the key and failed there, which looked like the wrong passkey. Under every restore error, "Technical detail" unfolds what the failing step said in its own words – which gateway, how many bytes, which CID – for a report, or for a second try that knows why.
+What comes back is checked, in this order:
+
+- **The key, first.** A check in front of the file says whether this passkey's key opens it, before anything is stored. A wrong passkey is therefore never confused with a damaged file.
+- **Every piece as it arrives.** The file is sealed in frames of a megabyte; each one is authenticated, with its place in the file, before what it holds is used. A frame that was altered, left out or moved is refused, and so is a file that ends early ("nicht oder nicht vollständig zurückgegeben"; the technical detail names the frame). Every block inside is checked against its own CID.
+- **Whose backup it is.** The backup's first block names its databases. If they are not these books', the restore stops before anything is stored.
+- **The whole file, at its end.** Against the size the backup's STORE names (backups since 0.26.2 carry it, the list shows it) and against its CID – the file is built again from the bytes the way Aleph's hosts built it.
+
+The books are only touched after all of that: until the last frame has opened, nothing is joined, and a restore that fails on the way leaves them as they were. What it had stored until then stays in the browser's storage as sealed blocks nothing refers to. A connection that drops is picked up at the byte it stopped at. Under every restore error, "Technical detail" unfolds what the failing step said in its own words – which gateway, how many bytes, which CID – for a report, or for a second try that knows why.
 
 **Which way it comes back** is the browser's choice, kept per browser ("Erst Alephs Gateway, dann das IPFS-Netz", on by default): one request to Aleph's gateway, and when it stays silent for 15 seconds, the browser fetches the backup itself over IPFS – a fetch-only node for the minute it takes, dialling Aleph's own IPFS nodes (IPv6 only, as they announce) and whoever the public routing says holds the CID (cid.contact, delegated-ipfs.dev; both see the CID and the browser's IP). Unticked, the gateway is not asked at all. Either way the card says what delivered – the gateway's host or how many peers – and how long it took. Every block over peers is checked against its CID, so a stranger's bytes are as safe as a gateway's.
 
@@ -169,7 +176,8 @@ _Everything left of the line never leaves the device; what crosses it is ciphert
   - each receipt file's root and 1 MiB chunks (already sealed with the blob key);
   - a dag-cbor manifest: the storage bridge's metadata (each database with address, manifest and heads, from `bundleDatabases`), the receipt files, the app version and the date.
 - **Restore:**
-  - the access lists first, then the storage bridge's `restoreFromBlocks` puts the databases back from the opened backup;
+  - each sealed file – the full backup, then its increments, one after the other – is opened frame by frame, and its blocks go into the blockstore as they are read (the storage bridge's `openFrames` and `storeBlocksFromCAR`). Only their names are kept in memory;
+  - then the access lists, then the storage bridge's `restoreFromStoredBlocks` puts the databases back from the blockstore;
   - if a head cannot be joined, the restore stops with the reason instead of reporting success.
 - **Writer ([#496](https://github.com/Le-Space/belege/issues/496)):**
   - the books write as an identity of their own, an Ed25519 key derived from the books' secret (`belege/books-secret/v1`, from the passkey's PRF result until the vault of [#406](https://github.com/Le-Space/belege/issues/406) keeps it). It is the root of every collection's access controller (`OrbitDBAccessController`, its own list database sealed like the others). The passkey's DID is still the one shown, and what a record names as its author;
@@ -179,7 +187,19 @@ _Everything left of the line never leaves the device; what crosses it is ciphert
   - OrbitDB 4.0.0 remembers verified identities by `signatures.id` and refuses a different one with the same id;
   - a passkey identity has the same `signatures.id` in every session but a new WebAuthn assertion, so entries from an earlier session (from a backup, or synced from an own device) were refused;
   - Belege checks such an identity again the way OrbitDB checks an unstored one (shape, id signature, passkey binding in the provider), only without that comparison ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258); `session-identities.js`).
-- **Format:** a CAR file, written by `@le-space/orbitdb-storage-bridge`, sealed as a whole with AES-256-GCM. The key is derived with HKDF from the passkey's PRF result (`belege/backup-key/v1`). The file is `belegeB1 ‖ nonce ‖ ciphertext`.
+- **Format:** a CAR file, written by `@le-space/orbitdb-storage-bridge`, with the backup's manifest as its first block, sealed in frames with AES-256-GCM. The backup key is derived with HKDF from the books' root (`belege/backup-key/v1`). The file is `belegeB2 ‖ envelope`, the envelope being the storage bridge's `OSBE` version 2:
+
+  ```
+  "OSBE" | 2 | frame size (4 bytes) | salt (32) | key check (16) | frame 0 | frame 1 | … | last frame
+  ```
+
+  - **A key per file:** HKDF-SHA-256 from the backup key, the salt, the frame size and the context `belegeB2`. The backup key seals many files; the derived key seals one.
+  - **A frame** is up to 1 MiB of the CAR and a 16-byte tag. Its nonce is its index and a mark (more behind it, the last one, the key check); the header, the index and the mark are authenticated with it. Every frame but the last is full, so the file carries no lengths.
+  - **The key check** is the tag of an empty plaintext: a wrong key is known there.
+  - **What it gives:** a frame can be opened by itself, so the file can be read as it arrives. A frame left out, moved, repeated or altered, a file cut short and a file with anything appended are refused at the frame.
+
+- **Format up to 0.48:** `belegeB1 ‖ nonce ‖ ciphertext`, the whole CAR sealed in one piece with AES-256-GCM under the backup key itself. It still restores. One tag at the end of the file vouches for all of it, so it can only be opened whole.
+- **Memory:** a restore of a backup in frames holds a frame, a block and the names of the blocks: measured in Node with blocks on disk, about 9 MiB for a backup of 64 MiB against about 190 MiB for the same backup in one piece (`restore-memory.spec.js`, `bench/restore-memory.js`). Making a backup still builds the file in memory, and the upload sends it as one body.
 - **Upload:** the storage bridge's `aleph` backend, `POST https://ipfs.aleph.cloud/api/v0/add`, with no key.
 - **Keeping:**
   - A STORE message on the channel `BELEGE-BACKUP`, signed with `personal_sign`. `content.address` is the paying account, and it is paid in credits (`payment: { type: "credit" }`, storage bridge 0.17.0). Without that field Aleph books it as `hold`, which only ALEPH held on the account covers.

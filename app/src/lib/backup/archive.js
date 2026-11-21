@@ -17,12 +17,29 @@
 //
 // The CAR is written by the package (`createCARFromBlocks`) and read back by
 // its verifying reader (`restore-cid`), which checks every block against its
-// own CID; `restoreFromBlocks` puts the databases back. The whole CAR is
-// sealed once more with the backup key (database-keys.js `deriveBackupKey`):
-// a storage service sees one opaque file – not how many records there are,
-// nor which are receipts.
+// own CID. The whole CAR is sealed once more with the backup key
+// (database-keys.js `deriveBackupKey`): a storage service sees one opaque
+// file – not how many records there are, nor which are receipts.
 //
-//   sealed backup = MAGIC ‖ nonce ‖ AES-GCM(CAR)
+//   sealed backup = "belegeB2" ‖ the storage bridge's envelope in frames
+//
+// In frames (#512, `backends/frames`): the CAR in pieces of 1 MiB, each
+// sealed by itself with AES-256-GCM under a key of this one file's (HKDF from
+// the backup key and a salt), its place in the file in the nonce and in what
+// is authenticated with it, the last one marked as last, and a key check in
+// front. So a restore opens the file as it arrives – a frame, its blocks into
+// the blockstore, the next frame – and holds a frame and a block, not the
+// backup three times over, which a phone's browser tab does not survive. A
+// frame left out, moved or altered, and a file cut short, are refused at
+// that frame; a wrong key before the first one. The manifest is the CAR's
+// first block: whose backup this is, is known before the rest is stored.
+//
+// Backups made before are sealed in one piece,
+//
+//   "belegeB1" ‖ nonce ‖ AES-GCM(CAR)
+//
+// and still restore. They can only be opened whole – one tag at the end of
+// the file vouches for all of it – so they need the memory they always did.
 //
 // No block is read from the network: a receipt file's block this browser
 // lacks is counted as missing, never fetched, and a backup with missing blocks
@@ -47,9 +64,15 @@ import { sha256 } from 'multiformats/hashes/sha2';
 
 import { sealer } from '../db-encryption.js';
 
-/** What a sealed belege backup starts with; the number is the format. */
+/** What a backup sealed in one piece starts with: those made before #512. */
 export const MAGIC = new TextEncoder().encode('belegeB1');
+/** What a backup sealed in frames starts with; also what its frames are bound to. */
+export const MAGIC_FRAMED = new TextEncoder().encode('belegeB2');
 const FORMAT = 2;
+
+/** @param {Uint8Array} bytes @param {Uint8Array} magic */
+const startsWith = (bytes, magic) =>
+	bytes.length >= magic.length && magic.every((b, i) => bytes[i] === b);
 
 /**
  * @typedef {object} BackupManifest
@@ -122,13 +145,33 @@ export async function fileBlocks(blockstore, files, onFile) {
 	return { blocks, missing };
 }
 
-/** MAGIC ‖ nonce ‖ AES-GCM(CAR). @param {Uint8Array} car @param {Uint8Array} backupKey */
+/**
+ * "belegeB2" ‖ the CAR sealed in frames. The whole file is made in memory, as
+ * the upload wants its body whole; it is the restore that opens it in pieces.
+ *
+ * @param {Uint8Array} car @param {Uint8Array} backupKey
+ */
 async function seal(car, backupKey) {
-	const sealed = await (await sealer(backupKey)).seal(car);
-	const out = new Uint8Array(MAGIC.length + sealed.length);
-	out.set(MAGIC, 0);
-	out.set(sealed, MAGIC.length);
+	const { sealFramed } = await import('@le-space/orbitdb-storage-bridge/backends/frames');
+	const sealed = await sealFramed(car, { key: backupKey, context: MAGIC_FRAMED });
+	const out = new Uint8Array(MAGIC_FRAMED.length + sealed.length);
+	out.set(MAGIC_FRAMED, 0);
+	out.set(sealed, MAGIC_FRAMED.length);
 	return out;
+}
+
+/**
+ * The blocks with the manifest in front: a restore that reads the file as it
+ * arrives knows whose backup it is before it stores the rest.
+ *
+ * @param {Map<string, any>} blocks @param {string} root
+ * @returns {Map<string, any>}
+ */
+function rootFirst(blocks, root) {
+	if (!blocks.has(root)) return blocks;
+	const ordered = new Map([[root, blocks.get(root)]]);
+	for (const [name, block] of blocks) if (name !== root) ordered.set(name, block);
+	return ordered;
 }
 
 /**
@@ -242,7 +285,7 @@ export async function buildBackup({
 	const rootCid = CID.createV1(dagCbor.code, await sha256.digest(root));
 	blocks.set(rootCid.toString(), { cid: rootCid, bytes: root });
 
-	const car = await createCARFromBlocks(blocks, rootCid.toString());
+	const car = await createCARFromBlocks(rootFirst(blocks, rootCid.toString()), rootCid.toString());
 	onProgress?.({ stage: 'sealing', bytes: car.length });
 	return {
 		sealed: await seal(car, backupKey),
@@ -377,7 +420,10 @@ export async function buildIncrement({
 	/** @type {Record<string, string[]>} */
 	const heads = { ...chain.heads };
 	for (const [address, shipped] of increment.shipped) heads[address] = shipped.heads;
-	const car = await createCARFromBlocks(increment.blocks, increment.root);
+	const car = await createCARFromBlocks(
+		rootFirst(increment.blocks, String(increment.root)),
+		increment.root
+	);
 	onProgress?.({ stage: 'sealing', bytes: car.length });
 	return {
 		sealed: await seal(car, backupKey),
@@ -398,34 +444,50 @@ export async function buildIncrement({
 	};
 }
 
+/** A block's value when it is a backup's manifest – a full one's or an increment's. */
+function manifestIn(/** @type {Uint8Array} */ bytes) {
+	/** @type {any} */
+	let value;
+	try {
+		value = dagCbor.decode(bytes);
+	} catch {
+		return null;
+	}
+	return value?.kind === 'belege-backup' || value?.kind === 'increment' ? value : null;
+}
+
 /**
- * Open a sealed backup – a full one or an increment: every block checked
- * against its own CID, and the manifest found among them (`kind`
- * `belege-backup` or `increment`).
+ * Open a sealed backup whole – a full one or an increment, in frames or in
+ * one piece: every block checked against its own CID, and the manifest found
+ * among them (`kind` `belege-backup` or `increment`). All of it in memory:
+ * for a backup read without OrbitDB (`readEarlierBackup`) and for tests. A
+ * restore opens it as it arrives (`restoreBackup`).
  *
  * @param {Uint8Array} sealed
  * @param {Uint8Array} backupKey
  * @returns {Promise<{ manifest: BackupManifest, blocks: Map<string, { bytes: Uint8Array }> }>}
  */
 export async function openBackup(sealed, backupKey) {
-	const head = sealed.subarray(0, MAGIC.length);
-	if (!head.every((b, i) => b === MAGIC[i])) throw new Error('Not a belege backup.');
-	const car = await (await sealer(backupKey)).open(sealed.subarray(MAGIC.length));
+	/** @type {Uint8Array} */
+	let car;
+	if (startsWith(sealed, MAGIC_FRAMED)) {
+		const { openFramed } = await import('@le-space/orbitdb-storage-bridge/backends/frames');
+		car = await openFramed(sealed.subarray(MAGIC_FRAMED.length), {
+			key: backupKey,
+			context: MAGIC_FRAMED
+		});
+	} else if (startsWith(sealed, MAGIC)) {
+		car = await (await sealer(backupKey)).open(sealed.subarray(MAGIC.length));
+	} else {
+		throw new Error('Not a belege backup.');
+	}
 	const { readBlocksFromCAR } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
 	const blocks = await readBlocksFromCAR(car, { verify: true });
 	// The manifest is the one dag-cbor block that says so; the blocks are verified.
 	for (const [name, { bytes }] of blocks) {
 		if (CID.parse(name).code !== dagCbor.code) continue;
-		/** @type {any} */
-		let value;
-		try {
-			value = dagCbor.decode(bytes);
-		} catch {
-			continue;
-		}
-		if (value?.kind === 'belege-backup' || value?.kind === 'increment') {
-			return { manifest: value, blocks };
-		}
+		const manifest = manifestIn(bytes);
+		if (manifest) return { manifest, blocks };
 	}
 	throw new Error('Not a belege backup.');
 }
@@ -457,24 +519,155 @@ export class WrongPasskeyError extends Error {
 }
 
 /**
+ * What a restore is doing: `opened` and `stored` while a file arrives (frames
+ * opened and their plaintext bytes in this file; blocks in the blockstore and
+ * their bytes over all files), `joining` once every file is in, `database`
+ * for each one joined. Bytes fetched are the source's to say.
+ *
  * @typedef {{ stage: 'opening' }
+ *   | { stage: 'opened', frames: number, bytes: number }
+ *   | { stage: 'stored', blocks: number, bytes: number }
+ *   | { stage: 'joining' }
  *   | { stage: 'database', index: number, total: number, name: string, joined: number }} RestoreProgress
  */
 
 /**
- * A full backup opened with `key`, its increments merged into it (see
- * `restoreBackup`): the manifest, every block, and the databases' metadata.
+ * A sealed file for a restore: its bytes, a stream of them, or a function
+ * that starts one – which is what keeps a second file from being fetched
+ * before the first is stored, and lets a file be asked for again.
  *
- * @param {{ sealed: Uint8Array, increments?: Uint8Array[], base?: string, key: Uint8Array }} params
+ * @typedef {Uint8Array | AsyncIterable<Uint8Array> | (() => AsyncIterable<Uint8Array> | Uint8Array)} SealedSource
+ */
+
+/** @param {SealedSource} source @returns {AsyncIterable<Uint8Array>} */
+function streamOf(source) {
+	const value = typeof source === 'function' ? source() : source;
+	if (!(value instanceof Uint8Array)) return value;
+	return (async function* () {
+		yield value;
+	})();
+}
+
+/** A sealed file whole, for the ways that need it so. @param {SealedSource} source */
+export async function bytesOf(source) {
+	const value = typeof source === 'function' ? source() : source;
+	return value instanceof Uint8Array ? value : collect(value);
+}
+
+/** A wrong key, as either format says it: AES-GCM's refusal, or the frames' key check. */
+const isWrongKey = (/** @type {unknown} */ error) =>
+	error instanceof Error &&
+	(error.name === 'OperationError' ||
+		(error.name === 'FrameError' && /** @type {any} */ (error).reason === 'wrong-key'));
+
+/** Thrown inside a file's reading to leave it: an increment of another chain. */
+const NOT_OF_THIS_CHAIN = Symbol('not of this chain');
+
+/**
+ * One sealed file into the blockstore: opened as it arrives when it is in
+ * frames – a frame, its blocks stored, the next frame – and whole when it is
+ * in one piece, which cannot be opened otherwise. Either way its blocks are
+ * checked against their CIDs, and only their names are kept (`into`).
+ *
+ * `onManifest` sees the file's manifest before any of its blocks is stored
+ * (it is the first block of a file in frames) and may throw to refuse the
+ * file; `NOT_OF_THIS_CHAIN` leaves it without an error.
+ *
+ * @param {object} params
+ * @param {any} params.blockstore
+ * @param {SealedSource} params.source
+ * @param {Uint8Array} params.key
+ * @param {any} params.into the storage bridge's `StoredBlocks`, or undefined for the first file
+ * @param {(manifest: any) => void | Promise<void>} params.onManifest
+ * @param {(progress: RestoreProgress) => void} [params.onProgress]
+ * @returns {Promise<{ manifest: any, stored: any, framed: boolean } | null>} null for a file left
+ */
+async function storeSealed({ blockstore, source, key, into, onManifest, onProgress }) {
+	const [{ ByteQueue, openFrames }, { storeBlocks, storeBlocksFromCAR }] = await Promise.all([
+		import('@le-space/orbitdb-storage-bridge/backends/frames'),
+		import('@le-space/orbitdb-storage-bridge/restore-cid')
+	]);
+	const chunks = streamOf(source)[Symbol.asyncIterator]();
+	try {
+		// Which format it is, is in its first eight bytes.
+		const start = new ByteQueue();
+		let ended = false;
+		while (!ended && start.length < MAGIC.length) {
+			const { done, value } = await chunks.next();
+			if (done) ended = true;
+			else start.push(value);
+		}
+		const first = start.take(start.length);
+		const rest = (async function* () {
+			if (first.length > MAGIC.length) yield first.subarray(MAGIC.length);
+			if (!ended) yield* { [Symbol.asyncIterator]: () => chunks };
+		})();
+
+		/** @type {any} */
+		let manifest = null;
+		if (startsWith(first, MAGIC_FRAMED)) {
+			const stored = await storeBlocksFromCAR(
+				blockstore,
+				openFrames(rest, { key, context: MAGIC_FRAMED, onProgress }),
+				{
+					into,
+					onProgress,
+					onBlock: async (
+						/** @type {{ cid: CID, bytes: Uint8Array }} */ block,
+						/** @type {{ roots: CID[] }} */ { roots }
+					) => {
+						if (manifest || !roots.some((root) => root.equals(block.cid))) return;
+						const value = manifestIn(block.bytes);
+						if (!value) return;
+						await onManifest(value);
+						manifest = value;
+					}
+				}
+			);
+			if (!manifest) throw new Error('Not a belege backup.');
+			return { manifest, stored, framed: true };
+		}
+		if (!startsWith(first, MAGIC)) throw new Error('Not a belege backup.');
+		// In one piece: all of it, then all of its plaintext, as before.
+		const whole = [first];
+		for await (const chunk of { [Symbol.asyncIterator]: () => chunks }) whole.push(chunk);
+		const opened = await openBackup(whole.length === 1 ? first : await collect(whole), key);
+		whole.length = 0;
+		await onManifest(opened.manifest);
+		const stored = await storeBlocks(
+			blockstore,
+			(function* () {
+				for (const [name, { bytes }] of opened.blocks) yield { cid: CID.parse(name), bytes };
+			})(),
+			{ into, onProgress }
+		);
+		return { manifest: opened.manifest, stored, framed: false };
+	} catch (error) {
+		if (error === NOT_OF_THIS_CHAIN) return null;
+		if (isWrongKey(error)) throw new WrongPasskeyError();
+		throw error;
+	} finally {
+		// Left early or failed: let the download go.
+		await chunks.return?.();
+	}
+}
+
+/**
+ * A full backup opened with `key`, its increments merged into it, all of it
+ * in memory: the manifest, every block, and the databases' metadata. For a
+ * backup read without OrbitDB (`readEarlierBackup`), and for one whose
+ * metadata names no heads; a restore otherwise stores as it reads (`storeChain`).
+ *
+ * @param {{ sealed: SealedSource, increments?: SealedSource[], base?: string, key: Uint8Array }} params
  */
 async function openChain({ sealed, increments = [], base, key }) {
-	/** @param {Uint8Array} bytes */
-	const unseal = async (bytes) => {
+	/** @param {SealedSource} source */
+	const unseal = async (source) => {
 		try {
-			return await openBackup(bytes, key);
+			return await openBackup(await bytesOf(source), key);
 		} catch (error) {
-			// AES-GCM refuses a wrong key as an OperationError; a foreign file is "Not a belege backup."
-			if (error instanceof Error && error.name === 'OperationError') throw new WrongPasskeyError();
+			// A foreign file is "Not a belege backup."
+			if (isWrongKey(error)) throw new WrongPasskeyError();
 			throw error;
 		}
 	};
@@ -495,14 +688,80 @@ async function openChain({ sealed, increments = [], base, key }) {
 		const merged = /** @type {any} */ (
 			mergeIncrements({ base: { metadata, blocks }, increments: chain })
 		);
-		const missing = [...merged.gaps];
-		const first = merged.sequences[0];
-		if (first !== undefined) for (let s = 1; s < first; s++) missing.push(s);
-		if (missing.length) throw new ChainGapError(missing.sort((a, b) => a - b));
+		assertNoGap(merged);
 		blocks = merged.blocks;
 		metadata = merged.metadata;
 	}
 	return { manifest, blocks, metadata };
+}
+
+/** The increments a chain lacks, by what `mergeIncrements` found. @param {any} merged */
+function assertNoGap(merged) {
+	const missing = [...merged.gaps];
+	const first = merged.sequences[0];
+	if (first !== undefined) for (let s = 1; s < first; s++) missing.push(s);
+	if (missing.length) throw new ChainGapError(missing.sort((a, b) => a - b));
+}
+
+/**
+ * A full backup and its increments into the blockstore, one file after the
+ * other, each as it arrives (`storeSealed`): what `openChain` does, without
+ * holding the blocks. What comes back is their names and the chain's
+ * metadata; nothing is joined yet.
+ *
+ * The full backup's manifest is shown to `fits` before a block of it is
+ * stored. An increment that is not this base's is left at its manifest; one
+ * in one piece is read whole first, as it must be.
+ *
+ * @param {object} params
+ * @param {any} params.blockstore
+ * @param {SealedSource} params.sealed
+ * @param {SealedSource[]} [params.increments]
+ * @param {string} [params.base]
+ * @param {Uint8Array} params.key
+ * @param {(manifest: any) => void} params.fits
+ * @param {(progress: RestoreProgress) => void} [params.onProgress]
+ */
+async function storeChain({ blockstore, sealed, increments = [], base, key, fits, onProgress }) {
+	const full = await storeSealed({
+		blockstore,
+		source: sealed,
+		key,
+		into: undefined,
+		onProgress,
+		onManifest: (manifest) => {
+			if (manifest.kind === 'increment') throw new IncrementWithoutBaseError();
+			fits(manifest);
+		}
+	});
+	if (!full) throw new Error('Not a belege backup.');
+	const { manifest, stored } = full;
+	let metadata = /** @type {any} */ (manifest.metadata);
+	let streamed = full.framed;
+	if (increments.length) {
+		const chain = [];
+		for (const source of increments) {
+			const inc = await storeSealed({
+				blockstore,
+				source,
+				key,
+				into: stored,
+				onProgress,
+				onManifest: (m) => {
+					if (m.kind !== 'increment' || (base && m.base !== base)) throw NOT_OF_THIS_CHAIN;
+				}
+			});
+			if (!inc) continue;
+			streamed &&= inc.framed;
+			chain.push({ manifest: inc.manifest });
+		}
+		const { mergeIncrements } = await import('@le-space/orbitdb-storage-bridge/live-backup');
+		// The metadata alone: the blocks are in the blockstore already.
+		const merged = /** @type {any} */ (mergeIncrements({ base: { metadata }, increments: chain }));
+		assertNoGap(merged);
+		metadata = merged.metadata;
+	}
+	return { manifest, stored, metadata, streamed };
 }
 
 /**
@@ -548,28 +807,44 @@ async function joinAccessLists(orbitdb, lists, encryption, warn) {
 /**
  * Put a backup back into this browser's books.
  *
- * The databases go back through the storage bridge's `restoreFromBlocks`: every
- * block into the blockstore (the receipt files' with them), each database
- * reopened and its heads joined. Joining merges: books already here stay,
- * and what the backup holds is added – nothing is deleted.
+ * As it arrives (#512): each sealed file – the full backup, then its
+ * increments – is opened frame by frame and its blocks go into the blockstore
+ * as they are read (`storeChain`), the receipt files' with them. Then the
+ * databases go back through the storage bridge's `restoreFromStoredBlocks`:
+ * each reopened and its heads joined. Joining merges: books already here
+ * stay, and what the backup holds is added – nothing is deleted.
  *
- * The backup must be this passkey's: its key opens it (else
- * `WrongPasskeyError`), and every database it names must be one of these books
- * (same address). The books have two sets of databases: the sealed ones, and
- * those before the replication layer (store/migrate.js), which a backup made
- * earlier holds. `targets` names both; the backup goes back into the set it
- * was made of, with that set's `open` options, and the result says which
- * (`target`). The open databases are closed by `restoreFromBlocks` and
- * reopened behind the store's back, so the caller reloads the page afterwards.
+ * What is refused, and when:
+ *   - a backup of another passkey (`WrongPasskeyError`) before a block is stored;
+ *   - one whose databases are not these books', at its manifest, the first
+ *     block of a backup in frames – before a block is stored;
+ *   - a file that is damaged or cut short, at the frame (`FrameError`, with
+ *     the frame's index): nothing was joined, the books are as they were.
+ *     The blocks stored until then stay in the blockstore, sealed and pointed
+ *     at by nothing;
+ *   - a browser without room, at the block it refused (`BlocksNotStoredError`).
  *
- * With `increments`, the full backup's increments go back with it: all of
- * them opened first, each one this base's (`base`, its CID), the chain without
- * a hole (`ChainGapError`), then the blocks of all as one.
+ * The backup must be this passkey's: its key opens it, and every database it
+ * names must be one of these books (same address). The books have two sets of
+ * databases: the sealed ones, and those before the replication layer
+ * (store/migrate.js), which a backup made earlier holds. `targets` names both;
+ * the backup goes back into the set it was made of, with that set's `open`
+ * options, and the result says which (`target`). The open databases are closed
+ * by the storage bridge and reopened behind the store's back, so the caller
+ * reloads the page afterwards.
+ *
+ * With `increments`, the full backup's increments go back with it: each one
+ * this base's (`base`, its CID), the chain without a hole (`ChainGapError`).
+ *
+ * A backup sealed in one piece (made before #512) is read whole, as it must
+ * be, and then goes the same way.
  *
  * @param {object} params
  * @param {any} params.orbitdb
- * @param {Uint8Array} params.sealed the full backup
- * @param {Uint8Array[]} [params.increments] its increments, sealed, in any order
+ * @param {SealedSource} params.sealed the full backup: its bytes, a stream of them, or
+ *   a function that starts one
+ * @param {SealedSource[]} [params.increments] its increments, sealed, in any order; given as
+ *   functions, each is asked for only when the one before is stored
  * @param {string} [params.base] the full backup's CID, which its increments name
  * @param {Uint8Array} params.key the backup key
  * @param {{ name: string, addresses: Record<string, string>, open: Record<string, any> }[]} params.targets
@@ -584,7 +859,9 @@ async function joinAccessLists(orbitdb, lists, encryption, warn) {
  *   with this key, fits these books and is wholly in the blockstore – where the
  *   caller closes its databases. A backup that does not fit, or that the browser
  *   has no room for, throws before this and leaves them open
- * @returns {Promise<{ manifest: BackupManifest, target: string, increments: number, databases: { collection: string, joined: number, entries: number | null }[] }>}
+ * @returns {Promise<{ manifest: BackupManifest, target: string, increments: number, streamed: boolean,
+ *   blocks: number, databases: { collection: string, joined: number, entries: number | null }[] }>}
+ *   `streamed`: every file was in frames, so none was held whole
  */
 export async function restoreBackup({
 	orbitdb,
@@ -599,29 +876,60 @@ export async function restoreBackup({
 	fetchBytes
 }) {
 	onProgress?.({ stage: 'opening' });
-	const { manifest, blocks, metadata: all } = await openChain({ sealed, increments, base, key });
 	// The access lists go back first and on their own (withAccessLists); the
 	// collections are what has to fit these books.
 	const isList = (/** @type {any} */ d) => String(d.collection ?? '').startsWith(ACCESS_LIST);
+	/** The set of databases a backup's metadata belongs to. @param {any} metadata */
+	const targetOf = (metadata) => {
+		const named = (metadata?.databases ?? []).filter((/** @type {any} */ d) => !isList(d));
+		const target = targets.find((t) => {
+			const ours = new Set(Object.values(t.addresses).map(String));
+			return named.every((/** @type {any} */ d) => ours.has(String(d.address)));
+		});
+		if (!target) throw new Error('This backup holds databases these books do not have.');
+		return target;
+	};
+
+	let {
+		manifest,
+		stored,
+		metadata: all,
+		streamed
+	} = await storeChain({
+		blockstore: orbitdb.ipfs.blockstore,
+		sealed,
+		increments,
+		base,
+		key,
+		onProgress,
+		fits: (m) => void targetOf(m.metadata)
+	});
+	/** @type {Map<string, { bytes: Uint8Array }> | null} every block, only for a backup without heads */
+	let blocks = null;
+	// A backup from the first days names no heads: they are found among its
+	// blocks, which then have to be in hand. Read again, whole.
+	if (!all.databases.every((/** @type {any} */ d) => Array.isArray(d.heads))) {
+		({ manifest, blocks, metadata: all } = await openChain({ sealed, increments, base, key }));
+		streamed = false;
+	}
+
 	const lists = all.databases.filter(isList);
 	const metadata = {
 		...all,
 		databases: all.databases.filter((/** @type {any} */ d) => !isList(d))
 	};
-	const target = targets.find((t) => {
-		const ours = new Set(Object.values(t.addresses).map(String));
-		return metadata.databases.every((/** @type {any} */ d) => ours.has(String(d.address)));
-	});
-	if (!target) throw new Error('This backup holds databases these books do not have.');
+	const target = targetOf(metadata);
 	const { addresses, open } = target;
 	const byAddress = Object.fromEntries(
 		Object.entries(addresses).map(([collection, address]) => [String(address), collection])
 	);
-	const { restoreFromBlocks } = await import('@le-space/orbitdb-storage-bridge/restore-cid');
+	const { restoreFromBlocks, restoreFromStoredBlocks } = await import(
+		'@le-space/orbitdb-storage-bridge/restore-cid'
+	);
 	// The package only warns when a head cannot be joined; here that is a failed restore.
 	/** @type {string[]} */
 	const warnings = [];
-	const restored = await restoreFromBlocks(orbitdb, blocks, metadata, {
+	const options = {
 		open,
 		// A head the backup does not carry: ask Aleph's gateway for it. The
 		// package checks whatever comes back against the CID that asked for it,
@@ -631,10 +939,10 @@ export async function restoreBackup({
 		// what comes back; half of them is worse than none, and refusing here
 		// leaves the ones on the device alone.
 		requireHeads: true,
-		// Closing the books is the package's call, not ours: it writes the blocks
-		// first, and a browser whose storage is spent refuses them. Closed before
-		// that, the books would be shut for a restore that never starts – which is
-		// how an out-of-space device ends up on its lock screen with nothing in it.
+		// Closing the books comes late: the blocks are written first, and a
+		// browser whose storage is spent refuses them. Closed before that, the
+		// books would be shut for a restore that never starts – which is how an
+		// out-of-space device ends up on its lock screen with nothing in it.
 		// Then, before any collection is opened, the access lists: a member's
 		// grant must be known before what the member wrote is joined.
 		beforeJoin: async () => {
@@ -645,7 +953,7 @@ export async function restoreBackup({
 			}
 		},
 		log: { info() {}, debug() {}, warn: (/** @type {string} */ m) => warnings.push(String(m)) },
-		onProgress: (p) =>
+		onProgress: (/** @type {any} */ p) =>
 			onProgress?.({
 				stage: 'database',
 				index: p.index,
@@ -653,14 +961,21 @@ export async function restoreBackup({
 				name: byAddress[p.address] ?? p.address,
 				joined: p.joined
 			})
-	});
+	};
+	// Every file is in and authentic to its last frame: from here the books change.
+	onProgress?.({ stage: 'joining' });
+	const restored = blocks
+		? await restoreFromBlocks(orbitdb, blocks, metadata, options)
+		: await restoreFromStoredBlocks(orbitdb, stored, metadata, options);
 	const failed = warnings.find((w) => /could not join head/.test(w));
 	if (failed) throw new Error(`The backup could not be put back: ${failed.replace(/^\W+/, '')}`);
 	return {
 		manifest,
 		target: target.name,
 		increments: increments.length,
-		databases: restored.databases.map((d) => ({
+		streamed,
+		blocks: restored.blocks,
+		databases: restored.databases.map((/** @type {any} */ d) => ({
 			collection: byAddress[d.address] ?? d.address,
 			joined: d.joined,
 			entries: d.entries
@@ -677,8 +992,8 @@ export async function restoreBackup({
  * and file bytes, for the books of today to take in (session.svelte.js).
  *
  * @param {object} params
- * @param {Uint8Array} params.sealed the full backup
- * @param {Uint8Array[]} [params.increments]
+ * @param {SealedSource} params.sealed the full backup; read whole, in either format
+ * @param {SealedSource[]} [params.increments]
  * @param {string} [params.base]
  * @param {Uint8Array} params.key the earlier root's backup key
  * @param {Uint8Array} params.dataKey the earlier root's database key

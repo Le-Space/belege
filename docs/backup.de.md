@@ -67,7 +67,7 @@ Die Seite zeigt die CID des Backups. Heb sie irgendwo auf.
 
 Die CID der Datei berechnet die Storage Bridge vorher selbst, so wie Alephs Knoten sie bilden. Nach dem Hochladen prüft Aleph, dass beide übereinstimmen.
 
-**Auf einem Telefon.** Belege hält den Bildschirm wach, solange ein Backup, eine Wiederherstellung oder der Umzug der Bücher nach einem Update läuft (Screen Wake Lock: Chrome auf Android, Safari ab 16.4; in anderen Browsern bleibt der Hinweis, den Bildschirm anzulassen). Beim Herunterladen steht, wie viele MB schon da sind. Ein Backup von mehreren hundert MB muss beim Wiederherstellen aber ganz in den Arbeitsspeicher des Tabs passen. Bricht der Browser den Tab ab, lädt die Seite neu, und nichts wurde wiederhergestellt (siehe #512).
+**Auf einem Telefon.** Belege hält den Bildschirm wach, solange ein Backup, eine Wiederherstellung oder der Umzug der Bücher nach einem Update läuft (Screen Wake Lock: Chrome auf Android, Safari ab 16.4; in anderen Browsern bleibt der Hinweis, den Bildschirm anzulassen). Eine Wiederherstellung hält das Backup nicht im Arbeitsspeicher ([#512](https://github.com/Le-Space/belege/issues/512)): Die Datei wird geöffnet, während sie ankommt, ein Megabyte nach dem anderen, und ihr Inhalt geht gleich in den Speicher des Browsers. Der Schritt zeigt, wie viele MB schon da und wie viele Blöcke gespeichert sind. Das gilt für Backups, seit sie in Frames versiegelt werden (siehe [Technisch](#technisch)). Ein älteres Backup lässt sich nur als Ganzes öffnen und braucht etwa das Dreifache seiner Größe im Arbeitsspeicher des Tabs. Mehrere hundert MB sind mehr, als ein Telefon hergibt: Bricht der Browser den Tab ab, lädt die Seite neu, und nichts wurde wiederhergestellt. Mach dann mit einem aktuellen Belege am Computer ein neues Vollbackup und stell dieses auf dem Telefon wieder her.
 
 **App-Wechsel am Telefon.** Der Wake Lock hält den Bildschirm wach, nicht die Seite. Sobald der Tab verdeckt ist, friert Android ihn nach ein paar Minuten ein und wirft ihn bei Speichermangel weg. Download oder Import brechen dann ab. Eine Seite, die hörbar Ton abspielt, friert Android nicht ein. Deshalb bietet die Backup-Karte auf Telefon und Tablet unter „Erweitert“ „Leiser Ton, solange es läuft“ an. Die Option ist standardmäßig an und wird je Browser gemerkt.
 
@@ -120,14 +120,16 @@ Die Liste ist nach Ketten gruppiert: ein Vollbackup mit seinen Zuwächsen, die a
 
 Eine CID lässt sich auch eintippen („Per CID wiederherstellen“).
 
-Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey und spielt alle Datenbanken und Belegdateien zurück. Dabei **führt er zusammen**: Was hier in den Büchern ist, bleibt. Was das Backup enthält, kommt dazu. Gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
+Nach einer Rückfrage holt der Browser die versiegelte Datei von Alephs Gateway, öffnet sie mit dem Schlüssel aus dem Passkey, während sie ankommt, und spielt alle Datenbanken und Belegdateien zurück. Dabei **führt er zusammen**: Was hier in den Büchern ist, bleibt. Was das Backup enthält, kommt dazu. Gelöscht wird nichts. Danach lädt die Seite neu, und der Passkey öffnet die Bücher wieder.
 
-**Prüfung vor dem Öffnen.** Was zurückkommt, prüft Belege, bevor es die Datei öffnet:
+**Was geprüft wird.** Was zurückkommt, prüft Belege in dieser Reihenfolge:
 
-- gegen die Größe, die das STORE des Backups nennt (Backups seit 0.26.2 tragen sie, die Liste zeigt sie);
-- bei jedem Backup gegen seine CID: Belege baut die Datei aus den Bytes so nach, wie Alephs Hosts sie gebaut haben.
+- **Zuerst der Schlüssel.** Eine Prüfung am Anfang der Datei sagt, ob der Schlüssel dieses Passkeys sie öffnet, bevor etwas gespeichert wird. Ein falscher Passkey wird deshalb nie mit einer beschädigten Datei verwechselt.
+- **Jedes Stück, wenn es ankommt.** Die Datei ist in Frames von einem Megabyte versiegelt. Jeder wird samt seinem Platz in der Datei beglaubigt, bevor sein Inhalt verwendet wird. Ein veränderter, ausgelassener oder verschobener Frame wird abgewiesen, ebenso eine Datei, die zu früh endet („nicht oder nicht vollständig zurückgegeben“; die technische Einzelheit nennt den Frame). Jeder Block darin wird gegen seine eigene CID geprüft.
+- **Wessen Backup es ist.** Der erste Block des Backups nennt seine Datenbanken. Sind es nicht die dieser Bücher, endet die Wiederherstellung, bevor etwas gespeichert wird.
+- **Die ganze Datei, an ihrem Ende.** Gegen die Größe, die das STORE des Backups nennt (Backups seit 0.26.2 tragen sie, die Liste zeigt sie), und gegen ihre CID: Belege baut die Datei aus den Bytes so nach, wie Alephs Hosts sie gebaut haben.
 
-Kam ein Download unvollständig oder beschädigt an, weist Belege ihn am Gateway ab und holt ihn neu („nicht oder nicht vollständig zurückgegeben“). Früher kam so eine Datei bis zum Schlüssel und scheiterte erst dort, was wie der falsche Passkey aussah. Unter jedem Fehler beim Wiederherstellen klappt „Technische Einzelheit“ auf. Dort steht, was der gescheiterte Schritt selbst gesagt hat, etwa welches Gateway, wie viele Bytes, welche CID. Das hilft bei einer Meldung oder bei einem zweiten Versuch.
+Erst danach werden die Bücher angefasst: Bis der letzte Frame geöffnet ist, wird nichts zusammengeführt, und eine Wiederherstellung, die unterwegs scheitert, lässt sie, wie sie waren. Was sie bis dahin gespeichert hat, bleibt als versiegelte Blöcke im Speicher des Browsers, auf die nichts verweist. Eine abgebrochene Verbindung wird an dem Byte fortgesetzt, an dem sie abriss. Unter jedem Fehler beim Wiederherstellen klappt „Technische Einzelheit“ auf. Dort steht, was der gescheiterte Schritt selbst gesagt hat, etwa welches Gateway, wie viele Bytes, welche CID. Das hilft bei einer Meldung oder bei einem zweiten Versuch.
 
 **Auf welchem Weg es zurückkommt,** wählt der Browser. Die Einstellung „Erst Alephs Gateway, dann das IPFS-Netz“ ist standardmäßig an und wird je Browser gemerkt.
 
@@ -224,7 +226,8 @@ _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffre
   - Wurzel und 1-MiB-Stücke jeder Belegdatei (schon mit dem Blob-Schlüssel versiegelt);
   - ein dag-cbor-Manifest: die Metadaten der Storage-Bridge (jede Datenbank mit Adresse, Manifest und Heads, aus `bundleDatabases`), die Belegdateien, die App-Version und das Datum.
 - **Wiederherstellen:**
-  - Zuerst die Zugriffslisten, dann spielt `restoreFromBlocks` der Storage-Bridge die Datenbanken aus dem geöffneten Backup zurück.
+  - Jede versiegelte Datei – das Vollbackup, dann seine Zuwächse, eine nach der anderen – wird Frame für Frame geöffnet, und ihre Blöcke gehen in den Blockstore, sobald sie gelesen sind (`openFrames` und `storeBlocksFromCAR` der Storage-Bridge). Im Arbeitsspeicher bleiben nur ihre Namen.
+  - Dann die Zugriffslisten, dann spielt `restoreFromStoredBlocks` der Storage-Bridge die Datenbanken aus dem Blockstore zurück.
   - Lässt sich ein Head nicht einhängen, bricht die Wiederherstellung mit dem Grund ab, statt Erfolg zu melden.
 - **Schreiber ([#496](https://github.com/Le-Space/belege/issues/496)):**
   - Die Bücher schreiben als eigene Identität: ein Ed25519-Schlüssel aus dem Geheimnis der Bücher (`belege/books-secret/v1`, aus dem PRF-Ergebnis des Passkeys, bis der Tresor aus [#406](https://github.com/Le-Space/belege/issues/406) es hält). Sie ist die Wurzel des Access-Controllers jeder Sammlung (`OrbitDBAccessController`, dessen eigene Listen-Datenbank wie die anderen versiegelt ist). Angezeigt wird weiter die DID des Passkeys, und sie steht als Autor in jedem Datensatz.
@@ -234,7 +237,19 @@ _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffre
   - OrbitDB 4.0.0 merkt sich verifizierte Identitäten nach `signatures.id` und lehnt eine abweichende mit derselben ID ab.
   - Eine Passkey-Identität hat in jeder Sitzung dieselbe `signatures.id`, aber eine neue WebAuthn-Zusicherung. Einträge einer früheren Sitzung (aus einem Backup oder per Sync von einem eigenen Gerät) wurden deshalb abgelehnt.
   - Belege prüft so eine Identität noch einmal so, wie OrbitDB eine ungespeicherte prüft (Form, ID-Signatur, Passkey-Bindung im Provider), nur ohne den Vergleich ([orbitdb/orbitdb#1258](https://github.com/orbitdb/orbitdb/issues/1258); `session-identities.js`).
-- **Format:** eine CAR-Datei, geschrieben von `@le-space/orbitdb-storage-bridge`, als Ganzes versiegelt mit AES-256-GCM. Der Schlüssel wird mit HKDF aus dem PRF-Ergebnis des Passkeys abgeleitet (`belege/backup-key/v1`). Die Datei ist `belegeB1 ‖ Nonce ‖ Chiffretext`.
+- **Format:** eine CAR-Datei, geschrieben von `@le-space/orbitdb-storage-bridge`, mit dem Manifest des Backups als erstem Block, in Frames versiegelt mit AES-256-GCM. Der Backup-Schlüssel wird mit HKDF aus der Wurzel der Bücher abgeleitet (`belege/backup-key/v1`). Die Datei ist `belegeB2 ‖ Umschlag`, der Umschlag ist `OSBE` Version 2 der Storage-Bridge:
+
+  ```
+  "OSBE" | 2 | Frame-Größe (4 Bytes) | Salt (32) | Schlüsselprüfung (16) | Frame 0 | Frame 1 | … | letzter Frame
+  ```
+
+  - **Ein Schlüssel je Datei:** HKDF-SHA-256 aus dem Backup-Schlüssel, dem Salt, der Frame-Größe und dem Kontext `belegeB2`. Der Backup-Schlüssel versiegelt viele Dateien, der abgeleitete eine.
+  - **Ein Frame** ist bis zu 1 MiB des CAR und ein Tag von 16 Bytes. Seine Nonce ist sein Index und eine Marke (es folgt noch einer, der letzte, die Schlüsselprüfung). Der Kopf, der Index und die Marke werden mit ihm beglaubigt. Jeder Frame außer dem letzten ist voll, die Datei trägt deshalb keine Längen.
+  - **Die Schlüsselprüfung** ist das Tag eines leeren Klartexts: Ein falscher Schlüssel fällt dort auf.
+  - **Was das bringt:** Ein Frame lässt sich für sich öffnen, die Datei also lesen, während sie ankommt. Ein ausgelassener, verschobener, wiederholter oder veränderter Frame, eine abgeschnittene Datei und eine Datei mit Angehängtem werden am Frame abgewiesen.
+
+- **Format bis 0.48:** `belegeB1 ‖ Nonce ‖ Chiffretext`, das ganze CAR in einem Stück mit AES-256-GCM unter dem Backup-Schlüssel selbst versiegelt. Es lässt sich weiter wiederherstellen. Ein einziges Tag am Ende der Datei bürgt für alles, deshalb lässt es sich nur als Ganzes öffnen.
+- **Arbeitsspeicher:** Die Wiederherstellung eines Backups in Frames hält einen Frame, einen Block und die Namen der Blöcke: gemessen in Node mit Blöcken auf der Platte etwa 9 MiB für ein Backup von 64 MiB, gegenüber etwa 190 MiB für dasselbe Backup in einem Stück (`restore-memory.spec.js`, `bench/restore-memory.js`). Ein Backup zu erstellen baut die Datei weiterhin im Arbeitsspeicher, und der Upload schickt sie als einen Körper.
 - **Upload:** das `aleph`-Backend der Storage-Bridge, `POST https://ipfs.aleph.cloud/api/v0/add`, ohne Schlüssel.
 - **Aufbewahren:**
   - Eine STORE-Nachricht im Kanal `BELEGE-BACKUP`, unterschrieben mit `personal_sign`. `content.address` ist das zahlende Konto, bezahlt wird mit Credits (`payment: { type: "credit" }`, Storage-Bridge 0.17.0). Ohne dieses Feld bucht Aleph sie als `hold`, und das deckt nur ALEPH auf dem Konto.

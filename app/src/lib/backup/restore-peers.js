@@ -66,7 +66,9 @@ export async function restoreProviders(
 
 /**
  * @typedef {object} RestorePeers
- * @property {(cid: string, options?: { size?: number, onProgress?: (received: number, total: number) => void }) => Promise<Uint8Array>} fetch
+ * @property {(cid: string, options?: { size?: number, offset?: number, onProgress?: (received: number, total: number) => void }) => AsyncIterable<Uint8Array>} stream
+ *   the file as the peers send it, never whole (#512); from `offset` on when
+ *   another way delivered its start
  * @property {() => number} reached how many peers answered a dial so far
  * @property {() => Promise<void>} stop
  */
@@ -100,8 +102,6 @@ export async function createRestorePeers({ routers } = {}) {
 	/** @type {Set<string>} */
 	const peers = new Set();
 
-	/** @type {(received: number) => void} */
-	let report = () => {};
 	const fetchOverPeers = createPeerFetch({
 		helia,
 		providers: (cid) => restoreProviders(cid, { ...(routers ? { routers } : {}) }),
@@ -111,27 +111,20 @@ export async function createRestorePeers({ routers } = {}) {
 			peers.add(connection.remotePeer.toString());
 			return connection;
 		},
-		cat: (cid, options) => counted(fs.cat(typeof cid === 'string' ? CID.parse(cid) : cid, options))
+		cat: (cid, options) => fs.cat(typeof cid === 'string' ? CID.parse(cid) : cid, options)
 	});
 
-	/** @param {AsyncIterable<Uint8Array>} chunks */
-	async function* counted(chunks) {
-		let received = 0;
-		for await (const chunk of chunks) {
-			received += chunk.length;
-			report(received);
-			yield chunk;
-		}
-	}
-
 	return {
-		fetch: async (cid, options = {}) => {
+		stream: async function* (cid, options = {}) {
 			const total = options.size ?? 0;
-			report = (received) => options.onProgress?.(received, total);
-			try {
-				return await fetchOverPeers(cid);
-			} finally {
-				report = () => {};
+			// Counted from the file's start, wherever these peers took over.
+			let received = options.offset ?? 0;
+			for await (const chunk of fetchOverPeers.stream(cid, {
+				...(options.offset ? { offset: options.offset } : {})
+			})) {
+				received += chunk.length;
+				options.onProgress?.(received, total);
+				yield chunk;
 			}
 		},
 		reached: () => peers.size,

@@ -1,7 +1,10 @@
 // A backup against a real OrbitDB and Helia, in Node, in memory: what goes in,
 // that nothing of it is readable without the backup key, and that it brings the
 // books back – into a second, empty Helia, under the same writer, through the
-// storage bridge's restoreFromBlocks.
+// storage bridge's restoreFromBlocks. And as a restore takes it (#512): the
+// sealed file in pieces, as a gateway sends it, opened frame by frame and
+// stored block by block – with what is refused, and when, counted at the
+// blockstore; and the backup of before, sealed in one piece, still restoring.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createHeliaLight } from 'helia';
@@ -28,6 +31,7 @@ import {
 	ChainGapError,
 	IncrementWithoutBaseError,
 	MAGIC,
+	MAGIC_FRAMED,
 	WrongPasskeyError,
 	buildBackup,
 	buildIncrement,
@@ -37,6 +41,7 @@ import {
 } from './archive.js';
 import { chainAfter, chainFromBase } from './chain.js';
 import { setSetting } from '../store/settings.js';
+import { sealer } from '../db-encryption.js';
 
 const MARKER = 'Backupmarker-Kieselweg-4e1b';
 /** A made-up mail as received. */
@@ -128,8 +133,9 @@ beforeAll(async () => {
 	});
 	const changed = await a.store.partners.put({ name: 'Wolkenfabrik GmbH' });
 	await a.store.partners.put({ ...changed, name: 'Wolkenfabrik AG' });
-	// A receipt file over two chunks, and its record.
-	file = new Uint8Array(1024 * 1024 + 5000).fill(0x41);
+	// A receipt file over four chunks, and its record: with it the backup is
+	// several frames long, as a restore that opens it in pieces needs (#512).
+	file = new Uint8Array(3 * 1024 * 1024 + 5000).fill(0x41);
 	file.set(new TextEncoder().encode(`%PDF-1.4\n${MARKER}\n`), 0);
 	await a.store.receipts.put({ fileName: 'beleg.pdf', fileCid: await a.blobs.put(file) });
 	// A mail receipt without an attachment, kept as received (#288).
@@ -163,7 +169,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		expect(partners?.entryCount).toBe(2);
 		expect(partners?.heads).toHaveLength(1);
 		expect(manifest.files).toHaveLength(3);
-		expect(manifest.fileBlocks).toBe(7); // the PDF's root and two chunks, the mail's and the XML's root and one each
+		expect(manifest.fileBlocks).toBe(9); // the PDF's root and four chunks, the mail's and the XML's root and one each
 		expect(manifest.missing).toBe(0);
 	});
 
@@ -187,7 +193,15 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 
 	it('is one opaque file: the magic, then nothing readable', () => {
 		const { sealed } = backup;
-		expect([...sealed.subarray(0, MAGIC.length)]).toEqual([...MAGIC]);
+		expect([...sealed.subarray(0, MAGIC_FRAMED.length)]).toEqual([...MAGIC_FRAMED]);
+		expect(new TextDecoder().decode(MAGIC_FRAMED)).toBe('belegeB2');
+		// Behind it the storage bridge's envelope in frames: OSBE, version 2,
+		// frames of a megabyte.
+		expect(new TextDecoder().decode(sealed.subarray(8, 12))).toBe('OSBE');
+		expect(sealed[12]).toBe(2);
+		expect(new DataView(sealed.buffer, sealed.byteOffset).getUint32(13)).toBe(1024 * 1024);
+		// The receipt file alone is more than a frame: this backup has several.
+		expect(sealed.length).toBeGreaterThan(2 * 1024 * 1024);
 		const text = new TextDecoder('latin1').decode(sealed);
 		expect(text).not.toContain(MARKER);
 		expect(text).not.toContain('Wolkenfabrik');
@@ -224,7 +238,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			expect((await b.store.partners.list()).map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
 			const restored = await b.store.receipts.list();
 			const receipt = /** @type {any} */ (restored.find((r) => r.fileCid));
-			// Compared natively: toEqual walks the 1 MiB file byte by byte.
+			// Compared natively: toEqual walks the file byte by byte.
 			const back = await b.blobs.get(receipt.fileCid);
 			expect(back.length).toBe(file.length);
 			expect(Buffer.compare(back, file)).toBe(0);
@@ -367,6 +381,265 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 		}
 	}, 60_000);
 
+	/** The sealed file as a gateway sends it: in pieces, never whole. */
+	async function* pieces(/** @type {Uint8Array} */ bytes, size = 64 * 1024) {
+		for (let at = 0; at < bytes.length; at += size)
+			yield bytes.subarray(at, Math.min(bytes.length, at + size));
+	}
+
+	/**
+	 * The same backup as it was sealed before #512: in one piece,
+	 * "belegeB1" ‖ nonce ‖ AES-GCM(CAR).
+	 *
+	 * @param {Uint8Array} sealed a backup in frames
+	 */
+	async function inOnePiece(sealed) {
+		const { blocks } = await openBackup(sealed, backupKey);
+		const { createCARFromBlocks } = await import('@le-space/orbitdb-storage-bridge/backup-car');
+		const [root] = blocks.keys();
+		const car = await createCARFromBlocks(blocks, root);
+		const body = await (await sealer(backupKey)).seal(car);
+		const out = new Uint8Array(MAGIC.length + body.length);
+		out.set(MAGIC, 0);
+		out.set(body, MAGIC.length);
+		return out;
+	}
+
+	/** An OrbitDB whose blockstore counts what it is given. @param {any} orbitdb */
+	function counting(orbitdb) {
+		/** @type {string[]} */
+		const puts = [];
+		const blockstore = new Proxy(orbitdb.ipfs.blockstore, {
+			get: (target, name) =>
+				name === 'put'
+					? async (/** @type {any} */ cid, /** @type {any[]} */ ...rest) => {
+							puts.push(String(cid));
+							return target.put(cid, ...rest);
+						}
+					: typeof target[name] === 'function'
+						? target[name].bind(target)
+						: target[name]
+		});
+		const watched = new Proxy(orbitdb, {
+			get: (target, name) =>
+				name === 'ipfs'
+					? new Proxy(target.ipfs, { get: (t, n) => (n === 'blockstore' ? blockstore : t[n]) })
+					: typeof target[name] === 'function'
+						? target[name].bind(target)
+						: target[name]
+		});
+		return { orbitdb: watched, puts };
+	}
+
+	describe('as it arrives (#512)', () => {
+		it('carries its manifest first, so a restore knows whose it is before the rest', async () => {
+			const { blocks, manifest } = await openBackup(backup.sealed, backupKey);
+			const [first] = blocks.keys();
+			expect(dagCbor.decode(/** @type {any} */ (blocks.get(first)).bytes)).toEqual(manifest);
+		});
+
+		it('restores from a stream: frames opened and blocks stored while it comes, the books joined after', async () => {
+			const b = await diskNode();
+			try {
+				const store = await b.open();
+				const addresses = addressesOf(store);
+				await store.close();
+				const { orbitdb, puts } = counting(b.orbitdb);
+				/** @type {any[]} */
+				const seen = [];
+				let pulled = 0;
+				/** How many pieces had been asked for when the first block was stored. */
+				let pulledAtFirstBlock = -1;
+				const source = async function* () {
+					for await (const piece of pieces(backup.sealed)) {
+						pulled++;
+						yield piece;
+					}
+				};
+				const total = Math.ceil(backup.sealed.length / (64 * 1024));
+				const result = await restoreBackup({
+					orbitdb,
+					// A function: the file is asked for when the restore gets to it.
+					sealed: source,
+					key: backupKey,
+					targets: [{ name: 'sealed', addresses, open: await b.options() }],
+					onProgress: (p) => {
+						if (p.stage === 'stored' && pulledAtFirstBlock < 0) pulledAtFirstBlock = pulled;
+						seen.push(p);
+					}
+				});
+				expect(result.streamed).toBe(true);
+				expect(result.blocks).toBe(backup.blocks);
+				expect(puts.length).toBe(backup.blocks);
+				// Not fetched and then opened: the first block was in the blockstore
+				// when most of the file had not been asked for yet.
+				expect(pulledAtFirstBlock).toBeGreaterThan(0);
+				expect(pulledAtFirstBlock).toBeLessThan(total / 2);
+				expect(pulled).toBe(total);
+
+				const stages = seen.map((p) => p.stage);
+				expect(stages[0]).toBe('opening');
+				expect(new Set(stages)).toEqual(
+					new Set(['opening', 'opened', 'stored', 'joining', 'database'])
+				);
+				// Every frame and every block before the books are touched.
+				const joining = stages.indexOf('joining');
+				expect(stages.lastIndexOf('opened')).toBeLessThan(joining);
+				expect(stages.lastIndexOf('stored')).toBeLessThan(joining);
+				expect(stages.indexOf('database')).toBeGreaterThan(joining);
+				const opened = seen.filter((p) => p.stage === 'opened');
+				expect(opened.at(-1).frames).toBe(Math.ceil(backup.carBytes / (1024 * 1024)));
+				expect(opened.at(-1).bytes).toBe(backup.carBytes);
+				expect(seen.filter((p) => p.stage === 'stored').at(-1).blocks).toBe(backup.blocks);
+
+				const after = await b.open();
+				expect((await after.transactions.list()).map((t) => t.counterparty)).toEqual([MARKER]);
+				expect((await after.partners.list()).map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
+				await after.close();
+			} finally {
+				await b.stop();
+			}
+		}, 60_000);
+
+		it('a wrong key, or books it does not belong to: refused before a block is stored', async () => {
+			const b = await diskNode();
+			try {
+				const store = await b.open();
+				const addresses = addressesOf(store);
+				await store.close();
+				const { orbitdb, puts } = counting(b.orbitdb);
+				let closes = 0;
+				const common = {
+					orbitdb,
+					sealed: () => pieces(backup.sealed),
+					beforeRestore: async () => {
+						closes++;
+					}
+				};
+				await expect(
+					restoreBackup({
+						...common,
+						key: await deriveBackupKey(new Uint8Array(32).fill(3)),
+						targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					})
+				).rejects.toBeInstanceOf(WrongPasskeyError);
+				const elsewhere = Object.fromEntries(
+					Object.keys(addresses).map((k) => [k, `/orbitdb/zdpuElsewhere${k}`])
+				);
+				await expect(
+					restoreBackup({
+						...common,
+						key: backupKey,
+						targets: [{ name: 'sealed', addresses: elsewhere, open: await b.options() }]
+					})
+				).rejects.toThrow(/do not have/);
+				expect(puts).toEqual([]);
+				expect(closes).toBe(0);
+			} finally {
+				await b.stop();
+			}
+		}, 60_000);
+
+		it('a file cut short, damaged or missing a frame: refused at that frame, the books never closed', async () => {
+			const b = await diskNode();
+			try {
+				const store = await b.open();
+				await store.transactions.put({
+					bookedOn: '2026-10-01',
+					counterparty: 'Schon hier',
+					amountCents: 7
+				});
+				const addresses = addressesOf(store);
+				await store.close();
+				const frame = 1024 * 1024 + 16;
+				// "belegeB2", then the envelope's 57 bytes in front of its first frame.
+				const firstFrame = MAGIC_FRAMED.length + 57;
+				const damaged = backup.sealed.slice();
+				damaged[firstFrame + frame + 1000] ^= 1;
+				const without = new Uint8Array(backup.sealed.length - frame);
+				without.set(backup.sealed.subarray(0, firstFrame), 0);
+				without.set(backup.sealed.subarray(firstFrame + frame), firstFrame);
+				const last = Math.ceil(backup.carBytes / (1024 * 1024)) - 1;
+				expect(last).toBeGreaterThanOrEqual(3);
+				const cases = [
+					{ file: backup.sealed.subarray(0, backup.sealed.length - 5000), frame: last },
+					{ file: damaged, frame: 1 },
+					{ file: without, frame: 0 }
+				];
+				for (const { file, frame: index } of cases) {
+					let closes = 0;
+					const error = await restoreBackup({
+						orbitdb: b.orbitdb,
+						sealed: () => pieces(file),
+						key: backupKey,
+						targets: [{ name: 'sealed', addresses, open: await b.options() }],
+						beforeRestore: async () => {
+							closes++;
+						}
+					}).catch((e) => e);
+					expect(error.name).toBe('FrameError');
+					expect(error.reason).toBe('frame');
+					expect(error.frame).toBe(index);
+					expect(error.message).toContain(`Frame ${index} `);
+					// Not a wrong passkey, and nothing was joined.
+					expect(error).not.toBeInstanceOf(WrongPasskeyError);
+					expect(closes).toBe(0);
+				}
+				const after = await b.open();
+				expect((await after.transactions.list()).map((t) => t.counterparty)).toEqual([
+					'Schon hier'
+				]);
+				await after.close();
+			} finally {
+				await b.stop();
+			}
+		}, 60_000);
+
+		it('a backup sealed in one piece, as before #512, still opens and restores', async () => {
+			const old = await inOnePiece(backup.sealed);
+			expect(old.subarray(0, MAGIC.length)).toEqual(MAGIC);
+			expect(new TextDecoder().decode(MAGIC)).toBe('belegeB1');
+			const opened = await openBackup(old, backupKey);
+			expect(opened.manifest).toEqual(backup.manifest);
+			expect(opened.blocks.size).toBe(backup.blocks);
+
+			const b = await diskNode();
+			try {
+				const store = await b.open();
+				const addresses = addressesOf(store);
+				await store.close();
+				/** @type {string[]} */
+				const stages = [];
+				const result = await restoreBackup({
+					orbitdb: b.orbitdb,
+					sealed: () => pieces(old),
+					key: backupKey,
+					targets: [{ name: 'sealed', addresses, open: await b.options() }],
+					onProgress: (p) => stages.push(p.stage)
+				});
+				// Held whole, because one tag at its end vouches for all of it.
+				expect(result.streamed).toBe(false);
+				expect(result.blocks).toBe(backup.blocks);
+				expect(stages).not.toContain('opened');
+				expect(stages).toContain('stored');
+				const after = await b.open();
+				expect((await after.transactions.list()).map((t) => t.counterparty)).toEqual([MARKER]);
+				await after.close();
+
+				await expect(
+					restoreBackup({
+						orbitdb: b.orbitdb,
+						sealed: () => pieces(old),
+						key: await deriveBackupKey(new Uint8Array(32).fill(3)),
+						targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					})
+				).rejects.toBeInstanceOf(WrongPasskeyError);
+			} finally {
+				await b.stop();
+			}
+		}, 60_000);
+	});
+
 	describe('increments (#454)', () => {
 		const BASE = 'bafkreibasebasebasebasebasebasebasebasebasebasebasebaseb';
 		/** @param {import('./archive.js').BackupChain} chain */
@@ -405,7 +678,7 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 			expect(one.databases.map((d) => d.collection).sort()).toEqual(['receipts', 'transactions']);
 			// Far smaller than the full backup, and as opaque.
 			expect(one.sealed.length).toBeLessThan(backup.sealed.length / 10);
-			expect(one.sealed.subarray(0, MAGIC.length)).toEqual(MAGIC);
+			expect(one.sealed.subarray(0, MAGIC_FRAMED.length)).toEqual(MAGIC_FRAMED);
 			expect(new TextDecoder('latin1').decode(one.sealed)).not.toContain('Zuwachs-Probe');
 
 			// A second one after it: only what came since. Settings alone – every
@@ -454,15 +727,42 @@ describe('backup archive (real OrbitDB + Helia)', () => {
 					})
 				).rejects.toBeInstanceOf(IncrementWithoutBaseError);
 
+				// As a restore fetches them (#512): each file a stream, asked for only
+				// when the one before is stored – and one of them sealed in one piece,
+				// as an increment made before #512 is.
+				/** @type {string[]} */
+				const asked = [];
+				/** @type {string[]} */
+				const order = [];
+				const oneBefore = await inOnePiece(one.sealed);
+				const file = (/** @type {string} */ name, /** @type {Uint8Array} */ bytes) => () => {
+					asked.push(name);
+					order.push(`asked ${name}`);
+					return pieces(bytes);
+				};
 				const result = await restoreBackup({
 					orbitdb: b.orbitdb,
-					sealed: backup.sealed,
-					increments: [two.sealed, one.sealed],
+					sealed: file('base', backup.sealed),
+					increments: [file('two', two.sealed), file('one', oneBefore)],
 					base: BASE,
 					key: backupKey,
-					targets: [{ name: 'sealed', addresses, open: await b.options() }]
+					targets: [{ name: 'sealed', addresses, open: await b.options() }],
+					onProgress: (p) => {
+						if (p.stage === 'stored' && order.at(-1) !== 'stored') order.push('stored');
+					}
 				});
 				expect(result.increments).toBe(2);
+				expect(asked).toEqual(['base', 'two', 'one']);
+				expect(order).toEqual([
+					'asked base',
+					'stored',
+					'asked two',
+					'stored',
+					'asked one',
+					'stored'
+				]);
+				// One file had to be held whole.
+				expect(result.streamed).toBe(false);
 				const books = await b.open();
 				const names = (await books.transactions.list()).map((t) => t.counterparty).sort();
 				expect(names).toEqual([MARKER, 'Zuwachs-Probe-Lindenhof'].sort());
@@ -499,7 +799,10 @@ describe('a backup made before new keys (#628)', () => {
 		expect(earlier.records.partners.map((p) => p.name)).toEqual(['Wolkenfabrik AG']);
 		expect(earlier.records.receipts).toHaveLength(3);
 		const pdf = earlier.records.receipts.find((r) => r.fileName === 'beleg.pdf');
-		expect(earlier.files.get(pdf?.fileCid)).toEqual(file);
+		// Compared natively: toEqual walks the file byte by byte.
+		const back = /** @type {Uint8Array} */ (earlier.files.get(pdf?.fileCid));
+		expect(back.length).toBe(file.length);
+		expect(Buffer.compare(back, file)).toBe(0);
 		const mail = earlier.records.receipts.find((r) => r.source === 'mail');
 		expect(earlier.files.get(mail?.emlCid)).toEqual(EML);
 	});

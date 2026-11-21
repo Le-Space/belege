@@ -1256,6 +1256,7 @@ export default {
 		no: 'Abbrechen',
 		fetchingBytes: '{what} {received} von {total} MB – {percent} %',
 		fetchingBytesUnknown: '{what} {received} MB',
+		storedBlocks: '· {blocks} Blöcke gespeichert',
 		fetching: 'Backup wird von Alephs Gateway geholt …',
 		fetchingPeers: 'Backup wird aus dem IPFS-Netz geholt …',
 		sourceGateway: 'Geholt über Alephs Gateway ({host}) in {seconds} s.',
