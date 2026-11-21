@@ -27,6 +27,13 @@
 //     turns: Kraken's own EUR price first, CoinGecko as the fallback; and
 //     Kraken can then price any asset it trades against EUR (`<SYMBOL>EUR`),
 //     also one Belege does not list yet.
+//     A period of days (`rates(asset, from, to)`, for a chart of two months):
+//     CoinGecko /coins/{id}/market_chart/range with `interval=daily` answers
+//     with one point per day at 00:00 UTC – the same figure /history gives for
+//     that day (compared against the live API on 2026-11-21, digit for digit,
+//     EUR and USD) – so a period costs two calls (EUR, USD) instead of one per
+//     day, which the public API refuses after about ten. A day without a point
+//     goes to Kraken as above; a day neither has stays without a rate.
 //   - a currency: the ECB reference rate of that day, or the last one before
 //     it (weekends, holidays), inverted: EUR per unit
 //   - RUB: the ECB publishes none since 2022-03-01; then the Bank of Russia's
@@ -178,6 +185,15 @@ const ECB_WINDOWS_KEPT = 8;
 /** @param {string} day */
 const startOfDay = (day) => Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000);
 
+/** The longest period `rates()` answers at once, both ends included. */
+export const MAX_RANGE_DAYS = 100;
+/**
+ * How many days back CoinGecko's public and demo API are asked for a period:
+ * they answer for "the past 365 days" counted from the moment of the call, and
+ * refuse the whole period (401) when its first day lies before that.
+ */
+const COINGECKO_DAYS_BACK = 364;
+
 /** Waits before Kraken is asked again after "too many requests", in ms. */
 const KRAKEN_RETRIES = Object.freeze([1000, 2000, 4000, 8000]);
 /** The pause between two calls to Kraken's trade history (one per day older than the candles). */
@@ -250,6 +266,37 @@ export function createRateService({
 			source: 'coingecko',
 			at: `${day}T00:00:00Z`
 		};
+	}
+
+	/**
+	 * CoinGecko's daily points of a coin from one day to another, in one
+	 * currency: its price at 00:00 UTC of each day, by day. Null when CoinGecko
+	 * did not answer with a series; a point at another moment (the newest one
+	 * of a running day) is none of a day.
+	 *
+	 * @param {string} id
+	 * @param {string} from YYYY-MM-DD
+	 * @param {string} to YYYY-MM-DD
+	 * @param {'eur' | 'usd'} currency
+	 * @returns {Promise<Map<string, string> | null>}
+	 */
+	async function coinGeckoDays(id, from, to, currency) {
+		const key = await coingeckoKey().catch(() => null);
+		const body = await getJson(
+			`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart/range?vs_currency=${currency}&from=${startOfDay(from)}&to=${startOfDay(to)}&interval=daily&precision=full`,
+			key ? { 'x-cg-demo-api-key': key } : {}
+		);
+		if (!Array.isArray(body?.prices)) return null;
+		/** @type {Map<string, string>} */
+		const days = new Map();
+		for (const point of body.prices) {
+			const at = Array.isArray(point) ? point[0] : null;
+			const price = Array.isArray(point) ? toDecimal(point[1]) : null;
+			if (!Number.isSafeInteger(at) || at % 86400_000 !== 0 || !price) continue;
+			const day = new Date(at).toISOString().slice(0, 10);
+			if (day >= from && day <= to) days.set(day, price);
+		}
+		return days;
 	}
 
 	/**
@@ -811,13 +858,116 @@ export function createRateService({
 
 		/** @type {Rate} */
 		const result = { asset, date, currency: 'EUR', ...found };
-		// Today's rate may still change until the day is over; only past days are kept.
-		if (date < now().toISOString().slice(0, 10)) {
-			if (cache.size >= cacheSize) cache.delete(/** @type {string} */ (cache.keys().next().value));
-			cache.set(key, result);
-		}
+		keep(key, result);
 		return result;
 	}
 
-	return { rate };
+	/**
+	 * Today's rate may still change until the day is over; only past days are kept.
+	 *
+	 * @param {string} key
+	 * @param {Rate} result
+	 */
+	function keep(key, result) {
+		if (result.date >= now().toISOString().slice(0, 10)) return;
+		if (cache.size >= cacheSize) cache.delete(/** @type {string} */ (cache.keys().next().value));
+		cache.set(key, result);
+	}
+
+	/**
+	 * The euro rate of one unit of a listed asset on each day of a period: what
+	 * `rate(asset, day)` answers for each of them, asked for together. A crypto
+	 * asset costs CoinGecko two calls for the whole period (its EUR and its USD
+	 * price at 00:00 UTC of each day) and Kraken at most one more; a currency
+	 * goes day by day, as its sources answer by the day or by the window anyway.
+	 *
+	 * A day without a rate is left out: nothing is carried from the day before.
+	 * A token by its contract, a DEX pool, `prefer` and another currency than
+	 * the euro stay with `rate`.
+	 *
+	 * @param {string} asset a symbol from RATE_SOURCES
+	 * @param {string} from YYYY-MM-DD
+	 * @param {string} to YYYY-MM-DD, not before `from`, not in the future, at most MAX_RANGE_DAYS days with `from`
+	 * @returns {Promise<{ asset: string, from: string, to: string, currency: 'EUR', rates: Rate[] }>} the days with a rate, oldest first
+	 */
+	async function rates(asset, from, to) {
+		const sources = Object.hasOwn(RATE_SOURCES, asset) ? RATE_SOURCES[asset] : null;
+		if (!sources) throw new RateError(`no rate source for ${String(asset).slice(0, 10)}`, 400);
+		for (const day of [from, to]) {
+			if (!DAY.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) {
+				throw new RateError('from and to must be YYYY-MM-DD', 400);
+			}
+		}
+		const today = now().toISOString().slice(0, 10);
+		if (to > today) throw new RateError('to lies in the future', 400);
+		if (from > to) throw new RateError('from lies after to', 400);
+		if (addDays(from, MAX_RANGE_DAYS - 1) < to) {
+			throw new RateError(`at most ${MAX_RANGE_DAYS} days at once`, 400);
+		}
+		/** @type {string[]} */
+		const days = [];
+		for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
+		const keyOf = (/** @type {string} */ day) => `${asset}@${day}@@`;
+		/** @type {Map<string, Rate>} */
+		const found = new Map();
+		for (const day of days) {
+			const cached = cache.get(keyOf(day));
+			if (cached) found.set(day, cached);
+		}
+		const open = () => days.filter((day) => !found.has(day));
+
+		if (!sources.coingecko && !sources.kraken) {
+			// A currency: the ECB's window holds the days around; the other banks answer by the day.
+			for (const day of open()) {
+				const r = await rate(asset, day).catch(() => null);
+				if (r) found.set(day, r);
+			}
+		} else {
+			// CoinGecko has nothing older than a year: those days are Kraken's, as for `rate`.
+			const oldest = addDays(today, -COINGECKO_DAYS_BACK);
+			const asked = open().filter((day) => day >= oldest);
+			if (sources.coingecko && asked.length) {
+				const first = asked[0];
+				const last = /** @type {string} */ (asked.at(-1));
+				const eur = await coinGeckoDays(sources.coingecko, first, last, 'eur');
+				const usd = eur?.size ? await coinGeckoDays(sources.coingecko, first, last, 'usd') : null;
+				for (const day of asked) {
+					const price = eur?.get(day);
+					if (!price) continue;
+					/** @type {Rate} */
+					const r = {
+						asset,
+						date: day,
+						currency: 'EUR',
+						rate: price,
+						usdRate: usd?.get(day) ?? null,
+						source: 'coingecko',
+						at: `${day}T00:00:00Z`
+					};
+					found.set(day, r);
+					// Kept only with the USD price a rate in dollars is taken from (rateIn).
+					if (usd) keep(keyOf(day), r);
+				}
+			}
+			if (sources.kraken) {
+				for (const day of open()) {
+					const k = await fromKraken(sources.kraken, day);
+					if (!k) continue;
+					/** @type {Rate} */
+					const r = { asset, date: day, currency: 'EUR', ...k };
+					found.set(day, r);
+					keep(keyOf(day), r);
+				}
+			}
+		}
+		return {
+			asset,
+			from,
+			to,
+			currency: 'EUR',
+			rates: days.flatMap((day) => found.get(day) ?? [])
+		};
+	}
+
+	return { rate, rates };
 }

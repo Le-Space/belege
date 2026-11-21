@@ -675,6 +675,18 @@ export function createBridgeClient({
 					: {})
 			}),
 		/**
+		 * What one unit of a listed asset was worth in EUR on each day of a
+		 * period, in one call: for a chart. Only the days with a rate; at most a
+		 * hundred days. A bridge older than this command answers 404
+		 * (`BRIDGE_OUTDATED`): then `rate`, day by day.
+		 *
+		 * @param {string} asset a symbol from assets/registry.js, e.g. `BTC`
+		 * @param {string} from YYYY-MM-DD
+		 * @param {string} to YYYY-MM-DD
+		 * @returns {Promise<{ asset: string, from: string, to: string, rates: import('../assets/valuation.js').Rate[] }>}
+		 */
+		rateRange: (asset, from, to) => command('rates.range', { asset, from, to }),
+		/**
 		 * Kraken's non-zero balances (bridge/src/kraken.js).
 		 *
 		 * @returns {Promise<{ balances: KrakenBalance[] }>}

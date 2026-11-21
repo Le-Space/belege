@@ -872,3 +872,239 @@ describe('a rate into another currency', () => {
 		assert.ok(TARGET_CURRENCIES.includes('EUR') && TARGET_CURRENCIES.includes('RUB'));
 	});
 });
+
+describe('a period of days in one call', () => {
+	const ms = (/** @type {string} */ d) => Date.parse(`${d}T00:00:00Z`);
+	const RANGE = 'https://api.coingecko.com/api/v3/coins/nym/market_chart/range';
+	const OHLC = 'https://api.kraken.com/0/public/OHLC?pair=NYMEUR';
+
+	/**
+	 * CoinGecko's daily points and Kraken's daily candles, made up; what was asked is recorded.
+	 *
+	 * @param {object} p
+	 * @param {Record<string, number> | number} p.eur day → price, or an HTTP status
+	 * @param {Record<string, number> | number} [p.usd]
+	 * @param {Record<string, string>} [p.kraken] day → open
+	 * @param {number[][]} [p.extra] points that are none of a day
+	 */
+	function sources({ eur, usd = {}, kraken, extra = [] }) {
+		/** @type {string[]} */
+		const calls = [];
+		/** @type {typeof fetch} */
+		const f = async (input) => {
+			const url = String(input);
+			calls.push(url);
+			if (url.startsWith(RANGE)) {
+				const q = new URL(url).searchParams;
+				const table = q.get('vs_currency') === 'eur' ? eur : usd;
+				if (typeof table === 'number') return new Response('{}', { status: table });
+				const from = Number(q.get('from')) * 1000;
+				const to = Number(q.get('to')) * 1000;
+				const prices = Object.entries(table)
+					.map(([d, price]) => [ms(d), price])
+					.filter(([at]) => at >= from && at <= to);
+				return new Response(JSON.stringify({ prices: [...prices, ...extra] }), { status: 200 });
+			}
+			if (url.startsWith(OHLC) && kraken) {
+				const candles = Object.entries(kraken).map(([d, open]) => [ms(d) / 1000, open]);
+				return new Response(JSON.stringify({ error: [], result: { NYMEUR: candles, last: 0 } }), {
+					status: 200
+				});
+			}
+			return new Response('{}', { status: 404 });
+		};
+		return { fetch: f, calls };
+	}
+
+	test('CoinGecko answers the whole period in two calls; the days are those of rate()', async () => {
+		const eur = {
+			'2026-09-22': 0.05,
+			'2026-09-23': 0.051,
+			'2026-09-24': 0.052,
+			'2026-09-25': 2e-7
+		};
+		const usd = { '2026-09-22': 0.06, '2026-09-23': 0.061, '2026-09-24': 0.062 };
+		const { fetch, calls } = sources({ eur, usd });
+		const rates = createRateService({ fetch, now: NOW });
+		const answer = await rates.rates('NYM', '2026-09-22', '2026-09-25');
+		assert.equal(calls.length, 2);
+		assert.match(
+			calls[0],
+			new RegExp(
+				`vs_currency=eur&from=${ms('2026-09-22') / 1000}&to=${ms('2026-09-25') / 1000}&interval=daily&precision=full$`
+			)
+		);
+		assert.match(calls[1], /vs_currency=usd/);
+		assert.deepEqual(
+			{ asset: answer.asset, from: answer.from, to: answer.to, currency: answer.currency },
+			{ asset: 'NYM', from: '2026-09-22', to: '2026-09-25', currency: 'EUR' }
+		);
+		assert.deepEqual(answer.rates[0], {
+			asset: 'NYM',
+			date: '2026-09-22',
+			currency: 'EUR',
+			rate: '0.05',
+			usdRate: '0.06',
+			source: 'coingecko',
+			at: '2026-09-22T00:00:00Z'
+		});
+		assert.deepEqual(
+			answer.rates.map((r) => [r.date, r.rate, r.usdRate]),
+			[
+				['2026-09-22', '0.05', '0.06'],
+				['2026-09-23', '0.051', '0.061'],
+				['2026-09-24', '0.052', '0.062'],
+				['2026-09-25', '0.0000002', null]
+			]
+		);
+		// Kept under rate()'s keys: neither asks again.
+		assert.deepEqual(await rates.rate('NYM', '2026-09-23'), answer.rates[1]);
+		assert.deepEqual(await rates.rates('NYM', '2026-09-22', '2026-09-25'), answer);
+		assert.equal(calls.length, 2);
+	});
+
+	test('only the days not kept yet are asked for; today is asked again', async () => {
+		const eur = Object.fromEntries(
+			['2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26'].map((d) => [d, 0.05])
+		);
+		const { fetch, calls } = sources({ eur, usd: eur });
+		const rates = createRateService({ fetch, now: NOW });
+		await rates.rates('NYM', '2026-09-22', '2026-09-23');
+		const answer = await rates.rates('NYM', '2026-09-22', '2026-09-26');
+		assert.equal(answer.rates.length, 5);
+		assert.match(
+			calls[2],
+			new RegExp(`from=${ms('2026-09-24') / 1000}&to=${ms('2026-09-26') / 1000}`)
+		);
+		await rates.rates('NYM', '2026-09-22', '2026-09-26');
+		assert.match(
+			calls[4],
+			new RegExp(`from=${ms('2026-09-26') / 1000}&to=${ms('2026-09-26') / 1000}`)
+		);
+		assert.equal(calls.length, 6);
+	});
+
+	test('a day missing in the answer stays missing: nothing is carried', async () => {
+		const { fetch } = sources({
+			eur: { '2026-09-22': 0.05, '2026-09-24': 0.052 },
+			// A point of a running day is none of a day.
+			extra: [[ms('2026-09-23') + 3600_000, 0.07]]
+		});
+		const answer = await createRateService({ fetch, now: NOW }).rates(
+			'NYM',
+			'2026-09-22',
+			'2026-09-24'
+		);
+		assert.deepEqual(
+			answer.rates.map((r) => r.date),
+			['2026-09-22', '2026-09-24']
+		);
+	});
+
+	test('a day CoinGecko has none for: Kraken, one call; CoinGecko refusing: Kraken for all', async () => {
+		const kraken = { '2026-09-22': '0.04', '2026-09-23': '0.041', '2026-09-24': '0.042' };
+		const partly = sources({ eur: { '2026-09-22': 0.05, '2026-09-24': 0.052 }, kraken });
+		const some = await createRateService({ fetch: partly.fetch, now: NOW }).rates(
+			'NYM',
+			'2026-09-22',
+			'2026-09-25'
+		);
+		assert.deepEqual(
+			some.rates.map((r) => [r.date, r.rate, r.source]),
+			[
+				['2026-09-22', '0.05', 'coingecko'],
+				['2026-09-23', '0.041', 'kraken'],
+				['2026-09-24', '0.052', 'coingecko']
+			]
+		);
+		const refused = sources({ eur: 429, kraken });
+		const rates = createRateService({ fetch: refused.fetch, now: NOW });
+		const all = await rates.rates('NYM', '2026-09-22', '2026-09-24');
+		assert.deepEqual(
+			all.rates.map((r) => [r.rate, r.source]),
+			[
+				['0.04', 'kraken'],
+				['0.041', 'kraken'],
+				['0.042', 'kraken']
+			]
+		);
+		// One call each: CoinGecko (refused), Kraken's candles.
+		assert.equal(refused.calls.length, 2);
+		assert.equal((await rates.rate('NYM', '2026-09-23')).source, 'kraken');
+		assert.equal(refused.calls.length, 2);
+	});
+
+	test('without the USD prices the days are not kept: rate() asks for its own snapshot', async () => {
+		const { fetch, calls } = sources({ eur: { '2026-09-22': 0.05 }, usd: 429 });
+		const rates = createRateService({ fetch, now: NOW });
+		const answer = await rates.rates('NYM', '2026-09-22', '2026-09-22');
+		assert.deepEqual(
+			answer.rates.map((r) => [r.rate, r.usdRate]),
+			[['0.05', null]]
+		);
+		await assert.rejects(rates.rate('NYM', '2026-09-22'));
+		assert.match(/** @type {string} */ (calls.at(-2)), /\/coins\/nym\/history\?date=22-09-2026/);
+	});
+
+	test('days older than a year are not asked of CoinGecko', async () => {
+		const { fetch, calls } = sources({ eur: {}, kraken: { '2025-09-01': '0.2' } });
+		const answer = await createRateService({ fetch, now: NOW }).rates(
+			'NYM',
+			'2025-09-01',
+			'2025-09-02'
+		);
+		assert.deepEqual(
+			answer.rates.map((r) => [r.date, r.rate, r.source]),
+			[['2025-09-01', '0.2', 'kraken']]
+		);
+		assert.ok(calls.every((c) => c.startsWith(OHLC)));
+	});
+
+	test('a currency goes by the ECB window', async () => {
+		const ECB_USD = 'https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A';
+		const { fetch, calls } = fakeFetch({
+			[ECB_USD]: {
+				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [1.25], 1: [1.6] } } } }],
+				structure: {
+					dimensions: { observation: [{ values: [{ id: '2026-09-22' }, { id: '2026-09-23' }] }] }
+				}
+			}
+		});
+		const answer = await createRateService({ fetch, now: NOW }).rates(
+			'USD',
+			'2026-09-22',
+			'2026-09-23'
+		);
+		assert.deepEqual(
+			answer.rates.map((r) => [r.date, r.rate, r.source]),
+			[
+				['2026-09-22', '0.8', 'ecb'],
+				['2026-09-23', '0.625', 'ecb']
+			]
+		);
+		assert.equal(calls.length, 1);
+	});
+
+	test('refused before anything is asked: an unlisted asset, bad days, too long a period', async () => {
+		const { fetch, calls } = sources({ eur: {} });
+		const rates = createRateService({ fetch, now: NOW });
+		for (const [asset, from, to] of [
+			['DOGE', '2026-09-01', '2026-09-02'],
+			['toString', '2026-09-01', '2026-09-02'],
+			['NYM', '2026-9-1', '2026-09-02'],
+			['NYM', '2026-09-01', '2026-02-30x'],
+			['NYM', '2026-09-02', '2026-09-01'],
+			['NYM', '2026-09-01', '2026-09-27'],
+			['NYM', '2026-06-18', '2026-09-26']
+		]) {
+			await assert.rejects(
+				rates.rates(asset, from, to),
+				(e) => e instanceof RateError && e.status === 400,
+				`${asset} ${from} ${to}`
+			);
+		}
+		assert.equal(calls.length, 0);
+		// A hundred days, both ends included, are answered.
+		assert.deepEqual((await rates.rates('NYM', '2026-06-19', '2026-09-26')).rates, []);
+	});
+});

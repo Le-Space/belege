@@ -129,7 +129,7 @@ const ALLOWED = /** @type {const} */ ([
 	['POST', /^\/transfer\/assist$/],
 	['POST', /^\/vendor\/assist$/],
 	['POST', /^\/extract$/],
-	['GET', /^\/rates$/],
+	['GET', /^\/rates(\/range)?$/],
 	['GET', /^\/kraken\/(balances|ledgers)$/],
 	['GET', /^\/chains$/],
 	['GET', /^\/bitcoin\/key$/],

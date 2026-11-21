@@ -124,6 +124,13 @@ test('checkArgs: the calls the app makes fit, bad ones do not', () => {
 		}),
 		[]
 	);
+	assert.deepEqual(
+		checkArgs('rates.range', { asset: 'AKT', from: '2026-09-01', to: '2026-10-31' }),
+		[]
+	);
+	assert.deepEqual(checkArgs('rates.range', { asset: 'AKT', from: '2026-09-01' }), [
+		'to: required'
+	]);
 	assert.deepEqual(checkArgs('chains.wallet', { chain: 'akash', address: 'akash1example' }), []);
 	assert.deepEqual(checkArgs('bridge.health', { anything: 1 }), ['anything: not expected']);
 	assert.deepEqual(checkArgs('nope.nope', {}), ['unknown command nope.nope']);

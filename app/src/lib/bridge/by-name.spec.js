@@ -68,6 +68,13 @@ describe('a call by name', () => {
 				'rates.rate'
 			],
 			[
+				() => client.rateRange('BTC', '2026-01-01', '2026-02-28'),
+				'GET',
+				'/rates/range?asset=BTC&from=2026-01-01&to=2026-02-28',
+				null,
+				'rates.range'
+			],
+			[
 				() => client.paperlessDocuments(null),
 				'GET',
 				'/paperless/documents',

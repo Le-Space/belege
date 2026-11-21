@@ -780,6 +780,22 @@ function fixedRateService(rates) {
 				source: /** @type {any} */ (fixed.source ?? 'manual'),
 				at: fixed.at ?? `${date}T00:00:00Z`
 			};
+		},
+		/**
+		 * The same fixed rate for each day of a period.
+		 *
+		 * @param {string} asset @param {string} from @param {string} to
+		 */
+		async rates(asset, from, to) {
+			const out = [];
+			for (
+				let t = Date.parse(`${from}T00:00:00Z`);
+				t <= Date.parse(`${to}T00:00:00Z`);
+				t += 86400_000
+			) {
+				out.push(await this.rate(asset, new Date(t).toISOString().slice(0, 10)));
+			}
+			return { asset, from, to, currency: /** @type {const} */ ('EUR'), rates: out };
 		}
 	};
 }

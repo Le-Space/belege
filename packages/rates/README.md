@@ -10,6 +10,8 @@ The euro rate of a day, one definition for Le Space's tools – [Belege](https:/
 
 - **in another currency than the euro** (`rate(asset, date, { currency })`, for a document kept in CHF, USD, RUB …; [eigenbeleg-agent#72](https://github.com/Le-Space/eigenbeleg-agent/issues/72)): the euro rate times the currency's units per euro of the day – the ECB reference rate or the last before it (one request per currency reads the weeks around the day, as for a currency's own rate), for RUB since 2022-03-01 the Bank of Russia's official rate valid on the day. The answer carries both legs: `eurRate`, and `fx: { currency, perEur, source, at }`. For USD, where CoinGecko answered, its own USD price of the same snapshot is the rate and there is no `fx`. `TARGET_CURRENCIES` lists what can be asked for: the euro and every currency with an official rate against it; a cross rate through the ruble is refused.
 
+- **a period of days** (`rates(asset, from, to)`, for a chart; at most `MAX_RANGE_DAYS` = 100 days, listed assets, in euros): what `rate` answers for each day, asked for together – CoinGecko's daily points of the period (`/market_chart/range` with `interval=daily`: one point per day at 00:00 UTC, the same figure as the daily snapshot) in two calls, EUR and USD; a day without a point from Kraken's daily candles. The answer is `{ asset, from, to, currency, rates }` with the days that have a rate, oldest first; a day without one is left out, nothing is carried. Past days are kept under the keys `rate` uses.
+
 Every answer says its source and moment (`{ rate, usdRate, source, at }`), so a document can name them. Rates are decimal strings, never floats.
 
 ```js
