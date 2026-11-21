@@ -5,13 +5,8 @@
 // on a click, assigns it to the trip and reads it with a fake model – and
 // the night is asked no more. Towns, vendors and mails are made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import {
 	ACCOUNTING,
 	FAKE_IMAP_PASSWORD,
@@ -23,16 +18,11 @@ import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { pairBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { startBridge } from './bridge-process.js';
 
 /** @type {Awaited<ReturnType<typeof startFakeImap>>} */ let imap;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	imap = await startFakeImap({ storage: sampleMailbox({ hostelBooking: true }) });
@@ -54,13 +44,9 @@ test.beforeAll(async () => {
 			nights: 1
 		}
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-travel-mail-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'travel-mail',
+		config: {
 			mail: {
 				...defaultConfig().mail,
 				host: imap.host,
@@ -78,30 +64,17 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_IMAP_PASSWORD: FAKE_IMAP_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await llm?.close();
 	await imap?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a night without lodging: the mailbox searched, the booking taken over onto the trip, the night asked no more (#693 c)', async ({
@@ -118,9 +91,8 @@ test('a night without lodging: the mailbox searched, the booking taken over onto
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 	await tab('Integrationen').click();
-	await pairBridge(page, { code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	// The bus there and back, read before; nothing for the night between.
 	await page.evaluate(async () => {

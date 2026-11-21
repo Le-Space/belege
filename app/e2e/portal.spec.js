@@ -10,13 +10,10 @@
 // started, stopped, discarded) → Abmelden → Zugangsdaten löschen and speichern (the
 // password from the bridge's dialog, which test mode answers without a window).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import {
@@ -31,6 +28,7 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { httpOnly, pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 /**
  * A month in the app's month picker (MonthPicker.svelte): its month and year lists.
@@ -42,10 +40,6 @@ async function pickMonth(picker, month) {
 	await picker.getByTestId(/-year$/).selectOption(month.slice(0, 4));
 	await picker.getByTestId(/-month$/).selectOption(month.slice(5, 7));
 }
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 // Invoices on the 3rd of the month ten days ago and the two before it; the
 // newest is paid five days after its date.
@@ -79,21 +73,16 @@ function bankData() {
 /** @type {Awaited<ReturnType<typeof startFakeHibiscus>>} */ let hibiscus;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 /** @type {Awaited<ReturnType<typeof startFakePortal>>} */ let portal;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 /** @type {string} */ let dir;
-let bridgeOut = '';
 
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: bankData() });
 	llm = await startFakeLlm();
 	portal = await startFakePortal({ invoices: INVOICES });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-portal-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'portal',
+		config: {
 			hibiscus: {
 				host: hibiscus.host,
 				port: hibiscus.port,
@@ -111,41 +100,23 @@ test.beforeAll(async () => {
 				vodafone: { username: FAKE_PORTAL_USER, passwordStored: true, baseUrl: portal.url }
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY,
 			BELEGE_BRIDGE_TEST_PORTAL_PASSWORD: FAKE_PORTAL_PASSWORD,
 			// What the (never shown) password dialog answers in test mode.
 			BELEGE_BRIDGE_TEST_PORTAL_DIALOG: FAKE_PORTAL_PASSWORD
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
+	dir = bridge.dir;
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await portal?.close();
 	await llm?.close();
 	await hibiscus?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('Vodafone invoices from the portal become receipts and match the booking', async ({
 	page
@@ -163,7 +134,7 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 	await openIntegration(page, 'bank');
 	await page.getByRole('button', { name: 'Jetzt synchronisieren' }).click();
 	await expect(page.getByTestId('sync-result')).toHaveText(
@@ -302,6 +273,6 @@ test('Vodafone invoices from the portal become receipts and match the booking', 
 	await expect(page.locator('body')).not.toContainText(FAKE_PORTAL_PASSWORD);
 
 	// Nothing of the portal's pages and no password in the bridge's output.
-	expect(bridgeOut).not.toContain(FAKE_PORTAL_PASSWORD);
-	expect(bridgeOut).not.toContain(CUSTOMER_NUMBER);
+	expect(bridge.out()).not.toContain(FAKE_PORTAL_PASSWORD);
+	expect(bridge.out()).not.toContain(CUSTOMER_NUMBER);
 });

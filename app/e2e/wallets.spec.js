@@ -8,13 +8,7 @@
 // links to its transaction in the explorer. All addresses, hashes and
 // amounts are made up (@belege/bridge/testing/chains).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import {
 	cosmosTx,
 	fakeCosmosAddress,
@@ -25,11 +19,10 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
 const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 const A = NYX.wallet;
 const B = fakeCosmosAddress('second own wallet');
@@ -68,9 +61,7 @@ function history() {
 
 /** @type {Awaited<ReturnType<typeof startFakeCosmos>>} */ let node;
 /** @type {Awaited<ReturnType<typeof startFakeCosmos>>} */ let prunedNode;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	node = await startFakeCosmos({
@@ -95,33 +86,17 @@ test.beforeAll(async () => {
 		earliestHeight: 1500,
 		statusSaysZero: true
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-wallets-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ NYM: '0.05' }) },
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'wallets',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ NYM: '0.05' }) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await node?.close();
 	await prunedNode?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('add two own Nym wallets, sync, see balances, explorer links and the own transfer', async ({
 	page
@@ -134,7 +109,7 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
@@ -399,6 +374,6 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(rows.getByTestId('coverage-badge')).toHaveText('Eigene Umbuchung');
 
 	// The bridge logged counts, never an address.
-	expect(bridgeOut).toMatch(/nyx: 2 transaction\(s\)/);
-	expect(bridgeOut.includes(A) || bridgeOut.includes(B)).toBe(false);
+	expect(bridge.out()).toMatch(/nyx: 2 transaction\(s\)/);
+	expect(bridge.out().includes(A) || bridge.out().includes(B)).toBe(false);
 });

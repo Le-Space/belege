@@ -5,20 +5,12 @@
 // with fixed rates that stand for those sources; every vendor, amount and
 // rate is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 // EUR per unit, with the source and the day the rate is valid from.
 const RATES = {
 	RUB: { rate: '0.0105', source: 'cbr', at: '2025-03-01T00:00:00Z' },
@@ -27,29 +19,17 @@ const RATES = {
 	UZS: { rate: '0.00007', source: 'cbr-cross', at: '2025-03-05T00:00:00Z' }
 };
 
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-outlay-rates-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify(RATES) },
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'outlay-rates',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify(RATES) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
-	if (dir) await rm(dir, { recursive: true, force: true });
+	await bridge?.stop();
 });
 
 test('outlays at the Bank of Russia, ECB and National Bank of Kazakhstan rates, and a cross rate', async ({
@@ -62,8 +42,7 @@ test('outlays at the Bank of Russia, ECB and National Bank of Kazakhstan rates, 
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await page.evaluate(async () => {
 		const e2e = /** @type {any} */ (window).__belegeE2E;
