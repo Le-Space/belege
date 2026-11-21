@@ -7,13 +7,8 @@
 // stream in both E2E modes. A device added afterwards gets what was ticked
 // before it was added. Towns, vendors, mails and the device's id are made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import {
 	ACCOUNTING,
 	FAKE_IMAP_PASSWORD,
@@ -25,27 +20,20 @@ import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { acceptConsent } from './consent.js';
 import { openDevicesAdvanced, openIntegration } from './integrations.js';
 import { device } from './devices.js';
+import { startBridge } from './bridge-process.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 /** @type {Awaited<ReturnType<typeof startFakeImap>>} */ let imap;
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	imap = await startFakeImap({ storage: sampleMailbox({ hostelBooking: true }) });
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-bridge-scopes-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'bridge-scopes',
+		config: {
 			mail: {
 				...defaultConfig().mail,
 				host: imap.host,
@@ -62,30 +50,18 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_IMAP_PASSWORD: FAKE_IMAP_PASSWORD,
 			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
 		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		ready: /web\+ucep:pair\?\S+/
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 20_000 }).toMatch(/web\+ucep:pair\?\S+/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await llm?.close();
 	await imap?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a device without “Mails lesen” is refused a mail search, said as such, and searches again once ticked (#579)', async ({
@@ -116,12 +92,12 @@ test('a device without “Mails lesen” is refused a mail search, said as such,
 		});
 
 		// Paired by the invitation the bridge printed; from then on over its node.
-		const invitation = /(web\+ucep:pair\?\S+)/.exec(bridgeOut)?.[1] ?? '';
+		const invitation = /(web\+ucep:pair\?\S+)/.exec(bridge.out())?.[1] ?? '';
 		expect(invitation).not.toBe('');
 		await openIntegration(page, 'bridge');
 		await page.getByTestId('bridge-invitation').fill(invitation);
 		await page.getByTestId('bridge-pair-invitation').click();
-		await expect.poll(() => bridgeOut, { timeout: 60_000 }).toMatch(/node is armed/);
+		await expect.poll(() => bridge.out(), { timeout: 60_000 }).toMatch(/node is armed/);
 		// Online over the stream ("Status prüfen" asks again until the node is proved), in either E2E mode.
 		const status = page.getByTestId('bridge-status');
 		await expect
@@ -192,7 +168,7 @@ test('a device without “Mails lesen” is refused a mail search, said as such,
 		await mailRead.uncheck();
 		await expect(mailRead).not.toBeChecked();
 		await expect(row).toContainText('eingeschränkt auf');
-		await expect.poll(() => bridgeOut).toMatch(/device\.scopes: a device holds \d+ scope/);
+		await expect.poll(() => bridge.out()).toMatch(/device\.scopes: a device holds \d+ scope/);
 
 		// The night's mail search: refused, the area named, nothing tried over HTTP.
 		await tab('Belege').click();
@@ -210,7 +186,7 @@ test('a device without “Mails lesen” is refused a mail search, said as such,
 		await expect(error).toContainText('Dieses Gerät darf an der Bridge nicht: Mails lesen');
 		await expect(night.getByTestId('reise-mail-hit')).toHaveCount(0);
 		expect(http).toEqual([]);
-		expect(bridgeOut).toMatch(/mail\.search over the stream: refused SCOPE_MISSING/);
+		expect(bridge.out()).toMatch(/mail\.search over the stream: refused SCOPE_MISSING/);
 
 		// Ticked again: the same search finds the hostel's booking.
 		row = await myScopes();

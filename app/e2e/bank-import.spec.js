@@ -5,15 +5,11 @@
 // by month and day → a second sync adds nothing → CAMT.053 upload adds the
 // Revolut-style account → on disk, no counterparty and no token in plaintext.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openSettings } from './settings.js';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_PASSWORD, sampleData, startFakeHibiscus } from '@belege/bridge/testing';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { makePdf } from '@belege/bridge/testing/pdf';
@@ -21,11 +17,10 @@ import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { expectPaired, pairBridge, viaStream, stopBridge } from './bridge.js';
+import { expectPaired, pairBridge, viaStream } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const REVOLUT = fileURLToPath(
 	new URL('../src/lib/bank/fixtures/camt053-revolut.xml', import.meta.url)
 );
@@ -73,22 +68,16 @@ function fakeData() {
 }
 
 /** @type {Awaited<ReturnType<typeof startFakeHibiscus>>} */ let hibiscus;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 
 test.beforeAll(async () => {
 	hibiscus = await startFakeHibiscus({ data: fakeData() });
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-bridge-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'bridge',
+		config: {
 			hibiscus: {
 				host: hibiscus.host,
 				port: hibiscus.port,
@@ -103,33 +92,15 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: {
-			...process.env,
-			BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD,
-			BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_PASSWORD: FAKE_PASSWORD, BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await hibiscus?.close();
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT', async ({
 	page
@@ -151,9 +122,9 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	/** @type {string | null} */
 	let token = null;
 	if (viaStream) {
-		await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+		await pairBridge(page, bridge);
 	} else {
-		await page.getByTestId('pairing-code').fill(pairingCode());
+		await page.getByTestId('pairing-code').fill(bridge.code());
 		const pairResponse = page.waitForResponse((r) => r.url().endsWith('/pair'));
 		await page.getByRole('button', { name: 'Koppeln', exact: true }).click();
 		token = String((await (await pairResponse).json()).token);

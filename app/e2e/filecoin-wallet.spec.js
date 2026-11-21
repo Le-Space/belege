@@ -6,13 +6,7 @@
 // detail names Filecoin. Addresses, CIDs and amounts are made up
 // (@belege/bridge/testing/filfox).
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import {
 	fakeFilecoinAddress,
 	fakeMessageCid,
@@ -21,11 +15,8 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const OURS = fakeFilecoinAddress('e2e own wallet');
 const KRAKEN = fakeFilecoinAddress('e2e exchange deposit address');
@@ -36,9 +27,7 @@ const NOW = Math.floor(Date.now() / 1000);
 const atto = (/** @type {number} */ fil) => (BigInt(fil) * 10n ** 18n).toString();
 
 /** @type {Awaited<ReturnType<typeof startFakeFilfox>>} */ let filfox;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	filfox = await startFakeFilfox({
@@ -77,25 +66,15 @@ test.beforeAll(async () => {
 			}
 		}
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-fil-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ FIL: '2' }) },
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'fil',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ FIL: '2' }) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await filfox?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a Filecoin wallet is read, and its withdrawal pairs with the Kraken deposit', async ({
@@ -108,8 +87,7 @@ test('a Filecoin wallet is read, and its withdrawal pairs with the Kraken deposi
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	const card = page.getByTestId('wallets-card');
@@ -139,7 +117,7 @@ test('a Filecoin wallet is read, and its withdrawal pairs with the Kraken deposi
 		'href',
 		`https://filfox.info/en/address/${OURS}`
 	);
-	expect(bridgeOut).not.toContain(OURS);
+	expect(bridge.out()).not.toContain(OURS);
 
 	// The exchange's side: a deposit naming the same message CID.
 	await page.evaluate(

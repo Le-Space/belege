@@ -7,37 +7,24 @@
 // bridge's status comes over the stream while every HTTP request to the
 // bridge is refused. Made-up passkey; nothing is real.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { acceptConsent } from './consent.js';
 import { openDevicesAdvanced, openIntegration } from './integrations.js';
 import { device } from './devices.js';
-import { stopBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-bridge-node-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'bridge-node',
+		config: {
 			llm: {
 				...defaultConfig().llm,
 				model: 'deepseek-flash',
@@ -46,21 +33,14 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY },
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY },
+		ready: /web\+ucep:pair\?\S+/
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 20_000 }).toMatch(/web\+ucep:pair\?\S+/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a device pairs the bridge’s node by invitation and reaches it over the stream, with HTTP refused', async ({
@@ -93,7 +73,7 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 		);
 
 		// The invitation from the bridge's console, pasted into the Bridge card.
-		const invitation = /(web\+ucep:pair\?\S+)/.exec(bridgeOut)?.[1] ?? '';
+		const invitation = /(web\+ucep:pair\?\S+)/.exec(bridge.out())?.[1] ?? '';
 		expect(invitation).not.toBe('');
 		await openIntegration(mac.page, 'bridge');
 		await mac.page.getByTestId('bridge-invitation').fill(invitation);
@@ -112,7 +92,7 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 			)
 			.toBe('true');
 		// The bridge took the key and came back armed.
-		await expect.poll(() => bridgeOut, { timeout: 30_000 }).toMatch(/node is armed/);
+		await expect.poll(() => bridge.out(), { timeout: 30_000 }).toMatch(/node is armed/);
 		// Its status comes over the stream; "Status prüfen" asks again until the node is proved.
 		await expect
 			.poll(
@@ -155,13 +135,13 @@ test('a device pairs the bridge’s node by invitation and reaches it over the s
 
 		// "Kopplung lösen": the bridge forgets its key over the stream and offers a new invitation;
 		// the books move on to the next generation of the bridge's key.
-		const invitationsBefore = (bridgeOut.match(/web\+ucep:pair\?/g) ?? []).length;
+		const invitationsBefore = (bridge.out().match(/web\+ucep:pair\?/g) ?? []).length;
 		await openIntegration(mac.page, 'bridge');
 		await mac.page.getByTestId('unpair').click();
 		await expect(mac.page.getByTestId('bridge-invitation')).toBeVisible();
-		await expect.poll(() => bridgeOut, { timeout: 30_000 }).toMatch(/Unpaired by a device/);
+		await expect.poll(() => bridge.out(), { timeout: 30_000 }).toMatch(/Unpaired by a device/);
 		await expect
-			.poll(() => (bridgeOut.match(/web\+ucep:pair\?/g) ?? []).length, { timeout: 30_000 })
+			.poll(() => (bridge.out().match(/web\+ucep:pair\?/g) ?? []).length, { timeout: 30_000 })
 			.toBeGreaterThan(invitationsBefore);
 		await openIntegration(mac.page, 'geraete');
 		await expect(mac.page.getByTestId('devices-item').filter({ hasText: 'Bridge' })).toHaveCount(0);

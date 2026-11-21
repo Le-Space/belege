@@ -7,6 +7,7 @@
 </script>
 
 <script>
+	import { taxKeyLabel } from './booking/tax-key-names.js';
 	import { resolve } from '$app/paths';
 	import { intlLocale } from '$lib/i18n/index.js';
 	import { accountLabel } from './bank/format.js';
@@ -553,7 +554,9 @@
 						{#if p.account}
 							<span class="text-faint" data-testid="learned-account"
 								>{t('anweisungen.books.learnedAccount', {
-									account: p.taxKey ? `${p.account} / BU ${p.taxKey}` : p.account
+									account: p.taxKey
+										? `${p.account} / BU ${taxKeyLabel(p.taxKey, datev.taxKeys)}`
+										: p.account
 								})}</span
 							>
 						{/if}

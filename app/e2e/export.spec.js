@@ -10,25 +10,18 @@
 // read here and its Buchungsstapel checked line by line → the Verlauf →
 // nothing readable at rest.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { unzipSync, strFromU8 } from 'fflate';
 import { openSettings } from './settings.js';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import { FAKE_LLM_KEY, startFakeLlm } from '@belege/bridge/testing/llm';
 import { makePdf } from '@belege/bridge/testing/pdf';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { everythingStoredAsText } from './storage-scan.js';
 import { acceptConsent } from './consent.js';
 import { pairBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { startBridge } from './bridge-process.js';
 
 const KABEL = {
 	vendor: 'Kabelnetz Beispiel GmbH',
@@ -49,19 +42,13 @@ const kabelPdf = makePdf([
 ]);
 
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	llm = await startFakeLlm();
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-export-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'export',
+		config: {
 			llm: {
 				...defaultConfig().llm,
 				model: 'deepseek-flash',
@@ -70,32 +57,14 @@ test.beforeAll(async () => {
 				configured: true
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY },
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_LLM_KEY: FAKE_LLM_KEY }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await llm?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
-
-function pairingCode() {
-	const m = /Pairing code[^:]*: (\S+)/.exec(bridgeOut);
-	if (!m) throw new Error(`no pairing code in the bridge output:\n${bridgeOut}`);
-	return m[1];
-}
 
 test('assign accounts, export a month as DATEV Buchungsstapel with its receipts', async ({
 	page
@@ -112,7 +81,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	// Two bank accounts and a month of bookings, the way an import stores them.
 	await page.evaluate(
