@@ -4124,6 +4124,19 @@ export default {
 		changedBadge: 'changed on fetch',
 		parties: 'From {from} → To {to}',
 		noAccountBadge: 'no account',
+		suggest: {
+			ask: 'Suggest accounts ({count})',
+			asking: 'Asking the AI … {done}/{total}',
+			stop: 'Stop',
+			nothingToAsk: 'Every payment in this list has a suggestion already.',
+			intro:
+				'Asks the AI for the account of every payment in this list that has no suggestion yet, one after the other. Nothing is booked before “Take”.',
+			capped: 'At most {max} at a time; click again after that.',
+			take: 'Take',
+			placeholder: 'Account',
+			none: 'The AI names no account.',
+			failed: 'Stopped after {done} of {total}: {error}'
+		},
 		noReceiptBadge: 'no receipt',
 		all: 'All ({count})',
 		months: 'Months',

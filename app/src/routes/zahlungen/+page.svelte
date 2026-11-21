@@ -38,6 +38,19 @@
 		testBookings
 	} from '$lib/sample/test-bookings.js';
 	import { upsertAccount } from '$lib/bank/import.js';
+	import AiMark from '$lib/AiMark.svelte';
+	import AiCostHint from '$lib/AiCostHint.svelte';
+	import AccountSuggestRow from '$lib/booking/AccountSuggestRow.svelte';
+	import {
+		MAX_LIST_ASSIST,
+		askForList,
+		listAssist,
+		stopListAssist,
+		toAsk
+	} from '$lib/booking/list-assist.svelte.js';
+	import { searchAccounts } from '$lib/booking/skr03.js';
+	import { createBridgeClient, pairedWith } from '$lib/bridge/client.js';
+	import { readBridgeRecord } from '$lib/bridge-connection/record.js';
 
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
@@ -156,6 +169,28 @@
 		groupByDay(filtered.filter((tx) => String(tx.bookedOn ?? '').slice(0, 7) === month))
 	);
 
+	// "Ohne Konto": each payment's account in its row, and "✦ Konten vorschlagen"
+	// for the ones the books have no suggestion for (booking/list-assist.svelte.js).
+	// The model is asked through the paired bridge only; without one, no button.
+	/** @type {ReturnType<typeof createBridgeClient> | null} */
+	let bridgeClient = $state(null);
+	let listed = $derived(days.flatMap((d) => /** @type {Tx[]} */ (d.items)));
+	let byAccount = $derived(/** @type {string} */ (receiptFilter) === 'konto');
+	let askable = $derived(byAccount ? toAsk(listed, app, listAssist.picks) : []);
+	let accountsOut = $derived(searchAccounts('', { income: false, chart: app.chart }));
+	let accountsIn = $derived(searchAccounts('', { income: true, chart: app.chart }));
+
+	function suggestAccounts() {
+		if (!bridgeClient) return;
+		void askForList({
+			txs: listed,
+			app,
+			client: bridgeClient,
+			store: currentStore(),
+			learnedName: (vendors) => t('booking.aiLearnedAccount', { vendors })
+		});
+	}
+
 	let graceDays = $derived(cleanMatchingSettings(app.matchingSettings).graceDays);
 	const today = localDay();
 	/** A booking without a receipt that the matching does not ask about yet. @param {Tx} tx */
@@ -166,6 +201,14 @@
 	onMount(() => {
 		const id = page.url.searchParams.get('tx');
 		if (id) openId = id;
+		const store = currentStore();
+		if (store) {
+			readBridgeRecord(store.settings).then((saved) => {
+				if (pairedWith(saved)) {
+					bridgeClient = createBridgeClient({ url: saved.url, token: saved.token ?? null });
+				}
+			});
+		}
 		// From a sum on Home (dashboard/totals.js): only the bookings it counts, all of them.
 		const wanted = page.url.searchParams.get('fluss');
 		if (wanted && /** @type {readonly string[]} */ (FLOW_KEYS).includes(wanted)) {
@@ -470,6 +513,72 @@
 		</nav>
 
 		<section aria-label={t('zahlungen.bookings')} class="min-w-0">
+			{#if byAccount && listed.length}
+				<datalist id="suggest-accounts-out">
+					{#each accountsOut as a (a.number)}
+						<option value={a.number}>{a.number} {a.name}</option>
+					{/each}
+				</datalist>
+				<datalist id="suggest-accounts-in">
+					{#each accountsIn as a (a.number)}
+						<option value={a.number}>{a.number} {a.name}</option>
+					{/each}
+				</datalist>
+				{#if bridgeClient}
+					<div
+						class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+						data-testid="suggest-accounts"
+					>
+						{#if listAssist.busy}
+							<span class="inline-flex items-center gap-1 text-text" role="status"
+								><AiMark />{t('zahlungen.suggest.asking', {
+									done: listAssist.done,
+									total: listAssist.total
+								})}</span
+							>
+							<button
+								type="button"
+								class="rounded-md border border-border px-2 py-1 text-text hover:bg-surface-2 disabled:opacity-50"
+								disabled={listAssist.stopping}
+								onclick={stopListAssist}
+								data-testid="suggest-accounts-stop">{t('zahlungen.suggest.stop')}</button
+							>
+						{:else}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-text hover:bg-surface-2 disabled:opacity-50"
+								disabled={!askable.length || !accountsOut.length}
+								title={t('zahlungen.suggest.intro')}
+								onclick={suggestAccounts}
+								data-testid="suggest-accounts-ask"
+								><AiMark />{t('zahlungen.suggest.ask', { count: askable.length })}</button
+							>
+							<AiCostHint kind="booking-assist" testid="suggest-accounts-cost" />
+							{#if !askable.length}
+								<span class="text-xs text-faint" data-testid="suggest-accounts-nothing"
+									>{t('zahlungen.suggest.nothingToAsk')}</span
+								>
+							{:else if askable.length >= MAX_LIST_ASSIST}
+								<span class="text-xs text-faint"
+									>{t('zahlungen.suggest.capped', { max: MAX_LIST_ASSIST })}</span
+								>
+							{/if}
+						{/if}
+						{#if listAssist.error && !listAssist.busy}
+							<span
+								class="basis-full text-xs text-danger"
+								role="alert"
+								data-testid="suggest-accounts-error"
+								>{t('zahlungen.suggest.failed', {
+									done: listAssist.done,
+									total: listAssist.total,
+									error: listAssist.error
+								})}</span
+							>
+						{/if}
+					</div>
+				{/if}
+			{/if}
 			{#each days as day (day.day)}
 				<div class="mb-4" data-testid="transaction-day" data-day={day.day}>
 					<h2 class="text-xs font-semibold tracking-wide text-faint uppercase">{day.label}</h2>
@@ -613,6 +722,14 @@
 										{/if}
 									</span>
 								</button>
+								{#if byAccount && !isBookingConfirmed(tx)}
+									<AccountSuggestRow
+										{tx}
+										listId={(tx.amountCents ?? 0) > 0
+											? 'suggest-accounts-in'
+											: 'suggest-accounts-out'}
+									/>
+								{/if}
 							</li>
 						{/each}
 					</ul>

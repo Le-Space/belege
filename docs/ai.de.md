@@ -183,6 +183,10 @@ Der Code: `bridge/src/llm/travel-assist.js`, `POST /travel/assist`.
 
 Der Code: `bridge/src/llm/booking-assist.js`, `POST /booking/assist`.
 
+**Für eine ganze Liste:** Unter _Zahlungen → Ohne Konto_ steht das Konto jeder Zahlung in einem Feld in ihrer Zeile, mit einem Knopf _Übernehmen_. Das Feld zeigt, was Belege von sich aus vorschlägt (eigene Umbuchung, Bankgebühr, Reise, das Konto, das dieser Lieferant zuletzt bekam). _✦ Konten vorschlagen_ über der Liste fragt das Modell für jede gezeigte Zahlung, die noch keinen Vorschlag hat – eine nach der anderen, jede mit genau dem, was oben steht, höchstens 100 je Klick. Das erste genannte Konto steht danach im Feld der Zeile, mit der Begründung des Modells. Gebucht wird nichts von selbst: jede Zeile hat ihren eigenen Knopf, und die Nummer lässt sich vorher ändern. _Anhalten_ beendet den Lauf nach der Zahlung, die gerade gefragt wird; ein Fehler lässt stehen, was schon beantwortet ist. Die Vorschläge gelten für die Sitzung und werden nicht in den Büchern gespeichert.
+
+Der Code: `app/src/lib/booking/list-assist.svelte.js`.
+
 ### Die Sammelläufe
 
 Zwei Knöpfe arbeiten viele Einträge nacheinander ab: _Alle neuen auslesen_ und _✦ KI-Vorschläge für alle offenen Rückfragen_. Beide laufen in der App über eine gemeinsame Warteschlange, nicht auf der Seite selbst.

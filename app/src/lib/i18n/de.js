@@ -4184,6 +4184,19 @@ export default {
 		changedBadge: 'beim Abruf geändert',
 		parties: 'Von {from} → An {to}',
 		noAccountBadge: 'ohne Konto',
+		suggest: {
+			ask: 'Konten vorschlagen ({count})',
+			asking: 'Frage die KI … {done}/{total}',
+			stop: 'Anhalten',
+			nothingToAsk: 'Für jede Zahlung dieser Liste gibt es schon einen Vorschlag.',
+			intro:
+				'Fragt die KI für jede Zahlung dieser Liste, die noch keinen Vorschlag hat, nach dem Konto – eine nach der anderen. Gebucht wird erst mit „Übernehmen“.',
+			capped: 'Höchstens {max} auf einmal; danach noch einmal klicken.',
+			take: 'Übernehmen',
+			placeholder: 'Konto',
+			none: 'Die KI nennt kein Konto.',
+			failed: 'Nach {done} von {total} abgebrochen: {error}'
+		},
 		noReceiptBadge: 'ohne Beleg',
 		all: 'Alle ({count})',
 		months: 'Monate',
