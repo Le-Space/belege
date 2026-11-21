@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A swap on NEAR is read as a swap.** NEAR wrapped into wNEAR, and a token given to a DEX that pays out another, were a payment to a contract and two unrelated transfers. Now both legs are kind `swap` and carry what was given, what came, the gas and the account that took it, as on the EVM chains. A DEX's registration for several tokens at once (`tokens_storage_deposit`) is a storage deposit. An own NEAR wallet books wNEAR as the NEAR it is: wrapping and unwrapping leave only their gas, the balance is the account's NEAR plus its wNEAR, and NEAR swapped for USDC at a DEX is one swap in Zahlungen instead of unrelated payments. `@le-space/chains` 0.6.0 (#898).
+
 ### Security
 
 - **The hosted bridge on NEAR: the sealed secrets are handed only to the VM that was attested.** With its quote the VM's registrar names the hash of a fetch key it made for this start, and the launcher answers the fetch only for that key; anyone else gets the same answer as before the secrets came. The secrets were and are sealed to the VM's intake key, which never leaves it. This changes the bridge image (`registrar.mjs`), so its compose hash is a new one to approve; until then `LAUNCHER_LEGACY_SECRETS_FETCH=1` lets the launcher serve the image released before.

@@ -226,7 +226,8 @@ export const CHAINS = Object.freeze({
 	filecoin: FILECOIN,
 	// Read through NearBlocks, by the account id; the balance from an archival
 	// RPC (near-wallet.js). USDC is Circle's own contract on NEAR (near.js
-	// TOKENS); the bridged USDC.e, USDT and wNEAR are counted and left out.
+	// TOKENS); wNEAR is booked as the NEAR it is (near-wallet.js); the bridged
+	// USDC.e and USDT are counted and left out.
 	near: {
 		id: 'near',
 		kind: 'near',

@@ -80,12 +80,14 @@ export const NEAR_FT_TXNS = [
  * @param {any[]} [o.ftTxns]
  * @param {{ amount: string, locked: string }} [o.account] yoctoNEAR, as view_account answers
  * @param {string} [o.usdc] the wallet's USDC in base units
+ * @param {string} [o.wnear] the wallet's wNEAR in base units
  */
 export function fakeNear({
 	txns = NEAR_TXNS,
 	ftTxns = NEAR_FT_TXNS,
 	account = { amount: yocto('19.5'), locked: yocto('0.25') },
-	usdc = '12340000'
+	usdc = '12340000',
+	wnear = '0'
 } = {}) {
 	const state = {
 		/** @type {{ url: string, method: string }[]} */
@@ -114,6 +116,9 @@ export function fakeNear({
 		if (call.params?.request_type === 'view_account') return json({ result: account });
 		if (call.params?.request_type === 'call_function' && call.params.account_id === NEAR.usdc) {
 			return json({ result: { result: [...new TextEncoder().encode(`"${usdc}"`)] } });
+		}
+		if (call.params?.request_type === 'call_function' && call.params.account_id === 'wrap.near') {
+			return json({ result: { result: [...new TextEncoder().encode(`"${wnear}"`)] } });
 		}
 		return json({ error: { message: 'unexpected' } });
 	};
