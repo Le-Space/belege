@@ -17,6 +17,12 @@
 // answered. The connection is Noise-encrypted end to end; a relay in between
 // sees ciphertext. Nothing is redacted between own devices.
 //
+// To the bridge's own node, what a call carries is sealed a second time above
+// that connection, with the bridge's own key that this device holds from the
+// books and proves at the gate (@le-space/bridge-protocol/seal): the
+// arguments here, the answer there. A bridge from before says nothing of it
+// in `help` and is called as before.
+//
 // Since #573 the bridge has a node of its own that serves the same extension
 // with the same `request` (bridge/src/stream.js): a peer of the books, gated
 // like a device. It is paired by its invitation (`web+ucep:pair?…`, printed
@@ -41,6 +47,7 @@
 import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
 import { COMMANDS, checkArgs, command as specOf, httpRequest } from '@le-space/bridge-protocol';
 import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
+import { handoverSecret, sealCall } from '@le-space/bridge-protocol/seal';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
@@ -372,6 +379,8 @@ export async function startBridgeProvider({
  * @param {boolean} [p.blocks] this device takes big answers as blocks (#578): `$accept` goes along
  *   with a command that answers bytes
  * @param {Set<string>} [p.noBlocks] peers that refused `$accept` (a bridge from before #578); added to here
+ * @param {boolean} [p.sealed] the call is sealed: an answer of JSON that no longer fits the
+ *   stream comes as blocks too, so `$accept` goes along with every command
  */
 export async function askPeer({
 	call,
@@ -380,7 +389,8 @@ export async function askPeer({
 	init,
 	pathOnly,
 	blocks = false,
-	noBlocks = new Set()
+	noBlocks = new Set(),
+	sealed = false
 }) {
 	const url = new URL(String(input instanceof Request ? input.url : input));
 	const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
@@ -394,7 +404,8 @@ export async function askPeer({
 		});
 	const key = named ? `${peerId} ${named.name}` : '';
 	if (!named || pathOnly.has(key)) return byPath();
-	const accept = blocks && specOf(named.name)?.answer === 'bytes' && !noBlocks.has(peerId);
+	const accept =
+		blocks && (sealed || specOf(named.name)?.answer === 'bytes') && !noBlocks.has(peerId);
 	try {
 		if (accept) {
 			try {
@@ -428,16 +439,69 @@ export async function askPeer({
  * @param {any} p.libp2p the device-sync node
  * @param {() => string[]} p.devices the own devices connected now
  * @param {(peerId: string) => boolean} [p.isProved] the device gate's word on a peer (device-gate.js)
+ * @param {() => Uint8Array | null} [p.bridgeKey] the bridge's own key of this generation (node.js
+ *   `bridgeAuth`): calls to the bridge's node are sealed with it when the bridge seals
  * @param {string} [p.label]
  */
 export async function startBridgeConsumer({
 	libp2p,
 	devices,
 	isProved = () => true,
+	bridgeKey = () => null,
 	label = 'Belege'
 }) {
 	const consumer = createConsumer({ libp2p, label });
 	await consumer.start?.();
+	const self = () => libp2p.peerId.toString();
+
+	/**
+	 * Whether a peer seals (its `help` says so): asked once per peer. A peer
+	 * that answers `help` without it is one from before; a `help` that fails
+	 * is asked again with the next call.
+	 *
+	 * @type {Map<string, Promise<boolean>>}
+	 */
+	const seals = new Map();
+	/** @param {string} peerId */
+	function sealsWith(peerId) {
+		let known = seals.get(peerId);
+		if (!known) {
+			known = consumer
+				.call(peerId, EXTENSION, 'help', {})
+				.then((/** @type {any} */ help) => Number(help?.seal) >= 1);
+			seals.set(peerId, known);
+			known.catch(() => seals.delete(peerId));
+		}
+		return known;
+	}
+
+	/**
+	 * The key calls to this peer are sealed with, or null: only the bridge's
+	 * own node, when it seals.
+	 *
+	 * @param {string} peerId
+	 */
+	async function sealKey(peerId) {
+		const key = peerId === bridgeNode?.peerId ? bridgeKey() : null;
+		return key && (await sealsWith(peerId)) ? key : null;
+	}
+
+	/**
+	 * One UCEP call to a peer of the extension: sealed to the bridge's own node
+	 * when it seals, and then only a sealed answer counts.
+	 *
+	 * @param {string} peerId
+	 * @param {string} name the command
+	 * @param {unknown} args
+	 * @param {{ signal?: AbortSignal }} [options]
+	 * @returns {Promise<any>}
+	 */
+	async function callPeer(peerId, name, args, options) {
+		const key = await sealKey(peerId);
+		if (!key) return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), options);
+		const call = await sealCall(key, { consumer: self(), provider: peerId, command: name }, args);
+		return call.open(await consumer.call(peerId, EXTENSION, name, call.sent, options));
+	}
 	// Big answers of the bridge's node as blocks (#578): Bitswap on the
 	// bridge's own protocol, which the device gate lets the bridge reach
 	// (node.js `reach`). Without it, such an answer goes over HTTP as before.
@@ -499,7 +563,7 @@ export async function startBridgeConsumer({
 		try {
 			answer = await askPeer({
 				call: (/** @type {string} */ name, /** @type {any} */ args) =>
-					consumer.call(peerId, EXTENSION, name, args, {
+					callPeer(peerId, name, args, {
 						signal: init.signal ?? AbortSignal.timeout(CALL_WAIT_MS)
 					}),
 				peerId,
@@ -507,7 +571,8 @@ export async function startBridgeConsumer({
 				init,
 				pathOnly,
 				blocks: takesBlocks && blocks !== null,
-				noBlocks
+				noBlocks,
+				sealed: (await sealKey(peerId)) !== null
 			});
 		} catch (error) {
 			// The bridge said no to this device: an answer, not a way that failed –
@@ -527,7 +592,7 @@ export async function startBridgeConsumer({
 			payload = /** @type {BodyInit} */ (
 				await blocks.fetch(answer.block, { signal: AbortSignal.timeout(BLOCK_WAIT_MS) })
 			);
-			consumer.call(peerId, EXTENSION, 'blob.done', { cid: answer.block.cid }).catch(() => {});
+			callPeer(peerId, 'blob.done', { cid: answer.block.cid }).catch(() => {});
 		} else if (answer.base64 !== undefined) {
 			payload = /** @type {BodyInit} */ (fromBase64(answer.base64));
 		} else {
@@ -593,11 +658,30 @@ export async function startBridgeConsumer({
 		if (inv.extensionId !== EXTENSION) throw new UcepError('UNKNOWN_EXTENSION');
 		before?.(inv.providerPeerId);
 		await consumer.pairWithInvitation(invitation.trim());
-		await consumer.call(inv.providerPeerId, EXTENSION, 'handover', {
+		const handover = {
 			bridgeAuth: toBase64(authKey),
 			relays: relays.slice(0, 16),
 			devices: [...new Set(list)].slice(0, 64)
-		});
+		};
+		// The key goes sealed with one from the invitation's secret, which came
+		// from the bridge's own screen; to a bridge from before, as it is.
+		if (await sealsWith(inv.providerPeerId)) {
+			const call = await sealCall(
+				await handoverSecret(inv.secret),
+				{ consumer: self(), provider: inv.providerPeerId, command: 'handover' },
+				handover
+			);
+			await call.open(
+				await consumer.call(inv.providerPeerId, EXTENSION, 'handover', {
+					...call.sent,
+					inv: inv.invitationId
+				})
+			);
+		} else {
+			await consumer.call(inv.providerPeerId, EXTENSION, 'handover', handover);
+		}
+		// Armed, the bridge is the same peer: whether it seals is asked anew.
+		seals.delete(inv.providerPeerId);
 		return {
 			peerId: inv.providerPeerId,
 			addrs: inv.addrs.filter((a) => !a.includes('/p2p-circuit'))
@@ -618,7 +702,7 @@ export async function startBridgeConsumer({
 		/** @type {Map<string, string | { peerId: string, initial: string[] }>} */
 		const once = new Map();
 		for (const d of list) once.set(typeof d === 'string' ? d : d.peerId, d);
-		await consumer.call(peerId, EXTENSION, 'devices', { devices: [...once.values()].slice(0, 64) });
+		await callPeer(peerId, 'devices', { devices: [...once.values()].slice(0, 64) });
 		return true;
 	}
 
@@ -631,7 +715,8 @@ export async function startBridgeConsumer({
 	async function forgetBridge() {
 		const peerId = streamServer();
 		if (!peerId) return false;
-		await consumer.call(peerId, EXTENSION, 'unpair', {});
+		await callPeer(peerId, 'unpair', {});
+		seals.delete(peerId);
 		return true;
 	}
 
@@ -645,7 +730,7 @@ export async function startBridgeConsumer({
 	async function bridgeGrants() {
 		const peerId = streamServer();
 		if (!peerId) return null;
-		return /** @type {any} */ (await consumer.call(peerId, EXTENSION, 'grants', {}));
+		return /** @type {any} */ (await callPeer(peerId, 'grants', {}));
 	}
 
 	/**
@@ -657,7 +742,7 @@ export async function startBridgeConsumer({
 	async function renewDevice(device) {
 		const peerId = streamServer();
 		if (!peerId) return false;
-		await consumer.call(peerId, EXTENSION, 'renew', { peerId: device });
+		await callPeer(peerId, 'renew', { peerId: device });
 		return true;
 	}
 
@@ -673,7 +758,7 @@ export async function startBridgeConsumer({
 		const peerId = streamServer();
 		if (!peerId) return null;
 		const answer = /** @type {any} */ (
-			await consumer.call(peerId, EXTENSION, 'device.scopes', { peerId: device, scopes })
+			await callPeer(peerId, 'device.scopes', { peerId: device, scopes })
 		);
 		if (answer?.status !== 200) {
 			throw new Error(String(answer?.json?.error ?? answer?.json?.code ?? answer?.status));
