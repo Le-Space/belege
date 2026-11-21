@@ -5,7 +5,7 @@
 // figures of the table beside it, and can go into an API's answer as they
 // are. A period is cut into buckets: its days, or its months.
 
-import { normalize, sum } from '@le-space/ledger';
+import { multiply, normalize, sum } from '@le-space/ledger';
 
 /** @typedef {'day' | 'month'} By */
 
@@ -152,4 +152,143 @@ export function sumSeries({ items, from, to, by = 'day', max = 4, others = OTHER
 		series.push({ key: OTHERS, label: others, total: sum(values), values, others: true });
 	}
 	return { by, buckets: keys, series };
+}
+
+/**
+ * The balance before a period, from a balance known for the end of one day
+ * (what a source reports: an account's balance and its date) and the
+ * movements: back from the anchor where it lies in or after the period,
+ * forward where it lies before.
+ *
+ * @param {object} p
+ * @param {string} p.balance decimal, at the end of `on`
+ * @param {string} p.on YYYY-MM-DD
+ * @param {{ date: string, amount: string }[]} p.movements signed decimals
+ * @param {string} p.from YYYY-MM-DD, the first day of the period
+ * @returns {string}
+ */
+export function openingBefore({ balance, on, movements, from }) {
+	const day = on.slice(0, 10);
+	/** @type {string[]} */
+	const back = [];
+	/** @type {string[]} */
+	const forward = [];
+	for (const m of movements) {
+		const d = m.date.slice(0, 10);
+		if (d >= from && d <= day) back.push(m.amount);
+		else if (d > day && d < from) forward.push(m.amount);
+	}
+	return sum([balance, ...forward, ...back.map(negate)]);
+}
+
+/** @param {string} amount */
+const negate = (amount) => (amount.startsWith('-') ? amount.slice(1) : `-${amount}`);
+
+/** @param {string} amount */
+const isZero = (amount) => /^-?0*(\.0*)?$/.test(amount);
+
+/**
+ * What was valued of a row of parts: their sum; null where something was
+ * held and none of it has a value – a gap, not a zero.
+ *
+ * @param {(string | null)[]} parts
+ * @returns {string | null}
+ */
+const valued = (parts) => {
+	const known = /** @type {string[]} */ (parts.filter((p) => p !== null));
+	return known.length < parts.length && known.every(isZero) ? null : sum(known);
+};
+
+/**
+ * Value series summed bucket by bucket: the lines a reader left visible as
+ * one. A bucket is null only where every series has a gap there.
+ *
+ * @param {(string | null)[][]} rows a value per bucket each
+ * @param {number} length the number of buckets
+ * @returns {(string | null)[]}
+ */
+export function sumValues(rows, length) {
+	return Array.from({ length }, (_, i) => {
+		const parts = rows.map((r) => r[i] ?? null);
+		return parts.length ? valued(parts) : '0';
+	});
+}
+
+/**
+ * @typedef {object} ValueLine
+ * @property {string} key
+ * @property {(string | null)[]} values per bucket, in the currency of the rates, two decimals;
+ *   null: something was held and none of it had a rate
+ * @property {string[][]} missing per bucket, the assets held without a rate: they are not in the value
+ */
+
+/**
+ * @typedef {object} ValueSeries
+ * @property {By} by
+ * @property {string[]} buckets
+ * @property {{ key: string, account: string, group: string, asset: string, quantities: string[], values: (string | null)[] }[]} holdings
+ *   per bucket what was held (the asset's own unit) and what it was worth; null: no rate
+ * @property {(ValueLine & { group: string })[]} accounts the holdings of an account summed, in the order they first appear
+ * @property {ValueLine[]} groups the accounts of a group (a chain) summed
+ * @property {{ asset: string, buckets: string[] }[]} missing per asset, the buckets it was held in and had no rate for
+ */
+
+/**
+ * Holdings at their value: for each bucket the quantity held at its end times
+ * the bucket's rate, per holding, summed per account and per group. A
+ * holding without a rate for a bucket is left out of that bucket's sums and
+ * named in `missing`; nothing is carried from another day. Nothing held needs
+ * no rate.
+ *
+ * @param {object} p
+ * @param {{ key: string, account: string, group: string, asset: string, opening: string, movements: { date: string, amount: string }[] }[]} p.holdings
+ *   one asset in one account: its quantity before the period and what moved, as decimals
+ * @param {(asset: string, bucket: string) => string | null | undefined} p.rate the value of one unit; null or undefined: not known
+ * @param {string} p.from YYYY-MM-DD
+ * @param {string} p.to YYYY-MM-DD
+ * @param {By} [p.by]
+ * @returns {ValueSeries}
+ */
+export function valueSeries({ holdings, rate, from, to, by = 'day' }) {
+	const keys = buckets(from, to, by);
+	/** @type {Map<string, Set<string>>} */
+	const gaps = new Map();
+	const held = holdings.map((h) => {
+		const quantities = balanceSeries({ ...h, from, to, by }).points.map((p) => p.value);
+		const values = quantities.map((q, i) => {
+			if (isZero(q)) return '0';
+			const r = rate(h.asset, keys[i]);
+			if (typeof r === 'string' && /^\d+(\.\d+)?$/.test(r)) return multiply(q, r, 2);
+			if (!gaps.has(h.asset)) gaps.set(h.asset, new Set());
+			gaps.get(h.asset)?.add(keys[i]);
+			return null;
+		});
+		return { key: h.key, account: h.account, group: h.group, asset: h.asset, quantities, values };
+	});
+	/** @param {typeof held} parts @returns {Pick<ValueLine, 'values' | 'missing'>} */
+	const line = (parts) => ({
+		values: keys.map((_, i) => valued(parts.map((h) => h.values[i]))),
+		missing: keys.map((_, i) => [
+			...new Set(parts.filter((h) => h.values[i] === null).map((h) => h.asset))
+		])
+	});
+	/** @param {(h: (typeof held)[number]) => string} of */
+	const per = (of) => {
+		/** @type {Map<string, typeof held>} */
+		const m = new Map();
+		for (const h of held) m.set(of(h), [...(m.get(of(h)) ?? []), h]);
+		return m;
+	};
+	return {
+		by,
+		buckets: keys,
+		holdings: held,
+		accounts: [...per((h) => `${h.group}\u0000${h.account}`).values()].map((parts) => ({
+			key: parts[0].account,
+			group: parts[0].group,
+			...line(parts)
+		})),
+		groups: [...per((h) => h.group)].map(([key, parts]) => ({ key, ...line(parts) })),
+		missing: [...gaps].map(([asset, set]) => ({ asset, buckets: keys.filter((k) => set.has(k)) }))
+	};
 }

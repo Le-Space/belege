@@ -72,11 +72,12 @@ import {
 	quietIdentify,
 	quietIdentifyPush
 } from '@belege/device-gate';
-import { UcepError, createProvider } from '@le-space/ucep';
+import { UcepError, createProvider, parseInvitation } from '@le-space/ucep';
 
 import { createGrants, limitsOf, parseDevices, scopesOf, settableOf } from './grants.js';
 import { PROTOCOL_VERSION, command as protocolCommand } from '@le-space/bridge-protocol';
 import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
+import { SEAL_VERSION, handoverSecret, isSealed, openCall } from '@le-space/bridge-protocol/seal';
 import { answerNamed, answerRequest, offered } from './stream.js';
 
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
@@ -379,6 +380,53 @@ export async function startBridgeNode({
 		deviceGrants.record(peerId, command.name, true);
 	}
 
+	// What a call carries is sealed above the connection when the device seals
+	// it (@le-space/bridge-protocol/seal): with the bridge's own key, which the
+	// device proved at the gate; a handover, which brings that key, with one
+	// from the invitation it pairs by. A device from before sends its
+	// arguments as they are and gets its answer the same way.
+	/** @type {Map<string, { key: Uint8Array, until: number }>} invitation id → the key a handover by it is sealed with */
+	const handoverKeys = new Map();
+	/**
+	 * @param {string} name the command
+	 * @param {(ctx: any) => unknown} handler
+	 */
+	const sealing = (name, handler) => async (/** @type {any} */ ctx) => {
+		if (!isSealed(ctx.argsJson)) return handler(ctx);
+		/** @type {Uint8Array | null | undefined} */
+		let secret = authKey;
+		if (name === 'handover') {
+			const kept = handoverKeys.get(String(ctx.argsJson.inv ?? ''));
+			secret = kept && kept.until > Date.now() ? kept.key : null;
+		}
+		if (!secret) {
+			throw new UcepError(
+				'INVALID_ARGUMENTS',
+				name === 'handover'
+					? 'the invitation is gone: pair with a new one'
+					: 'nothing to open it with'
+			);
+		}
+		let call;
+		try {
+			call = await openCall(
+				secret,
+				{ consumer: String(ctx.peerId), provider: libp2p.peerId.toString(), command: name },
+				ctx.argsJson
+			);
+		} catch {
+			throw new UcepError('INVALID_ARGUMENTS', 'the seal does not open');
+		}
+		const args = call.args;
+		return call.seal(
+			await handler({
+				...ctx,
+				argsJson: args && typeof args === 'object' && !Array.isArray(args) ? args : null,
+				sealed: true
+			})
+		);
+	};
+
 	/** @type {Record<string, { handler: (ctx: any) => unknown, scope?: string, description?: string }>} */
 	const ucepCommands = {
 		help: {
@@ -386,6 +434,8 @@ export async function startBridgeNode({
 				commands: Object.keys(ucepCommands),
 				// The commands by name from version 2 on (#577): their schemas are @le-space/bridge-protocol's.
 				protocol: PROTOCOL_VERSION,
+				// Calls and answers sealed above the connection, in this layout.
+				seal: SEAL_VERSION,
 				armed,
 				// What `request` dispatches on, by the HTTP method and path the app knows (stream.js).
 				requests: offeredCommands.map((c) => ({
@@ -497,12 +547,13 @@ export async function startBridgeNode({
 					request: {
 						description:
 							'One bridge call: { method, path, body? } → { status, contentType, json | base64 } (the commands of src/commands.js)',
-						handler: async ({ argsJson, peerId, limited }) => {
+						handler: async ({ argsJson, peerId, limited, sealed }) => {
 							assertDevice(peerId);
 							return answerRequest({
 								commands,
 								args: argsJson,
 								limited,
+								sealed: sealed === true,
 								authorize: (command) => authorizeCall(peerId, command),
 								spent: (command, json) => {
 									if (command.scope === 'bridge:llm') deviceGrants.spent(peerId, json);
@@ -524,12 +575,13 @@ export async function startBridgeNode({
 		if (!spec || spec.via === 'http') continue;
 		ucepCommands[command.name] = {
 			description: spec.description,
-			handler: async ({ argsJson, peerId, limited }) => {
+			handler: async ({ argsJson, peerId, limited, sealed }) => {
 				assertDevice(peerId);
 				return answerNamed({
 					command,
 					args: argsJson,
 					limited,
+					sealed: sealed === true,
 					blocks: blocksFor(peerId),
 					authorize: (c) => authorizeCall(peerId, c),
 					spent: (c, json) => {
@@ -554,6 +606,11 @@ export async function startBridgeNode({
 				return { dropped: await /** @type {NonNullable<typeof blocks>} */ (blocks).drop(cid) };
 			}
 		};
+	}
+
+	// `help` says whether the bridge seals, so it is not sealed itself.
+	for (const [name, c] of Object.entries(ucepCommands)) {
+		if (name !== 'help') c.handler = sealing(name, c.handler);
 	}
 
 	/** @type {ReturnType<typeof createProvider>} */
@@ -603,6 +660,14 @@ export async function startBridgeNode({
 			const { uri } = await provider.createInvitation({
 				scopes: [PAIR_SCOPE],
 				ttlSeconds: INVITATION_TTL_S
+			});
+			// The handover by this invitation is sealed with a key from its secret.
+			const inv = parseInvitation(uri);
+			const now = Date.now();
+			for (const [id, kept] of handoverKeys) if (kept.until <= now) handoverKeys.delete(id);
+			handoverKeys.set(inv.invitationId, {
+				key: await handoverSecret(inv.secret),
+				until: now + INVITATION_TTL_S * 1000
 			});
 			return uri;
 		},

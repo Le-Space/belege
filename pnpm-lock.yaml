@@ -67,9 +67,15 @@ importers:
       '@le-space/chains':
         specifier: workspace:^
         version: link:../packages/chains
+      '@le-space/charts':
+        specifier: workspace:^
+        version: link:../packages/charts
       '@le-space/eigenbeleg':
         specifier: workspace:^
         version: link:../packages/eigenbeleg
+      '@le-space/ledger':
+        specifier: workspace:^
+        version: link:../packages/ledger
       '@le-space/libp2p-webrtc-qr':
         specifier: 0.14.0
         version: 0.14.0(@multiformats/multiaddr@13.0.3)(libp2p@3.3.7)
@@ -547,9 +553,15 @@ importers:
       '@pdf-lib/fontkit':
         specifier: 1.1.1
         version: 1.1.1
+      '@pdf-lib/upng':
+        specifier: 1.0.1
+        version: 1.0.1
       dejavu-fonts-ttf:
         specifier: 2.37.3
         version: 2.37.3
+      pako:
+        specifier: 1.0.11
+        version: 1.0.11
       pdf-lib:
         specifier: 1.17.1
         version: 1.17.1

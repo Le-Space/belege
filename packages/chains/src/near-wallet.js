@@ -21,10 +21,25 @@
 // transaction's inner receipts, a staking pool paying out, say – is missing
 // here too; the balance comes from the RPC and so shows the difference.
 //
+// Wrapped NEAR (wNEAR, the wrap contract's token) is NEAR here: it is NEAR,
+// one for one, held in a contract so that a DEX can take it. Wrapping and
+// unwrapping are movements inside the wallet and give no entry but their gas;
+// wNEAR given to a DEX is NEAR given, so a swap of NEAR for a token is one
+// swap in one transaction; the NEAR balance is the account's plus its wNEAR.
+//
 // Error messages name a host at most, never the account: the bridge logs them.
 
-import { balancesNow, fetchRaw, isAccountId, mapRaw, storageKept } from './near.js';
+import { balancesNow, fetchRaw, isAccountId, mapRaw, storageKept, TOKENS } from './near.js';
 import { addressUrl, hostOf, unitsToDecimal, WalletError } from './core.js';
+
+/** The wrap contract's token: NEAR under another name. @param {string} contract */
+const wrapped = (contract) =>
+	/** @type {Record<string, { priceAs: string }>} */ (TOKENS.mainnet)[contract]?.priceAs === 'NEAR';
+const WRAPPED_SYMBOLS = new Set(
+	Object.values(TOKENS.mainnet)
+		.filter((t) => t.priceAs === 'NEAR')
+		.map((t) => t.symbol)
+);
 
 /** NearBlocks gives 25 rows a page: 5 000 transactions, and as many token movements. */
 const MAX_PAGES = 200;
@@ -78,7 +93,11 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					endpoints: own
 				});
 				const contracts = [
-					...new Set(ledger.map((e) => e.contract).filter((c) => Object.hasOwn(chain.tokens, c)))
+					...new Set(
+						ledger
+							.map((e) => e.contract)
+							.filter((c) => Object.hasOwn(chain.tokens, c) || wrapped(c))
+					)
 				];
 				held = await balancesNow({
 					account,
@@ -95,13 +114,31 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 			const unknown = new Set();
 			/** @type {import('@le-space/ledger/wallet-entry').WalletEntry[]} */
 			const entries = [];
+			const native = chain.native.symbol;
+			/** @param {{ asset: string, amount: string, listed: boolean }[]} sides */
+			const asNative = (sides) =>
+				sides.map((x) => (WRAPPED_SYMBOLS.has(x.asset) ? { ...x, asset: native } : x));
 			for (const e of ledger) {
-				const token = e.contract === 'native' ? null : chain.tokens[e.contract];
-				if (e.contract !== 'native' && !token) {
+				const wrap = e.contract !== 'native' && wrapped(e.contract);
+				const token = e.contract === 'native' || wrap ? null : chain.tokens[e.contract];
+				if (e.contract !== 'native' && !wrap && !token) {
 					unknown.add(e.contract);
 					continue;
 				}
 				const fee = e.type === 'fee';
+				const swap = e.swap
+					? { ...e.swap, gave: asNative(e.swap.gave), got: asNative(e.swap.got) }
+					: undefined;
+				// NEAR for NEAR: wrapping or unwrapping, a movement inside the wallet.
+				const inside = !!swap && swap.got.every((g) => swap.gave.some((x) => x.asset === g.asset));
+				if (!fee) {
+					if (inside) continue;
+					// The same without its other side: wNEAR minted or burnt, NEAR handed to the wrap contract.
+					if (wrap && (e.method === 'mint' || e.method === 'burn' || !e.counterparty)) continue;
+					if (e.contract === 'native' && e.method === 'near_deposit' && wrapped(e.counterparty))
+						continue;
+				}
+				const swapped = !!swap && !inside;
 				entries.push({
 					// `<hash>:fee`, `<hash>:deposit`, `<hash>:ft:<receipt>:<event>`
 					id: e.id.slice(`near:${account}:`.length),
@@ -110,8 +147,15 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					time: e.time,
 					date: e.date,
 					type: /** @type {'sent' | 'received' | 'fee'} */ (e.type),
-					kind: fee ? 'fee' : e.kind === 'stake' ? 'stake' : 'transfer',
-					asset: token?.symbol ?? chain.native.symbol,
+					kind: fee
+						? 'fee'
+						: e.kind === 'stake'
+							? 'stake'
+							: swapped && e.kind === 'swap'
+								? 'swap'
+								: 'transfer',
+					...(swapped ? { swap } : {}),
+					asset: token?.symbol ?? native,
 					amount: e.amount,
 					decimals: token?.decimals ?? chain.native.decimals,
 					counterparty: fee ? '' : e.counterparty,
@@ -121,6 +165,10 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					explorerUrl: e.explorerUrl
 				});
 			}
+			// wNEAR held is NEAR held.
+			let nativeUnits = held.native;
+			for (const [contract, units] of Object.entries(held.tokens))
+				if (wrapped(contract)) nativeUnits += units;
 			entries.sort((x, y) =>
 				x.height === y.height ? (x.id < y.id ? -1 : 1) : x.height - y.height
 			);
@@ -129,14 +177,16 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 				balances: [
 					{
 						asset: chain.native.symbol,
-						amount: unitsToDecimal(held.native, chain.native.decimals),
+						amount: unitsToDecimal(nativeUnits, chain.native.decimals),
 						decimals: chain.native.decimals
 					},
-					...Object.entries(held.tokens).map(([contract, units]) => ({
-						asset: chain.tokens[contract].symbol,
-						amount: unitsToDecimal(units, chain.tokens[contract].decimals),
-						decimals: chain.tokens[contract].decimals
-					}))
+					...Object.entries(held.tokens)
+						.filter(([contract]) => !wrapped(contract))
+						.map(([contract, units]) => ({
+							asset: chain.tokens[contract].symbol,
+							amount: unitsToDecimal(units, chain.tokens[contract].decimals),
+							decimals: chain.tokens[contract].decimals
+						}))
 				],
 				transactions: new Set(entries.map((e) => e.hash)).size,
 				unknownAssets: unknown.size,

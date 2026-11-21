@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/charts",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Charts for Le Space's tools, in two layers: bookings to series (per day or month: a balance, sums per kind), and series to a drawing – a list of plain shapes, and an SVG as text made from it. No chart library, no script in the picture, colours through variables for light and dark. Browser and Node.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",

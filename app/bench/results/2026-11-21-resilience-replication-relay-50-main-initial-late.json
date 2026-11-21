@@ -1,0 +1,1843 @@
+{
+	"date": "2026-11-21",
+	"label": "maindiag-quiet-4",
+	"machine": {
+		"cpus": "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz",
+		"cores": 16,
+		"memGB": 32
+	},
+	"scenario": "replication-relay",
+	"size": 50,
+	"writeMs": 1236,
+	"pairMs": 381,
+	"initialSyncMs": 34148,
+	"initialNetwork": {
+		"mac": [
+			{
+				"t": 1095,
+				"event": "connection:open",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": {},
+				"direction": "inbound",
+				"status": "open",
+				"streams": [
+					""
+				]
+			},
+			{
+				"t": 1579,
+				"event": "connection:open",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": null,
+				"direction": "outbound",
+				"status": "open",
+				"streams": []
+			},
+			{
+				"t": 1903,
+				"event": "connection:open",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": null,
+				"direction": "inbound",
+				"status": "open",
+				"streams": []
+			},
+			{
+				"t": 2300,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 2306,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 2317,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2324,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2360,
+				"event": "orbitdb:leave",
+				"db": "transactions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2383,
+				"event": "orbitdb:leave",
+				"db": "receipts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2396,
+				"event": "orbitdb:leave",
+				"db": "partners",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2406,
+				"event": "orbitdb:leave",
+				"db": "accounts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2618,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2618,
+				"event": "orbitdb:leave",
+				"db": "matches",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2624,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2624,
+				"event": "orbitdb:leave",
+				"db": "travel",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2626,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2626,
+				"event": "orbitdb:leave",
+				"db": "questions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 2629,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 2630,
+				"event": "orbitdb:leave",
+				"db": "events",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 6045,
+				"event": "connection:close",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": {},
+				"direction": "inbound",
+				"status": "aborted",
+				"streams": []
+			},
+			{
+				"t": 7395,
+				"event": "orbitdb:error",
+				"db": "transactions",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7396,
+				"event": "orbitdb:error",
+				"db": "receipts",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7397,
+				"event": "orbitdb:error",
+				"db": "partners",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7397,
+				"event": "orbitdb:error",
+				"db": "accounts",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7398,
+				"event": "orbitdb:error",
+				"db": "matches",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7398,
+				"event": "orbitdb:error",
+				"db": "travel",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7398,
+				"event": "orbitdb:error",
+				"db": "questions",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7399,
+				"event": "orbitdb:error",
+				"db": "events",
+				"name": "OperationError",
+				"message": "User-Initiated Abort, reason=Close called"
+			},
+			{
+				"t": 7404,
+				"event": "connection:close",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": null,
+				"direction": "inbound",
+				"status": "aborted",
+				"streams": []
+			},
+			{
+				"t": 7470,
+				"event": "connection:open",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": {},
+				"direction": "inbound",
+				"status": "open",
+				"streams": [
+					""
+				]
+			},
+			{
+				"t": 7618,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 7714,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 7734,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 7743,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 7800,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7802,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7802,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7803,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7803,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7804,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7807,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7807,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7808,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7809,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7810,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 7810,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 0
+			},
+			{
+				"t": 12432,
+				"event": "connection:close",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"limited": null,
+				"limits": {},
+				"direction": "inbound",
+				"status": "aborted",
+				"streams": []
+			},
+			{
+				"t": 32214,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 1
+			},
+			{
+				"t": 32214,
+				"event": "orbitdb:leave",
+				"db": "settings",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+			},
+			{
+				"t": 32304,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 2
+			},
+			{
+				"t": 32304,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+				"heads": 2
+			}
+		],
+		"phone": [
+			{
+				"t": 1087,
+				"event": "connection:open",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"limited": null,
+				"limits": {},
+				"direction": "outbound",
+				"status": "open",
+				"streams": [
+					"",
+					""
+				]
+			},
+			{
+				"t": 1603,
+				"event": "connection:open",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"limited": null,
+				"limits": null,
+				"direction": "inbound",
+				"status": "open",
+				"streams": []
+			},
+			{
+				"t": 2625,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2625,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2625,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2626,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2626,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2626,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 2739,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 2
+			},
+			{
+				"t": 2748,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 1
+			},
+			{
+				"t": 6043,
+				"event": "connection:close",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"limited": null,
+				"limits": {},
+				"direction": "outbound",
+				"status": "aborted",
+				"streams": []
+			},
+			{
+				"t": 7461,
+				"event": "connection:open",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"limited": null,
+				"limits": {},
+				"direction": "outbound",
+				"status": "open",
+				"streams": [
+					""
+				]
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "transactions",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "receipts",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "partners",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "accounts",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "settings",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "matches",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "questions",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "events",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7466,
+				"event": "orbitdb:error",
+				"db": "travel",
+				"name": "LimitedConnectionError",
+				"message": "Cannot open protocol stream on limited connection"
+			},
+			{
+				"t": 7629,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 1
+			},
+			{
+				"t": 7673,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7693,
+				"event": "orbitdb:join",
+				"db": "accounts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 1
+			},
+			{
+				"t": 7702,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 2
+			},
+			{
+				"t": 7726,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7726,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7791,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7796,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7796,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7811,
+				"event": "orbitdb:join",
+				"db": "travel",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7815,
+				"event": "orbitdb:join",
+				"db": "questions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7815,
+				"event": "orbitdb:join",
+				"db": "events",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7816,
+				"event": "orbitdb:join",
+				"db": "partners",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7816,
+				"event": "orbitdb:join",
+				"db": "matches",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 7816,
+				"event": "orbitdb:join",
+				"db": "receipts",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 12432,
+				"event": "connection:close",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"limited": null,
+				"limits": {},
+				"direction": "outbound",
+				"status": "aborted",
+				"streams": []
+			},
+			{
+				"t": 32227,
+				"event": "orbitdb:join",
+				"db": "settings",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 2
+			},
+			{
+				"t": 32693,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 0
+			},
+			{
+				"t": 34989,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 1
+			},
+			{
+				"t": 34989,
+				"event": "orbitdb:join",
+				"db": "transactions",
+				"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+				"heads": 1
+			}
+		]
+	},
+	"macToPhone": {
+		"n": 1,
+		"min": 64101,
+		"median": 64101,
+		"p95": 64101,
+		"max": 64101
+	},
+	"phoneToMac": {
+		"n": 1,
+		"min": 244,
+		"median": 244,
+		"p95": 244,
+		"max": 244
+	},
+	"burst": {
+		"size": 100,
+		"writeMs": 9329,
+		"syncMs": null,
+		"atStall": {
+			"arrived": 0,
+			"meshsub": 0,
+			"connections": 2
+		},
+		"recoveryMs": 46276,
+		"arrived": 100,
+		"network": {
+			"samples": [
+				{
+					"t": 96,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+						]
+					}
+				},
+				{
+					"t": 3034,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									"",
+									""
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+						]
+					}
+				},
+				{
+					"t": 4054,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+						]
+					}
+				},
+				{
+					"t": 80155,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/orbitdb/heads/orbitdb/zdpuAw5HMVgqrvcbBhUgnBEH6BFFJMZ2AdbmnNtYVanmoyYRL",
+									"/orbitdb/heads/orbitdb/zdpuB1yN1oRfUpNfsx1o7g3TFQT73yChn3vS2e97dJhLDxUJk",
+									"/orbitdb/heads/orbitdb/zdpuB27zjgbp2oxhJpaYLRa76QpT9YXpUTWrPDncr33E9Jeke",
+									"/orbitdb/heads/orbitdb/zdpuAkdZpAAzzhqtWthp4ytV5woLfPFhyMVvL2KMnevfs1V8z",
+									"/orbitdb/heads/orbitdb/zdpuB1M3wnsGA4o2fQctMwTaHuFPAGh5S3H5nQrwsqurH8yBT",
+									"/orbitdb/heads/orbitdb/zdpuAnxnWtAhqWKzbyoxvAFZRgzRJuwAJ67F9geXek88Ke4sm",
+									"/orbitdb/heads/orbitdb/zdpuApgkmhWjxXF9oHPHgqAsmyodrWDyqwiZH8ifoahwnuFE6",
+									"/orbitdb/heads/orbitdb/zdpuAoPCkGq6b1MQjDDp3QHP6LqVaWSqEssrqEmuuVrjoCCxa",
+									"/orbitdb/heads/orbitdb/zdpuB2xo2W7drwJXsfrCUV5WWT2FZYfSg3NJBY9S72XPrAJaM",
+									"/orbitdb/heads/orbitdb/zdpuAspq1heLzdDSGdPC3e2RppZVs159ohVCjgsDHHLt45CLd",
+									"/orbitdb/heads/orbitdb/zdpuAwFA5TJgvaQG9FNqB9pE7yxoj6WQav5WXqqCamHcQ4H5o",
+									"/orbitdb/heads/orbitdb/zdpuAz7T7NTPJ9hDusX8Wm4sacM4FzmfRVnnqM5puCRVA5h1U",
+									"/orbitdb/heads/orbitdb/zdpuAqiQfY2u5g4uUZXhc4xbnSKX93GjUpUDy7YY4Jns3FxtT",
+									"/orbitdb/heads/orbitdb/zdpuAsKfsBDNUVHvJXK9J8vG3xiUi8ikyM78YJM9vWPKXVRs6",
+									"/orbitdb/heads/orbitdb/zdpuAmG1DMVQ3W8uiSwpfWGDPEY1mVJB5yw3HXYs6jW1u6txR",
+									"/orbitdb/heads/orbitdb/zdpuArb81pLHuwL82FDXj7T2VRmoxbHRJNudVL6omWK5SKCjC"
+								]
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/ipfs/id/1.0.0",
+									"/orbitdb/heads/orbitdb/zdpuAw5HMVgqrvcbBhUgnBEH6BFFJMZ2AdbmnNtYVanmoyYRL",
+									"/orbitdb/heads/orbitdb/zdpuB1yN1oRfUpNfsx1o7g3TFQT73yChn3vS2e97dJhLDxUJk",
+									"/orbitdb/heads/orbitdb/zdpuB27zjgbp2oxhJpaYLRa76QpT9YXpUTWrPDncr33E9Jeke",
+									"/orbitdb/heads/orbitdb/zdpuAkdZpAAzzhqtWthp4ytV5woLfPFhyMVvL2KMnevfs1V8z",
+									"/orbitdb/heads/orbitdb/zdpuB1M3wnsGA4o2fQctMwTaHuFPAGh5S3H5nQrwsqurH8yBT",
+									"/orbitdb/heads/orbitdb/zdpuAnxnWtAhqWKzbyoxvAFZRgzRJuwAJ67F9geXek88Ke4sm",
+									"/orbitdb/heads/orbitdb/zdpuApgkmhWjxXF9oHPHgqAsmyodrWDyqwiZH8ifoahwnuFE6",
+									"/orbitdb/heads/orbitdb/zdpuAoPCkGq6b1MQjDDp3QHP6LqVaWSqEssrqEmuuVrjoCCxa",
+									"/orbitdb/heads/orbitdb/zdpuB199aq6KSGBnt4X9tSd7Ts43jNuUQ7vGnkAag9EoPfQxE",
+									"/orbitdb/heads/orbitdb/zdpuB2xo2W7drwJXsfrCUV5WWT2FZYfSg3NJBY9S72XPrAJaM",
+									"/orbitdb/heads/orbitdb/zdpuAspq1heLzdDSGdPC3e2RppZVs159ohVCjgsDHHLt45CLd",
+									"/orbitdb/heads/orbitdb/zdpuAqrza589T2LEDGjUNEjksFpU8VNpcskc1NPfqLKAx1P4S",
+									"/orbitdb/heads/orbitdb/zdpuAwFA5TJgvaQG9FNqB9pE7yxoj6WQav5WXqqCamHcQ4H5o",
+									"/orbitdb/heads/orbitdb/zdpuAz7T7NTPJ9hDusX8Wm4sacM4FzmfRVnnqM5puCRVA5h1U",
+									"/orbitdb/heads/orbitdb/zdpuAqiQfY2u5g4uUZXhc4xbnSKX93GjUpUDy7YY4Jns3FxtT",
+									"",
+									"",
+									""
+								]
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+						]
+					}
+				},
+				{
+					"t": 81073,
+					"mac": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/stop"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": {},
+								"direction": "inbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"addr": "/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+								"limited": null,
+								"limits": null,
+								"direction": "inbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+						]
+					},
+					"phone": {
+						"connections": [
+							{
+								"peer": "12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/libp2p/circuit/relay/0.2.0/hop"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": {},
+								"direction": "outbound",
+								"status": "open",
+								"streams": [
+									"/meshsub/1.2.0",
+									"/meshsub/1.2.0"
+								]
+							},
+							{
+								"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+								"limited": null,
+								"limits": null,
+								"direction": "outbound",
+								"status": "open",
+								"streams": []
+							}
+						],
+						"pubsubPeers": [
+							"12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+						]
+					}
+				}
+			],
+			"events": {
+				"mac": [
+					{
+						"t": 1495,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 2988,
+						"event": "connection:close",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"limited": null,
+						"limits": {},
+						"direction": "outbound",
+						"status": "aborted",
+						"streams": []
+					},
+					{
+						"t": 3580,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 3582,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 3584,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 3586,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 3587,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 3587,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 3588,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 3592,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 3595,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 79766,
+						"event": "connection:open",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"limited": null,
+						"limits": {},
+						"direction": "inbound",
+						"status": "open",
+						"streams": [
+							""
+						]
+					},
+					{
+						"t": 79922,
+						"event": "connection:open",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"addr": "/webrtc/p2p/12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"limited": null,
+						"limits": null,
+						"direction": "inbound",
+						"status": "open",
+						"streams": []
+					},
+					{
+						"t": 80098,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 80101,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 80103,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80141,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80141,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80142,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80143,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80190,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80388,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80763,
+						"event": "orbitdb:leave",
+						"db": "transactions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80774,
+						"event": "orbitdb:leave",
+						"db": "receipts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80809,
+						"event": "orbitdb:leave",
+						"db": "partners",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80816,
+						"event": "orbitdb:leave",
+						"db": "accounts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80821,
+						"event": "orbitdb:leave",
+						"db": "settings",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80828,
+						"event": "orbitdb:leave",
+						"db": "matches",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80835,
+						"event": "orbitdb:leave",
+						"db": "questions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80843,
+						"event": "orbitdb:leave",
+						"db": "events",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80848,
+						"event": "orbitdb:leave",
+						"db": "travel",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+					},
+					{
+						"t": 80861,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 80877,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 1
+					},
+					{
+						"t": 80883,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80895,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80900,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 2
+					},
+					{
+						"t": 80905,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80905,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80905,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					},
+					{
+						"t": 80905,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr",
+						"heads": 0
+					}
+				],
+				"phone": [
+					{
+						"t": 2988,
+						"event": "connection:close",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"limited": null,
+						"limits": {},
+						"direction": "inbound",
+						"status": "aborted",
+						"streams": []
+					},
+					{
+						"t": 3543,
+						"event": "connection:close",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"limited": null,
+						"limits": null,
+						"direction": "inbound",
+						"status": "aborted",
+						"streams": []
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "transactions"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "receipts"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "partners"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "accounts"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "settings"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "matches"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "questions"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "events"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:error",
+						"db": "travel"
+					},
+					{
+						"t": 3545,
+						"event": "orbitdb:leave",
+						"db": "transactions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3546,
+						"event": "orbitdb:leave",
+						"db": "receipts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3546,
+						"event": "orbitdb:leave",
+						"db": "partners",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3547,
+						"event": "orbitdb:leave",
+						"db": "accounts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3548,
+						"event": "orbitdb:leave",
+						"db": "settings",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3548,
+						"event": "orbitdb:leave",
+						"db": "matches",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3549,
+						"event": "orbitdb:leave",
+						"db": "questions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3550,
+						"event": "orbitdb:leave",
+						"db": "events",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3551,
+						"event": "orbitdb:leave",
+						"db": "travel",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 3563,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 3573,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 3579,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 3584,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 3587,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 3594,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 3595,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 3598,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 3598,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 79666,
+						"event": "peer:disconnect",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx"
+					},
+					{
+						"t": 79666,
+						"event": "connection:close",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"addr": "/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"limited": null,
+						"limits": null,
+						"direction": "inbound",
+						"status": "closed",
+						"streams": []
+					},
+					{
+						"t": 79756,
+						"event": "connection:open",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"limited": null,
+						"limits": {},
+						"direction": "outbound",
+						"status": "open",
+						"streams": [
+							""
+						]
+					},
+					{
+						"t": 79928,
+						"event": "connection:open",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"addr": "/ip4/127.0.0.1/tcp/4422/ws/p2p/12D3KooWBXu3uGPMkjjxViK6autSnFH5QaKJgTwW8CaSxYSD6yYL/p2p-circuit/webrtc/p2p/12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"limited": null,
+						"limits": null,
+						"direction": "outbound",
+						"status": "open",
+						"streams": [
+							""
+						]
+					},
+					{
+						"t": 80054,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 80066,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80162,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80163,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80163,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80163,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80230,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80380,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80882,
+						"event": "orbitdb:join",
+						"db": "accounts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 80883,
+						"event": "orbitdb:join",
+						"db": "receipts",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80883,
+						"event": "orbitdb:join",
+						"db": "partners",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80884,
+						"event": "orbitdb:join",
+						"db": "settings",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80894,
+						"event": "orbitdb:join",
+						"db": "questions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80902,
+						"event": "orbitdb:join",
+						"db": "events",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 2
+					},
+					{
+						"t": 80910,
+						"event": "orbitdb:join",
+						"db": "matches",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 80913,
+						"event": "orbitdb:join",
+						"db": "travel",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 0
+					},
+					{
+						"t": 83081,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					},
+					{
+						"t": 83081,
+						"event": "orbitdb:join",
+						"db": "transactions",
+						"peer": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+						"heads": 1
+					}
+				]
+			},
+			"console": {
+				"mac": [],
+				"phone": []
+			}
+		}
+	},
+	"peers": {
+		"mac": "12D3KooWFxpYkgRQ5jeh11xpH1dHCbhYMXEm4wDP5hCKaqybpNhx",
+		"phone": "12D3KooWEGA2QWkFdnCDJNfShFU79R4MnqHYqfAHc3i17EjE6APr"
+	},
+	"relayLimits": {
+		"external": null,
+		"unlimited": false,
+		"dataLimit": "10737418240",
+		"durationMs": "5000"
+	}
+}

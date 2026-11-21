@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CHAINS, createWalletService } from '../src/index.js';
-import { NEAR, fakeNear } from './support/fake-near.js';
+import { NEAR, fakeNear, yocto } from './support/fake-near.js';
 
 const { fetch: fakeFetch, state } = fakeNear();
 const OURS = NEAR.wallet;
@@ -86,5 +86,130 @@ test('an own endpoint must be https', async () => {
 	await assert.rejects(
 		service.sync({ chain: 'near', address: OURS, endpoints: { rpc: 'http://example.com' } }),
 		(/** @type {any} */ e) => e.code === 'WALLET_ENDPOINT'
+	);
+});
+
+// A made-up DEX and made-up hashes: NEAR wrapped, the wNEAR swapped for USDC,
+// and half a NEAR left wrapped.
+const DEX = 'tauschboerse.near';
+const WRAP = 'Wrap111111111111111111111111111111111111111';
+const SWAP = 'Swap111111111111111111111111111111111111111';
+const signed = (over) => ({
+	block: { block_height: '300' },
+	signer_account_id: OURS,
+	receiver_account_id: 'wrap.near',
+	outcomes: { status: true },
+	outcomes_agg: { transaction_fee: '446365125000000000000' },
+	...over
+});
+const moved = (over) => ({
+	block: { block_height: '301' },
+	affected_account_id: OURS,
+	involved_account_id: DEX,
+	contract_account_id: 'wrap.near',
+	cause: 'TRANSFER',
+	event_index: '0',
+	...over
+});
+const T1 = '1795000000000000000';
+const T2 = '1795000060000000000';
+
+test('wNEAR is NEAR: wrapping leaves only its gas, the swap at the DEX is one swap of NEAR for USDC', async () => {
+	const { fetch } = fakeNear({
+		txns: [
+			signed({
+				transaction_hash: SWAP,
+				block_timestamp: T2,
+				block: { block_height: '301' },
+				actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer_call' }],
+				actions_agg: { deposit: '1' }
+			}),
+			signed({
+				transaction_hash: WRAP,
+				block_timestamp: T1,
+				actions: [{ action: 'FUNCTION_CALL', method: 'near_deposit' }],
+				actions_agg: { deposit: yocto('2.5') }
+			})
+		],
+		ftTxns: [
+			moved({
+				transaction_hash: SWAP,
+				block_timestamp: T2,
+				contract_account_id: NEAR.usdc,
+				delta_amount: '5670000',
+				receipt_id: 's2'
+			}),
+			moved({
+				transaction_hash: SWAP,
+				block_timestamp: T2,
+				delta_amount: `-${yocto('2')}`,
+				receipt_id: 's1'
+			}),
+			moved({
+				transaction_hash: WRAP,
+				block_timestamp: T1,
+				block: { block_height: '300' },
+				involved_account_id: '',
+				cause: 'MINT',
+				delta_amount: yocto('2.5'),
+				receipt_id: 'w1'
+			})
+		],
+		account: { amount: yocto('7'), locked: '0' },
+		usdc: '5670000',
+		wnear: yocto('0.5')
+	});
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	assert.deepEqual(
+		result.entries.map((e) => [e.id, e.type, e.kind, e.asset, e.amount, e.counterparty]),
+		[
+			[`${WRAP}:fee`, 'fee', 'fee', 'NEAR', '-0.000446365125', ''],
+			[`${SWAP}:fee`, 'fee', 'fee', 'NEAR', '-0.000446365125', ''],
+			[`${SWAP}:ft:s1:0`, 'sent', 'swap', 'NEAR', '-2', DEX],
+			[`${SWAP}:ft:s2:0`, 'received', 'swap', 'USDC', '5.67', DEX]
+		]
+	);
+	const [wrapGas, swapGas, gave] = result.entries;
+	assert.equal(wrapGas.swap, undefined, 'wrapping is no swap');
+	assert.deepEqual(gave.swap, {
+		gave: [{ asset: 'NEAR', amount: '2', listed: true }],
+		got: [{ asset: 'USDC', amount: '5.67', listed: true }],
+		via: DEX,
+		fee: { asset: 'NEAR', amount: '0.000446365125' }
+	});
+	assert.deepEqual(swapGas.swap, gave.swap);
+	// 7 NEAR in the account and 0.5 still wrapped.
+	assert.deepEqual(result.balances, [
+		{ asset: 'NEAR', amount: '7.5', decimals: 24 },
+		{ asset: 'USDC', amount: '5.67', decimals: 6 }
+	]);
+	assert.equal(result.unknownAssets, 0);
+});
+
+test('unwrapping gives no entry but its gas', async () => {
+	const { fetch } = fakeNear({
+		txns: [
+			signed({
+				transaction_hash: WRAP,
+				block_timestamp: T1,
+				actions: [{ action: 'FUNCTION_CALL', method: 'near_withdraw' }],
+				actions_agg: { deposit: '1' }
+			})
+		],
+		ftTxns: [
+			moved({
+				transaction_hash: WRAP,
+				block_timestamp: T1,
+				involved_account_id: '',
+				cause: 'BURN',
+				delta_amount: `-${yocto('2.5')}`,
+				receipt_id: 'w1'
+			})
+		]
+	});
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	assert.deepEqual(
+		result.entries.map((e) => [e.type, e.asset, e.amount]),
+		[['fee', 'NEAR', '-0.000446365125']]
 	);
 });

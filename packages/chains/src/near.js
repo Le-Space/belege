@@ -8,6 +8,10 @@
 //   /v3/accounts/<id>/ft-txns  NEP-141 token movements (USDC, USDT, …), exact
 //                              per event
 //
+// A transaction in which the account gave one asset and got another is a
+// swap (kind `swap`, as on the EVM chains): NEAR wrapped into wNEAR, a token
+// handed to a DEX that pays out another.
+//
 // Every amount NearBlocks gives here is an integer string in base units, so
 // nothing passes through a float. What is not read yet (and said so in the
 // README): NEAR that reaches the account inside another transaction's inner
@@ -21,6 +25,7 @@
 // pipeline's `block` descriptor stays in Eigenbeleg.
 
 import { entry, fromUnits, fromUtf8, sortEntries, toBase64, toUnits, utf8 } from '@le-space/ledger';
+import { markSwaps } from './swaps.js';
 
 export const NETWORKS = {
 	mainnet: {
@@ -96,9 +101,14 @@ const FT_METHODS = new Set([
 	'mt_transfer',
 	'mt_transfer_call',
 	'nft_transfer',
-	'nft_transfer_call'
+	'nft_transfer_call',
+	// unwrapping: the wrap contract asks for the same 1 yoctoNEAR
+	'near_withdraw'
 ]);
-const STORAGE_METHODS = new Set(['storage_deposit']);
+// `tokens_storage_deposit`: a DEX's registration of the account for several tokens at once.
+const STORAGE_METHODS = new Set(['storage_deposit', 'tokens_storage_deposit']);
+/** Wrapping: NEAR attached to the wrap contract comes back as its token, one for one. */
+const WRAP_METHODS = new Set(['near_deposit']);
 const STAKE_METHODS = new Set(['deposit_and_stake', 'deposit', 'stake']);
 
 /** ISO date → nanosecond timestamp string. @param {string} iso */
@@ -228,6 +238,8 @@ export function mapRaw({
 }) {
 	/** @type {import('@le-space/ledger').LedgerEntry[]} */
 	const out = [];
+	/** @type {import('@le-space/ledger').LedgerEntry[]} NEAR handed to the wrap contract */
+	const wrapped = [];
 	const seen = new Set();
 	for (const t of txns) {
 		const hash = String(t.transaction_hash);
@@ -279,20 +291,21 @@ export function mapRaw({
 			const tokenMechanic =
 				deposit === 1n && methods.some((/** @type {string} */ m) => FT_METHODS.has(m));
 			if (deposit > 0n && success && receiver !== account && !tokenMechanic) {
-				out.push(
-					entry({
-						...common,
-						id: `near:${account}:${hash}:deposit`,
-						type: 'sent',
-						kind: kindOf(actions, methods),
-						amount: fromUnits(-deposit, NEAR_DECIMALS),
-						counterparty: receiver,
-						counterpartyLabel: '',
-						method,
-						memo: '',
-						success
-					})
-				);
+				const wrap = wraps(network, receiver, methods);
+				const paid = entry({
+					...common,
+					id: `near:${account}:${hash}:deposit`,
+					type: 'sent',
+					kind: wrap ? 'transfer' : kindOf(actions, methods),
+					amount: fromUnits(-deposit, NEAR_DECIMALS),
+					counterparty: receiver,
+					counterpartyLabel: '',
+					method,
+					memo: '',
+					success
+				});
+				out.push(paid);
+				if (wrap) wrapped.push(paid);
 			}
 		} else if (receiver === account && deposit > 1n && success) {
 			// 1 yoctoNEAR is a token transfer's security deposit passing through
@@ -354,7 +367,47 @@ export function mapRaw({
 			})
 		);
 	}
+	swapsOf(out);
+	// Wrapped NEAR whose token the list of movements does not show stays a call.
+	for (const e of wrapped) if (e.kind !== 'swap') e.kind = 'call';
 	return sortEntries(out);
+}
+
+/**
+ * Is this call the wrapping of NEAR at the network's wrap contract?
+ *
+ * @param {'mainnet' | 'testnet'} network @param {string} receiver @param {string[]} methods
+ */
+function wraps(network, receiver, methods) {
+	const token = /** @type {Record<string, { priceAs: string }>} */ (TOKENS[network])[receiver];
+	return token?.priceAs === 'NEAR' && methods.some((m) => WRAP_METHODS.has(m));
+}
+
+/**
+ * Swaps, as on the EVM chains (swaps.js): a transaction in which the account
+ * gave one asset and got another – a DEX's `ft_transfer_call` that pays out
+ * another token, or NEAR wrapped into wNEAR. Its legs become kind `swap` and
+ * carry both sides, the gas and the account that took what was given. A token
+ * without a trusted price is named in the swap but stays a plain transfer.
+ * Changes the entries in place.
+ *
+ * @param {import('@le-space/ledger').LedgerEntry[]} entries
+ */
+function swapsOf(entries) {
+	const unlisted = (/** @type {import('@le-space/ledger').LedgerEntry} */ e) =>
+		e.contract !== 'native' && !e.priceAs;
+	/** @type {Map<string, string>} hash → who took what the account gave */
+	const via = new Map();
+	for (const e of entries)
+		if (e.type === 'sent' && e.kind === 'transfer' && !via.has(e.hash))
+			via.set(e.hash, e.counterparty);
+	markSwaps(
+		/** @type {any[]} */ (entries.filter((e) => e.success && !unlisted(e))),
+		entries
+			.filter((e) => e.success && unlisted(e))
+			.map((e) => ({ hash: e.hash, asset: e.asset, amount: e.amount, listed: false })),
+		(hash) => via.get(hash) ?? ''
+	);
 }
 
 /** @param {any[]} actions @param {string[]} methods */

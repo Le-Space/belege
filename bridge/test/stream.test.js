@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { LIMITS } from '@le-space/ucep';
 
 import { statusOf } from '../src/commands.js';
-import { HTTP_ONLY, answerRequest, offered } from '../src/stream.js';
+import { HTTP_ONLY, answerNamed, answerRequest, offered } from '../src/stream.js';
 import { emptyCommands } from './support/commands.js';
 
 const commands = emptyCommands();
@@ -101,6 +101,77 @@ test('bytes go base64 while they fit; above UCEP’s limit they are refused befo
 		}),
 		(/** @type {any} */ e) => e.code === 'TOO_LARGE' && /direct connection/.test(e.message)
 	);
+});
+
+test('a sealed answer takes more room: bytes are measured so, and JSON that no longer fits goes as blocks', async () => {
+	const bytes = new Uint8Array(40 * 1024).fill(1);
+	const rows = Array.from({ length: 700 }, (_, i) => ({
+		id: `account-${i}`,
+		name: 'x'.repeat(48)
+	}));
+	const fake = /** @type {any} */ ([
+		{
+			name: 'paperless.document',
+			method: 'GET',
+			path: '/paperless/document',
+			scope: 'bridge:paperless:read',
+			run: () => ({ status: 200, bytes, mime: 'application/pdf' })
+		},
+		{
+			name: 'bank.accounts',
+			method: 'GET',
+			path: '/hibiscus/accounts',
+			scope: 'bridge:bank:read',
+			run: () => ({ status: 200, json: { accounts: rows } })
+		}
+	]);
+	// 40 KiB of bytes fit a relayed answer as base64, and not once that is sealed.
+	const args = { method: 'GET', path: '/paperless/document?id=1' };
+	assert.equal((await answerRequest({ commands: fake, args, limited: true })).status, 200);
+	await assert.rejects(
+		answerRequest({ commands: fake, args, limited: true, sealed: true }),
+		(/** @type {any} */ e) => e.code === 'TOO_LARGE'
+	);
+
+	const text = JSON.stringify({ accounts: rows });
+	assert.ok(text.length < LIMITS.limitedResponse - 512, 'fits a relayed answer as it is');
+	/** @type {Uint8Array[]} */
+	const offeredBytes = [];
+	const blocks = {
+		offer: async (/** @type {Uint8Array} */ b) => {
+			offeredBytes.push(b);
+			return { cid: 'bafyexample', size: b.length, key: 'a2V5' };
+		}
+	};
+	const named = (/** @type {object} */ more) =>
+		answerNamed({
+			command: fake[1],
+			args: { $accept: ['blocks'] },
+			limited: true,
+			blocks,
+			...more
+		});
+	// Unsealed: as before, in the answer.
+	assert.deepEqual((await named({})).json, { accounts: rows });
+	assert.equal(offeredBytes.length, 0);
+	// Sealed: too big for the stream now, so as blocks – the JSON's own bytes.
+	const sealed = await named({ sealed: true });
+	assert.equal(sealed.json, undefined);
+	assert.deepEqual(sealed.block, { cid: 'bafyexample', size: text.length, key: 'a2V5' });
+	assert.equal(Buffer.from(offeredBytes[0]).toString('utf8'), text);
+	assert.match(sealed.contentType, /^application\/json/);
+	// On a direct connection it fits sealed too: no blocks.
+	const direct = await named({ sealed: true, limited: false });
+	assert.deepEqual(direct.json, { accounts: rows });
+	// A device that takes no blocks gets the answer as it is; UCEP refuses it if it is too big.
+	const without = await answerNamed({
+		command: fake[1],
+		args: {},
+		limited: true,
+		sealed: true,
+		blocks
+	});
+	assert.deepEqual(without.json, { accounts: rows });
 });
 
 test('every command offered answers over the stream with the status it answers over HTTP', async () => {

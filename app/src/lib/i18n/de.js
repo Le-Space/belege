@@ -5643,7 +5643,39 @@ export default {
 				'{count} ältere Transaktionen mit Staking-Rewards, Escrow-Rückzahlungen oder Auto-Restake: Ihre Beträge kennt der Indexer nicht, sie sind nicht gebucht. Der Bestandsabgleich zeigt die Lücke.',
 			indexerFailed: 'Der Akash-Indexer war nicht erreichbar; der nächste Abruf fragt ihn wieder.',
 			balanceGap:
-				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus dem Unbonding, die keine Transaktion sind.'
+				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus dem Unbonding, die keine Transaktion sind.',
+			// The chart of the wallets' value per day (#908).
+			chart: {
+				title: 'Wert der Wallets in Euro',
+				intro:
+					'Der Bestand am Ende jedes Tages, bewertet zum Kurs des Tages; die letzten zwei Monate, {from} bis {to}.',
+				aria: 'Liniendiagramm: Wert der Wallets in Euro je Tag, {from} bis {to}. Alle Zahlen stehen in der Tabelle darunter.',
+				lines: 'Linien',
+				linesHint: 'Die Auswahl merkt sich nur dieses Gerät.',
+				total: 'Alle sichtbaren zusammen',
+				totalShort: 'Summe',
+				rest: 'Übrige',
+				openChain: 'Konten einzeln zeigen',
+				closeChain: 'Als eine Linie zeigen',
+				day: 'Tag',
+				daySlider: 'Tag im Diagramm wählen',
+				noRate: 'kein Kurs',
+				loading: 'Kurse werden abgerufen: {done} von {count}',
+				missing:
+					'Ohne Kurs: {list}. An diesen Tagen fehlt der Wert dieser Assets in den Linien; nichts wird geschätzt oder fortgeschrieben.',
+				missingItem: '{asset} (Tage: {days})',
+				missingDay: 'ohne Kurs: {assets}',
+				retry: 'Fehlende Kurse noch einmal abrufen',
+				carried:
+					'Ohne Marktkurs: {assets}. Bewertet mit dem Kurs der jeweils letzten Buchung, wie in den Büchern.',
+				table: {
+					show: 'Als Tabelle zeigen',
+					hide: 'Tabelle ausblenden',
+					caption: 'Wert der Wallets in Euro je Tag, der neueste Tag zuerst',
+					holdings: 'Bestände',
+					notes: 'Hinweis'
+				}
+			}
 		},
 		kraken: {
 			title: 'Kraken (Börse)',
