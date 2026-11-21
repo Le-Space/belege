@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The company's own logo on its own receipts** (#906, third slice; `@le-space/eigenbeleg` 0.6.0). Under Einstellungen → Firma a PNG or JPEG of up to 512 kB is chosen beside the company's name. Belege keeps the picture as the documents carry it (a PNG laid on white, a JPEG without its EXIF and colour profile) in the sealed `settings` collection, synced like every other setting. Every Eigenbeleg the app makes from then on carries it top right in the head: the Eigenbeleg of one booking and the statements of Aleph, Akash, Filecoin Pay and travel. Receipts made before stay as they are; "Auf den Belegen zeigen" switches it off without removing it. A file that cannot be a logo (SVG, GIF, CMYK, too large, a banner) is refused with the reason. The account statements of the monthly export are not the company's own receipts and carry none. `statementLayout` of `@le-space/eigenbeleg` takes `issuerLogo` like the package's other documents.
+
 ## [0.49.2] – 2026-11-21
 
 ### Added

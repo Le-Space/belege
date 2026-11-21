@@ -18,6 +18,7 @@ import {
 	ISSUER_LOGO_BOX,
 	statementPdf
 } from '../src/index.js';
+import { statementLayout } from '../src/statement-layout.js';
 import { nearEntries, payer, walletBooking } from './support/samples.js';
 
 /** @param {Uint8Array} bytes */
@@ -51,7 +52,27 @@ async function documents() {
 		draw: {
 			Eigenbeleg: (o) => eigenbelegPdf(doc, o),
 			Kontoauszug: (o) => statementPdf(st, o),
-			Buchung: (o) => bookingPdf(walletBooking, o)
+			Buchung: (o) => bookingPdf(walletBooking, o),
+			// The layout of the app's own statements (Aleph, Akash, Filecoin Pay, travel).
+			Aufstellung: async (o) => {
+				const s = await statementLayout({
+					title: 'Eigenbeleg EB-2026-009',
+					created: new Date(issuedAt),
+					continuation: 'Eigenbeleg EB-2026-009 (Fortsetzung)',
+					issuerLogo: o?.issuerLogo
+				});
+				s.head('EB-2026-009', 'Wolkenfabrik Hosting GmbH', 'Verbrauch Oktober 2026');
+				s.field('Zeitraum', '01.10.2026 – 31.10.2026');
+				s.table(
+					[
+						{ title: 'Tag', width: 80 },
+						{ title: 'Betrag', width: 80, right: true }
+					],
+					[['01.10.2026', '−12,34 €']]
+				);
+				s.signature();
+				return s.save();
+			}
 		}
 	};
 }

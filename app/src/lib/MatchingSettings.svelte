@@ -41,6 +41,7 @@
 	import { list, t } from './i18n/index.js';
 	import DataTable from './ui/DataTable.svelte';
 	import InfoHint from './InfoHint.svelte';
+	import IssuerLogoSetting from './settings/IssuerLogoSetting.svelte';
 
 	let companyText = $state('');
 	let ownNamesText = $state('');
@@ -408,6 +409,7 @@
 				></textarea>
 				<span class="mt-1 text-xs text-faint">{t('anweisungen.companyHint')}</span>
 			</label>
+			<IssuerLogoSetting />
 			<label class="flex flex-col text-sm">
 				<span class="font-medium text-heading">{t('anweisungen.ownNames')}</span>
 				<textarea

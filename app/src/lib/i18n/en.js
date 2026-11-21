@@ -2807,6 +2807,20 @@ export default {
 		companyNames: 'Company name(s)',
 		companyHint:
 			'One name per line, e.g. “le space UG”. Payments to this name count as an own transfer (account 1360), invoices from it as your outgoing invoices.',
+		issuerLogo: {
+			label: 'Company logo on your own receipts',
+			hint: 'PNG or JPEG, at most 512 kB. Printed top right on every Eigenbeleg and usage statement Belege makes for these books; receipts made before stay as they are. Stored encrypted and synced with your devices like the other settings.',
+			choose: 'Choose a logo',
+			replace: 'Choose another logo',
+			remove: 'Remove the logo',
+			on: 'Show it on the receipts',
+			alt: 'Your logo as it is printed on the receipts',
+			size: '{width} × {height} pixels',
+			saved: 'Logo saved.',
+			removed: 'Logo removed.',
+			tooLarge: 'the file has {kb} kB',
+			bad: 'This picture cannot be a logo ({error}). Allowed are PNG and JPEG up to 512 kB and 2048 pixels a side, at most six times as wide as high and twice as high as wide.'
+		},
 		ownNames: 'Own names (owners, shareholders)',
 		ownNamesHint:
 			'One name per line, e.g. “Erika Mustermann”. When one of them is the counterparty, “Find receipt” does not search the mailbox for it, but for a word from the payment reference.',

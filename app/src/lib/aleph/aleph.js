@@ -25,6 +25,7 @@ import { walletChain } from '../wallets/chains.js';
 import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 import { importFile } from '../receipts/import.js';
 import { t } from '../i18n/index.js';
+import { issuerLogoOf } from '../settings/issuer-logo.js';
 
 /** @typedef {import('../bridge/client.js').AlephStatement} AlephStatement */
 
@@ -477,7 +478,7 @@ async function issueStatement({
 			: null
 	};
 	const { statementPdf } = await import('./statement-pdf.js');
-	const bytes = await statementPdf(doc);
+	const bytes = await statementPdf(doc, { issuerLogo: await issuerLogoOf(store) });
 	const { record } = await importFile({
 		receipts: store.receipts,
 		blobs,

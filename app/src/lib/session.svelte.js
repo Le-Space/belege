@@ -1351,6 +1351,12 @@ function installE2EHooks() {
 			const fileCid = await blobs.put(new Uint8Array(bytes));
 			return session.store.receipts.put({ ...r, fileCid });
 		},
+		// The receipts, and a receipt's file as the app made it (the company logo spec, #906).
+		receipts: () => session?.store.receipts.list(),
+		fileBytes: async (/** @type {string} */ cid) => {
+			const bytes = await currentBlobs()?.get(cid);
+			return bytes ? Array.from(bytes) : null;
+		},
 		// Whether a receipt's file is whole on this device (receipts/prefetch.js).
 		fileHere: (/** @type {string} */ cid) => currentBlobs()?.has(cid) ?? false,
 		filesState: () => ({ missing: [...app.files.missing], fetching: [...app.files.fetching] }),

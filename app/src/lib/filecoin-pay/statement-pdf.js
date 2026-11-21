@@ -30,15 +30,17 @@ const usdfc = (v) => `${shortAmount(v)} USDFC`;
 
 /**
  * @param {import('./filecoin-pay.js').FilecoinPayDocument} doc
+ * @param {{ issuerLogo?: Uint8Array | null }} [o] issuerLogo: the company's own logo (settings/issuer-logo.js), top right in the head
  * @returns {Promise<Uint8Array>}
  */
-export async function filecoinPayPdf(doc) {
+export async function filecoinPayPdf(doc, { issuerLogo = null } = {}) {
 	const s = doc.statement;
 	const created = new Date(doc.createdAt);
 	const { width, head, field, rule, heading, table, signature, save } = await statementLayout({
 		title: `Eigenbeleg ${doc.number} – Filecoin Pay ${s.month}`,
 		created,
-		continuation: `${doc.number} · Filecoin Pay ${s.month} (Fortsetzung)`
+		continuation: `${doc.number} · Filecoin Pay ${s.month} (Fortsetzung)`,
+		issuerLogo
 	});
 
 	head(

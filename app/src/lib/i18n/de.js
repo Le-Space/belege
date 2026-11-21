@@ -2851,6 +2851,20 @@ export default {
 		companyNames: 'Firmenname(n)',
 		companyHint:
 			'Ein Name je Zeile, z. B. „le space UG“. Zahlungen an diesen Namen gelten als eigene Umbuchung (Konto 1360), Rechnungen von ihm als deine Ausgangsrechnungen.',
+		issuerLogo: {
+			label: 'Firmenlogo auf den eigenen Belegen',
+			hint: 'PNG oder JPEG, höchstens 512 kB. Steht oben rechts auf jedem Eigenbeleg und Verbrauchsnachweis, den Belege für diese Bücher erstellt; schon erstellte Belege bleiben, wie sie sind. Verschlüsselt gespeichert und mit deinen Geräten abgeglichen wie die übrigen Einstellungen.',
+			choose: 'Logo auswählen',
+			replace: 'Anderes Logo auswählen',
+			remove: 'Logo entfernen',
+			on: 'Auf den Belegen zeigen',
+			alt: 'Dein Logo, wie es auf den Belegen steht',
+			size: '{width} × {height} Pixel',
+			saved: 'Logo gespeichert.',
+			removed: 'Logo entfernt.',
+			tooLarge: 'die Datei hat {kb} kB',
+			bad: 'Dieses Bild geht nicht als Logo ({error}). Erlaubt sind PNG und JPEG bis 512 kB und 2048 Pixel je Seite, höchstens sechsmal so breit wie hoch und doppelt so hoch wie breit.'
+		},
 		ownNames: 'Eigene Namen (Inhaber, Gesellschafter)',
 		ownNamesHint:
 			'Ein Name je Zeile, z. B. „Erika Mustermann“. Steht einer davon als Gegenpartei, sucht „Beleg finden“ im Postfach nicht nach ihm, sondern nach einem Wort aus dem Verwendungszweck.',
