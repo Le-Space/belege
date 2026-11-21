@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.46.0] – 2026-11-21
+
 ### Security
 
 - **The security audit's written result** (#533, part of the audit plan #209): `docs/security-audit.md` and its German twin go through the plan's eleven areas – keys, sealing, databases, device sync, relays, foreign devices, the invoicing link, the bridge, the web app, the deploy chain, and the claims the product makes – with what was checked, the evidence, and a verdict for each point: fine, fixed, accepted with its reason, or open with its issue. It lists what is still to do and the tests that stand guard. Linked from `SECURITY.md`, the threat model and the README.
