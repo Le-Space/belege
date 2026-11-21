@@ -106,12 +106,18 @@ jobs:
           path: app/e2e-report.json
           if-no-files-found: ignore
           retention-days: 14
+      # Also of a green run: a test that passed only on its second try leaves
+      # the screenshot and the video of the first one here (#916). Without one
+      # there are only the pictures a few specs take themselves, under 2 MB.
       - name: Keep the evidence
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ matrix.shard }}
-          path: app/test-results/
+          path: |
+            app/test-results/
+            !app/test-results/.last-run.json
+          if-no-files-found: ignore
           retention-days: 7
 
   # The specs that pair a bridge once more, the other way (#575): device sync
@@ -156,11 +162,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Keep the evidence
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-stream-${{ matrix.shard }}
-          path: app/test-results/
+          path: |
+            app/test-results/
+            !app/test-results/.last-run.json
+          if-no-files-found: ignore
           retention-days: 7
 
   # What visitors get (#536): the production build – no VITE_E2E, so no test
