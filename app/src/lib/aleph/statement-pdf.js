@@ -220,6 +220,12 @@ export async function statementPdf(doc) {
 	);
 	field('Quelle', 'Öffentliche Aleph-API (Guthaben und Credit-Verlauf des Kontos), nur gelesen.');
 	field('Warum kein Fremdbeleg', doc.reason);
+	if (doc.replaces) {
+		field(
+			'Berichtigung',
+			`Dieser Beleg ersetzt ${doc.replaces.number} vom ${formatDate(doc.replaces.createdAt.slice(0, 10), DOCUMENT_LOCALE)} (${euro(doc.replaces.amountCents)}). Der frühere Beleg ist ungültig; seine Nummer wird nicht neu vergeben.`
+		);
+	}
 	rule();
 	field(
 		'Erstellt',
