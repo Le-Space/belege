@@ -13,17 +13,20 @@ import { fromUnits } from '@le-space/ledger';
 
 import { bookingNote, bookingNotInvoice } from './booking.js';
 import { deDate, deEuro, deNumber } from './document.js';
-import { A4, BLACK, GREY, pageLayout } from './layout.js';
+import { A4, BLACK, GREY, embedIssuerLogo, pageLayout } from './layout.js';
 
 /**
  * @param {import('./booking.js').BookingEigenbeleg} doc
- * @param {{ creator?: string, producer?: string }} [o] what made it: `Belege` when not given
+ * @param {{ creator?: string, producer?: string, issuerLogo?: Uint8Array | null }} [o] what made it: `Belege` when not given. issuerLogo: the issuer's own
+ *   logo, a PNG or JPEG file's bytes, in the head's top right corner (none unless given; an
+ *   ImageError of @le-space/pdf when the file is no small PNG or JPEG)
  * @returns {Promise<Uint8Array>}
  */
-export async function bookingPdf(doc, { creator = 'Belege', producer } = {}) {
+export async function bookingPdf(doc, { creator = 'Belege', producer, issuerLogo = null } = {}) {
 	const created = new Date(doc.createdAt);
 	const { pdf, fonts } = await createPdfA();
 	const { regular, bold, mono } = fonts;
+	const own = await embedIssuerLogo(pdf, issuerLogo);
 	const M = 48;
 	let pageNo = 1;
 	const footer = (/** @type {import('./layout.js').Layout} */ l) =>
@@ -45,6 +48,7 @@ export async function bookingPdf(doc, { creator = 'Belege', producer } = {}) {
 	const out = doc.amountCents < 0;
 
 	// ---- head
+	l.issuerLogo(own, l.y);
 	text('Eigenbeleg', { face: bold, size: 20 });
 	text(`Nr. ${doc.number}`, { face: bold, size: 12 });
 	gap(2);

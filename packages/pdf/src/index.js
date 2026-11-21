@@ -4,5 +4,8 @@
 export { pdfFonts, pdfText, wrapText } from './fonts.js';
 export { createPdfA, makePdfA, savePdfA } from './pdfa.js';
 export { asset, ASSETS, LOGOS, useAssetLoader } from './assets.js';
+export { embedPdfImage, ImageError, IMAGE_LIMITS, pdfImage } from './image.js';
 /** @typedef {import('./fonts.js').Face} Face */
+/** @typedef {import('./image.js').PdfImage} PdfImage */
+/** @typedef {import('./image.js').ImageLimits} ImageLimits */
 /** @typedef {import('./pdfa.js').PdfAMeta} PdfAMeta */

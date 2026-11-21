@@ -11,7 +11,7 @@
 
 import { rgb } from 'pdf-lib';
 import { encode } from 'uqr';
-import { pdfText, wrapText } from '@le-space/pdf';
+import { embedPdfImage, pdfImage, pdfText, wrapText } from '@le-space/pdf';
 
 /** @typedef {import('@le-space/pdf').Face} Face */
 /** @typedef {{ regular: Face, bold: Face, mono: Face }} Fonts */
@@ -25,6 +25,20 @@ export const TINT = rgb(0.95, 0.95, 0.93);
 export const BAND = rgb(0.93, 0.94, 0.95);
 export const WARN = rgb(0.6, 0.12, 0.08);
 export const OK = rgb(0.1, 0.42, 0.2);
+
+/** The room the issuer's logo is fitted into, in points: wide enough for a word mark, as high as a title and its line below. */
+export const ISSUER_LOGO_BOX = /** @type {readonly [number, number]} */ ([120, 40]);
+
+/**
+ * The issuer's own logo for a document: the bytes of a PNG or JPEG file,
+ * checked and reduced to an opaque picture (@le-space/pdf's pdfImage, whose
+ * ImageError says what is wrong with a file), embedded once. Null without one.
+ *
+ * @param {import('pdf-lib').PDFDocument} pdf
+ * @param {Uint8Array | null | undefined} file
+ */
+export const embedIssuerLogo = async (pdf, file) =>
+	file ? embedPdfImage(pdf, pdfImage(file)) : null;
 
 /**
  * @typedef {object} Column
@@ -128,6 +142,22 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 				width: size + 2,
 				height: size + 2
 			});
+		},
+
+		/**
+		 * The issuer's logo in the head's top right corner: fitted into
+		 * ISSUER_LOGO_BOX keeping its proportions, its top at `top`, its right
+		 * edge at the margin. The text of the head is where it is without one.
+		 *
+		 * @param {import('pdf-lib').PDFImage | null} image
+		 * @param {number} top
+		 */
+		issuerLogo(image, top) {
+			if (!image) return;
+			const k = Math.min(ISSUER_LOGO_BOX[0] / image.width, ISSUER_LOGO_BOX[1] / image.height);
+			const width = image.width * k;
+			const height = image.height * k;
+			l.page.drawImage(image, { x: A4[0] - margin - width, y: top - height, width, height });
 		},
 
 		/** @param {number} [thickness] @param {Color} [color] */

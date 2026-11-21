@@ -5,6 +5,7 @@
 // Runs in Node and in a browser: no node: import.
 
 import { entry } from '@le-space/ledger';
+import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
 import {
 	bookingPdf,
@@ -446,12 +447,18 @@ export async function samples() {
 	return {
 		/** @type {Record<string, Uint8Array>} */
 		pdfs: {
-			// With the chain's mark: the browser and veraPDF see it too.
-			'eigenbeleg-collective.pdf': await eigenbelegPdf(collective, { logo: true }),
+			// With the chain's mark and the issuer's own logo (a PNG, a JPEG): the browser and veraPDF see them too.
+			'eigenbeleg-collective.pdf': await eigenbelegPdf(collective, {
+				logo: true,
+				issuerLogo: samplePng()
+			}),
 			'eigenbeleg-single.pdf': await eigenbelegPdf(single),
-			'kontoauszug.pdf': await statementPdf(kontoauszug, { logo: true }),
-			'verbrauchsauszug.pdf': await statementPdf(verbrauch),
-			'booking-wallet.pdf': await bookingPdf(walletBooking),
+			'kontoauszug.pdf': await statementPdf(kontoauszug, {
+				logo: true,
+				issuerLogo: samplePng()
+			}),
+			'verbrauchsauszug.pdf': await statementPdf(verbrauch, { issuerLogo: sampleJpeg() }),
+			'booking-wallet.pdf': await bookingPdf(walletBooking, { issuerLogo: sampleJpeg() }),
 			'booking-bank.pdf': await bookingPdf(bankBooking),
 			'statement-sheet.pdf': await sheet(),
 			'eigenbeleg-collective-chf.pdf': await eigenbelegPdf(chf),

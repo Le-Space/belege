@@ -19,7 +19,7 @@ import {
 	noInvoice,
 	sourceName
 } from './document.js';
-import { A4, BLACK, GREY, WARN, pageLayout } from './layout.js';
+import { A4, BLACK, GREY, WARN, embedIssuerLogo, pageLayout } from './layout.js';
 
 /** What made the file, unless the caller says otherwise. */
 export const CREATOR = 'eigenbeleg';
@@ -27,13 +27,15 @@ export const PRODUCER = 'eigenbeleg (Le Space UG), pdf-lib';
 
 /**
  * @param {import('./document.js').EigenbelegDocument} doc
- * @param {{ creator?: string, producer?: string, logo?: boolean }} [o] logo: the chain's
- *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS)
+ * @param {{ creator?: string, producer?: string, logo?: boolean, issuerLogo?: Uint8Array | null }} [o] logo: the chain's
+ *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS). issuerLogo: the issuer's own
+ *   logo, a PNG or JPEG file's bytes, in the head's top right corner (none unless given; an
+ *   ImageError of @le-space/pdf when the file is no small PNG or JPEG)
  * @returns {Promise<Uint8Array>}
  */
 export async function eigenbelegPdf(
 	doc,
-	{ creator = CREATOR, producer = PRODUCER, logo = false } = {}
+	{ creator = CREATOR, producer = PRODUCER, logo = false, issuerLogo = null } = {}
 ) {
 	const created = new Date(doc.issuedAt);
 	const title = `Eigenbeleg ${doc.number}`;
@@ -44,6 +46,7 @@ export async function eigenbelegPdf(
 		logo && Object.hasOwn(LOGOS, doc.chain)
 			? await pdf.embedPng(await asset(LOGOS[doc.chain]))
 			: null;
+	const own = await embedIssuerLogo(pdf, issuerLogo);
 	const M = 48;
 	// The document's currency (EUR unless another): its code in the column heads, its decimals in the sums.
 	const cur = doc.currency ?? 'EUR';
@@ -89,6 +92,7 @@ export async function eigenbelegPdf(
 			);
 			gap(4);
 		}
+		l.issuerLogo(own, l.y);
 		heading('Eigenbeleg', { face: bold, size: 20 }, mark);
 		text(`Nr. ${number}`, { face: bold, size: 12 });
 		gap(2);
