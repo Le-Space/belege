@@ -1,0 +1,39 @@
+{
+	"name": "@le-space/charts",
+	"version": "0.1.0",
+	"description": "Charts for Le Space's tools, in two layers: bookings to series (per day or month: a balance, sums per kind), and series to a drawing – a list of plain shapes, and an SVG as text made from it. No chart library, no script in the picture, colours through variables for light and dark. Browser and Node.",
+	"license": "AGPL-3.0-or-later",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Le-Space/belege.git",
+		"directory": "packages/charts"
+	},
+	"homepage": "https://github.com/Le-Space/belege/tree/main/packages/charts#readme",
+	"sideEffects": false,
+	"exports": {
+		".": "./src/index.js",
+		"./series": "./src/series.js",
+		"./scene": "./src/scene.js",
+		"./svg": "./src/svg.js"
+	},
+	"files": ["src"],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
+		"lint": "prettier --check src test"
+	},
+	"dependencies": {
+		"@le-space/ledger": "workspace:^"
+	},
+	"devDependencies": {
+		"@le-space/browser-test": "workspace:*",
+		"prettier": "3.6.2"
+	}
+}

@@ -9,7 +9,7 @@ name: Publish a package
 # `npm`) instead of a token, and signs the provenance statement itself.
 # Each package on npmjs.com names this workflow as its trusted publisher.
 # Approve a package on npmjs.com after the ones it depends on, so nobody can
-# install it before them: ledger → rates → chains → pdf → eigenbeleg.
+# install it before them: ledger → rates → chains → pdf → charts → eigenbeleg.
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ on:
         description: The package to publish
         required: true
         type: choice
-        options: [ledger, rates, chains, pdf, eigenbeleg]
+        options: [ledger, rates, chains, pdf, charts, eigenbeleg]
 
 # One queue per package: GitHub keeps only one pending run per group, so a
 # shared group dropped a package that was started while another one ran.

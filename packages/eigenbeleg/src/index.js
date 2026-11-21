@@ -32,6 +32,8 @@ export {
 } from './statement.js';
 /** @typedef {import('./statement.js').MonthlyLine} MonthlyLine */
 export { statementPdf } from './statement-pdf.js';
+export { statementChart } from './statement-chart.js';
+export { drawScene, sceneMeasure } from './chart-pdf.js';
 export { valueEntries, fixedRates } from './value.js';
 export { nextSelfNumber, bookingNote, bookingNotInvoice } from './booking.js';
 export { bookingPdf } from './booking-pdf.js';

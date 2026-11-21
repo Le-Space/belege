@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/eigenbeleg",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "The Eigenbeleg and the Kontoauszug of Le Space's tools: a payer's own receipt for payments without one from the other side (a period's network fees, one booking in any script), a blockchain account's statement (Aleph credits as a Verbrauchsauszug), as PDF/A-2b and CSV. Browser and Node; the rates handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
@@ -19,7 +19,9 @@
 		"./statement": "./src/statement.js",
 		"./booking": "./src/booking.js",
 		"./booking-pdf": "./src/booking-pdf.js",
-		"./statement-layout": "./src/statement-layout.js"
+		"./statement-layout": "./src/statement-layout.js",
+		"./statement-chart": "./src/statement-chart.js",
+		"./chart-pdf": "./src/chart-pdf.js"
 	},
 	"files": ["src"],
 	"engines": {
@@ -35,6 +37,7 @@
 		"pdfa-samples": "node scripts/pdfa-samples.js"
 	},
 	"dependencies": {
+		"@le-space/charts": "workspace:^",
 		"@le-space/ledger": "workspace:^",
 		"@le-space/pdf": "workspace:^",
 		"pdf-lib": "1.17.1",
