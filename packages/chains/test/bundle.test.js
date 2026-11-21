@@ -42,3 +42,12 @@ for (const reader of ['evm', 'bitcoin', 'filecoin', 'cosmos', 'near', 'evm-contr
 		assert.doesNotMatch(code, /xmrchain/);
 	});
 }
+
+test('@le-space/chains/doichain bundles for a browser without the registry or a price feed', async () => {
+	const code = await bundleForBrowser([import.meta.resolve('@le-space/chains/doichain')], {
+		treeshake: false
+	});
+	assert.match(code, /blockchain\.scripthash\.get_history/);
+	assert.match(code, /doi\.works/);
+	assert.doesNotMatch(code, /alchemy\.com|blockscout|filfox|xmrchain|coingecko|coinpaprika/i);
+});
