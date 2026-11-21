@@ -38,6 +38,8 @@ jobs:
           fetch-depth: 2
       - name: The classifier's own tests
         run: node --test scripts/ci-changes.test.mjs
+      - name: The tests of the shards and of the report
+        run: node --test scripts/e2e-shards.test.mjs scripts/e2e-report.test.mjs
       - name: Which specs
         id: needs
         env:
@@ -53,7 +55,9 @@ jobs:
 
   # Every spec over HTTP, in five shards on five runners: the specs share the
   # bridge's and the relay's ports, so one runner runs one spec at a time
-  # (workers: 1), and the runners do the rest side by side.
+  # (workers: 1), and the runners do the rest side by side. The specs are dealt
+  # out by the time they take (E2E_SHARD, scripts/e2e-shards.mjs), so the five
+  # finish together.
   e2e:
     name: E2E tests (${{ matrix.shard }}/5)
     needs: changes
@@ -89,7 +93,19 @@ jobs:
           # A pull request that changes the bridge and not the app: only the
           # specs that pair a bridge (app/e2e/bridge.js).
           E2E_SPECS: ${{ needs.changes.outputs.e2e == 'bridge' && 'bridge' || '' }}
-        run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/5 --pass-with-no-tests
+          E2E_SHARD: ${{ matrix.shard }}/5
+          E2E_REPORT: e2e-report.json
+        run: pnpm --filter @belege/app exec playwright test --pass-with-no-tests
+      # Every run's report, green or red: the last job reads them for the
+      # tests that passed only on a second try.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-http-${{ matrix.shard }}
+          path: app/e2e-report.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep the evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -128,7 +144,17 @@ jobs:
       - name: Bridge specs over the stream
         env:
           E2E_BRIDGE_VIA: stream
-        run: pnpm --filter @belege/app exec playwright test --shard=${{ matrix.shard }}/2 --pass-with-no-tests
+          E2E_SHARD: ${{ matrix.shard }}/2
+          E2E_REPORT: e2e-report.json
+        run: pnpm --filter @belege/app exec playwright test --pass-with-no-tests
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report-stream-${{ matrix.shard }}
+          path: app/e2e-report.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep the evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -181,6 +207,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # A retry hides a test that fails now and then. The run's page names
+      # them, with each shard's time (scripts/e2e-report.mjs). Never a reason
+      # for this job to fail.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
+      - name: Fetch the shards' reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: e2e-report-*
+          path: e2e-reports
+      - name: What passed only on a second try
+        continue-on-error: true
+        run: |
+          mkdir -p e2e-reports
+          node scripts/e2e-report.mjs e2e-reports | tee -a "$GITHUB_STEP_SUMMARY"
+          if grep -q 'passed only on a second try' "$GITHUB_STEP_SUMMARY"; then
+            echo "::warning title=Browser specs::Some tests passed only on a second try: see the run's summary."
+          fi
       - name: Every shard passed (or none was needed)
         env:
           CHANGES: ${{ needs.changes.result }}
