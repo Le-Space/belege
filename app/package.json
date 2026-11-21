@@ -70,7 +70,7 @@
 		"@le-space/ledger": "workspace:^",
 		"@le-space/libp2p-webrtc-qr": "0.14.0",
 		"@le-space/orbitdb-identity-provider-webauthn-did": "0.11.0",
-		"@le-space/orbitdb-storage-bridge": "0.28.0",
+		"@le-space/orbitdb-storage-bridge": "0.29.0",
 		"@le-space/pdf": "workspace:^",
 		"@le-space/sealed-image": "0.12.8",
 		"@le-space/ucep": "0.2.0-draft.5",
