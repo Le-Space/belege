@@ -4,7 +4,18 @@
 // nothing is when no backup is kept at all. Made-up CIDs and sizes.
 import { describe, expect, it } from 'vitest';
 
-import { chainAfter, olderChains, reconcileChain, refusedIncrement } from './chain.js';
+import {
+	CHAIN_SETTING,
+	chainAfter,
+	chainFilesKey,
+	loadChain,
+	olderChains,
+	reconcileChain,
+	refusedIncrement,
+	saveChain
+} from './chain.js';
+import { BACKUPS_KEY } from './history.js';
+import { getSetting, setSetting } from '../store/settings.js';
 
 /** @param {Partial<import('./history.js').BackupRecord>} b */
 const row = (b) =>
@@ -285,5 +296,161 @@ describe('refusedIncrement', () => {
 			inc({ at, cid: 'QmInc2', sequence: 2, status: 'rejected' })
 		];
 		expect(refusedIncrement(backups, 'QmBase')?.cid).toBe('QmInc2');
+	});
+});
+
+/**
+ * The sealed settings as far as the chain uses them: records by id, a write
+ * counted per key, the bytes of each write's value beside it.
+ */
+function settingsCollection() {
+	/** @type {Map<string, any>} */
+	const records = new Map();
+	/** @type {{ key: string, bytes: number }[]} */
+	const writes = [];
+	let next = 0;
+	const collection = /** @type {any} */ ({
+		async list(/** @type {any} */ { where, includeDeleted = false } = {}) {
+			return [...records.values()]
+				.filter((r) => includeDeleted || !r.deleted)
+				.filter((r) => !where || where(r));
+		},
+		async put(/** @type {any} */ input) {
+			const record = { ...input, id: input.id ?? `id${next++}`, deleted: input.deleted ?? false };
+			records.set(record.id, record);
+			writes.push({ key: record.key, bytes: JSON.stringify(record.value ?? null).length });
+			return record;
+		}
+	});
+	return { collection, writes };
+}
+
+describe('the chain keeps its receipt files out of its own record (#558)', () => {
+	const BASE = 'QmBase';
+	const files = Array.from({ length: 200 }, (_, i) => `QmFile${String(i).padStart(40, '0')}`);
+	const base = () => ({
+		base: BASE,
+		sequence: 0,
+		previous: null,
+		heads: { db: ['h0'] },
+		files: files.slice(0, 200),
+		kept: { sequence: 0, previous: null, heads: { db: ['h0'] }, files: 200 },
+		pending: []
+	});
+	/** @param {number} seq @param {string} status */
+	const inc = (seq, status) =>
+		row({
+			at: `2026-11-0${seq}T10:00:00Z`,
+			cid: `QmInc${seq}`,
+			kind: 'increment',
+			base: BASE,
+			sequence: seq,
+			status
+		});
+
+	it('writes each backup’s new files once, in a record of its own; the chain’s record stays small', async () => {
+		const { collection: settings, writes } = settingsCollection();
+		await saveChain(settings, base());
+		let chain = /** @type {any} */ (base());
+		for (let seq = 1; seq <= 20; seq++) {
+			chain = await chainAfter(
+				chain,
+				{ heads: { db: [`h${seq}`] }, files: [`QmNew${seq}`] },
+				`QmInc${seq}`,
+				'processed'
+			);
+			await saveChain(settings, chain);
+		}
+		// No list of files in the chain's record, however long the chain.
+		const stored = await getSetting(settings, CHAIN_SETTING);
+		expect(stored).not.toHaveProperty('files');
+		const chainWrites = writes.filter((w) => w.key === CHAIN_SETTING);
+		expect(chainWrites).toHaveLength(21);
+		expect(Math.max(...chainWrites.map((w) => w.bytes))).toBeLessThan(1_000);
+		// The full backup's 200 files written once, each increment's one file once.
+		expect(writes.filter((w) => w.key === chainFilesKey(BASE, 0))).toHaveLength(1);
+		expect(await getSetting(settings, chainFilesKey(BASE, 7))).toEqual(['QmNew7']);
+		// Loaded, the chain has them all, in the order shipped.
+		const loaded = await loadChain(settings);
+		expect(loaded?.sequence).toBe(20);
+		expect(loaded?.files).toEqual([
+			...files,
+			...Array.from({ length: 20 }, (_, i) => `QmNew${i + 1}`)
+		]);
+	});
+
+	it('a chain gone back leaves out what the refused increment shipped, and the next one under its number writes its own', async () => {
+		const { collection: settings } = settingsCollection();
+		await saveChain(settings, base());
+		const one = await chainAfter(
+			base(),
+			{ heads: { db: ['h1'] }, files: ['QmNew1'] },
+			'QmInc1',
+			'processed'
+		);
+		await saveChain(settings, one);
+		const two = await chainAfter(
+			one,
+			{ heads: { db: ['h2'] }, files: ['QmNew2'] },
+			'QmInc2',
+			'pending'
+		);
+		await saveChain(settings, two);
+		await setSetting(settings, BACKUPS_KEY, [inc(1, 'processed'), inc(2, 'rejected')]);
+		const back = /** @type {any} */ (await loadChain(settings));
+		expect(back.sequence).toBe(1);
+		expect(back.files).toEqual([...files, 'QmNew1']);
+		// Loaded again: the same, from the records.
+		expect((await loadChain(settings))?.files).toEqual([...files, 'QmNew1']);
+		// The next increment, number 2 again, ships the refused one's file again and another.
+		const again = await chainAfter(
+			back,
+			{ heads: { db: ['h2b'] }, files: ['QmNew2', 'QmNew3'] },
+			'QmInc2b',
+			'processed'
+		);
+		await saveChain(settings, again);
+		await setSetting(settings, BACKUPS_KEY, [
+			inc(1, 'processed'),
+			inc(2, 'rejected'),
+			row({ ...inc(2, 'processed'), cid: 'QmInc2b', at: '2026-11-03T10:00:00Z' })
+		]);
+		expect((await loadChain(settings))?.files).toEqual([...files, 'QmNew1', 'QmNew2', 'QmNew3']);
+	});
+
+	it('a chain from before carries its files itself: they move into records split by what Aleph kept', async () => {
+		const { collection: settings } = settingsCollection();
+		const old = {
+			base: BASE,
+			sequence: 2,
+			previous: 'QmInc2',
+			heads: { db: ['h2'] },
+			files: [...files, 'QmNew1', 'QmNew2'],
+			kept: { sequence: 1, previous: 'QmInc1', heads: { db: ['h1'] }, files: 201 },
+			pending: [
+				{ sequence: 2, previous: 'QmInc2', heads: { db: ['h2'] }, files: 202, cid: 'QmInc2' }
+			]
+		};
+		await setSetting(settings, CHAIN_SETTING, old);
+		await setSetting(settings, BACKUPS_KEY, [inc(1, 'processed'), inc(2, 'pending')]);
+		expect((await loadChain(settings))?.files).toEqual(old.files);
+		expect(await getSetting(settings, CHAIN_SETTING)).not.toHaveProperty('files');
+		expect(await getSetting(settings, chainFilesKey(BASE, 1))).toEqual([...files, 'QmNew1']);
+		expect(await getSetting(settings, chainFilesKey(BASE, 2))).toEqual(['QmNew2']);
+		// Aleph refuses the pending one: back to what it kept, without its file.
+		await setSetting(settings, BACKUPS_KEY, [inc(1, 'processed'), inc(2, 'rejected')]);
+		expect((await loadChain(settings))?.files).toEqual([...files, 'QmNew1']);
+	});
+
+	it('a new full backup clears the lists of the chain before it', async () => {
+		const { collection: settings } = settingsCollection();
+		await saveChain(settings, base());
+		await saveChain(settings, {
+			...base(),
+			base: 'QmOtherBase',
+			files: ['QmOnly']
+		});
+		expect(await getSetting(settings, chainFilesKey(BASE, 0))).toBeNull();
+		expect((await loadChain(settings))?.files).toEqual(['QmOnly']);
 	});
 });
