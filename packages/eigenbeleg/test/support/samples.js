@@ -41,7 +41,33 @@ const base = {
 /** @param {Record<string, any>} over */
 const e = (over) => entry({ ...base, hash: over.id, time: '2026-10-05T10:00:00Z', ...over });
 
-export async function nearEntries() {
+/**
+ * Made-up rates in another currency, named the way a caller names both legs:
+ * the euro rate, and the official rate into the currency.
+ *
+ * @param {string} currency
+ * @param {Record<string, string>} table asset → rate in the currency
+ * @param {string} second the second leg's name, before its day
+ * @returns {import('../../src/value.js').Rates}
+ */
+export const crossRates = (currency, table, second) => ({
+	async rateFor(asset, date) {
+		return table[asset]
+			? {
+					rate: table[asset],
+					source:
+						asset === 'USD'
+							? `EZB-Referenzkurs USD/EUR vom ${date} × ${second} vom ${date}`
+							: `CoinGecko, Kurs ${date} 00:00 UTC × ${second} vom ${date}`,
+					date,
+					currency
+				}
+			: null;
+	}
+});
+
+/** @param {import('../../src/value.js').Rates} [rates] @param {string} [currency] */
+export async function nearEntries(rates = fixedRates({ NEAR: '3.8' }), currency) {
 	return valueEntries(
 		[
 			e({
@@ -74,13 +100,15 @@ export async function nearEntries() {
 				counterparty: 'stromwerk.testnet'
 			})
 		],
-		fixedRates({ NEAR: '3.8' })
+		rates,
+		{ currency }
 	);
 }
 
 const ACCOUNT = `0x${'a1'.repeat(20)}`;
 /** A month of made-up Aleph credits: a purchase, storage and an instance, valued at 0.8 EUR per USD. */
-export async function alephEntries() {
+/** @param {import('../../src/value.js').Rates} [rates] @param {string} [currency] */
+export async function alephEntries(rates = fixedRates({ USD: '0.8' }), currency) {
 	const a = {
 		chain: 'aleph',
 		network: 'mainnet',
@@ -136,7 +164,8 @@ export async function alephEntries() {
 				unitPrice
 			})
 		],
-		fixedRates({ USD: '0.8' })
+		rates,
+		{ currency }
 	);
 }
 
@@ -368,6 +397,52 @@ export async function samples() {
 		number: 'VA-2026-08-01',
 		issuedAt
 	});
+	// The same documents in another currency (Le-Space/eigenbeleg-agent#72): an ECB
+	// currency, the ruble (Bank of Russia), and Aleph credits at their own USD price.
+	const chf = buildDocument({
+		payer,
+		chain: 'near',
+		network: 'testnet',
+		period,
+		entries: await nearEntries(
+			crossRates('CHF', { NEAR: '3.61' }, 'EZB-Referenzkurs EUR/CHF'),
+			'CHF'
+		),
+		number: 'EB-2026-009',
+		issuedAt,
+		currency: 'CHF'
+	});
+	const rub = buildStatement({
+		payer,
+		account: 'wolkenfabrik.testnet',
+		chain: 'near',
+		network: 'testnet',
+		period,
+		entries: await nearEntries(
+			crossRates('RUB', { NEAR: '381.9' }, 'Bank von Russland, amtlicher Kurs RUB je EUR'),
+			'RUB'
+		),
+		opening: { NEAR: '10' },
+		closing: { NEAR: '12.998303634875' },
+		method: 'archive',
+		number: 'KA-2026-10-RUB',
+		issuedAt,
+		currency: 'RUB'
+	});
+	const usd = buildStatement({
+		payer,
+		account: ACCOUNT,
+		chain: 'aleph',
+		network: 'mainnet',
+		period: { from: '2026-08-01', to: '2026-08-31' },
+		entries: await alephEntries(fixedRates({}, 'USD'), 'USD'),
+		opening: { 'ALEPH-CREDIT': '2000000' },
+		closing: { 'ALEPH-CREDIT': '2997800' },
+		method: 'derived',
+		number: 'VA-2026-08-01-USD',
+		issuedAt,
+		currency: 'USD'
+	});
 	return {
 		/** @type {Record<string, Uint8Array>} */
 		pdfs: {
@@ -378,8 +453,12 @@ export async function samples() {
 			'verbrauchsauszug.pdf': await statementPdf(verbrauch),
 			'booking-wallet.pdf': await bookingPdf(walletBooking),
 			'booking-bank.pdf': await bookingPdf(bankBooking),
-			'statement-sheet.pdf': await sheet()
+			'statement-sheet.pdf': await sheet(),
+			'eigenbeleg-collective-chf.pdf': await eigenbelegPdf(chf),
+			'kontoauszug-rub.pdf': await statementPdf(rub),
+			'verbrauchsauszug-usd.pdf': await statementPdf(usd)
 		},
-		csv: eigenbelegCsv(single)
+		csv: eigenbelegCsv(single),
+		csvChf: eigenbelegCsv(chf)
 	};
 }

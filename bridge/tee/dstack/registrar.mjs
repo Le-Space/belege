@@ -19,7 +19,7 @@
 // bridge. The private key never leaves this process. It runs with an empty
 // environment but the launcher's address, fixed in the measured compose file.
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { intakeKey, openSecrets } from './intake.mjs';
@@ -115,10 +115,14 @@ export async function register({
 	const data = reportData(start.books, start.at_ms, keyHash);
 	const quote = await dstack('/GetQuote', { report_data: data.toString('hex') }, socketPath);
 	const info = await dstack('/Info', {}, socketPath);
+	// Only this VM fetches its sealed secrets: the launcher gets the hash now,
+	// the key itself with the fetch.
+	const fetchKey = randomBytes(32).toString('hex');
 	const body = {
 		books: start.books,
 		start_at_ms: String(start.at_ms),
 		intake_key: key.publicKey,
+		fetch_key_hash: createHash('sha256').update(Buffer.from(fetchKey, 'hex')).digest('hex'),
 		quote: quote.quote,
 		event_log: quote.event_log,
 		tcb_info: info.tcb_info
@@ -133,7 +137,17 @@ export async function register({
 			});
 			if (res.ok) {
 				log(`quote handed to the launcher for ${start.books}`);
-				return await receive({ run, launcher, start, key, fetchImpl, log, pollMs, timeoutMs });
+				return await receive({
+					run,
+					launcher,
+					start,
+					key,
+					fetchKey,
+					fetchImpl,
+					log,
+					pollMs,
+					timeoutMs
+				});
 			}
 			log(`launcher: HTTP ${res.status} (attempt ${attempt})`);
 			if (res.status >= 400 && res.status < 500 && res.status !== 429) return null;
@@ -148,9 +162,9 @@ export async function register({
 /**
  * Wait for the sealed secrets, open them, sort them into the run directory.
  *
- * @param {{ run: string, launcher: string, start: { books: string, at_ms: string|number }, key: ReturnType<typeof intakeKey>, fetchImpl: typeof fetch, log: (l: string) => void, pollMs: number, timeoutMs: number }} o
+ * @param {{ run: string, launcher: string, start: { books: string, at_ms: string|number }, key: ReturnType<typeof intakeKey>, fetchKey: string, fetchImpl: typeof fetch, log: (l: string) => void, pollMs: number, timeoutMs: number }} o
  */
-async function receive({ run, launcher, start, key, fetchImpl, log, pollMs, timeoutMs }) {
+async function receive({ run, launcher, start, key, fetchKey, fetchImpl, log, pollMs, timeoutMs }) {
 	const url = new URL(
 		`/v1/bridge-secrets/${encodeURIComponent(start.books)}/${start.at_ms}`,
 		launcher
@@ -158,7 +172,10 @@ async function receive({ run, launcher, start, key, fetchImpl, log, pollMs, time
 	const until = Date.now() + timeoutMs;
 	while (Date.now() < until) {
 		try {
-			const res = await fetchImpl(url, { redirect: 'error' });
+			const res = await fetchImpl(url, {
+				headers: { authorization: `Bearer ${fetchKey}` },
+				redirect: 'error'
+			});
 			if (res.ok) {
 				const { sealed } = await res.json();
 				const json = openSecrets(String(sealed), key, start.books, start.at_ms);

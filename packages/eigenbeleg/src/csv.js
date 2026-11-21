@@ -8,9 +8,10 @@
 // where anyone can write anything.
 
 import { round } from '@le-space/ledger';
-import { kindText } from './document.js';
+import { currencyPlaces, kindText } from './document.js';
 
-const HEADER = [
+/** The head; rate and value name the document's currency. @param {string} currency */
+const header = (currency) => [
 	'Belegnummer',
 	'Position',
 	'Datum (UTC)',
@@ -24,8 +25,8 @@ const HEADER = [
 	'Asset',
 	'Token-Contract',
 	'Menge',
-	'Kurs EUR',
-	'Wert EUR',
+	`Kurs ${currency}`,
+	`Wert ${currency}`,
 	'Kursquelle',
 	'Transaktions-Hash',
 	'Explorer',
@@ -50,8 +51,10 @@ function cell(v) {
  * @returns {string}
  */
 export function eigenbelegCsv(doc) {
+	const currency = doc.currency ?? 'EUR';
 	/** @type {unknown[][]} */
-	const rows = [HEADER];
+	const rows = [header(currency)];
+	const places = currencyPlaces(currency);
 	const numberOf = (/** @type {number | string} */ pos) =>
 		doc.layout === 'single' ? (doc.transactions[Number(pos) - 1]?.number ?? '') : doc.number;
 	/** @param {import('./value.js').ValuedEntry} e @param {string | number} pos @param {boolean} on @param {string} why */
@@ -95,8 +98,8 @@ export function eigenbelegCsv(doc) {
 		'',
 		'',
 		'',
-		num(round(`-${doc.totals.eurExact}`, 2)),
-		`gerundet auf Cent, ungerundet ${doc.totals.eurExact === '0' ? '0' : '-' + num(doc.totals.eurExact)}`,
+		num(round(`-${doc.totals.eurExact}`, places)),
+		`${currency === 'EUR' ? 'gerundet auf Cent' : places ? `gerundet auf ${places} Nachkommastellen` : 'gerundet auf ganze Beträge'}, ungerundet ${doc.totals.eurExact === '0' ? '0' : '-' + num(doc.totals.eurExact)}`,
 		'',
 		'',
 		'ja',

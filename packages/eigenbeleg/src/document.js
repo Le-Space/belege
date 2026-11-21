@@ -60,6 +60,88 @@ export function noInvoice(chain, chainName) {
 export const NOT_AN_INVOICE =
 	'Dies ist keine Rechnung und kein Beleg eines Dritten. Le Space stellt keine Rechnungen für andere aus.';
 
+/**
+ * The currencies a document can be kept in (Le-Space/eigenbeleg-agent#72),
+ * each with the decimals its totals are rounded to (ISO 4217) and where its
+ * rate against the euro comes from: the ECB's reference rate, or the Bank of
+ * Russia's official rate. EUR is the default, and what every document was in
+ * before. The caller's rates must be in the document's currency
+ * (`valueEntries(entries, rates, { currency })`; @le-space/rates
+ * `rate(asset, date, { currency })`).
+ */
+export const DOCUMENT_CURRENCIES = Object.freeze(
+	/** @type {Record<string, { places: number, via: 'ecb' | 'cbr' | null }>} */ ({
+		EUR: { places: 2, via: null },
+		USD: { places: 2, via: 'ecb' },
+		CHF: { places: 2, via: 'ecb' },
+		GBP: { places: 2, via: 'ecb' },
+		SEK: { places: 2, via: 'ecb' },
+		NOK: { places: 2, via: 'ecb' },
+		DKK: { places: 2, via: 'ecb' },
+		PLN: { places: 2, via: 'ecb' },
+		CZK: { places: 2, via: 'ecb' },
+		HUF: { places: 2, via: 'ecb' },
+		RON: { places: 2, via: 'ecb' },
+		ISK: { places: 0, via: 'ecb' },
+		TRY: { places: 2, via: 'ecb' },
+		RUB: { places: 2, via: 'cbr' }
+	})
+);
+
+/** The currency of a document, checked: EUR when none is given. @param {unknown} [currency] */
+export function documentCurrency(currency = 'EUR') {
+	if (typeof currency !== 'string' || !Object.hasOwn(DOCUMENT_CURRENCIES, currency))
+		throw new Error(`currency: one of ${Object.keys(DOCUMENT_CURRENCIES).join(', ')}`);
+	return currency;
+}
+
+/** The decimals a currency's totals are rounded to. @param {string} currency */
+export const currencyPlaces = (currency) => DOCUMENT_CURRENCIES[documentCurrency(currency)].places;
+
+/**
+ * How a value in euro became one in the document's currency, as the documents
+ * say it after naming the euro rate; '' for EUR. The rate is named for what it
+ * is: the ECB's reference rate, or the Bank of Russia's official rate.
+ *
+ * @param {string} currency
+ */
+export function conversionText(currency) {
+	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
+	if (documentCurrency(currency) === 'EUR') return '';
+	if (currency === 'USD')
+		return `von CoinGecko dessen USD-Kurs desselben Zeitpunkts, sonst über den Euro in USD umgerechnet ${ecb}`;
+	if (DOCUMENT_CURRENCIES[currency].via === 'cbr')
+		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag (bis 01.03.2022 ${ecb})`;
+	return `über den Euro in ${currency} umgerechnet ${ecb}`;
+}
+
+/**
+ * The currency an entry was valued in, and that it is the document's: a value
+ * in francs under a head that says EUR would be a wrong booking.
+ *
+ * @param {import('./value.js').ValuedEntry[]} entries
+ * @param {string} currency
+ */
+export function checkValued(entries, currency) {
+	for (const e of entries) {
+		const valued = e.eur ? (e.eur.currency ?? 'EUR') : currency;
+		if (valued !== currency)
+			throw new Error(`an entry is valued in ${valued}, the document is in ${currency}`);
+	}
+}
+
+/**
+ * A rate's name without its day (`… vom 2026-08-10`), each leg of it: the day
+ * is each position's.
+ *
+ * @param {string} source
+ */
+export const sourceName = (source) =>
+	source
+		.split(' × ')
+		.map((leg) => leg.replace(/ \d{4}-\d{2}-\d{2}.*$/, '').replace(/ vom$/, ''))
+		.join(' × ');
+
 /** Kinds that go on the Eigenbeleg unless the payer chooses otherwise. */
 export const DEFAULT_KINDS = ['fee', 'storage'];
 
@@ -146,7 +228,7 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
  * @property {{ address: string, label: string }} from the own address that paid
  * @property {{ address: string, label: string }} to who received the payment
  * @property {Movement[]} movements every movement of the transaction the period has
- * @property {string} eurExact what is on the Eigenbeleg, in EUR, positive
+ * @property {string} eurExact what is on the Eigenbeleg, in the document's currency, positive
  */
 
 /**
@@ -160,6 +242,9 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
  * @param {string[]} [p.includeKinds]
  * @param {string} [p.issuedAt] ISO; now when not given
  * @param {'collective' | 'single'} [p.layout]
+ * @param {string} [p.currency] the document's currency (DOCUMENT_CURRENCIES), EUR when not
+ *   given; the entries are valued in it. The fields named `eur…` hold the values in this
+ *   currency: they keep the name they had when every document was in euro.
  */
 export function buildDocument({
 	payer,
@@ -170,10 +255,13 @@ export function buildDocument({
 	number,
 	includeKinds = DEFAULT_KINDS,
 	issuedAt,
-	layout = 'collective'
+	layout = 'collective',
+	currency: asked
 }) {
 	if (layout !== 'collective' && layout !== 'single')
 		throw new Error('layout: collective or single');
+	const currency = documentCurrency(asked);
+	checkValued(entries, currency);
 	checkPayer(payer);
 	const kinds = new Set(includeKinds);
 	const own = new Set(payer.addresses);
@@ -276,23 +364,18 @@ export function buildDocument({
 		network,
 		testnet: network !== 'mainnet',
 		period,
+		currency,
 		positions,
 		excluded,
 		totals: {
 			quantities,
-			// What was paid, as a positive amount, rounded to cents.
-			eur: round(eurExact.replace(/^-/, ''), 2),
+			// What was paid, as a positive amount, rounded to cents (the currency's smallest unit).
+			eur: round(eurExact.replace(/^-/, ''), currencyPlaces(currency)),
 			eurExact: eurExact.replace(/^-/, '')
 		},
 		// The rate's name without its day (`… vom 2026-08-10`): the day is each position's.
 		sources: [
-			...new Set(
-				positions.map((p) =>
-					/** @type {any} */ (p.entry.eur).source
-						.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')
-						.replace(/ vom$/, '')
-				)
-			)
+			...new Set(positions.map((p) => sourceName(/** @type {any} */ (p.entry.eur).source)))
 		],
 		note: noInvoice(chain, chainName).note,
 		notInvoice: NOT_AN_INVOICE
@@ -344,12 +427,29 @@ export function deNumber(amount) {
 	return `${neg ? '−' : ''}${grouped}${frac ? ',' + frac : ''}`;
 }
 
-/** A euro amount with fixed decimals: `0.0017` → `0,0017 €`. @param {string} amount @param {number} places */
-export function deEuro(amount, places = 2) {
+/** An amount with fixed decimals and no unit: `0.0017` → `0,0017`. @param {string} amount @param {number} places */
+export function deFixed(amount, places = 2) {
 	const r = round(String(amount), places);
 	const [int, frac = ''] = r.replace(/^-/, '').split('.');
 	const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-	return `${r.startsWith('-') ? '−' : ''}${grouped},${frac.padEnd(places, '0')} €`;
+	return `${r.startsWith('-') ? '−' : ''}${grouped}${places ? `,${frac.padEnd(places, '0')}` : ''}`;
+}
+
+/** A euro amount with fixed decimals: `0.0017` → `0,0017 €`. @param {string} amount @param {number} places */
+export function deEuro(amount, places = 2) {
+	return `${deFixed(amount, places)} €`;
+}
+
+/**
+ * An amount in a document's currency: `12,34 €`, and for every other currency
+ * its code (`12,34 CHF`) – kr and $ are several currencies' signs.
+ *
+ * @param {string} amount
+ * @param {string} currency
+ * @param {number} [places] the currency's own when not given
+ */
+export function deMoney(amount, currency, places = currencyPlaces(currency)) {
+	return `${deFixed(amount, places)} ${currency === 'EUR' ? '€' : currency}`;
 }
 
 /** `2026-10-05` → `05.10.2026`. @param {string} date */

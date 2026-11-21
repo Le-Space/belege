@@ -39,6 +39,16 @@
 //     day's file, EUR per unit = (RUB per unit) / (RUB per EUR); marked
 //     `cbr-cross`, so nobody takes it for an official EUR rate
 
+//
+// A rate into another currency than the euro (`currency`, for a document kept
+// in CHF, USD, RUB …; Le-Space/eigenbeleg-agent#72) is that euro rate times
+// the currency's units per euro of the day: the ECB reference rate, or the
+// last one before it; for RUB since 2022-03-01 the Bank of Russia's official
+// rate valid on the day. The answer carries both legs (`eurRate`, `fx`). Only
+// for USD, and only where CoinGecko answered, its own USD price of the same
+// 00:00 UTC snapshot is the rate: a midnight price times an afternoon fixing
+// would value a dollar coin at 0.99 or 1.01 USD.
+
 // Every answer says which source it came from and for what moment, so a
 // booking can show where its euro amount came from.
 //
@@ -67,6 +77,13 @@ export const ECB_CURRENCIES = Object.freeze(
 		' '
 	)
 );
+
+/**
+ * The currencies a rate can be given in (`rate(asset, date, { currency })`):
+ * the euro, and every currency with an official rate against it from the ECB
+ * or, for RUB, the Bank of Russia. A cross rate through the ruble is none.
+ */
+export const TARGET_CURRENCIES = Object.freeze(['EUR', ...ECB_CURRENCIES]);
 
 /**
  * The currencies the Bank of Russia rates daily and the ECB does not: priced
@@ -443,7 +460,7 @@ export function createRateService({
 	}
 
 	/**
-	 * EUR per unit of a currency from the ECB reference rate of the day or the
+	 * The ECB reference rate of a currency (units per EUR) of the day or the
 	 * last one before it.
 	 *
 	 * One request reads the weeks around the day, and the days near it are
@@ -455,8 +472,9 @@ export function createRateService({
 	 *
 	 * @param {string} currency
 	 * @param {string} day
+	 * @returns {Promise<{ date: string, perEur: string } | null>}
 	 */
-	async function fromEcb(currency, day) {
+	async function ecbRate(currency, day) {
 		const start = addDays(day, -ECB_LOOKBACK_DAYS);
 		let windows = ecbWindows.get(currency);
 		let days = windows?.find((w) => w.from <= start && w.days[0]?.date >= day)?.days;
@@ -472,7 +490,12 @@ export function createRateService({
 			if (windows.length >= ECB_WINDOWS_KEPT) windows.shift();
 			windows.push({ from, days });
 		}
-		const last = days.find((d) => d.date <= day && d.date >= start);
+		return days.find((d) => d.date <= day && d.date >= start) ?? null;
+	}
+
+	/** EUR per unit of a currency: its ECB reference rate (ecbRate), inverted. @param {string} currency @param {string} day */
+	async function fromEcb(currency, day) {
+		const last = await ecbRate(currency, day);
 		if (!last) return null;
 		return {
 			rate: invert(last.perEur),
@@ -627,26 +650,109 @@ export function createRateService({
 	}
 
 	/**
-	 * @typedef {{ asset: string, date: string, currency: 'EUR', rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'dex', at: string, ref?: string }} Rate
-	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id
+	 * How many units of a currency one euro is on the day: the ECB reference
+	 * rate, else (RUB) the Bank of Russia's official rate valid on the day.
+	 * Null where neither has one.
+	 *
+	 * @param {string} currency
+	 * @param {string} day
+	 * @returns {Promise<Fx | null>}
+	 */
+	async function perEuro(currency, day) {
+		const sources = RATE_SOURCES[currency];
+		const ecb = sources.ecb ? await ecbRate(currency, day) : null;
+		if (ecb) return { currency, perEur: ecb.perEur, source: 'ecb', at: `${ecb.date}T00:00:00Z` };
+		const d = sources.cbr ? await cbrDay(day) : null;
+		const eur = d?.valutes.get('EUR');
+		if (!d || !eur) return null;
+		return {
+			currency,
+			perEur: eur.nominal === '1' ? eur.value : multiplyRates(eur.value, invert(eur.nominal)),
+			source: 'cbr',
+			at: `${d.date}T00:00:00Z`
+		};
+	}
+
+	/**
+	 * @typedef {{ currency: string, perEur: string, source: 'ecb' | 'cbr', at: string }} Fx
+	 *   the second leg of a rate into another currency: its units per euro, from whom, of which day
 	 */
 
 	/**
-	 * The rate of one unit of `asset` in EUR on `date`.
+	 * @typedef {{ asset: string, date: string, currency: string, rate: string, usdRate: string | null, source: 'coingecko' | 'kraken' | 'ecb' | 'cbr' | 'nbk' | 'cbr-cross' | 'dex' | 'same', at: string, ref?: string, eurRate?: string, fx?: Fx }} Rate
+	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id.
+	 *   With a `currency` other than EUR: `rate` is in that currency, `source`
+	 *   and `at` are those of the euro rate (`eurRate`), and `fx` is the leg
+	 *   from the euro into the currency – absent where the source priced the
+	 *   asset in the currency itself (CoinGecko's USD price), and for the
+	 *   currency in itself (`same`, rate 1).
+	 */
+
+	/**
+	 * The rate of one unit of `asset` in another currency than the euro.
+	 *
+	 * @param {string} asset
+	 * @param {string} date
+	 * @param {string} currency from TARGET_CURRENCIES, not EUR
+	 * @param {Parameters<typeof rate>[2]} options
+	 * @returns {Promise<Rate>}
+	 */
+	async function rateIn(asset, date, currency, options) {
+		if (!TARGET_CURRENCIES.includes(currency)) {
+			throw new RateError(`no rate into ${String(currency).slice(0, 10)}`, 400);
+		}
+		if (asset === currency && !options?.contract) {
+			if (!DAY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+				throw new RateError('date must be YYYY-MM-DD', 400);
+			}
+			return {
+				asset,
+				date,
+				currency,
+				rate: '1',
+				usdRate: currency === 'USD' ? '1' : null,
+				source: 'same',
+				at: `${date}T00:00:00Z`
+			};
+		}
+		const eur = await rate(asset, date, options);
+		// The same snapshot priced in USD: no second leg, no second moment.
+		if (currency === 'USD' && eur.source === 'coingecko' && eur.usdRate) {
+			return { ...eur, currency, rate: eur.usdRate, eurRate: eur.rate };
+		}
+		const fx = await perEuro(currency, date);
+		if (!fx) throw new RateError(`no rate found for EUR in ${currency} on ${date}`, 502);
+		return { ...eur, currency, rate: multiplyRates(eur.rate, fx.perEur), eurRate: eur.rate, fx };
+	}
+
+	/**
+	 * The rate of one unit of `asset` on `date`, in EUR unless another `currency` is asked for.
 	 *
 	 * @param {string} asset a symbol from RATE_SOURCES; with prefer 'kraken', any symbol
 	 * @param {string} date YYYY-MM-DD, not in the future
-	 * @param {{ prefer?: 'kraken' | null, contract?: string | null, chain?: string | null, block?: number | null, decimals?: number | null }} [options]
+	 * @param {{ prefer?: 'kraken' | null, contract?: string | null, chain?: string | null, block?: number | null, decimals?: number | null, currency?: string }} [options]
 	 *   `contract` and `chain`: a token not in the list, by its contract only – its
 	 *   symbol is its own claim and says nothing (issue #115); with `block` and
-	 *   `decimals`, the DEX pool at that block when CoinGecko has no rate (#163)
+	 *   `decimals`, the DEX pool at that block when CoinGecko has no rate (#163);
+	 *   `currency`: one of TARGET_CURRENCIES, the euro rate times that currency's
+	 *   official rate of the day (see the head of this file)
 	 * @returns {Promise<Rate>}
 	 */
 	async function rate(
 		asset,
 		date,
-		{ prefer = null, contract = null, chain = null, block = null, decimals = null } = {}
+		{
+			prefer = null,
+			contract = null,
+			chain = null,
+			block = null,
+			decimals = null,
+			currency = 'EUR'
+		} = {}
 	) {
+		if (currency !== 'EUR') {
+			return rateIn(asset, date, currency, { prefer, contract, chain, block, decimals });
+		}
 		const platform =
 			contract && chain && Object.hasOwn(COINGECKO_PLATFORMS, chain)
 				? COINGECKO_PLATFORMS[/** @type {keyof typeof COINGECKO_PLATFORMS} */ (chain)]

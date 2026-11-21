@@ -16,7 +16,13 @@ export {
 	DATA_SOURCES,
 	deNumber,
 	deEuro,
-	deDate
+	deFixed,
+	deMoney,
+	deDate,
+	DOCUMENT_CURRENCIES,
+	documentCurrency,
+	currencyPlaces,
+	conversionText
 } from './document.js';
 export { eigenbelegCsv } from './csv.js';
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
@@ -28,7 +34,8 @@ export {
 	STATEMENT_NOTE,
 	USAGE_NOTE,
 	USAGE_NOTES,
-	FILECOIN_PAY_USAGE_NOTE
+	FILECOIN_PAY_USAGE_NOTE,
+	usageNote
 } from './statement.js';
 /** @typedef {import('./statement.js').MonthlyLine} MonthlyLine */
 export { statementPdf } from './statement-pdf.js';
