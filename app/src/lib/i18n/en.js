@@ -1226,6 +1226,7 @@ export default {
 		no: 'Cancel',
 		fetchingBytes: '{what} {received} of {total} MB – {percent} %',
 		fetchingBytesUnknown: '{what} {received} MB',
+		storedBlocks: '· {blocks} blocks stored',
 		fetching: 'Fetching the backup from Aleph’s gateway …',
 		fetchingPeers: 'Fetching the backup from the IPFS network …',
 		sourceGateway: 'Fetched through Aleph’s gateway ({host}) in {seconds} s.',

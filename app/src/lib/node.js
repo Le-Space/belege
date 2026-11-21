@@ -159,7 +159,7 @@ export class ReadOnlyError extends Error {
  *   everything this browser keeps, as one sealed backup (issue #77)
  * @property {(meta: { chain: import('./backup/archive.js').BackupChain, appVersion: string, onProgress?: (p: import('./backup/archive.js').BackupProgress) => void }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').buildIncrement>>>} makeIncrement
  *   what is new since the chain's last backup, sealed; null when nothing is (#454)
- * @property {(sealed: Uint8Array, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments?: Uint8Array[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
+ * @property {(sealed: import('./backup/archive.js').SealedSource, onProgress?: (p: import('./backup/archive.js').RestoreProgress) => void, chain?: { increments?: import('./backup/archive.js').SealedSource[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }) => Promise<Awaited<ReturnType<typeof import('./backup/archive.js').restoreBackup>>>} restoreBackup
  *   a sealed backup, with its increments, back into these books; reload the page afterwards
  * @property {string} identityHash the books' identity document's hash
  * @property {string} peerId this session's libp2p peer id
@@ -692,8 +692,9 @@ export async function startSession(
 		 * no such record at all; nothing here is overwritten, no setting is taken,
 		 * and a receipt keeps a file only when the backup carries it.
 		 *
-		 * @param {Uint8Array} sealed
-		 * @param {{ increments?: Uint8Array[], base?: string } | undefined} chain
+		 * @param {import('./backup/archive.js').SealedSource} sealed read again, whole: this
+		 *   way opens a backup without OrbitDB and needs all of it in hand
+		 * @param {{ increments?: import('./backup/archive.js').SealedSource[], base?: string } | undefined} chain
 		 * @param {Error} refused what the current key said
 		 */
 		async function restoreEarlier(sealed, chain, refused) {
@@ -765,6 +766,9 @@ export async function startSession(
 				manifest: earlier.manifest,
 				target: 'earlier',
 				increments: chain?.increments?.length ?? 0,
+				// Read whole, without OrbitDB: no block of it went into the blockstore as it is.
+				streamed: false,
+				blocks: 0,
 				databases
 			};
 		}
@@ -868,9 +872,10 @@ export async function startSession(
 			 * books open. The restore reopens them behind the store's back, so the page
 			 * reloads afterwards; an error after the close says so (`booksClosed`).
 			 *
-			 * @param {Uint8Array} sealed
+			 * @param {import('./backup/archive.js').SealedSource} sealed bytes, a stream, or a
+			 *   function that starts one (#512): a function lets the file be asked for again
 			 * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
-			 * @param {{ increments?: Uint8Array[], base?: string,
+			 * @param {{ increments?: import('./backup/archive.js').SealedSource[], base?: string,
 			 *   fetchBytes?: (cid: string) => Promise<Uint8Array> }} [chain] the full
 			 *   backup's increments (#454), and where to look for a head it lacks
 			 */

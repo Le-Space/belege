@@ -303,9 +303,10 @@ export async function unsavedCollections(chain) {
  * Put a sealed backup back into these books (backup/archive.js, #77), with its
  * increments (#454). The books are closed for it: reload the page afterwards.
  *
- * @param {Uint8Array} sealed
+ * @param {import('./backup/archive.js').SealedSource} sealed its bytes, or a function that
+ *   starts a stream of them: then it is opened as it arrives (#512)
  * @param {(p: import('./backup/archive.js').RestoreProgress) => void} [onProgress]
- * @param {{ increments?: Uint8Array[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }} [chain] its increments (#454), and where a
+ * @param {{ increments?: import('./backup/archive.js').SealedSource[], base?: string, fetchBytes?: (cid: string) => Promise<Uint8Array> }} [chain] its increments (#454), and where a
  *   head the backup does not carry may still be found
  */
 export async function restoreBackup(sealed, onProgress, chain) {

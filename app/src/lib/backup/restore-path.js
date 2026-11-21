@@ -9,7 +9,7 @@
 // say where the file came from and how long it took – the gateway's host, or
 // how many peers – rather than "from Aleph" for both.
 
-import { createGatewayFirstFetch } from '@le-space/orbitdb-storage-bridge/peer-fetch';
+import { createGatewayFirstStream } from '@le-space/orbitdb-storage-bridge/peer-fetch';
 
 /** Where this browser keeps the choice. */
 export const RESTORE_PATH_KEY = 'belege.restore-path';
@@ -64,27 +64,35 @@ export function gatewayHost(gateways) {
  */
 
 /**
- * A `fetchBytes(cid)` for the chosen way, that says which one delivered.
+ * A backup file for the chosen way, as it arrives (#512): a stream of its
+ * bytes, never the file whole, that says which way delivered once it ended.
+ * Gateway first: when the gateway fails – at the start or after half the
+ * file – the peers go on from the byte it stopped at, and the reader sees one
+ * run of bytes.
  *
  * @param {object} params
  * @param {RestorePath} params.path
- * @param {(cid: string, options?: object) => Promise<Uint8Array>} params.viaGateway
- * @param {(cid: string, options?: object) => Promise<Uint8Array>} params.viaPeers
+ * @param {(cid: string, options?: any) => AsyncIterable<Uint8Array>} params.viaGateway
+ * @param {(cid: string, options?: any) => AsyncIterable<Uint8Array>} params.viaPeers given
+ *   `offset` when it takes over
  * @param {(path: 'gateway' | 'peers', info: PathInfo) => void} [params.onPath]
  * @param {() => number} [params.now]
- * @returns {(cid: string, options?: object) => Promise<Uint8Array>}
+ * @returns {(cid: string, options?: { size?: number }) => AsyncIterable<Uint8Array>}
  */
-export function createRestoreFetch({ path, viaGateway, viaPeers, onPath = () => {}, now }) {
+export function createRestoreStream({ path, viaGateway, viaPeers, onPath = () => {}, now }) {
 	const clock = now ?? (() => Date.now());
 	if (path === 'peers') {
-		return async (cid, options = {}) => {
+		return async function* (cid, options = {}) {
 			const started = clock();
-			const bytes = await viaPeers(cid, options);
-			onPath('peers', { cid, ms: clock() - started, bytes: bytes.length });
-			return bytes;
+			let bytes = 0;
+			for await (const chunk of viaPeers(cid, options)) {
+				bytes += chunk.length;
+				yield chunk;
+			}
+			onPath('peers', { cid, ms: clock() - started, bytes });
 		};
 	}
-	return createGatewayFirstFetch(
+	return createGatewayFirstStream(
 		/** @type {any} */ ({
 			viaGateway,
 			viaPeers,

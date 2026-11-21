@@ -189,7 +189,7 @@ test('"Jetzt sichern": sealed in the browser, uploaded from it, kept by the brid
 	// Two uploads: the one Aleph did not keep, and the one it did.
 	expect(aleph.added.size).toBe(2);
 	const [cid, bytes] = /** @type {[string, Uint8Array]} */ ([...aleph.added].at(-1));
-	expect(Buffer.from(bytes.subarray(0, 8)).toString()).toBe('belegeB1');
+	expect(Buffer.from(bytes.subarray(0, 8)).toString()).toBe('belegeB2');
 	expect(Buffer.from(bytes).toString('latin1')).not.toContain(MARKER);
 	await expect(card.getByTestId('backup-cid')).toContainText(cid);
 	const store = aleph.stores.at(-1);

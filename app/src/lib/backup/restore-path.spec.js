@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	GATEWAY_IDLE_MS,
 	RESTORE_PATH_KEY,
-	createRestoreFetch,
+	createRestoreStream,
 	gatewayHost,
 	restorePath,
 	setRestorePath
@@ -34,48 +35,89 @@ describe('which way a backup comes back', () => {
 		expect(gatewayHost([])).toBe('');
 	});
 
+	/** @param {Uint8Array[]} chunks */
+	const streamOf = (chunks) =>
+		async function* () {
+			yield* chunks;
+		};
+	/** @param {AsyncIterable<Uint8Array>} stream */
+	const read = async (stream) => {
+		/** @type {number[]} */
+		const out = [];
+		for await (const chunk of stream) out.push(...chunk);
+		return out;
+	};
+
 	it('gateway first: the gateway delivers and is named; when it fails, the peers deliver and say so', async () => {
 		/** @type {any[]} */
 		const paths = [];
-		const bytes = new Uint8Array([1, 2, 3]);
-		const ok = createRestoreFetch({
+		const ok = createRestoreStream({
 			path: 'gateway-first',
-			viaGateway: async () => bytes,
-			viaPeers: async () => {
+			viaGateway: streamOf([new Uint8Array([1, 2]), new Uint8Array([3])]),
+			viaPeers: () => {
 				throw new Error('not asked');
 			},
 			onPath: (p, info) => paths.push([p, info.bytes])
 		});
-		expect(await ok('bafy')).toBe(bytes);
+		expect(await read(ok('bafy'))).toEqual([1, 2, 3]);
 		expect(paths).toEqual([['gateway', 3]]);
 
 		paths.length = 0;
-		const quiet = createRestoreFetch({
+		const quiet = createRestoreStream({
 			path: 'gateway-first',
-			viaGateway: async () => {
+			// eslint-disable-next-line require-yield
+			viaGateway: async function* () {
 				throw new Error('no bytes for 15000 ms');
 			},
-			viaPeers: async () => bytes,
+			viaPeers: streamOf([new Uint8Array([1, 2, 3])]),
 			onPath: (p, info) => paths.push([p, info.after?.error])
 		});
-		expect(await quiet('bafy')).toBe(bytes);
+		expect(await read(quiet('bafy'))).toEqual([1, 2, 3]);
 		expect(paths).toEqual([['peers', 'no bytes for 15000 ms']]);
+	});
+
+	it('gateway first: a gateway that stops half way hands over at that byte, and the file is one run of bytes', async () => {
+		/** @type {any[]} */
+		const paths = [];
+		/** @type {any[]} */
+		const asked = [];
+		const file = [1, 2, 3, 4, 5, 6];
+		const stream = createRestoreStream({
+			path: 'gateway-first',
+			viaGateway: async function* (cid, options) {
+				asked.push(['gateway', options?.timeout]);
+				yield new Uint8Array(file.slice(0, 4));
+				throw new Error('the connection dropped');
+			},
+			viaPeers: async function* (cid, options) {
+				asked.push(['peers', options?.offset]);
+				yield new Uint8Array(file.slice(options?.offset ?? 0));
+			},
+			onPath: (p, info) => paths.push([p, info.bytes, /** @type {any} */ (info).resumedAt])
+		});
+		expect(await read(stream('bafy', { size: 6 }))).toEqual(file);
+		// The gateway with the short idle time, the peers from byte 4 on.
+		expect(asked).toEqual([
+			['gateway', GATEWAY_IDLE_MS],
+			['peers', 4]
+		]);
+		expect(paths).toEqual([['peers', 6, 4]]);
 	});
 
 	it('peers only: the gateway is never asked', async () => {
 		/** @type {string[]} */
 		const paths = [];
 		let gatewayAsked = false;
-		const fetchBytes = createRestoreFetch({
+		const stream = createRestoreStream({
 			path: 'peers',
-			viaGateway: async () => {
+			// eslint-disable-next-line require-yield
+			viaGateway: async function* () {
 				gatewayAsked = true;
-				return new Uint8Array();
 			},
-			viaPeers: async () => new Uint8Array([9]),
+			viaPeers: streamOf([new Uint8Array([9])]),
 			onPath: (p) => paths.push(p)
 		});
-		expect(await fetchBytes('bafy')).toEqual(new Uint8Array([9]));
+		expect(await read(stream('bafy'))).toEqual([9]);
 		expect(gatewayAsked).toBe(false);
 		expect(paths).toEqual(['peers']);
 	});

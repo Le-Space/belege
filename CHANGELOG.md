@@ -6,6 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A restore no longer holds the backup in memory** (#512). The first restore of a real backup on a phone, about 720 MB, ended without a word: the fetched file, its plaintext and its blocks were in the tab's memory at once, three times the backup, and Android Chrome ends such a tab. A backup is now opened as it arrives – a megabyte, its blocks into the browser's storage, the next megabyte – and the step says how far it is: MB fetched and blocks stored, then the databases. Measured in Node with the blocks on disk: about 9 MiB of buffers for a backup of 64 MiB, against about 190 MiB before. A connection that drops is picked up at the byte it stopped at, also when the IPFS network takes over from Aleph's gateway. Needs `@le-space/orbitdb-storage-bridge` with the envelope in frames (NiKrause/orbitdb-storage-bridge#187).
+
+### Changed
+
+- **Backups are sealed in frames** (#512; the format is in [docs/backup.md](docs/backup.md#technical)). A new backup, full or increment, is `belegeB2`: the same CAR, in pieces of 1 MiB, each sealed by itself with AES-256-GCM under a key of that one file's, its place in the file authenticated with it, the last one marked as last, and a key check in front. A wrong passkey is known before anything is stored, and a file that is damaged or cut short is refused at the frame, with the books untouched; before, both failed the same way. The backup's manifest is its first block, so a backup of other books is refused before a block of it is stored.
+- **Backups made before still restore, as they did.** They are sealed in one piece and can only be opened whole, with the memory that takes. To restore on a phone, make a new full backup with this version on a computer first. A Belege from before this version does not read the new backups: reload it.
+
 ## [0.47.0] – 2026-11-21
 
 ### Security

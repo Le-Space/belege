@@ -1,6 +1,10 @@
 // "Wiederherstellen" (issue #77), as the backup card runs it: a backup fetched
 // from Aleph's gateway by its CID and put back into these books
 // (archive.js `restoreBackup`), with the increments that build on it (#454).
+// The file is not fetched and then opened: it is opened as it arrives (#512),
+// frame by frame, its blocks stored as they are read, so a phone holds a
+// megabyte or two of a backup of several hundred. The step says how far each
+// has come: bytes fetched, blocks stored, then the databases joined.
 // Restoring merges: what is here stays, what the backup holds is added. The
 // books are closed for it, so the page reloads at the end and the passkey
 // opens them again. The state lives here so the card stays readable.
@@ -11,7 +15,7 @@ import { loadBackups } from './history.js';
 import { findBackups } from './keeper.js';
 import { keepAwake } from '$lib/wake-lock.js';
 import { holdAlive } from '$lib/keep-alive.js';
-import { createRestoreFetch, gatewayHost, restorePath, setRestorePath } from './restore-path.js';
+import { createRestoreStream, gatewayHost, restorePath, setRestorePath } from './restore-path.js';
 
 export const restoreRun = $state({
 	/** @type {string | null} the CID asked about, waiting for "Ja" */
@@ -24,6 +28,8 @@ export const restoreRun = $state({
 	fetched: /** @type {{ done: number, total: number } | null} */ (null),
 	/** Bytes of the file being fetched, of how many the gateway announced (0: unknown). */
 	bytes: /** @type {{ received: number, total: number } | null} */ (null),
+	/** Blocks of the backup in this browser's blockstore so far, over all its files (#512). */
+	stored: 0,
 	/** @type {{ collection: string, joined: number }[]} what came back, per database */
 	result: [],
 	/** Increments restored with the full backup. */
@@ -121,6 +127,8 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 	restoreRun.detail = null;
 	restoreRun.progress = null;
 	restoreRun.bytes = null;
+	restoreRun.stored = 0;
+	restoreRun.fetched = null;
 	restoreRun.via = null;
 	restoreRun.source = null;
 	// A phone must not darken its screen meanwhile (#512), nor freeze the tab
@@ -136,6 +144,9 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 		const { GATEWAY_IDLE_MS } = await import('./restore-path.js');
 		const gateway = createAlephBackend({ gateways: endpoints.gateways, timeout: GATEWAY_IDLE_MS });
 		const host = gatewayHost(endpoints.gateways);
+		// The blob as it arrives (#512); a storage bridge from before has no such thing.
+		const streamFromGateway = gateway.getBlobStream;
+		if (!streamFromGateway) throw new Error('This storage bridge cannot fetch a blob as a stream.');
 		/** The bytes each file has, where known: a short download is refused, not opened. */
 		const bytesOf = { ...sizes };
 		/** @param {string} id */
@@ -144,59 +155,77 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 		};
 		// The way this browser chose (restore-path.js): the gateway, and the
 		// peers when it goes quiet – or the peers only. Either way the card
-		// learns which one delivered.
-		const fetchBlob = createRestoreFetch({
+		// learns which one delivered. A stream, not the file: what arrives is
+		// opened and stored at once (archive.js), and a connection that drops is
+		// picked up at the byte it stopped at.
+		const streamBlob = createRestoreStream({
 			path: restoreRun.path,
-			viaGateway: (id) => {
+			viaGateway: (id, options = {}) => {
 				restoreRun.via = 'gateway';
-				restoreRun.bytes = null;
-				return gateway.getBlob(id, {
+				return streamFromGateway(id, {
 					...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
+					...(options.timeout ? { timeout: options.timeout } : {}),
 					onProgress: progressOf(id)
 				});
 			},
-			viaPeers: async (id) => {
-				restoreRun.via = 'peers';
-				restoreRun.bytes = null;
-				peers ??= await (await import('./restore-peers.js')).createRestorePeers();
-				return peers.fetch(id, {
-					...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
-					onProgress: progressOf(id)
-				});
-			},
+			viaPeers: (id, options = {}) =>
+				(async function* () {
+					restoreRun.via = 'peers';
+					peers ??= await (await import('./restore-peers.js')).createRestorePeers();
+					yield* peers.stream(id, {
+						...(bytesOf[id] > 0 ? { size: bytesOf[id] } : {}),
+						...(options.offset ? { offset: options.offset } : {}),
+						onProgress: progressOf(id)
+					});
+				})(),
 			onPath: (path, info) => {
 				restoreRun.source = { path, host, peers: peers?.reached() ?? 0, ms: info.ms };
 			}
 		});
+		/** One file, asked for when the restore gets to it. @param {string} id */
+		const fileOf = (id) => () => {
+			restoreRun.bytes = null;
+			return streamBlob(id, bytesOf[id] > 0 ? { size: bytesOf[id] } : {});
+		};
 		// The increments first, with the sizes the history and Aleph's list
 		// know for them; the full backup's size is the card's to know.
 		const wanted = await incrementsOf(cid, { known, owner, endpoints, sizes: bytesOf });
-		const sealed = await fetchBlob(cid);
-		restoreRun.bytes = null;
-		/** @type {Uint8Array[]} */
-		const increments = [];
-		restoreRun.fetched = wanted.length ? { done: 0, total: wanted.length } : null;
-		for (const inc of wanted) {
-			increments.push(await fetchBlob(inc));
-			restoreRun.bytes = null;
-			restoreRun.fetched = { done: increments.length, total: wanted.length };
-		}
-		restoreRun.phase = 'restoring';
 		// The same gateways the archive itself came from, offered as a second
 		// source for a head the backup does not carry. Ten seconds, not sixty:
 		// beside a restore that is otherwise done, this is a long shot.
 		const { fetchFromGateways, RAW_BLOCK } = await import(
 			'@le-space/orbitdb-storage-bridge/gateway-fetch'
 		);
-		const done = await restoreBackup(sealed, (p) => (restoreRun.progress = p), {
-			...(increments.length ? { increments, base: cid } : {}),
-			fetchBytes: (/** @type {string} */ block) =>
-				fetchFromGateways(block, {
-					gateways: endpoints.gateways,
-					accept: RAW_BLOCK,
-					timeout: 10_000
-				})
-		});
+		const done = await restoreBackup(
+			fileOf(cid),
+			(p) => {
+				if (p.stage === 'stored') restoreRun.stored = p.blocks;
+				else if (p.stage === 'joining' || p.stage === 'database') {
+					// Every file is in: from here the books are put back.
+					restoreRun.phase = 'restoring';
+					restoreRun.bytes = null;
+					restoreRun.progress = p;
+				}
+			},
+			{
+				...(wanted.length
+					? {
+							increments: wanted.map((inc, i) => () => {
+								// Each one fetched only when the one before is stored.
+								restoreRun.fetched = { done: i, total: wanted.length };
+								return fileOf(inc)();
+							}),
+							base: cid
+						}
+					: {}),
+				fetchBytes: (/** @type {string} */ block) =>
+					fetchFromGateways(block, {
+						gateways: endpoints.gateways,
+						accept: RAW_BLOCK,
+						timeout: 10_000
+					})
+			}
+		);
 		restoreRun.result = done.databases;
 		restoreRun.increments = done.increments ?? 0;
 		restoreRun.phase = 'done';
@@ -220,7 +249,8 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 							? t('restore.incomplete')
 							: name === 'BlocksNotStoredError'
 								? t('restore.noSpace')
-								: e instanceof Error && e.name === 'BackendError'
+								: // A frame that does not open (FrameError): the file is damaged or cut short.
+									name === 'BackendError' || name === 'FrameError'
 									? t('restore.notFetched')
 									: e instanceof Error
 										? e.message
@@ -247,22 +277,25 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 
 /** The restore's step in words, or ''. */
 export function restoreStepText() {
-	const { phase, fetched, progress, bytes, via } = restoreRun;
+	const { phase, fetched, progress, bytes, via, stored } = restoreRun;
 	if (phase === 'fetching') {
 		const file = fetched
-			? t('restore.fetchingIncrements', fetched)
+			? t('restore.fetchingIncrements', { done: fetched.done + 1, total: fetched.total })
 			: via === 'peers'
 				? t('restore.fetchingPeers')
 				: t('restore.fetching');
-		if (!bytes) return file;
-		return bytes.total
-			? t('restore.fetchingBytes', {
-					what: file,
-					received: megabytes(bytes.received),
-					total: megabytes(bytes.total),
-					percent: Math.min(100, Math.floor((bytes.received / bytes.total) * 100))
-				})
-			: t('restore.fetchingBytesUnknown', { what: file, received: megabytes(bytes.received) });
+		const fetching = !bytes
+			? file
+			: bytes.total
+				? t('restore.fetchingBytes', {
+						what: file,
+						received: megabytes(bytes.received),
+						total: megabytes(bytes.total),
+						percent: Math.min(100, Math.floor((bytes.received / bytes.total) * 100))
+					})
+				: t('restore.fetchingBytesUnknown', { what: file, received: megabytes(bytes.received) });
+		// What arrived is already being put away: say so, it is what the wait is for.
+		return stored > 0 ? `${fetching} ${t('restore.storedBlocks', { blocks: stored })}` : fetching;
 	}
 	if (phase === 'restoring') {
 		return progress?.stage === 'database'
