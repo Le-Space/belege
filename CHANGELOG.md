@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The security audit's written result** (#533, part of the audit plan #209): `docs/security-audit.md` and its German twin go through the plan's eleven areas – keys, sealing, databases, device sync, relays, foreign devices, the invoicing link, the bridge, the web app, the deploy chain, and the claims the product makes – with what was checked, the evidence, and a verdict for each point: fine, fixed, accepted with its reason, or open with its issue. It lists what is still to do and the tests that stand guard. Linked from `SECURITY.md`, the threat model and the README.
+- Three statements corrected against the code: `bridge/README.md` now names all three routes that answer without a token (`/health`, `/pair`, a read share's own link) and all kinds of attachment the bridge hands out (PDFs, images, e-invoices); `docs/device-proof.md` says that a member gets the device proof's key sealed in their key bundle, where it said the key was never sent or stored.
+
 ### Added
 
 - **An account's statement as a PDF, straight from Zahlungen.** With one account chosen in the filter and a month open, "Kontoauszug (PDF)" hands out that account's statement of that month: the same file, with the same number, as the month's export puts into its ZIP, so a DATEV line that names the statement names this file too. A month without a booking on the account says so instead. The PDF code is loaded on the click.

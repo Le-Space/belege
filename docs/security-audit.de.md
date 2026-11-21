@@ -1,0 +1,189 @@
+# Die Sicherheitsprüfung: was geprüft wurde, und das Ergebnis
+
+_English: [security-audit.md](security-audit.md)_
+
+Belege entschlüsselt die Bücher einer Firma im Browser, gleicht sie zwischen eigenen Geräten ab, spricht mit einer Rechnungs-App und betreibt eine Bridge neben Bank, Postfach und Schlüsseln. Der Prüfplan ([#209](https://github.com/Le-Space/belege/issues/209)) sieht sich das als Ganzes an, in elf Bereichen. Diese Seite ist sein schriftliches Ergebnis: für jeden Bereich, was geprüft wurde, der Beleg und ein Urteil.
+
+Wogegen Belege schützt und wogegen nicht, steht in einfachen Worten in [threat-model.de.md](threat-model.de.md). Eine Schwachstelle melden: [SECURITY.md](../SECURITY.md).
+
+**Die Urteile**
+
+- **in Ordnung**: geprüft, und der genannte Test oder Code hält es so.
+- **behoben**: Es war nicht in Ordnung, und die genannte Änderung hat es behoben.
+- **hingenommen**: Es bleibt, wie es ist, aus dem genannten Grund.
+- **offen**: noch nicht geklärt; das Issue ist genannt. Eine Schwachstelle, die sich ausnutzen ließe, wird weder hier noch in einem öffentlichen Issue beschrieben, bevor sie behoben ist ([AGENTS.md](../AGENTS.md)). Sie ist „offen, privat verfolgt".
+
+**Wie die Belege zu lesen sind.** Ein hier genannter Test läuft in CI: bei jedem Pull Request, der das Bewachte berührt, auf `main` und vor einem Release. „Durch Lesen" heißt: Jemand hat den Code gelesen, und nichts prüft es automatisch.
+
+Zuletzt durchgegangen: 21.11.2026, auf `main` nach v0.43.0.
+
+## 1. Schlüssel: wo sie liegen und wie lange
+
+- **in Ordnung** · Die Liste aller Schlüssel, wie jeder abgeleitet wird und wo er liegt: [keys.de.md](keys.de.md), „Was aus R entsteht" und „Was wo liegt".
+- **in Ordnung** · Nichts Unversiegeltes im Ruhezustand, im Build für die Tests: `app/e2e/storage-scan.js` durchsucht IndexedDB, `localStorage` und `sessionStorage` nach jedem Schlüssel, den der Build nennt, und nach Markern aus den Büchern. Das geschieht in sechs Specs (Passkey, Belege, Upload, Bank-Import, Abgleich, Export).
+- **behoben** · Dasselbe im Produktions-Build: `app/e2e-production` baut wie ein Deploy, legt einen Passkey an, liest einen Kontoauszug ein und lädt neu, mit eingeschaltetem Gerätesync. Dann durchsucht es IndexedDB, `localStorage`, `sessionStorage` und den Cache des Service Workers nach jedem Schlüssel der Sitzung. Dieser Build nennt keinen Schlüssel. Die Spec hört deshalb dort mit, wo Schlüssel durchlaufen (`app/e2e/secret-spy.js`), und `passkey-books.spec.js` prüft, dass dieser Lauscher die Schlüssel hört, die der Test-Build nennt. ([#847](https://github.com/Le-Space/belege/pull/847))
+- **offen** · Der Produktions-Scan mit eingeschalteter Verbindung zur Rechnungs-App: Die Spec koppelt keine Rechnungs-App (dafür braucht es eine zweite App und einen Relay). Die Berechtigungen der Verbindung liegen in den versiegelten Einstellungen. Auch der Scan des Test-Builds deckt eine gekoppelte App nicht ab. Teil der Restarbeit von [#537](https://github.com/Le-Space/belege/issues/537).
+- **hingenommen** · Schlüssel im Arbeitsspeicher nach dem Entsperren. Durch Lesen: Die Schlüsselobjekte des Browsers sind nicht exportierbar. Die Bytes, aus denen sie entstehen (die Antwort des Passkeys, die Wurzel der Bücher, die abgeleiteten Schlüssel), liegen aber als Byte-Arrays im Speicher, solange die Bücher offen sind. Sie sind weg, wenn der Tab zugeht oder neu lädt ([keys.de.md](keys.de.md)). „Netzwerk pausieren" schließt Verbindungen und verwirft keinen Schlüssel. Ein Heap-Snapshot zeigt nicht, was in Byte-Arrays steht. Dieser Punkt ist deshalb aus dem Code gelesen, nicht gemessen. Grund: Eine Seite, die mit den Büchern arbeitet, braucht deren Schlüssel. Geschützt werden sie durch das Gerät und das Browserprofil ([threat-model.de.md](threat-model.de.md)).
+- **offen** · Eine Sperre, die die Schlüssel ohne Neuladen verwirft: nicht entschieden, [#538](https://github.com/Le-Space/belege/issues/538). Heute sperrt ein Neuladen.
+
+## 2. Versiegelung von Datensätzen und Belegen
+
+- **in Ordnung** · Verfahren und Nonces: Der Inhalt eines Datensatzes wird mit AES-256-GCM versiegelt, mit einer frischen zufälligen Nonce von 12 Bytes je Eintrag (`app/src/lib/db-encryption.js`; `db-encryption.spec.js`, „never repeats a nonce"). Für die Replikation wird der ganze Eintrag ein zweites Mal versiegelt. Die Nonce dafür ist aus dem Eintrag abgeleitet, unter eigenen Schlüsseln. Gleiche Einträge ergeben so gleiche Blöcke, und nur sie.
+- **in Ordnung** · Trennung der Schlüssel: Datenbank-, Replikations-, Blob- und Backup-Schlüssel, der Schlüssel des Gerätenachweises, der der Bridge und der des Knotens sind getrennte HKDF-SHA-256-Ableitungen mit eigenen Labels (`database-keys.js`; `database-keys.spec.js`).
+- **in Ordnung** · Was um einen versiegelten Inhalt herum nicht versiegelt ist: `sealed-blocks.spec.js` öffnet den Speicher wie die App, schreibt in jede Sammlung und in die Dateiablage und ordnet jeden Block des Blockspeichers ein. Ein Block ist ein versiegelter Eintrag, ein versiegelter Dateiteil oder öffentlich nach Entwurf: das Manifest einer Datenbank (ein abgeleiteter Name, ihr Typ, ihr Access Controller), die Liste öffentlicher Schlüssel eines Access Controllers, eine Identität (öffentlicher Schlüssel und Signaturen) oder die Wurzel einer Datei (die versiegelte Größe und die Zahl der Teile zu je 1 MiB). Alles andere lässt den Test fehlschlagen. ([#846](https://github.com/Le-Space/belege/pull/846))
+- **hingenommen** · Was die öffentlichen Blöcke verraten: wie viele Datenbanken es gibt, welche öffentlichen Schlüssel schreiben dürfen, und für jede Belegdatei ihre versiegelte Größe aufs Byte und die Zahl ihrer Teile. Nicht, was eine Datenbank enthält, keinen Namen, keinen Betrag. Grund: OrbitDB braucht Manifest, Access Controller und Identität, bevor ein Schlüssel da ist. Die Größe einer Datei ließe sich nur durch Auffüllen verbergen, und das geschieht nicht.
+- **offen** · Dieselbe Einordnung für den Blockspeicher des Browsers nach einer Sitzung (der Test oben läuft auf dem Speicher in Node): [#537](https://github.com/Le-Space/belege/issues/537).
+- **offen** · Ob ein versiegelter Inhalt an seinen Ort gebunden ist. Durch Lesen: Die Versiegelung von Datensätzen und Dateien nutzt keine zusätzlichen authentifizierten Daten, und ein Schlüssel dient allen Sammlungen. Die Versiegelung selbst sagt also nicht, zu welcher Sammlung oder welchem Datensatz ein Chiffrat gehört. Was die Signatur eines Eintrags und die zweite Versiegelung des ganzen Eintrags gegen das Verschieben eines Inhalts leisten, ist weder aufgeschrieben noch getestet. Zu prüfen.
+- **offen** · Eine genannte Grenze für zufällige Nonces unter einem langlebigen Schlüssel. Für die abgeleiteten Nonces der Replikationsschicht steht die Grenze im Code. Für die zufälligen Nonces des Inhalts ist weder eine Grenze noch eine Begründung aufgeschrieben. Zu prüfen, zusammen mit der externen Prüfung der Kryptografie (unten).
+- **hingenommen** · Ein gelöschter Beleg: Löschen markiert den Datensatz und entfernt ihn nie. Die versiegelten Blöcke seiner Datei bleiben im Blockspeicher (`receipts/import.spec.js`, `prefetch.spec.js`). Grund: Ein späterer Abgleich darf einen gelöschten Datensatz nicht zurückbringen, und die Bücher werden über die Aufbewahrungsfrist gehalten. Blöcke auf Wunsch zu entfernen, ist nicht gebaut.
+- **in Ordnung** · Große Dateien: Eine Datei über 15 MiB wird bei der Annahme abgelehnt. Eine Datei wird als Ganzes im Speicher versiegelt und in Teilen zu je 1 MiB abgelegt (`receipts/import.js`, `blob-store.js`).
+
+## 3. Datenbanken
+
+- **in Ordnung** · Jede Datenbank geht durch den versiegelten Weg: `sealed-blocks.spec.js` deckt jede Sammlung in `COLLECTIONS` ab, Einstellungen und Ereignisse eingeschlossen, mit der Zugriffsliste der Bücher. Der Test liest auch die Quellen: `orbitdb.open(` ist in vier Dateien erlaubt, jedes Mal mit Versiegelung. Eine Kontroll-Datenbank ohne Versiegelung wird erkannt. ([#846](https://github.com/Le-Space/belege/pull/846))
+- **in Ordnung** · Namen und Adressen: Der Name einer Datenbank ist mit einem Label aus der Wurzel der Bücher abgeleitet, 32 Hex-Zeichen. Er enthält weder die DID noch die Sammlung (`database-keys.js`; `store.spec.js`, „names the databases without the DID in them").
+- **hingenommen** · Eine Adresse ist stabil: Wer sie zweimal sieht, weiß, dass es dieselbe Datenbank ist, und ihr Manifest nennt den Access Controller. Über den Inhalt sagt sie nichts. Grund: Geräte finden die Datenbanken des anderen über die Adresse.
+- **in Ordnung** · Eine Passkey-Abfrage öffnet alle, und ohne sie öffnet sich nichts: `passkey-books.spec.js` zählt die WebAuthn-Abfragen. Es ist eine beim Entsperren und es sind zwei bei einem neuen Passkey.
+- **in Ordnung** · Wer schreiben kann: Der Access Controller lässt die Identität der Bücher und die aufgeführten Mitglieder zu und prüft bei jedem Eintrag, wer ihn geschrieben hat (`store/books-access.js`; `books-identity.spec.js`, „another identity does not write to the books"; `books-access.spec.js`; `e2e/members.spec.js`).
+
+## 4. Gerätesync
+
+- **in Ordnung** · Was unterwegs ist, ist in sich versiegelt: Einträge und Dateiteile gehen als die Blöcke hinaus, die unter 2 eingeordnet sind. Heads und Wants nennen Hashes versiegelter Blöcke.
+- **in Ordnung** · Der Gerätenachweis, sein Aufbau und seine Grenzen: [device-proof.de.md](device-proof.de.md). Ein HMAC über beide Peer-IDs, mit einem Schlüssel aus der Wurzel der Bücher. Er trägt keine Nonce und keine Zeit und stützt sich darauf, dass die Verbindung beide Peer-IDs authentifiziert hat. Tests: `device-gate.spec.js`.
+- **behoben** · Ein Fremder gegen den echten Stack: `e2e/stranger-peer.spec.js` stellt einen Knoten mit eigenem Schlüssel und ohne Nachweis gegen ein Gerät im Browser, über den Relay, in den Modi, die an einem Relay lauschen. Er versucht jedes Protokoll, auf das das Gerät antwortet, beim Namen, vor und nach einem erfundenen Nachweis. Er abonniert die Topics der Bücher und fordert das Manifest einer Datenbank an. Ihm werden die Identify- und Relay-Protokolle und `js-libp2p` genannt, sonst antwortet nichts. Im Modus ohne Relay erreicht er das Gerät nicht. ([#850](https://github.com/Le-Space/belege/pull/850))
+- **offen** · Von diesem Test fehlen: dass eigene Geräte weiter abgleichen, während ein Fremder es versucht; der Modus des eigenen Netzes, in dem sich Geräte am Relay der Bridge treffen; die Bridge als Ziel ([#581](https://github.com/Le-Space/belege/issues/581)). Eine direkte Verbindung zwischen Browsern entsteht über ein Signalisierungsprotokoll, das dem Fremden verweigert wird. So weit kommt er also nicht. Gezeigt ist das durch die Verweigerung, nicht durch einen direkten Versuch. [#537](https://github.com/Le-Space/belege/issues/537).
+- **offen** · Was ein Peer ohne Nachweis kosten kann. Ein Stream eines Peers ohne Nachweis wird bis zu zehn Sekunden gehalten und dann abgebrochen, ohne dass sein Handler läuft. Die Grenze von libp2p für neue eingehende Verbindungen von einem Host in einer Sekunde steht auf 100. Eine Grenze dafür, wie viele Streams ein Peer ohne Nachweis offen halten darf, ist weder genannt noch getestet. Zu prüfen.
+- **in Ordnung** · Der QR-Weg: Angebot und Antwort sind mit dem Schlüssel des Geräts signiert und werden geprüft, bevor die Verbindung genutzt wird (`sync/qr-link.js`, in `@le-space/libp2p-webrtc-qr`). Danach weist das Gerät den Passkey nach wie jedes andere (`e2e/device-qr.spec.js`, `device-qr-link.spec.js`).
+- **offen** · Ein Test in diesem Repository, dass ein gefälschter oder veränderter Code abgelehnt wird. Heute stützt sich das auf die Tests der Bibliothek.
+- **hingenommen** · Ein entferntes oder verlorenes Gerät: Es behält, was es hat, und kann es öffnen. Über den Abgleich bekommt es nichts Neues. Es wird an der Verbindung und durch die Zugriffsliste abgewiesen (`device-sync.spec.js`, `books-access.spec.js`). Was später geschrieben wird, ist erst nach neuen Schlüsseln für die Bücher außer seiner Reichweite ([keys.de.md](keys.de.md), „Neue Schlüssel für die Bücher"; `e2e/rekey.spec.js`). Grund: Ein Gerät, das die Schlüssel einmal hatte, lässt sich nicht dazu bringen, sie zu vergessen. [device-proof.de.md](device-proof.de.md) sagt das unter „Grenzen".
+
+## 5. Relays
+
+- **behoben** · Was ein Relay sieht: IP-Adressen, Peer-IDs, Zeiten und Datenmengen dessen, was er weiterreicht. Aus Identify erfährt er nur, dass ein Knoten erreichbar ist: die Identify- und Relay-Protokolle und `js-libp2p`, keine Datenbank, keinen Browser, keine App. Der Nachweis wird einem Relay nicht angeboten ([#222](https://github.com/Le-Space/belege/pull/222), [#223](https://github.com/Le-Space/belege/pull/223)). `e2e/device-sync.spec.js` liest, was dem Test-Relay gesagt wurde; `quiet-identify.spec.js`.
+- **offen** · Dasselbe an einem Relay im Betrieb aufgezeichnet und mit dem Einwilligungsbildschirm verglichen: nicht gemacht. Der Test-Relay spricht dieselben Protokolle, ist aber nicht dieselbe Software.
+- **in Ordnung** · An einem Relay wird nichts gespeichert oder gepinnt, und Belege bittet nie darum: `no-discovery.spec.js` („nothing provides, reprovides or pins"). Ein Backup bei Aleph aufzubewahren ist der Speicherdienst, den die Person selbst beauftragt ([backup.de.md](backup.de.md)).
+- **hingenommen** · Ein feindlicher Betreiber eines Relays kann zurückhalten oder verzögern. Er sieht, wer sich wann verbindet und wie viel fließt, und kann die Geräte verknüpfen, die sich über ihn treffen. Lesen oder ändern kann er das Weitergereichte nicht: Es ist versiegelt, und die Verbindung ist Ende zu Ende zwischen den Geräten verschlüsselt. Aus Identify erfährt er keine Datenbankadresse. Grund: Das ist das Wesen eines Relays. Für alle, die keinen wollen, gibt es „Ohne Relay, per QR" und den Modus des eigenen Netzes.
+- **in Ordnung** · Wie Relay-Adressen gefunden werden: Angenommen werden nur Einträge der im Code genannten Konten. Die Instanz wird als die dieses Kontos bestätigt, und nur ihr eigener Name wird angewählt. Wird keiner gefunden, treten feste Relays ein (`ucep/net.js`; `ucep/net.spec.js`). Eine gefälschte Antwort kostet Erreichbarkeit und Metadaten, keinen Inhalt.
+- **in Ordnung** · Der Relay der Bridge im eigenen Netz: Jeder im Netz darf einen von 32 Plätzen halten. Er lauscht auf einer privaten Adresse, nie auf allen. Sein Schlüssel und sein Zertifikat liegen in einem Verzeichnis, das nur der Benutzer lesen kann (`bridge/src/lan-relay.js`; `bridge/test/lan-relay.test.js`, `relay-reservations.test.js`; `bridge/README.md`).
+
+## 6. Fremde Geräte und libp2p-Protokolle
+
+- **in Ordnung** · Die Liste der Knoten, Transporte und Dienste je Netzmodus, und was ohne Nachweis erreichbar ist: `no-discovery.spec.js` führt jeden libp2p-Knoten auf, den die App starten kann, mit der genauen Liste seiner Dienste: Gerätesync in jedem Modus, die Bücher ohne Sync, die Verbindung zur Rechnungs-App, die Bridge auf diesem Rechner, eine Wiederherstellung. Der Test startet jeden so, wie die App es tut. ([#846](https://github.com/Le-Space/belege/pull/846))
+- **in Ordnung** · Kein DHT, keine Discovery, keine NAT-Erkundung, kein Provide: Derselbe Test prüft, dass kein Knoten auf ein solches Protokoll antwortet und dass ein Provide kein Ziel hat. Er schlägt fehl, wenn irgendwo sonst ein Knoten entsteht, wenn Helia Optionen statt eines Knotens bekommt oder wenn ein Discovery-Paket eingebunden oder hinzugefügt wird.
+- **in Ordnung** · Was Identify und Gossipsub ankündigen, und wem: Es gibt zwei Identify-Listen, und die volle bekommt nur ein Gerät, das den Passkey nachgewiesen hat. Gossipsub wird für niemanden sonst geöffnet, einem Fremden wird also kein Topic genannt (`quiet-identify.spec.js`, `device-gate.spec.js`, `e2e/stranger-peer.spec.js`).
+
+## 7. Die Verbindung zur Rechnungs-App (UCEP)
+
+- **in Ordnung** · Kopplung und Berechtigungen aus Sicht von Belege: vier Bereiche `invoice:*`, Kopplung per Einladung oder im Band, die Berechtigungen liegen in den versiegelten Einstellungen (`ucep/consumer.js`; `consumer.spec.js`, `e2e/ucep.spec.js`).
+- **offen** · Der Schutz gegen Wiedereinspielen und das Format der Berechtigung liegen in `@le-space/ucep`, einem Entwurf, und in der Rechnungs-App. Beides ist für diese Prüfung nicht durchgesehen, und in `docs/` beschreibt nichts die Sicherheit der Verbindung. Zu prüfen, in beiden Repositorys.
+- **hingenommen** · Der Knoten der Verbindung hat kein Geräte-Gate: Er betreibt Identify und die UCEP-Handler und nichts von den Büchern (`no-discovery.spec.js` hält seine Dienste fest). Grund: Die Gegenseite ist die App einer anderen Person, kein eigenes Gerät. Was sie darf, steht in ihrer Berechtigung.
+- **offen** · Die Netzmodi und die Pause. Die Verbindung wird nicht gestartet, solange das Netzwerk pausiert ist (`network-pause.spec.js`). Ob sie sich an „Ohne Relay, per QR" und den Modus des eigenen Netzes hält, ist nicht getestet. Sie wählt die öffentlichen Relays an, wenn die Bücher keinen nennen. Zu prüfen; der Einwilligungsbildschirm muss sagen, was gilt.
+- **offen** · Ein feindlicher Relay zwischen den beiden Apps und eine gekoppelte, aber feindliche Rechnungs-App: nicht durchgegangen.
+
+## 8. Die Bridge
+
+Ihr eigenes Bedrohungsmodell steht in [`bridge/README.md`](../bridge/README.md). Der Code seit v0.5.0 wurde in Scheibe 4 des Reviews gelesen ([#557](https://github.com/Le-Space/belege/issues/557)).
+
+- **in Ordnung** · Sie lauscht nur auf 127.0.0.1 und startet auf nichts anderem. Der `Host`-Header muss diesen Rechner nennen, und nur die eingetragenen Origins der App dürfen Antworten lesen. Eine Anfrage ohne `Origin`, also von einem anderen Programm auf diesem Rechner, kommt ohne den Token nicht weiter (`bridge/src/server.js`; `bridge/test/server.test.js`).
+- **in Ordnung** · Kopplung: ein Code aus acht Zeichen von 32 Buchstaben, zehn Minuten gültig, einmal verwendbar, fünf Fehlversuche. Der Token besteht aus 32 zufälligen Bytes, von denen die Bridge nur den Hash behält (`pairing.js`; `pairing.test.js`, `pairings.test.js`).
+- **hingenommen** · Ein Token läuft nicht ab und wird nicht erneuert. Ein gestohlener gilt, bis er entfernt wird (`bridge/README.md`, „Not covered"). Die Rechte eines Geräts über den Stream verfallen nach 90 Tagen ohne Nutzung (`grants.test.js`). Grund: Der Token liegt in den versiegelten Einstellungen der Bücher, und eine neue Kopplung ersetzt ihn.
+- **behoben** · Routen, die ohne Token antworten: `/health`, `/pair` und der Link einer Lesefreigabe, deren ID von 128 Bit der Schlüssel ist. `bridge/README.md` sagte an zwei Stellen „nichts außer `/health`". Jetzt nennt es alle drei (im Pull Request dieser Seite).
+- **in Ordnung** · Geheimnisse: im Schlüsselbund über eine verdeckte Eingabe, nicht in `bridge.json`, nicht in den Argumenten eines Prozesses (`keychain.test.js`, `setup.test.js`, `windows-keychain.test.js`). Mehrere Module haben einen Test, dass ein Geheimnis in keinem Log und keiner Fehlermeldung steht (`mail.test.js`, `portals.test.js`, `paperless.test.js`, `filecoin-pay.test.js`).
+- **offen** · Ein Test über alle Geheimnisse, alle Logzeilen und alle Fehlermeldungen. Heute gibt es das Modul für Modul.
+- **in Ordnung** · Postfach: Ein Absender gilt nur dann als authentifiziert, wenn der oberste `Authentication-Results`-Header des eingetragenen Servers es sagt, mit DKIM oder SPF passend zum Absender oder bestandenem DMARC. Gelesen wird jeder Ordner außer Papierkorb, Spam und Entwürfen, nur lesend, außer dem Verschieben einer Mail in den Papierkorb. Außerhalb dieses Rechners ist TLS Pflicht (`mail/auth-results.js`, `mail/imap.js`; `mail-parsing.test.js`, `mail.test.js`). Feindliche Inhalte in Mails und PDFs: behoben in [#439](https://github.com/Le-Space/belege/pull/439).
+- **in Ordnung** · Das Sprachmodell: Text wird geschwärzt, bevor er hinausgeht (`llm/redact.js`; `llm.test.js`, `redact-scorecard.test.js`). Eine Antwort wird gegen eine Form geprüft. Bei einer Zuordnung ist sie eine Auswahl unter Kandidaten, die die App geschickt hat (`llm.test.js`, `extract.test.js`).
+- **offen** · Ein Test, der ausdrücklich sagt, dass die Antwort eines Modells nie von selbst verknüpft oder bucht. Heute folgt das daraus, wie die Antworten verwendet werden.
+- **offen, privat verfolgt** · Routen, die eine URL oder einen Host vom Aufrufer nehmen.
+- **in Ordnung** · Die Lesefreigabe: nur im Arbeitsspeicher, höchstens 24 Stunden, höchstens zehn, höchstens 8 MiB, weg beim Neustart der Bridge (`shares.js`; `shares.test.js`).
+- **in Ordnung** · Grenzen: eine Größengrenze für jeden Befehl. Für ein Gerät über den Stream gelten Grenzen für Modell-Aufrufe je Minute, Tokens je Tag und Backups je Stunde (`commands.js`, `grants.js`; `server.test.js`, `grants.test.js`).
+- **hingenommen** · Keine Mengenbegrenzung für HTTP über die fünf Kopplungsversuche hinaus. Grund: HTTP gibt es nur auf diesem Rechner, und jeder Aufruf außer der Kopplung braucht den Token.
+- **in Ordnung** · Portale: Der Browser der Bridge bleibt auf der Website des Portals und auf höchstens zehn Hosts, die die Person bestätigt hat. Sein Profil mit der laufenden Sitzung liegt in einem Verzeichnis, das nur der Benutzer lesen kann, das Passwort im Schlüsselbund (`portals/recipe.js`; `portals.test.js`, `portal-credentials.test.js`).
+- **offen** · Die übrigen Befunde des Reviews, keiner davon zu Schlüsseln oder Zugriff: [#557](https://github.com/Le-Space/belege/issues/557). Das Lesen von XML in den Lesern für Bank und E-Rechnung wurde für diese Prüfung nicht durchgesehen. Die über libp2p erreichte Bridge: [#581](https://github.com/Le-Space/belege/issues/581), [#582](https://github.com/Le-Space/belege/issues/582).
+
+## 9. Die Web-App
+
+- **behoben** · Eine Content-Security-Policy in jeder Seite: Es läuft kein Skript außer den eigenen Dateien der App, also kein Inline-Skript, kein `eval` und nichts von einem anderen Host. Dazu kommen: keine Plugin-Inhalte, kein Formular, das irgendwohin gesendet wird, ein Frame (`app/csp.js`). `e2e/csp.spec.js` prüft das Tag in den gebauten Seiten und dass der Browser ein Inline-Skript, `eval`, ein fremdes Skript und einen Inline-Handler verweigert. Die Produktions-Spec prüft die veröffentlichten Seiten. ([#856](https://github.com/Le-Space/belege/pull/856))
+- **hingenommen** · Was eine Meta-Policy nicht kann: Sie kann die Einbettung in einen Frame nicht verbieten, und sie zählt nicht die Hosts auf, mit denen die Seite sprechen darf. Erlaubt ist jeder Host über TLS, dazu dieser Rechner für die Bridge. Grund: Auf einem IPFS-Gateway liegen die Header nicht in unserer Hand, und Relays, die Knoten von Aleph und der Name einer gehosteten Bridge stehen erst zur Laufzeit fest ([threat-model.de.md](threat-model.de.md)). Zum geteilten Origin eines Pfad-Gateways gibt es das Advisory [GHSA-4796-j8r6-xw42](https://github.com/Le-Space/belege/security/advisories/GHSA-4796-j8r6-xw42), und die App öffnet dort keine Bücher (`shared-origin.spec.js`).
+- **behoben** · `{@html}`: Es gibt keines. Die fünf Stellen, alle QR-Codes, werden als Markup gezeichnet (`Qr.svelte`). `no-raw-html.spec.js` schlägt bei einer neuen Stelle fehl, ebenso bei `eval`, einer Funktion aus einer Zeichenkette, `innerHTML` oder einem von Hand gebauten Skript-Element in den Quellen. ([#856](https://github.com/Le-Space/belege/pull/856))
+- **in Ordnung** · Wie Mailtext, PDF-Text, Dateinamen, QR-Inhalte, URL-Parameter und abgeglichene Datensätze auf die Seite kommen: als Text in Sveltes `{…}`, das maskiert. Ohne `{@html}` und ohne `innerHTML` in den Quellen gibt es keinen anderen Weg. Der QR-Code eines feindlichen Textes besteht nur aus Quadraten (`no-raw-html.spec.js`).
+- **behoben** · CSV- und DATEV-Exporte: Eine Zelle, die eine Tabellenkalkulation als Formel lesen würde, wird unschädlich gemacht (`export/inert.js` und seine Tests; [#439](https://github.com/Le-Space/belege/pull/439)).
+- **in Ordnung** · Annahme von Dateien: Die Art einer Datei wird aus ihren Bytes bestimmt. Name und angegebener Typ zählen nicht, andere Arten werden abgelehnt (`receipts/import.js`; `import.spec.js`).
+- **offen** · Die Vorschau richtet sich nach dem Typ, der beim Beleg gespeichert ist, und sieht die Bytes nicht noch einmal an. Ein Datensatz, der über den Abgleich kommt, stammt von einem Gerät oder einem Mitglied mit den Schlüsseln der Bücher. Dass ein gespeicherter Typ die Vorschau zu nichts anderem bringen kann, als ein PDF, ein Bild oder XML als Text zu zeigen, ist nicht getestet.
+- **in Ordnung** · Der Service Worker: Er hält die eigenen Dateien der App in einer Version vor, nichts mit Daten und nichts von einem anderen Origin. Alte Caches verschwinden beim Aktivieren, und eine neue Version wartet, bis die Person neu lädt (`pwa/cache-rules.spec.js`, `e2e/pwa.spec.js`). Die Produktions-Spec findet in seinem Cache keinen Schlüssel und keine Zeile der Bücher.
+- **behoben** · Test-Zugänge: `scripts/check-production-build.mjs` liest die gebaute Website, in CI und im Deploy, dort das Verzeichnis, das veröffentlicht wird. Es schlägt fehl, wenn eine Datei einen Test-Zugang nennt. Die Produktions-Spec prüft, dass die Seite auf keinen antwortet. Drei Zeit-Schalter der Backup-Tests waren in jeden Build einkompiliert und sind es nicht mehr. ([#847](https://github.com/Le-Space/belege/pull/847))
+- **in Ordnung** · Die Konsolenzeilen des Entsperrens tragen Schrittnamen und Dauern, nichts aus den Büchern (`unlock-progress.spec.js`, `e2e/passkey-books.spec.js`).
+- **offen** · Für die übrigen Konsolenausgaben (etwa 25 Stellen: Warnungen aus Sitzung, Backup, Knoten und Belegen) gibt es keine Regel und keinen Test dazu, was sie sagen dürfen.
+- **offen** · Die übrigen Befunde des Reviews zu Belegen und Oberfläche: [#540](https://github.com/Le-Space/belege/issues/540), [#541](https://github.com/Le-Space/belege/issues/541).
+
+## 10. Build, Abhängigkeiten und Deploy
+
+- **behoben** · Wer ändern kann, was die Domain ausliefert, Glied für Glied: [deploy.md](deploy.md). Jede Action in jedem Workflow ist auf einen Commit festgelegt. Das Werkzeug, das veröffentlicht, kommt aus einem eigenen Lockfile. Ein Deploy nimmt nur ein Release-Tag, das auf `main` liegt, auch von Hand. Die beiden Jobs, die den Schlüssel zum Veröffentlichen lesen, laufen im Environment `production`. `scripts/workflow-pins.test.mjs` hält das so. ([#858](https://github.com/Le-Space/belege/pull/858))
+- **in Ordnung** · Abhängigkeiten: genaue Versionen und ein eingefrorenes Lockfile in jedem Workflow der Website. Dependabot schlägt wöchentlich neue Commits für die Actions vor (`.github/dependabot.yml`).
+- **offen** · Einstellungen, die keine Dateien sind: ein verpflichtender Reviewer für `production`, Branch-Schutz auf `main`, Secret Scanning mit Push Protection, Dependabot-Sicherheitsupdates. [#534](https://github.com/Le-Space/belege/issues/534).
+- **offen** · Drei Installationen außerhalb eines Lockfiles in anderen Ketten: das Bridge-Image, eine Probe-VM, die Veröffentlichung der Pakete. Sie stehen in `workflow-pins.test.mjs`, damit eine neue den Test fehlschlagen lässt.
+- **hingenommen** · Das Aleph-Konto, das die Veröffentlichung signiert, wird mit den anderen Websites unter le-space.de geteilt, und das DNS liegt in einer Cloudflare-Zone. Grund: eine kleine Organisation. Wer eines von beiden hält, kann jede ihrer Websites ändern, und eine Trennung änderte nichts daran, wer das ist.
+- **offen** · Nachprüfbare Builds. Ein Besucher kann die CID, die die Domain ausliefert, mit der vergleichen, die ein Release nennt ([deploy.md](deploy.md)). Ein Tag noch einmal zu bauen, ergibt aber noch nicht Byte für Byte dieselbe CID.
+
+## 11. Aussagen
+
+Vierzig Sicherheitsaussagen aus Einwilligungsbildschirm, READMEs und Doku wurden gegen den Code gehalten. Als wahr zählt eine Aussage nur, wenn der Codepfad gefunden wurde.
+
+**Wahr im Code**, mit dem, was es so hält:
+
+- Jede Datenbank wird versiegelt geöffnet (`sealed-blocks.spec.js`). Der Tresor in `localStorage` ist versiegelt, daneben stehen die Namen der Passkeys. Die Schlüssel-Labels, die der Einwilligungsbildschirm nennt, sind die aus `database-keys.js`.
+- Kein Schlüssel im Klartext in `localStorage`, `sessionStorage`, IndexedDB oder im Cache (die Scans im Ruhezustand, Bereich 1).
+- Ohne Gerätesync verbindet sich die Seite mit niemandem: kein Transport, keine Lauschadresse, ein Knotenschlüssel, der für jede Sitzung neu entsteht (`network.js`, `no-discovery.spec.js`).
+- Jeder Netzmodus kontaktiert, was der Einwilligungsbildschirm sagt: „Ohne Relay, per QR" fragt weder Aleph noch einen Relay noch einen STUN-Server. Der Modus des eigenen Netzes fragt keinen öffentlichen Relay und keinen STUN-Server (`network-mode.spec.js`, `device-sync.spec.js`).
+- Einem Relay werden weder die Datenbanken noch die Protokolle genannt, und der Knoten nennt sich `js-libp2p` (`quiet-identify.spec.js`, `e2e/device-sync.spec.js`, `e2e/stranger-peer.spec.js`).
+- Nach den Relays wird Aleph erst gefragt, wenn der Knoten online geht.
+- Die Bridge lauscht nur auf 127.0.0.1. Ihr Token liegt in den versiegelten Einstellungen der Bücher und nie in `localStorage`, und die Bridge behält nur seinen Hash. Nur eingetragene Origins dürfen Antworten lesen.
+- Das Zertifikat der Bank ist festgelegt, und ein Konto, dessen IBAN-Endung nicht freigegeben wurde, wird nicht abgefragt.
+- Text für ein gehostetes Modell wird vor jedem Aufruf geschwärzt (`llm.test.js`, `redact-scorecard.test.js`).
+- Die Seite lädt keine Schrift, kein Skript und kein Bild von Dritten und gibt kein rohes HTML aus (Bereich 9).
+- Test-Zugänge gibt es nur in einem Build für die Tests (Bereich 9).
+
+**Mit dieser Seite korrigiert:**
+
+- `bridge/README.md` sagte, ohne Token antworte „nichts außer `/health`", und an anderer Stelle „`/health` und `/pair`". Es antworten drei Routen: `/health`, `/pair` und der eigene Link einer Lesefreigabe. Beide Stellen sagen das jetzt.
+- `bridge/README.md` sagte, die Bridge gebe „nur PDFs und Bilder" heraus. Sie gibt auch E-Rechnungen (XML) heraus, und eine ganze Mail, wenn diese an die Buchhaltungsadresse ging.
+- [device-proof.de.md](device-proof.de.md) sagte, der Schlüssel des Gerätenachweises werde „nie übertragen und nie gespeichert". Ein Mitglied der Bücher bekommt ihn versiegelt in seinem Schlüsselbündel. Die Seite sagt das jetzt.
+
+**Offen: Der Einwilligungsbildschirm sagt weniger, als der Code tut.** Keiner dieser Punkte macht die App auf eine Weise unsicherer als behauptet, die ein Außenstehender nutzen könnte. Jeder ist ein Satz, der nicht mehr aktuell ist. Die Korrektur ändert den Einwilligungsbildschirm für alle (eine neue Version, die noch einmal gezeigt wird), deshalb gehören sie zusammen:
+
+- `localStorage`: Der Bildschirm spricht von „öffentlichen Angaben zu deinem Passkey und drei Merkern". Inzwischen sind es etwa zwei Dutzend Merker der Seite. Daneben liegen unversiegelt: die Namen der Passkeys, die Adresse des Relays im eigenen Netz, ein Salt je Gerät, die Peer-IDs eigener Geräte, die nach neuen Schlüsseln anzuwählen sind, und Zählungen des letzten Abgleichs. Ein Schlüssel oder ein Datensatz der Bücher ist nicht darunter (die Scans). „Drei Merker" und „nur öffentliche Daten" stimmen aber nicht mehr.
+- „Die Schlüssel selbst werden nie gespeichert": Das stimmt für den Inhaber der Bücher. Der Browser eines Mitglieds behält dessen Schlüsselbündel, versiegelt, wie der Bildschirm zwei Absätze später selbst sagt. Richtig wäre: nie unversiegelt gespeichert.
+- Das Postfach: Der Bildschirm sagt, die Bridge öffne Postfächer nur lesend, und die App bekomme nur Mails an die Buchhaltungsadresse. Ein Befehl verschiebt eine Mail in den Papierkorb, und die gezielte Suche nach einem Beleg liest das ganze Postfach. So steht es im README der Bridge und im KI-Abschnitt des Bildschirms selbst.
+- Ein Modell auf diesem Rechner: Der Bildschirm sagt, die Bridge schwärze dafür nicht. Sie schwärzt, bis das im Setup so gewählt wurde. Das ist sicherer als behauptet.
+- Die Verwendungen des Sprachmodells: Der Bildschirm nennt sechs. „Konto vorschlagen" ist eine siebte und in [ai.de.md](ai.de.md) beschrieben.
+- Hosts: „Wer hält es?" fragt delegated-ipfs.dev und ipwho.is. Eine Wiederherstellung ohne Gateway fragt cid.contact und delegated-ipfs.dev. Der Akash-Leser hat neben den genannten Knoten ein zweites Paar (Ecostake). Jeder dieser Hosts ist auf seiner Karte genannt, keiner unter `consent.*`. [AGENTS.md](../AGENTS.md) verlangt das, bevor ein Host ausgeliefert wird.
+- Die Adresse des Relays im eigenen Netz liegt laut Bildschirm versiegelt in den Einstellungen. Ihre Kopie in diesem Browser wird nicht erwähnt.
+- Der Knoten der Verbindung zur Rechnungs-App nennt einem Relay, welche Protokolle er bedient (Bereich 7). Nichts behauptet das Gegenteil, und nichts sagt es.
+
+**Offen, nicht geprüft:** die Liste der STUN-Server, die der Einwilligungsbildschirm nennt (eine Voreinstellung der WebRTC-Bibliothek); ob die Pause auch die Aufrufe anhält, die eine gehostete Bridge starten und entsperren; dass das Log der Bridge „nur Zahlen, nie Text" festhält, über die gelesenen Zeilen hinaus; die Aussagen zur Attestierung der gehosteten Bridge.
+
+## Was noch zu tun ist
+
+In der Reihenfolge, in der es für den Abschluss des Plans zählt:
+
+1. Die Entscheidung über eine Sperre ([#538](https://github.com/Le-Space/belege/issues/538)).
+2. Die Korrekturen am Einwilligungsbildschirm (Bereich 11), als eine Änderung mit neuer Version.
+3. Der Rest der stehenden Tests ([#537](https://github.com/Le-Space/belege/issues/537)): eigene Geräte, die abgleichen, während ein Fremder es versucht; der Modus des eigenen Netzes und die Bridge als Ziel ([#581](https://github.com/Le-Space/belege/issues/581)); der Blockspeicher des Browsers; der Produktions-Scan mit eingeschalteter Verbindung zur Rechnungs-App.
+4. Die Repository-Einstellungen der Deploy-Kette ([#534](https://github.com/Le-Space/belege/issues/534)).
+5. Die Prüfungen, die nicht gemacht sind: die Verbindung zur Rechnungs-App von beiden Seiten (Bereich 7); die Bindung eines versiegelten Inhalts an seinen Ort und die Nonce-Grenzen (Bereich 2); die Kosten von Peers ohne Nachweis (Bereich 4); das Lesen von XML in der Bridge (Bereich 8). Bereich 2 und Bereich 4 gehören zur externen Prüfung der Kryptografie und des Geräte-Gates, die der Plan für später vorsieht.
+6. Die offenen Befunde des Code-Reviews, nach Scheibe: Schlüssel [#555](https://github.com/Le-Space/belege/issues/555), Backup [#558](https://github.com/Le-Space/belege/issues/558), Sync [#554](https://github.com/Le-Space/belege/issues/554), Bridge [#557](https://github.com/Le-Space/belege/issues/557), Geld [#539](https://github.com/Le-Space/belege/issues/539), Belege [#540](https://github.com/Le-Space/belege/issues/540), Oberfläche [#541](https://github.com/Le-Space/belege/issues/541).
+
+Was privat verfolgt wird, steht nicht in dieser Liste.
+
+## Die Tests, die Wache halten
+
+| Was wahr bleiben muss                                                               | Test                                                                                                               | Läuft in                            |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Kein Schlüssel und keine Zeile der Bücher im Ruhezustand, im veröffentlichten Build | `app/e2e-production/production-build.spec.js`                                                                      | `e2e.yml`                           |
+| … und im Build für die Tests, in sechs Abläufen                                     | `app/e2e/storage-scan.js` in `passkey-books`, `receipts`, `upload-to-booking`, `bank-import`, `matching`, `export` | `e2e.yml`                           |
+| Kein Test-Zugang in einem Produktions-Build                                         | `scripts/check-production-build.mjs`                                                                               | `unit.yml`, `e2e.yml`, `deploy.yml` |
+| Jede Datenbank versiegelt; jeder Block versiegelt oder öffentlich nach Entwurf      | `app/src/lib/store/sealed-blocks.spec.js`                                                                          | `unit.yml`                          |
+| Kein DHT, keine Discovery, kein Provide; kein Knoten an anderer Stelle              | `app/src/lib/sync/no-discovery.spec.js`                                                                            | `unit.yml`                          |
+| Ein Fremder bekommt Identify und nichts von den Büchern                             | `app/e2e/stranger-peer.spec.js`; `device-gate.spec.js`, `quiet-identify.spec.js`                                   | `e2e.yml`, `unit.yml`               |
+| Kein rohes HTML, kein Code aus Text; die Policy bleibt streng                       | `app/src/lib/no-raw-html.spec.js`, `app/e2e/csp.spec.js`                                                           | `unit.yml`, `e2e.yml`               |
+| Die Bridge nur auf 127.0.0.1, und nichts ohne den Token                             | `bridge/test/server.test.js`, `pairing.test.js`                                                                    | `bridge.yml`                        |
+| Actions festgelegt, das Deploy-Werkzeug im Lockfile, ein Deploy nur von einem Tag   | `scripts/workflow-pins.test.mjs`                                                                                   | `bridge.yml`                        |

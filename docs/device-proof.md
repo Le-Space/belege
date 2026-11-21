@@ -8,7 +8,7 @@ The code: [`app/src/lib/sync/device-gate.js`](../app/src/lib/sync/device-gate.js
 
 ## The proof
 
-At unlock, Belege derives a key from the books' root: `deviceAuthKey = HKDF-SHA-256(root, "belege/device-auth/v1")` ([`database-keys.js`](../app/src/lib/database-keys.js)). The passkey opens the root through the vault ([keys.md](keys.md)). Every device of these books gets the same key. It is never sent and never stored.
+At unlock, Belege derives a key from the books' root: `deviceAuthKey = HKDF-SHA-256(root, "belege/device-auth/v1")` ([`database-keys.js`](../app/src/lib/database-keys.js)). The passkey opens the root through the vault ([keys.md](keys.md)). Every device of these books gets the same key. It is never sent in the clear and never stored unsealed: the owner's browser derives it anew at each unlock, and a member of the books gets it sealed in their key bundle ([keys.md](keys.md#members)).
 
 When two devices connect, the one that dialled proves first, on the protocol `/belege/device-proof/1.0.0`:
 

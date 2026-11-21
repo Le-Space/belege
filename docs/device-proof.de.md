@@ -10,7 +10,7 @@ Der Code: [`app/src/lib/sync/device-gate.js`](../app/src/lib/sync/device-gate.js
 
 ## Der Nachweis
 
-Beim Entsperren leitet Belege aus der Wurzel der Bücher einen Schlüssel ab: `deviceAuthKey = HKDF-SHA-256(Wurzel, "belege/device-auth/v1")` ([`database-keys.js`](../app/src/lib/database-keys.js)). Die Wurzel öffnet der Passkey über den Tresor ([keys.de.md](keys.de.md)). Jedes Gerät dieser Bücher kommt so auf denselben Schlüssel. Er wird nie übertragen und nie gespeichert.
+Beim Entsperren leitet Belege aus der Wurzel der Bücher einen Schlüssel ab: `deviceAuthKey = HKDF-SHA-256(Wurzel, "belege/device-auth/v1")` ([`database-keys.js`](../app/src/lib/database-keys.js)). Die Wurzel öffnet der Passkey über den Tresor ([keys.de.md](keys.de.md)). Jedes Gerät dieser Bücher kommt so auf denselben Schlüssel. Er wird nie im Klartext übertragen und nie unversiegelt gespeichert: Der Browser des Inhabers leitet ihn bei jedem Entsperren neu ab, und ein Mitglied der Bücher bekommt ihn versiegelt in seinem Schlüsselbündel ([keys.de.md](keys.de.md#mitglieder)).
 
 Verbinden sich zwei Geräte, beweist das anwählende Gerät zuerst, über das Protokoll `/belege/device-proof/1.0.0`:
 
