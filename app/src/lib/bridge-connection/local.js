@@ -92,9 +92,10 @@ export async function startLoopbackBridge() {
 	const { createBridgeClient, setBridgeTransport, holdBridgeTransport } = await import(
 		'../bridge/client.js'
 	);
-	// Calls wait until the stream is the bridge's transport: over HTTP they
-	// would only get 410 (a page opened right after pairing by code). From
-	// then on each call waits for the node itself (`waitMs` below).
+	// Calls wait until the stream is the bridge's transport, and until the
+	// bridge's node is paired when this pairs it: over HTTP they would only
+	// get 410 (a page opened right after pairing by code). From then on each
+	// call waits for the node itself (`waitMs` below).
 	const release = holdBridgeTransport(30_000);
 	try {
 		await startLoopbackBridgeHeld(saved, createBridgeClient, setBridgeTransport, release);
@@ -184,13 +185,18 @@ async function startLoopbackBridgeHeld(saved, createBridgeClient, setBridgeTrans
 	);
 	// The node's peer id is the same before and after its pairing: calls wait for it from now on.
 	setBridgeNode({ peerId: nodePeer });
-	release();
 	if (health.node.armed) {
+		release();
 		keepDialling().catch(() => {});
 		return;
 	}
+	// Not paired yet: the calls stay held until it is. The node answers the
+	// dial below at once, unpaired, and restarts when it is paired; a call let
+	// go in between finds a stream, loses it, and gets HTTP's 410 – "the
+	// bridge's node is not reachable", a second after the pairing (#916).
 	await loopbackDial().catch(() => {});
 	await pairNodeByCode(http, saved);
+	release();
 	keepDialling().catch(() => {});
 }
 
