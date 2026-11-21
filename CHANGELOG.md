@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **What a device and the bridge say to each other is sealed a second time, above the connection.** A call to the bridge's own node and its answer – bank transactions, mails, receipts, the exported settings – were protected by the connection's encryption alone. Now the arguments and the answer are also sealed with AES-256-GCM under a key from the bridge's own key, which the device and the bridge both hold from the books and which the device proves at the gate; the key of a call is made for that call, the two peers and the command (`@le-space/bridge-protocol/seal`). The handover at pairing, which brings the bridge that key, is sealed with a key from the invitation. A bridge from before is called as before, and a device from before is answered as before: the seal holds once both are current. A sealed answer takes a third more room, so JSON that no longer fits a stream answer goes as blocks, as big files do. Not covered: a call through another own device's bridge ("Bridge für eigene Geräte freigeben").
+
 ## [0.48.0] – 2026-11-21
 
 ### Changed
