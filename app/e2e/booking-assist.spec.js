@@ -21,7 +21,8 @@ const IBAN = 'DE00 1234 5678 9012 3456 78';
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 /** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
-test.beforeAll(async () => {
+// A bridge of its own for each test: a pairing code is good for one device.
+test.beforeEach(async () => {
 	hibiscus = await startFakeHibiscus({ data: sampleData() });
 	llm = await startFakeLlm();
 	llm.answers.respond = (body) =>
@@ -51,7 +52,7 @@ test.beforeAll(async () => {
 	});
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
 	await bridge?.stop();
 	await llm?.close();
 	await hibiscus?.close();
@@ -148,4 +149,96 @@ test('the model suggests an account from the chart; the person puts it in', asyn
 	await expect(sent).toContainText('4964: Software-Abos');
 	await expect(sent).toContainText('Wolkenfabrik Hosting GmbH');
 	await expect(sent).not.toContainText(IBAN);
+});
+
+test('"Ohne Konto": the model suggests an account for every listed payment, each is taken in its row', async ({
+	page
+}) => {
+	test.setTimeout(120_000);
+	/** @param {string} name */
+	const tab = (name) =>
+		page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name });
+	await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('E2E Konto-KI Liste');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+
+	await tab('Integrationen').click();
+	await pairBridge(page, bridge);
+
+	await openSettings(page, 'kontenplan');
+	const chart = page.getByTestId('chart');
+	await chart.getByTestId('chart-file').setInputFiles({
+		name: 'kontenplan.csv',
+		mimeType: 'text/csv',
+		buffer: Buffer.from(
+			'Konto;Bezeichnung\n1200;Bank Konto A\n4930;Bürobedarf\n4964;Software-Abos\n'
+		)
+	});
+	await chart.getByTestId('chart-take').click();
+	await expect(chart.getByTestId('chart-current')).toContainText('3 Konten');
+
+	for (const [counterparty, amountCents] of /** @type {const} */ ([
+		['Wolkenfabrik Hosting GmbH', -1234],
+		['Stromwerk Test AG', -2000]
+	])) {
+		await page.evaluate(
+			(booking) => /** @type {any} */ (window).__belegeE2E.addTransaction(booking),
+			{ bookedOn: '2026-10-13', counterparty, purpose: 'Abo Oktober', amountCents }
+		);
+	}
+	await tab('Zahlungen').click();
+	const filter = page.getByTestId('filter-without-account');
+	await expect(filter).toContainText('(2)');
+	// Only this filter has the fields: the other lists stay as they were.
+	await expect(page.getByTestId('account-suggest')).toHaveCount(0);
+	await filter.click();
+	const rows = page.getByTestId('account-suggest');
+	await expect(rows).toHaveCount(2);
+	await expect(rows.nth(0).getByTestId('account-suggest-input')).toHaveValue('');
+	await expect(rows.nth(0).getByTestId('account-suggest-take')).toBeDisabled();
+
+	const ask = page.getByTestId('suggest-accounts-ask');
+	await expect(ask).toContainText('Konten vorschlagen (2)');
+	const asked = llm.requests.length;
+	await ask.click();
+	for (const row of [rows.nth(0), rows.nth(1)]) {
+		await expect(row.getByTestId('account-suggest-input')).toHaveValue('4964');
+		await expect(row).toHaveAttribute('data-from', 'ai');
+		await expect(row.getByTestId('account-suggest-why')).toContainText('Software-Abos');
+		await expect(row.getByTestId('account-suggest-why')).toContainText(
+			'sicher – Monatliches Software-Abo.'
+		);
+	}
+	// One call a payment, and nothing taken by itself.
+	expect(llm.requests.length - asked).toBe(2);
+	await expect(filter).toContainText('(2)');
+	await expect(page.getByTestId('suggest-accounts-nothing')).toBeVisible();
+	await expect(ask).toBeDisabled();
+
+	// "Übernehmen" in the row books this payment and no other.
+	const hosting = page
+		.locator('li', { hasText: 'Wolkenfabrik Hosting GmbH' })
+		.getByTestId('account-suggest');
+	await hosting.getByTestId('account-suggest-take').click();
+	await expect(filter).toContainText('(1)');
+	await expect(rows).toHaveCount(1);
+	await expect(page.getByTestId('transaction')).toHaveCount(1);
+	await expect(page.getByTestId('payee')).toHaveText('Stromwerk Test AG');
+
+	// The other one with a number of the person's own: the field is theirs.
+	await rows.getByTestId('account-suggest-input').fill('4930');
+	await expect(rows.getByTestId('account-suggest-why')).toContainText('Bürobedarf');
+	await expect(rows.getByTestId('account-suggest-why')).not.toContainText('Software-Abo');
+	await rows.getByTestId('account-suggest-take').click();
+	await expect(filter).toContainText('(0)');
+
+	// What was taken is the payment's account, as if taken on its own page.
+	await page.getByTestId('filter-all').click();
+	await page.getByText('Stromwerk Test AG').first().click();
+	const booking = page.getByTestId('tx-booking');
+	await expect(booking).toHaveAttribute('data-confirmed', 'true');
+	await expect(booking.getByTestId('tx-booking-account')).toHaveValue('4930');
 });
