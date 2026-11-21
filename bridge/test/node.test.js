@@ -14,7 +14,8 @@ import { identify } from '@libp2p/identify';
 import { memory } from '@libp2p/memory';
 import { createLibp2p } from 'libp2p';
 import { createDeviceGate, gatedIdentify } from '@belege/device-gate';
-import { createConsumer } from '@le-space/ucep';
+import { createConsumer, parseInvitation } from '@le-space/ucep';
+import { SEALED, handoverSecret, isSealed, sealCall } from '@le-space/bridge-protocol/seal';
 
 import { PAIR_SCOPE, fileStore, parseHandover, startBridgeNode } from '../src/node.js';
 import { emptyCommands } from './support/commands.js';
@@ -440,6 +441,134 @@ describe('the bridge’s node', () => {
 			await other.stop();
 			await unlisted.stop();
 			await stranger.stop();
+		}
+	});
+});
+
+describe('calls sealed above the connection', () => {
+	/** @type {string} */ let dir;
+	before(async () => {
+		dir = await mkdtemp(join(tmpdir(), 'belege-node-seal-'));
+	});
+	after(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	test('unarmed: the handover is sealed with a key from the invitation', async () => {
+		/** @type {any[]} */
+		const handovers = [];
+		const node = await startBridgeNode({
+			dir: join(dir, 'handover'),
+			authKey: null,
+			relays: [],
+			devices: [],
+			commands: emptyCommands(),
+			transports: [memory()],
+			listen: ['/memory/bridge-seal-one'],
+			onHandover: async (h) => void handovers.push(h)
+		});
+		const uri = await node.invite();
+		const inv = parseInvitation(uri);
+		const phone = await device(null);
+		try {
+			await phone.consumer.pairWithInvitation(uri);
+			const help = await phone.consumer.call(node.peerId, 'belege-bridge', 'help', {});
+			assert.equal(help.seal, 1, 'the bridge says that it seals');
+			const context = { consumer: phone.peerId, provider: node.peerId, command: 'handover' };
+			const args = {
+				bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'),
+				relays: [],
+				devices: []
+			};
+			const secret = await handoverSecret(inv.secret);
+
+			// Another invitation's id, and a key that is not the invitation's: refused, nothing handed over.
+			const lost = await sealCall(secret, context, args);
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+					...lost.sent,
+					inv: 'not-this-one'
+				}),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS' && /invitation/.test(e.message)
+			);
+			const wrong = await sealCall(OTHER_KEY, context, args);
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+					...wrong.sent,
+					inv: inv.invitationId
+				}),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS' && /seal/.test(e.message)
+			);
+
+			const call = await sealCall(secret, context, args);
+			assert.ok(!Buffer.from(call.sent[SEALED], 'base64').includes(Buffer.from(AUTH_KEY)));
+			const sealed = await phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+				...call.sent,
+				inv: inv.invitationId
+			});
+			assert.ok(isSealed(sealed), 'a sealed call gets a sealed answer');
+			assert.equal((await call.open(sealed)).peerId, node.peerId);
+			await new Promise((r) => setTimeout(r, 1200));
+			assert.equal(handovers.length, 1);
+			assert.deepEqual([...handovers[0].authKey], [...AUTH_KEY]);
+			assert.deepEqual(handovers[0].devices, [phone.peerId]);
+		} finally {
+			await phone.stop();
+			await node.stop();
+		}
+	});
+
+	test('armed: a call sealed with the bridge’s key is answered sealed, for that call only', async () => {
+		const own = await device(AUTH_KEY);
+		const node = await startBridgeNode({
+			dir: join(dir, 'armed'),
+			authKey: AUTH_KEY,
+			relays: [],
+			devices: [own.peerId],
+			commands: emptyCommands(),
+			transports: [memory()],
+			listen: ['/memory/bridge-seal-two']
+		});
+		try {
+			await own.libp2p.dial(
+				/** @type {any} */ (await import('@multiformats/multiaddr')).multiaddr(
+					`/memory/bridge-seal-two/p2p/${node.peerId}`
+				)
+			);
+			assert.equal(await waitFor(() => own.gate?.isProved(node.peerId) === true), true);
+			const context = { consumer: own.peerId, provider: node.peerId, command: 'request' };
+			const args = { method: 'GET', path: '/health' };
+
+			const call = await sealCall(AUTH_KEY, context, args);
+			const sealed = await own.consumer.call(node.peerId, 'belege-bridge', 'request', call.sent);
+			assert.ok(isSealed(sealed));
+			assert.deepEqual(Object.keys(sealed), [SEALED], 'nothing beside the sealed answer');
+			const answer = await call.open(sealed);
+			assert.equal(answer.status, 200);
+			assert.equal(answer.json.ok, true);
+
+			// The same bytes under another command's name do not open there.
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'grants', call.sent),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS' && /seal/.test(e.message)
+			);
+			// Sealed with another key.
+			const wrong = await sealCall(OTHER_KEY, context, args);
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'request', wrong.sent),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS'
+			);
+			// An answer opens for its own call only.
+			const second = await sealCall(AUTH_KEY, context, args);
+			await assert.rejects(second.open(sealed), /seal does not open/);
+
+			// A device from before sends its arguments as they are, and is answered the same way.
+			const plain = await own.consumer.call(node.peerId, 'belege-bridge', 'request', args);
+			assert.equal(plain.status, 200);
+			assert.ok(!isSealed(plain));
+		} finally {
+			await own.stop();
+			await node.stop();
 		}
 	});
 });
