@@ -38,6 +38,10 @@
 
 	let number = $derived(/^\s*(\d{4,8})(?:\s|$)/.exec(text)?.[1] ?? text.trim());
 	let known = $derived(catalogueAccount(number, app.chart));
+	// A share on the account that was typed for the expense cannot be: left out.
+	let shareOk = $derived(
+		Boolean(suggestion.privateShare) && suggestion.privateShare?.account !== number
+	);
 	let why = $derived(
 		fromAi && number === pick?.account
 			? `${t(`booking.ai.confidence.${pick?.confidence}`)} – ${pick?.reason}`
@@ -62,7 +66,11 @@
 		try {
 			await confirmBooking(/** @type {any} */ (store), tx.id, {
 				account: number,
-				taxKey: suggestion.taxKey
+				taxKey: suggestion.taxKey,
+				// The suggested private share goes with it (private-share.js), as the
+				// row says; without one nothing is said about shares – changing or
+				// removing one is done on the payment's own page.
+				...(shareOk ? { privateShare: suggestion.privateShare } : {})
 			});
 			await refreshNow();
 		} catch (e) {
@@ -104,6 +112,14 @@
 			{#if known}&nbsp;·&#32;{/if}{#if fromAi && number === pick?.account}<AiMark />{/if}{why}
 		{:else if pick && !pick.account && !suggestion.account}
 			{t('zahlungen.suggest.none')}
+		{/if}
+		{#if shareOk}
+			<span data-testid="account-suggest-share"
+				>&nbsp;·&#32;{t('zahlungen.suggest.share', {
+					percent: suggestion.privateShare?.percent ?? 0,
+					account: suggestion.privateShare?.account ?? ''
+				})}</span
+			>
 		{/if}
 	</span>
 	{#if error}

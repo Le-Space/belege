@@ -742,6 +742,38 @@
 					{/if}
 				</div>
 				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.legalFormHint')}</p>
+				<!-- The private share of telephone and internet bills (booking/private-share.js). -->
+				<p class="mt-3 text-text">{t('anweisungen.books.privateShare')}</p>
+				<div class="mt-1 flex flex-wrap items-end gap-3">
+					<label class="flex flex-col">
+						<span class="text-faint">{t('anweisungen.books.privateShareLandline')}</span>
+						<input
+							class="{input} w-20 font-mono"
+							inputmode="numeric"
+							bind:value={datev.privateShare.landline}
+							data-testid="datev-share-landline"
+						/>
+					</label>
+					<label class="flex flex-col">
+						<span class="text-faint">{t('anweisungen.books.privateShareMobile')}</span>
+						<input
+							class="{input} w-20 font-mono"
+							inputmode="numeric"
+							bind:value={datev.privateShare.mobile}
+							data-testid="datev-share-mobile"
+						/>
+					</label>
+					<label class="flex flex-col">
+						<span class="text-faint">{t('anweisungen.books.privateShareAccount')}</span>
+						<input
+							class="{input} w-28 font-mono"
+							inputmode="numeric"
+							bind:value={datev.privateShare.account}
+							data-testid="datev-share-account"
+						/>
+					</label>
+				</div>
+				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.privateShareHint')}</p>
 				<label class="mt-3 flex flex-col">
 					<span class="text-faint">{t('anweisungen.books.suspenseAccount')}</span>
 					<input

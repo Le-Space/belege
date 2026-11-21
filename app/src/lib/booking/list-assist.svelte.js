@@ -58,6 +58,7 @@ export function suggestFor(tx, app) {
 		partners: app.partners ?? [],
 		keys: datev.taxKeys,
 		privateAccounts: privateAccounts(datev),
+		privateShareRule: datev.privateShare,
 		travelSet: travelSetOf(datev, app.travel),
 		travelClearing: clearingAccountOf(datev, app.travel)
 	});

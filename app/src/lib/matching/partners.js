@@ -313,7 +313,7 @@ export function addressKindOf(partners, tx) {
  * @param {import('../store/repository.js').Collection} partners
  * @param {Rec} receipt
  * @param {Rec} tx
- * @param {{ account: string, taxKey: string }} booking
+ * @param {{ account: string, taxKey: string, privateShare?: { percent: number, account: string } | null }} booking
  * @param {{ companyNames?: string[] }} [ctx]
  * @returns {Promise<Rec | null>}
  */
@@ -330,6 +330,9 @@ export async function learnAccount(partners, receipt, tx, booking, { companyName
 		existing &&
 		existing.account === booking.account &&
 		(existing.taxKey ?? '') === booking.taxKey &&
+		(!('privateShare' in booking) ||
+			JSON.stringify(existing.privateShare ?? null) ===
+				JSON.stringify(booking.privateShare ?? null)) &&
 		aliases.length === (existing.aliases ?? []).length
 	) {
 		return existing;
@@ -341,7 +344,10 @@ export async function learnAccount(partners, receipt, tx, booking, { companyName
 		senderDomains: existing?.senderDomains ?? [],
 		learnedFrom: existing?.learnedFrom ?? 'booking',
 		account: booking.account,
-		taxKey: booking.taxKey
+		taxKey: booking.taxKey,
+		// The private share this vendor's bills were booked with (booking/private-share.js);
+		// null: booked whole, so the books' rule no longer splits it.
+		...('privateShare' in booking ? { privateShare: booking.privateShare ?? null } : {})
 	});
 }
 
