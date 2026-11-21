@@ -63,9 +63,12 @@ const ROOT_BYTES = 32;
 /**
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string, kind?: 'words' }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
- * @typedef {{ vault: any, slots: SlotInfo[], removed: string[] }} VaultRecord
- * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, previous?: Uint8Array[], kid: string, created: boolean, found?: boolean }} OpenedVault
+ * @typedef {{ vault: any, slots: SlotInfo[], removed: string[], aside?: string[] }} VaultRecord
+ *   `aside`: the passkeys (slot ids) that open other books in this browser now
+ *   (#524): their slot here stays, and is passed over at unlock
+ * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, previous?: Uint8Array[], kid: string, created: boolean, found?: boolean, switched?: boolean }} OpenedVault
  *   `found`: the record came from elsewhere (the index), not this browser;
+ *   `switched`: … in place of books this passkey had founded here (#524);
  *   `previous`: the roots before new keys (#627), newest first – for backups made then
  */
 
@@ -176,10 +179,17 @@ export function loadVaultRecords(storage) {
 		return {
 			vault: r.vault,
 			slots: Array.isArray(r.slots) ? r.slots : [],
-			removed: Array.isArray(r.removed) ? r.removed.map(String) : []
+			removed: Array.isArray(r.removed) ? r.removed.map(String) : [],
+			...(Array.isArray(r.aside) && r.aside.length ? { aside: r.aside.map(String) } : {})
 		};
 	});
 }
+
+/** What a record keeps when it is written anew. @param {VaultRecord} record */
+const asideOf = (record) => (record.aside?.length ? { aside: record.aside } : {});
+
+/** @param {Uint8Array} a @param {Uint8Array} b */
+const sameBytes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
  * Keep a record: replaces the one with the same vault id, else adds it.
@@ -207,6 +217,11 @@ const slotKeyOf = (prfOutput) => deriveAesKey(prfOutput, VAULT_SLOT_INFO);
  *   device): kept here, then opened.
  * - None: a new vault with this passkey's own PRF output as the root – books
  *   made before the vault keep exactly the keys they had.
+ * - `other` (#524): a record here, and the person asked for the books this
+ *   passkey has elsewhere. `find` is asked all the same; a vault from there
+ *   that this passkey opens and that holds other books is kept and opened,
+ *   and the record here is set aside for this passkey, not deleted. Anything
+ *   else – nothing found, no answer, the same books – opens the record here.
  *
  * @param {object} params
  * @param {Uint8Array} params.prfOutput
@@ -215,6 +230,7 @@ const slotKeyOf = (prfOutput) => deriveAesKey(prfOutput, VAULT_SLOT_INFO);
  * @param {string} [params.label] the passkey's name
  * @param {Pick<Storage, 'getItem' | 'setItem'>} params.storage
  * @param {(kid: string) => Promise<VaultRecord | null>} [params.find] where else to look
+ * @param {boolean} [params.other] take the other books `find` names (#524)
  * @param {() => Date} [params.now]
  * @returns {Promise<OpenedVault>}
  */
@@ -225,18 +241,52 @@ export async function openBooksVault({
 	label = '',
 	storage,
 	find,
+	other = false,
 	now = () => new Date()
 }) {
 	const kid = await slotIdFor(rawCredentialId);
 	const records = loadVaultRecords(storage);
-	let record = records.find((r) => r.vault.slots.some((/** @type {any} */ s) => s.kid === kid));
+	let record = records.find(
+		(r) => r.vault.slots.some((/** @type {any} */ s) => s.kid === kid) && !r.aside?.includes(kid)
+	);
 	if (!record && records.some((r) => r.removed.includes(kid))) throw new RemovedPasskeyError();
 	let found = false;
+	let switched = false;
 	if (!record && find) {
 		const elsewhere = await find(kid);
-		if (elsewhere && elsewhere.vault.slots.some((/** @type {any} */ s) => s.kid === kid)) {
+		if (
+			isVaultRecord(elsewhere) &&
+			elsewhere.vault.slots.some((/** @type {any} */ s) => s.kid === kid)
+		) {
 			record = elsewhere;
 			found = true;
+		}
+	} else if (record && find && other) {
+		// Asked for: the record here still opens the books when this fails.
+		try {
+			const opened = await openRecord(record, { prfOutput, rawCredentialId });
+			const there = await otherBooks(
+				{ ...opened, record, kid },
+				await find(kid),
+				{ prfOutput, rawCredentialId },
+				records
+			);
+			if (there) {
+				// One write: the other vault kept, and the one here set aside.
+				const here = record;
+				storage.setItem(
+					VAULTS_STORAGE_KEY,
+					JSON.stringify([
+						...records.map((r) => (r === here ? { ...r, aside: [...(r.aside ?? []), kid] } : r)),
+						there
+					])
+				);
+				record = there;
+				found = true;
+				switched = true;
+			}
+		} catch (e) {
+			console.warn('other books of this passkey:', e);
 		}
 	}
 	const slotKey = await slotKeyOf(prfOutput);
@@ -258,7 +308,15 @@ export async function openBooksVault({
 			};
 			saveVaultRecord(storage, record);
 		}
-		return { record, vaultKey, ...decodeRoots(payload), kid, created: false, found };
+		return {
+			record,
+			vaultKey,
+			...decodeRoots(payload),
+			kid,
+			created: false,
+			found,
+			...(switched ? { switched } : {})
+		};
 	}
 	const root = Uint8Array.from(prfOutput);
 	const { vault, vaultKey } = await createVault(encodePayload(root), { slotKey, rawCredentialId });
@@ -269,6 +327,73 @@ export async function openBooksVault({
 	};
 	saveVaultRecord(storage, record);
 	return { record, vaultKey, root, kid, created: true };
+}
+
+/**
+ * A vault record from outside (the index): the shape this file reads, before
+ * anything is done with it. What it seals is checked by opening it.
+ *
+ * @param {unknown} record
+ * @returns {record is VaultRecord}
+ */
+function isVaultRecord(record) {
+	const r = /** @type {any} */ (record);
+	return Boolean(
+		r &&
+			typeof r === 'object' &&
+			r.vault &&
+			typeof r.vault === 'object' &&
+			typeof r.vault.id === 'string' &&
+			r.vault.id &&
+			Array.isArray(r.vault.slots) &&
+			r.vault.slots.every((/** @type {any} */ s) => s && typeof s.kid === 'string') &&
+			Array.isArray(r.slots)
+	);
+}
+
+/**
+ * @param {VaultRecord} record
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey
+ */
+async function openRecord(record, passkey) {
+	const { payload } = await openVault(record.vault, {
+		slotKey: await slotKeyOf(passkey.prfOutput),
+		rawCredentialId: passkey.rawCredentialId
+	});
+	return decodeRoots(payload);
+}
+
+/**
+ * Whether `candidate` – what the index of this passkey names – is a vault of
+ * other books than the ones open (#524): a device that founded books of its
+ * own never learns otherwise that its passkey has a slot in a vault made
+ * elsewhere. Other books means: another vault, with a slot this passkey
+ * opens, whose root is neither the open one nor one before or after it (the
+ * same books under new keys move by `adoptSuccessorVault`), and that this
+ * browser does not keep already. Nothing is written.
+ *
+ * @param {Pick<OpenedVault, 'record' | 'root' | 'previous' | 'kid'>} opened
+ * @param {unknown} candidate from outside: checked here
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey this one
+ * @param {VaultRecord[]} [kept] the records this browser keeps
+ * @returns {Promise<VaultRecord | null>} the record to take, or null
+ */
+export async function otherBooks(opened, candidate, passkey, kept = []) {
+	if (!isVaultRecord(candidate)) return null;
+	if (candidate.vault.id === opened.record.vault.id) return null;
+	if (kept.some((r) => r.vault.id === candidate.vault.id)) return null;
+	if (!candidate.vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) return null;
+	/** @type {{ root: Uint8Array, previous: Uint8Array[] }} */
+	let there;
+	try {
+		there = await openRecord(candidate, passkey);
+	} catch {
+		// Not a vault this passkey opens, whatever it says.
+		return null;
+	}
+	const mine = [opened.root, ...(opened.previous ?? [])];
+	if ([there.root, ...there.previous].some((r) => mine.some((m) => sameBytes(r, m)))) return null;
+	return { vault: candidate.vault, slots: candidate.slots, removed: [] };
 }
 
 /**
@@ -297,7 +422,8 @@ export async function addPasskey(opened, passkey, storage, now = () => new Date(
 				addedAt: now().toISOString()
 			}
 		],
-		removed: opened.record.removed.filter((k) => k !== kid)
+		removed: opened.record.removed.filter((k) => k !== kid),
+		...asideOf(opened.record)
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
@@ -324,7 +450,8 @@ export function removePasskey(opened, kid, storage) {
 			slots: opened.record.vault.slots.filter((/** @type {any} */ s) => s.kid !== kid)
 		},
 		slots: opened.record.slots.filter((s) => s.kid !== kid),
-		removed: [...new Set([...opened.record.removed, kid])]
+		removed: [...new Set([...opened.record.removed, kid])],
+		...asideOf(opened.record)
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
@@ -360,7 +487,8 @@ export async function renewBooksVault(opened, answers, removed, storage) {
 	const record = {
 		vault,
 		slots: opened.record.slots.filter((s) => kids.includes(s.kid)),
-		removed: [...new Set([...opened.record.removed, ...removed])]
+		removed: [...new Set([...opened.record.removed, ...removed])],
+		...asideOf(opened.record)
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);
@@ -413,7 +541,8 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 			...here,
 			...published.filter((s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid))
 		],
-		removed: opened.record.removed
+		removed: opened.record.removed,
+		...asideOf(opened.record)
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);
@@ -462,7 +591,8 @@ export async function addRecoveryWords(opened, seed, storage, now = () => new Da
 				kind: /** @type {const} */ ('words')
 			}
 		],
-		removed: opened.record.removed
+		removed: opened.record.removed,
+		...asideOf(opened.record)
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
@@ -489,7 +619,8 @@ const withoutSlot = (record, kid) => ({
 		slots: record.vault.slots.filter((/** @type {any} */ s) => s.kid !== kid)
 	},
 	slots: record.slots.filter((s) => s.kid !== kid),
-	removed: record.removed
+	removed: record.removed,
+	...asideOf(record)
 });
 
 /**
@@ -620,7 +751,8 @@ export async function newBooksVault(
 	const record = {
 		vault,
 		slots: opened.record.slots.filter((s) => kids.includes(s.kid)),
-		removed: [...new Set([...opened.record.removed, ...left])]
+		removed: [...new Set([...opened.record.removed, ...left])],
+		...asideOf(opened.record)
 	};
 	return { ...opened, record, vaultKey, root, previous, created: false, found: false };
 }
@@ -655,7 +787,8 @@ export async function adoptSuccessorVault(opened, vault, passkey, storage, remov
 	const record = {
 		vault,
 		slots: opened.record.slots.filter((s) => kids.has(s.kid)),
-		removed: removed.map(String)
+		removed: removed.map(String),
+		...asideOf(opened.record)
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);

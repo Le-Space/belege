@@ -20,6 +20,7 @@ import {
 	removeRecoveryWords,
 	loadVaultRecords,
 	openBooksVault,
+	otherBooks,
 	removePasskey,
 	rekeyBooksVault,
 	renewBooksVault
@@ -339,5 +340,153 @@ describe('new keys for the books (#627)', () => {
 		await expect(adoptSuccessorVault(onA, theirs.record.vault, A, storage)).rejects.toBeInstanceOf(
 			VaultStorageError
 		);
+	});
+});
+
+// #524: passkey B has a slot in the books A made on another device, and their
+// vault is published. On this device B opened Belege without "Restore" and
+// founded books of its own.
+describe('the other books of a passkey (#524)', () => {
+	async function trap() {
+		const laptop = memoryStorage();
+		const there = await addPasskey(await openBooksVault({ ...A, storage: laptop }), B, laptop);
+		/** What index P of B holds: the record, no names. */
+		const published = {
+			vault: there.record.vault,
+			slots: there.record.slots.map((s) => ({ ...s, label: '' })),
+			removed: []
+		};
+		const phone = memoryStorage();
+		const own = await openBooksVault({ ...B, storage: phone });
+		expect(own.created).toBe(true);
+		expect(own.root).toEqual(B.prfOutput);
+		return { laptop, there, published, phone, own };
+	}
+
+	it('a vault from the index that this passkey opens, with another root, is other books', async () => {
+		const { published, own, there } = await trap();
+		const other = await otherBooks(own, published, B);
+		expect(other?.vault.id).toBe(there.record.vault.id);
+		expect(other?.vault.slots).toHaveLength(2);
+	});
+
+	it('nothing, the same vault, the same books or a vault it cannot open is not', async () => {
+		const { published, own, there, phone } = await trap();
+		expect(await otherBooks(own, null, B)).toBeNull();
+		expect(
+			await otherBooks(own, { vault: own.record.vault, slots: [], removed: [] }, B)
+		).toBeNull();
+		// Not the shape of a vault record: from outside, so checked.
+		for (const broken of [
+			'vault',
+			{},
+			{ vault: { id: 7, slots: [] }, slots: [] },
+			{ vault: { id: 'x', slots: 'none' }, slots: [] },
+			{ vault: { id: 'x', slots: [null] }, slots: [] },
+			{ vault: published.vault }
+		]) {
+			expect(await otherBooks(own, broken, B)).toBeNull();
+		}
+		// Another passkey's vault: this one has no slot in it.
+		const onlyA = await openBooksVault({ ...A, storage: memoryStorage() });
+		expect(await otherBooks(own, { ...published, vault: onlyA.record.vault }, B)).toBeNull();
+		// A slot under this passkey's id that its key does not open.
+		const forged = await addPasskey(
+			await openBooksVault({ ...A, storage: memoryStorage() }),
+			{ ...B, prfOutput: bytes(32, 9) },
+			memoryStorage()
+		);
+		expect(await otherBooks(own, { ...published, vault: forged.record.vault }, B)).toBeNull();
+		// The same books under a renewed vault: another id, the same root.
+		const renewed = await renewBooksVault(own, [B], [], memoryStorage());
+		expect(renewed.record.vault.id).not.toBe(own.record.vault.id);
+		expect(await otherBooks(own, { ...published, vault: renewed.record.vault }, B)).toBeNull();
+		// The same books under new keys (#627): theirs is the successor's way.
+		const rekeyed = await rekeyBooksVault(own, [B], memoryStorage());
+		expect(await otherBooks(own, { ...published, vault: rekeyed.record.vault }, B)).toBeNull();
+		expect(await otherBooks(rekeyed, { ...published, vault: own.record.vault }, B)).toBeNull();
+		// Kept in this browser already.
+		expect(await otherBooks(own, published, B, [there.record])).toBeNull();
+		// Nothing was written.
+		expect(loadVaultRecords(phone)).toHaveLength(1);
+	});
+
+	it('an unlock stays in the books founded here until the person asks for the others', async () => {
+		const { published, phone, own } = await trap();
+		let asked = 0;
+		const find = async () => (asked++, published);
+		const again = await openBooksVault({ ...B, storage: phone, find });
+		expect(asked).toBe(0);
+		expect(again.root).toEqual(own.root);
+		expect(again.switched).toBeUndefined();
+	});
+
+	it('asked for, the other vault is opened and kept; the books founded here are set aside', async () => {
+		const { published, phone, own, there } = await trap();
+		const kid = own.kid;
+		const opened = await openBooksVault({
+			...B,
+			storage: phone,
+			find: async () => published,
+			other: true
+		});
+		expect(opened.switched).toBe(true);
+		expect(opened.found).toBe(true);
+		expect(opened.root).toEqual(A.prfOutput);
+		expect(opened.record.vault.id).toBe(there.record.vault.id);
+		// Both are kept: nothing is lost. This passkey's name is this browser's own.
+		const records = loadVaultRecords(phone);
+		expect(records.map((r) => r.vault.id)).toEqual([own.record.vault.id, there.record.vault.id]);
+		expect(records[0].aside).toEqual([kid]);
+		expect(records[1].aside).toBeUndefined();
+		expect(records[1].slots.find((s) => s.kid === kid)?.label).toBe('YubiKey');
+		// From now on, without asking anyone: the other books.
+		const next = await openBooksVault({ ...B, storage: phone });
+		expect(next.root).toEqual(A.prfOutput);
+		expect(next.switched).toBeUndefined();
+		// Asked once more, the index names what is kept already: nothing changes.
+		const same = await openBooksVault({
+			...B,
+			storage: phone,
+			find: async () => published,
+			other: true
+		});
+		expect(same.switched).toBeUndefined();
+		expect(loadVaultRecords(phone)).toHaveLength(2);
+		// What is done to the adopted vault leaves the one set aside as it is.
+		await addPasskey(next, C, phone);
+		expect(loadVaultRecords(phone)[0].aside).toEqual([kid]);
+		expect((await openBooksVault({ ...B, storage: phone })).root).toEqual(A.prfOutput);
+	});
+
+	it('asked for, but the index fails or names nothing usable: the books here open', async () => {
+		const { phone, own } = await trap();
+		const before = phone.map.get(VAULTS_STORAGE_KEY);
+		for (const find of [
+			async () => null,
+			async () => {
+				throw new Error('Aleph did not answer: 503');
+			},
+			async () => /** @type {any} */ ({ vault: { id: 'x', slots: [{ kid: own.kid }] }, slots: [] })
+		]) {
+			const opened = await openBooksVault({ ...B, storage: phone, find, other: true });
+			expect(opened.root).toEqual(own.root);
+			expect(opened.switched).toBeUndefined();
+			expect(opened.found).toBe(false);
+		}
+		expect(phone.map.get(VAULTS_STORAGE_KEY)).toBe(before);
+	});
+
+	it('another passkey of the books founded here still opens them, and leaves the choice alone', async () => {
+		const { published, phone, own } = await trap();
+		await addPasskey(own, C, phone);
+		await openBooksVault({ ...B, storage: phone, find: async () => published, other: true });
+		// C has no slot elsewhere: the books founded here, as before.
+		const withC = await openBooksVault({ ...C, storage: phone });
+		expect(withC.root).toEqual(B.prfOutput);
+		// What C does there writes the record anew: B stays set aside in it.
+		await addRecoveryWords(withC, bytes(64, 0x5e), phone);
+		expect(loadVaultRecords(phone)[0].aside).toEqual([own.kid]);
+		expect((await openBooksVault({ ...B, storage: phone })).root).toEqual(A.prfOutput);
 	});
 });

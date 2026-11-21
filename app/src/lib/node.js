@@ -150,6 +150,7 @@ export class ReadOnlyError extends Error {
  * @property {{ books: { did: string, identityId: string, label: string }, role: 'bookkeeping' | 'reader', writer: string, vaultId: string } | null} member a member's books (#612), and what they may do (#641); null for the owner
  * @property {{ peers: string[] } | { left: true } | null} moved the books have new keys (#627): this passkey took the new vault (`peers`: whom to dial there), or has no slot in it (`left`)
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
+ * @property {() => Promise<import('./books-vault.js').VaultRecord | null>} otherVault the other books this passkey has on Aleph (#524): asked of its index, checked with its slot; null when none
  * @property {string} pointedOwner the paying account a member's index on Aleph named (#613), in memory; '' when none
  * @property {(owner: string | null) => Promise<void>} publishMembership a member's vault on Aleph's index G (#613)
  * @property {Awaited<ReturnType<typeof openStore>>} store
@@ -238,9 +239,12 @@ async function pinnedToCredential(fn) {
  * @param {{ onStatus?: (status: UnlockStatus) => void,
  *   beforePrompt?: (purpose: 'prf') => Promise<void>,
  *   lookupVault?: boolean,
+ *   otherVault?: boolean,
  *   recovered?: { opened: import('./books-vault.js').OpenedVault, owner: string, label: string },
  *   memberOf?: string }} [options]
  *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
+ *   `otherVault`: the person chose the other books this passkey has on Aleph
+ *   (#524): the index is asked although this browser keeps a vault for it
  *   `recovered`: the vault opened with recovery words (session.svelte.js
  *   `recoverWithWords`): this new passkey gets its slot there, and opens it
  *   `memberOf`: a member's books (#612) – the id of the member vault this
@@ -251,7 +255,7 @@ async function pinnedToCredential(fn) {
  */
 export async function startSession(
 	credential,
-	{ onStatus, beforePrompt, lookupVault = false, recovered, memberOf } = {}
+	{ onStatus, beforePrompt, lookupVault = false, otherVault = false, recovered, memberOf } = {}
 ) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
@@ -284,7 +288,9 @@ export async function startSession(
 	// books' own index for the current record – which may say the passkey was
 	// removed there.
 	const indexes =
-		lookupVault && !recovered && !membership ? await import('./backup/vault-index.js') : null;
+		(lookupVault || otherVault) && !recovered && !membership
+			? await import('./backup/vault-index.js')
+			: null;
 	let vault = membership
 		? null
 		: recovered
@@ -309,7 +315,8 @@ export async function startSession(
 					credentialId: String(credential.credentialId ?? ''),
 					label: String(credential.displayName ?? ''),
 					storage: globalThis.localStorage,
-					...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {})
+					...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {}),
+					...(otherVault ? { other: true } : {})
 				});
 	/** The paying Aleph account, as the books' index names it (an empty device). */
 	let pointedOwner = recovered?.owner ?? '';
@@ -777,6 +784,28 @@ export async function startSession(
 			vault,
 			moved,
 			ownIndexKey,
+			/**
+			 * The other books this passkey has on Aleph (#524), for a device that
+			 * founded books of its own: its index there is asked, and what it names
+			 * counts only when this passkey opens it and it holds other books
+			 * (books-vault.js `otherBooks`). Nothing is kept. The caller respects
+			 * the pause.
+			 *
+			 * @returns {Promise<import('./books-vault.js').VaultRecord | null>}
+			 */
+			async otherVault() {
+				if (!vault) return null;
+				const [{ findVaultOnAleph }, { loadVaultRecords, otherBooks }] = await Promise.all([
+					import('./backup/vault-index.js'),
+					import('./books-vault.js')
+				]);
+				return otherBooks(
+					vault,
+					await findVaultOnAleph({ prfOutput: passkeyPrf }),
+					{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+					loadVaultRecords(globalThis.localStorage)
+				);
+			},
 			pointedOwner: membership ? pointedOwner : '',
 			/**
 			 * A member's vault on Aleph's index G (#613), with the account the

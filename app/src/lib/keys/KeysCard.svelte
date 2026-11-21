@@ -8,6 +8,7 @@
 	import {
 		addBooksPasskey,
 		app,
+		lookForOtherBooks,
 		publishBooksVault,
 		removeBooksPasskey,
 		renewBooksKeys
@@ -16,6 +17,7 @@
 	import { docUrl } from '$lib/help/integration-help.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import RecoveryWords from './RecoveryWords.svelte';
+	import OtherBooksOffer from './OtherBooksOffer.svelte';
 
 	let label = $state('');
 	let publish = $state(true);
@@ -86,6 +88,19 @@
 			renew ? t('settings.keys.renewed') : t('settings.keys.removed')
 		);
 	const publishNow = () => act('publish', () => publishBooksVault(), t('settings.keys.published'));
+
+	/** The other books of this passkey (#524): Aleph is asked when the person asks. */
+	let otherNone = $state(false);
+	async function askOther() {
+		otherNone = false;
+		await act(
+			'other',
+			async () => {
+				otherNone = !(await lookForOtherBooks('asked'));
+			},
+			''
+		);
+	}
 
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
@@ -207,6 +222,33 @@
 				data-testid="keys-publish-now">{t('settings.keys.publishNow')}</button
 			>
 		</p>
+	{/if}
+
+	{#if !app.member}
+		<div class="mt-4 border-t border-border pt-3" data-testid="keys-other">
+			<h3 class="text-sm font-semibold text-heading">{t('settings.keys.other.title')}</h3>
+			<p class="mt-1 text-sm text-text">{t('settings.keys.other.intro')}</p>
+			{#if paused}
+				<p class="mt-2 text-sm text-faint">{t('settings.keys.paused')}</p>
+			{:else if !app.otherBooks}
+				<button
+					type="button"
+					class="mt-2 {button}"
+					disabled={Boolean(busy)}
+					onclick={askOther}
+					data-testid="keys-other-ask"
+					>{busy === 'other'
+						? t('settings.keys.other.asking')
+						: t('settings.keys.other.ask')}</button
+				>
+			{/if}
+			{#if otherNone && !app.otherBooks}
+				<p class="mt-2 text-sm text-text" role="status" data-testid="keys-other-none">
+					{t('settings.keys.other.none')}
+				</p>
+			{/if}
+			<OtherBooksOffer />
+		</div>
 	{/if}
 
 	<div class="mt-4 border-t border-border pt-3" id="rekey" data-testid="keys-rekey">

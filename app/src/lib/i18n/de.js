@@ -1275,7 +1275,7 @@ export default {
 		gap: 'Zu diesem Vollbackup fehlen Zuwächse ({missing}). Ohne sie lässt es sich nicht vollständig zurückholen; nichts wurde geändert.',
 		done: 'Wiederhergestellt. Die Seite lädt neu – entsperre mit dem Passkey.',
 		wrongPasskey:
-			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu einem anderen Tresor, also zu anderen Büchern. Ein Backup öffnet jeder Passkey mit einem Fach in dem Tresor, aus dem es stammt – füge diesen Passkey dort hinzu (Einstellungen → Schlüssel, auf dem Gerät mit jenen Büchern), oder öffne jene Bücher hier mit ihren Wiederherstellungswörtern.',
+			'Dieses Backup lässt sich mit diesem Passkey nicht öffnen: Es gehört zu einem anderen Tresor, also zu anderen Büchern. Ein Backup öffnet jeder Passkey mit einem Fach in dem Tresor, aus dem es stammt – füge diesen Passkey dort hinzu (Einstellungen → Schlüssel, auf dem Gerät mit jenen Büchern), oder öffne jene Bücher hier mit ihren Wiederherstellungswörtern. Oder dieses Gerät hat eigene Bücher angelegt, weil Belege hier ohne „Wiederherstellen“ geöffnet wurde: Einstellungen → Schlüssel zeigt, welchen Tresor dieser Passkey hier öffnet, und fragt bei Aleph nach seinen anderen Büchern.',
 		notFetched:
 			'Alephs Gateway hat das Backup nicht oder nicht vollständig zurückgegeben; eine unvollständige Datei wird nicht geöffnet. Versuch es gleich noch einmal, am besten im WLAN.',
 		detail: 'Technische Einzelheit',
@@ -2782,6 +2782,30 @@ export default {
 				'Der Tresor liegt nur in diesem Browser. Ein leeres Gerät findet ihn mit dem zweiten Passkey nur, wenn er bei Aleph hinterlegt ist.',
 			publishNow: 'Jetzt hinterlegen',
 			published: 'Bei Aleph hinterlegt.',
+			other: {
+				title: 'Andere Bücher dieses Passkeys',
+				intro:
+					'Ein Passkey, der schon auf einem anderen Gerät Bücher hat, legt hier eigene Bücher an, wenn Belege ohne „Wiederherstellen“ geöffnet wurde. Diese Karte zeigt dann den Tresor der neuen Bücher, nicht den, den du kennst. Liegt der andere Tresor bei Aleph, findet dieser Passkey ihn dort.',
+				ask: 'Bei Aleph nachfragen',
+				asking: 'Frage bei Aleph nach …',
+				none: 'Aleph kennt keine anderen Bücher, die dieser Passkey öffnet.',
+				foundHeading: 'Dieser Passkey öffnet auch andere Bücher:',
+				found: 'Ihr Tresor liegt bei Aleph, Passkeys darin: {passkeys}.',
+				foundSince: 'Es gibt ihn seit {date}.',
+				foundWords: 'Er hat Wiederherstellungswörter.',
+				openNote:
+					'Wenn das die Bücher sind, die du meinst: Öffne sie hier. Die jetzt geöffneten Bücher bleiben in diesem Browser, beiseitegelegt; dieser Passkey öffnet von da an die anderen. Die Seite lädt neu, und der Passkey antwortet einmal.',
+				open: 'Jene Bücher öffnen',
+				opening: 'Lade neu …',
+				banner: 'Dieser Passkey öffnet auch andere Bücher: Ihr Tresor liegt bei Aleph.',
+				bannerGo: 'Zeigen',
+				later: 'Später',
+				close: 'Schließen',
+				opened:
+					'Das sind jetzt die Bücher, die dein Passkey bei Aleph hat. Ihr Inhalt kommt aus einem Backup zurück (Integrationen → Aleph → Wiederherstellen) oder von einem deiner Geräte.',
+				notOpened:
+					'Die anderen Bücher ließen sich nicht öffnen: Aleph hat nicht geantwortet oder keinen Tresor genannt, den dieser Passkey öffnet. Das sind die Bücher von vorher.'
+			},
 			paused: 'Das Netz ist pausiert.',
 			technical: [
 				'Der Tresor hält die Wurzel R, aus der jeder Schlüssel per HKDF entsteht (die PRF-Antwort des Passkeys, der die Bücher angelegt hat), versiegelt mit einem zufälligen Tresorschlüssel (AES-256-GCM). Jedes Fach ist der Tresorschlüssel, versiegelt mit einem Schlüssel aus der PRF-Antwort seines Passkeys (belege/vault-slot/v1), gebunden an Tresor und Passkey.',

@@ -1245,7 +1245,7 @@ export default {
 		gap: 'Increments of this full backup are missing ({missing}). Without them it cannot be brought back completely; nothing was changed.',
 		done: 'Restored. The page reloads – unlock with the passkey.',
 		wrongPasskey:
-			'This backup cannot be opened with this passkey: it belongs to another vault, that is, to other books. A backup opens with any passkey that has a slot in the vault it came from – add this passkey there (Settings → Keys, on the device with those books), or open those books here with their recovery words.',
+			'This backup cannot be opened with this passkey: it belongs to another vault, that is, to other books. A backup opens with any passkey that has a slot in the vault it came from – add this passkey there (Settings → Keys, on the device with those books), or open those books here with their recovery words. Or this device made books of its own, because Belege was opened here without “Restore”: Settings → Keys shows which vault this passkey opens here, and asks Aleph for its other books.',
 		notFetched:
 			'Aleph’s gateway did not give the backup back, or not all of it; an incomplete file is not opened. Try again in a moment, on Wi-Fi if you can.',
 		detail: 'Technical detail',
@@ -2739,6 +2739,30 @@ export default {
 			publishNow: 'Keep it there now',
 			published: 'Kept on Aleph.',
 			paused: 'The network is paused.',
+			other: {
+				title: 'Other books of this passkey',
+				intro:
+					'A passkey that already has books on another device makes books of its own here when Belege was opened without “Restore”. This card then shows the vault of those new books, not the one you know. If the other vault is kept on Aleph, this passkey finds it there.',
+				ask: 'Ask Aleph',
+				asking: 'Asking Aleph …',
+				none: 'Aleph knows no other books this passkey opens.',
+				foundHeading: 'This passkey opens other books too:',
+				found: 'their vault is kept on Aleph, with passkeys: {passkeys}.',
+				foundSince: 'It has existed since {date}.',
+				foundWords: 'It has recovery words.',
+				openNote:
+					'If those are the books you meant: open them here. The books open now stay in this browser, set aside; from then on this passkey opens the other ones. The page reloads, and the passkey answers once.',
+				open: 'Open those books',
+				opening: 'Reloading …',
+				banner: 'This passkey opens other books too: their vault is kept on Aleph.',
+				bannerGo: 'Show',
+				later: 'Later',
+				close: 'Close',
+				opened:
+					'These are now the books your passkey has on Aleph. What they hold comes back from a backup (Integrations → Aleph → Restore) or from one of your devices.',
+				notOpened:
+					'The other books could not be opened: Aleph did not answer, or named no vault this passkey opens. These are the books from before.'
+			},
 			technical: [
 				'The vault holds the root R every key is derived from with HKDF (the PRF output of the passkey that made the books), sealed under a random vault key (AES-256-GCM). Each slot is the vault key sealed under a key from its passkey’s PRF output (belege/vault-slot/v1), bound to the vault and the passkey.',
 				'On Aleph, as aggregate belege-vault: at an address from each passkey’s PRF output, the vault record; at an address from the root, the current record and the paying account, sealed. No names of passkeys, no wallet.'

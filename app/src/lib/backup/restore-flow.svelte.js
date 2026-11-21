@@ -5,7 +5,7 @@
 // books are closed for it, so the page reloads at the end and the passkey
 // opens them again. The state lives here so the card stays readable.
 
-import { app, currentStore, restoreBackup } from '$lib/session.svelte.js';
+import { app, currentStore, lookForOtherBooks, restoreBackup } from '$lib/session.svelte.js';
 import { t } from '$lib/i18n/index.js';
 import { loadBackups } from './history.js';
 import { findBackups } from './keeper.js';
@@ -229,6 +229,13 @@ export async function runRestore({ owner, endpoints, known = [], sizes = {} }) {
 		// bytes, which CID. What a person reports, and what a maintainer needs.
 		restoreRun.detail =
 			e instanceof Error && e.message && e.message !== restoreRun.error ? e.message : null;
+		// A backup of another vault: this passkey may have a slot in it, on a
+		// device that founded books of its own (#524). Its index on Aleph is
+		// asked – the restore was talking to Aleph already – unless paused; the
+		// card offers what it names (keys/OtherBooksOffer.svelte).
+		if (name === 'WrongPasskeyError' && !app.network.paused) {
+			await lookForOtherBooks('restore').catch((err) => console.warn('other books on Aleph:', err));
+		}
 	} finally {
 		letSleep();
 		letQuiet();
