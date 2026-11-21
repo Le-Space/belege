@@ -21,6 +21,7 @@ import {
 } from './datev.js';
 import { fileSlug, runMonthExport } from './build.js';
 import { bookingText, numberReceipts, planMonth, transferCounterpart } from './plan.js';
+import { overviewCsv } from './overview.js';
 
 const SETTINGS = defaultDatevSettings();
 const CREATED = new Date(Date.UTC(2026, 9, 2, 8, 30, 15, 123));
@@ -377,6 +378,36 @@ describe('planMonth', () => {
 		});
 		expect(included.bookings.map((t) => t.id)).toContain('T-TEST');
 		expect(included.testsIncluded).toBe(true);
+	});
+
+	it('a payment that is partly private use is two lines that add up to it (#935)', () => {
+		const b = books();
+		const transactions = b.transactions.map((t) =>
+			t.id === 'T1'
+				? { ...t, booking: { ...t.booking, privateShare: { percent: 30, account: '1390' } } }
+				: t
+		);
+		const plan = planMonth({ month: '2026-09', ...b, transactions });
+		expect(plan.blocked).toBe(false);
+		expect(plan.lines.map((l) => l.tx.id)).toEqual(['T1', 'T1', 'T2', 'T3', 'T5']);
+		const [business, privately] = plan.lines;
+		expect(business.share).toEqual({ part: 'business', percent: 70 });
+		expect(privately.share).toEqual({ part: 'private', percent: 30 });
+		expect(business.line.amountCents + privately.line.amountCents).toBe(-3999);
+		// The business part keeps the account, the key and the receipt; the private part has no key.
+		expect(bookingLine(business.line).split(';').slice(0, 14).join(';')).toBe(
+			'27,99;"H";;;;;1200;4925;"9";0109;"2026-09-001";;;"Kabelnetz Beispiel GmbH 70% betriebl."'
+		);
+		expect(bookingLine(privately.line).split(';').slice(0, 14).join(';')).toBe(
+			'12,00;"H";;;;;1200;1390;;0109;"2026-09-001";;;"Kabelnetz Beispiel GmbH 30% privat"'
+		);
+		// The other lines are what they were.
+		const plain = planMonth({ month: '2026-09', ...b });
+		expect(plan.lines.slice(2).map((l) => l.line)).toEqual(plain.lines.slice(1).map((l) => l.line));
+		// The overview names the two parts.
+		const overview = overviewCsv(plan, { accounts: b.accounts, classifications: {} });
+		expect(overview).toContain('betrieblicher Anteil 70 % der Zahlung');
+		expect(overview).toContain('Privatanteil 30 % der Zahlung, ohne Vorsteuer');
 	});
 
 	it('one line per booking; the transfer once, from the lower ledger, against the other bank', () => {

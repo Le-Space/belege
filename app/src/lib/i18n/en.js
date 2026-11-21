@@ -356,6 +356,8 @@ export default {
 		booking: {
 			accountDigits: 'An account has 4 to 8 digits.',
 			taxKeyDigits: 'A BU key has up to 4 digits.',
+			privateShare: 'A private share needs 1 to 99 percent and an account of 4 to 8 digits.',
+			privateShareSame: 'The private share needs another account than the business part.',
 			rateFormat: 'The rate is a number from 0, e.g. 0.0042 – or 0 for a worthless token.',
 			rateAmbiguous:
 				'“{value}” can be read both ways: with a thousands separator or with three decimals – a factor of 1000 apart. Write the rate without a thousands separator (58123) or with one more decimal (2.3450).',
@@ -2929,6 +2931,12 @@ export default {
 				corporation: 'Corporation (UG, GmbH)'
 			},
 			shareholderAccount: 'Shareholder clearing account',
+			privateShare: 'Private share of telephone and internet',
+			privateShareLandline: 'Landline, fixed internet (% private)',
+			privateShareMobile: 'Mobile and everything else (% private)',
+			privateShareAccount: 'Account for the private share',
+			privateShareHint:
+				'A telephone or internet bill is suggested with this share: the business part on the expense account with its BU key, the private part on the account here, without a key – two bookings in the DATEV export. 0 or no account: no split. You confirm every payment yourself; a vendor remembers what you chose last. The percentages are the tax adviser’s.',
 			suspenseAccount: 'Suspense account for bookings without an account',
 			paymentAccount: 'Account for balances in payment contracts',
 			paymentAccountHint:
@@ -3563,6 +3571,17 @@ export default {
 			'Suggestions from your imported chart of accounts ({count} accounts). Which account is right is for you to decide with your tax advisor.',
 		taxKey: 'BU key',
 		taxKeyPlaceholder: 'empty = none',
+		share: {
+			label: 'Private share',
+			account: 'on account',
+			none: 'Empty: the whole payment is business.',
+			parts: 'business {business}, private {private} on {account} – two bookings in the export',
+			via: {
+				learned: 'as last time with this vendor',
+				landline: 'rule for landline and fixed internet',
+				mobile: 'rule for mobile'
+			}
+		},
 		taxKeyNone: 'no key',
 		taxKeyUnknown: 'No meaning is on record for this key.',
 		// A key the books' settings give a role (Einstellungen → DATEV).
@@ -3715,7 +3734,11 @@ export default {
 			collected:
 				'Collective booking: {count} network fees from {from} to {until}, each in the statement',
 			transferSide: 'not in the booking batch: included in the counter-booking of {date} ({bank})',
-			suspense: 'on the suspense account, to be re-booked'
+			suspense: 'on the suspense account, to be re-booked',
+			share: {
+				business: 'business share, {percent} % of the payment',
+				private: 'private share, {percent} % of the payment, no input tax'
+			}
 		},
 		technical: [
 			'Booking batch in DATEV format EXTF, version 700, category 21, format version 13: header line with 31 fields, column headings, one line per booking with 125 fields; separator “;”, line ending CRLF, character set Windows-1252 (ANSI).',
