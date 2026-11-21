@@ -73,7 +73,8 @@ export function monthlyLines(s) {
 			})
 		),
 		...s.topUps.map((t) =>
-			row({ credit: String(t.credits + t.bonus), purchase: t.how === 'purchase' })
+			// `credits` is what came in, the bonus included (packages/chains aleph.js).
+			row({ credit: String(t.credits), purchase: t.how === 'purchase' })
 		),
 		...s.transfersOut.map((t) => row({ debit: String(t.credits) }))
 	]);
@@ -158,8 +159,9 @@ export async function statementPdf(doc) {
 					t.how === 'purchase'
 						? `Kauf${t.token ? ` (${t.token}${t.chain ? `, ${t.chain}` : ''})` : ''}`
 						: 'Übertrag herein',
-					credits(t.credits + t.bonus),
-					t.price ?? '—',
+					credits(t.credits),
+					// Dollars per credit that came in – never the row's `price`, a token amount for ALEPH.
+					t.usdPerCredit ?? '—',
 					t.txHash ?? t.from ?? ''
 				]),
 				...s.transfersOut.map((t) => [

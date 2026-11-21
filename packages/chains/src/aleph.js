@@ -10,9 +10,11 @@
 //                                                     seconds, inclusive
 //   GET /api/v0/addresses/<a>/credit_history/summary  net, in and out of a window
 //
-// A row with a positive amount brings credits in: a purchase (with its
-// per-credit `price` in USD, token, chain and transaction hash) or a transfer
-// from another account. A negative one takes them out: `credit_expense` is
+// A row with a positive amount brings credits in: a purchase (with the
+// payment token, the chain, the transaction hash and a `price` – units of the
+// payment token per credit paid for, NOT US dollars; what it is worth in
+// dollars is @le-space/rates' rule, aleph-credits.js `alephPurchase`) or a
+// transfer from another account. `amount` includes the bonus (`bonus_amount`). A negative one takes them out: `credit_expense` is
 // consumption, billed about hourly per kind of resource (`origin_ref`:
 // `storage`, `execution`, …) with the number of resources and their size;
 // anything else is a transfer out. Storage is billed as one line for all
@@ -27,8 +29,8 @@
 // and need no history before the month.
 //
 // Euro value (a choice for the tax adviser, documented on the statement):
-// credits are priced in USD; a day's consumption is valued at the per-credit
-// price of the last purchase on or before that day, or Aleph's list price of
+// credits are priced in USD; a day's consumption is valued at what a credit
+// cost in the last purchase on or before that day, or Aleph's list price of
 // 1 USD per 1,000,000 credits when the account never bought any (credits
 // moved in from another account), then converted at that day's ECB
 // reference rate – the rule is @le-space/rates' (aleph-credits.js).
@@ -54,6 +56,7 @@ import {
 	ALEPH_LIST_PRICE_USD,
 	alephCreditPrice,
 	alephCreditsInEur,
+	alephPurchase,
 	plain
 } from '@le-space/rates/aleph-credits';
 import { createJsonFetcher, WalletError } from './http.js';
@@ -86,11 +89,15 @@ export function monthWindow(month) {
 /**
  * @typedef {object} TopUp
  * @property {string} time ISO
- * @property {number} credits
- * @property {number} bonus credits given on top
+ * @property {number} credits the credits that came in, a bonus included
+ * @property {number} bonus of them, the credits given on top
  * @property {'purchase' | 'transfer'} how
- * @property {string | null} price USD per credit, a purchase's
+ * @property {string | null} price a purchase's: units of the payment token per credit paid for (not USD)
  * @property {string | null} token
+ * @property {string | null} tokenAmount a purchase's: what was paid, in the token
+ * @property {string | null} usd a purchase's: what was paid, in US dollars (rates' alephPurchase)
+ * @property {string | null} usdPerCredit a purchase's: dollars per credit that came in
+ * @property {'price' | 'list' | null} priceBasis whether the dollars are the row's price or Aleph's list price
  * @property {string | null} chain
  * @property {string | null} txHash the paying transaction
  * @property {string} from for a transfer, the account it came from ('' when not said)
@@ -111,6 +118,17 @@ export function monthWindow(month) {
  * @property {number | null} eurCents
  */
 
+/** A history row's purchase, in dollars. @param {any} r */
+const purchaseOf = (r) =>
+	r?.price
+		? alephPurchase({
+				credits: num(r.amount),
+				bonus: num(r.bonus_amount) || 0,
+				price: String(r.price),
+				token: r.token ? String(r.token) : null
+			})
+		: null;
+
 /**
  * The rows of one month → the statement's lines. Pure.
  *
@@ -126,7 +144,10 @@ export function summarise({ rows, purchases }) {
 	/** @type {Map<string, UsageLine>} */
 	const days = new Map();
 	const priceOn = alephCreditPrice(
-		purchases.map((p) => ({ time: String(p?.message_timestamp), price: p?.price }))
+		purchases.map((p) => ({
+			time: String(p?.message_timestamp),
+			usdPerCredit: purchaseOf(p)?.usdPerCredit ?? null
+		}))
 	);
 
 	for (const r of rows) {
@@ -135,6 +156,7 @@ export function summarise({ rows, purchases }) {
 		if (!Number.isFinite(amount) || amount === 0) continue;
 		if (amount > 0) {
 			const purchase = Boolean(r.price || r.tx_hash);
+			const worth = purchaseOf(r);
 			topUps.push({
 				time,
 				credits: amount,
@@ -142,6 +164,10 @@ export function summarise({ rows, purchases }) {
 				how: purchase ? 'purchase' : 'transfer',
 				price: r.price ? String(r.price) : null,
 				token: r.token ? String(r.token) : null,
+				tokenAmount: worth?.tokenAmount ?? null,
+				usd: worth?.usd ?? null,
+				usdPerCredit: worth?.usdPerCredit ?? null,
+				priceBasis: worth?.basis ?? null,
 				chain: r.chain ? String(r.chain) : null,
 				txHash: r.tx_hash ? String(r.tx_hash) : null,
 				from: purchase ? '' : String(r.origin ?? '')
@@ -314,7 +340,10 @@ export function createAlephClient({
 				.map((r) => ({
 					time: new Date(String(r.message_timestamp)).toISOString(),
 					credits: num(r.amount),
+					// Units of the payment token per credit paid for – not USD (rates' alephPurchase).
 					price: String(r.price),
+					usd: purchaseOf(r)?.usd ?? null,
+					tokenAmount: purchaseOf(r)?.tokenAmount ?? null,
 					token: r.token ? String(r.token) : null,
 					chain: r.chain ? String(r.chain) : null,
 					txHash: String(r.tx_hash)
@@ -428,8 +457,8 @@ export function alephEntries(statement) {
 						? `Aleph Cloud (Kauf${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`
 						: '',
 				explorerUrl,
-				...(t.price
-					? { unitPrice: { currency: 'USD', amount: plain(t.price), source: 'purchase' } }
+				...(t.usdPerCredit
+					? { unitPrice: { currency: 'USD', amount: plain(t.usdPerCredit), source: 'purchase' } }
 					: {})
 			})
 		),
@@ -487,13 +516,23 @@ export const PURCHASE_EXPLORERS = /** @type {Record<string, import('./explorer.j
 	}
 });
 
+/** Aleph's names for a chain → the key in PURCHASE_EXPLORERS. The API says `ethereum`, older rows `ETH`. */
+const CHAIN_CODES = /** @type {Record<string, string>} */ ({
+	ETH: 'ETH',
+	ETHEREUM: 'ETH',
+	BASE: 'BASE'
+});
+
 /**
  * The payments behind a month's credit purchases: one `sent` entry per
- * purchase, in USD (credits × the purchase's USD price per credit), of kind
- * `swap` – a token for credits; the ledger has no `purchase` kind. The token
- * amount paid is not in Aleph's data; it is checked through the paying
- * transaction's hash, whose explorer link is on the chain it was paid on
- * (Ethereum or Base), else Aleph's explorer page of the account. The credits
+ * purchase, in USD, of kind `swap` – a token for credits; the ledger has no
+ * `purchase` kind. The dollars are what the credits paid for cost (rates'
+ * alephPurchase): the row's price for a purchase in a dollar token, Aleph's
+ * list price for one in ALEPH – never the row's `price` taken for dollars,
+ * which for ALEPH is a token amount. The memo names the tokens paid; they are
+ * checked through the paying transaction's hash, whose explorer link is on
+ * the chain it was paid on (Ethereum or Base), else Aleph's explorer page of
+ * the account. The credits
  * bought stay the `received` row of `alephEntries`, with the same hash, so an
  * Eigenbeleg shows both sides.
  *
@@ -504,9 +543,13 @@ export const PURCHASE_EXPLORERS = /** @type {Record<string, import('./explorer.j
 export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = {}) {
 	const { address, topUps } = statement;
 	return topUps
-		.filter((t) => t.how === 'purchase' && t.price)
+		.filter((t) => t.how === 'purchase' && t.usd)
 		.map((t, i) => {
-			const explorer = t.chain ? explorers[t.chain.toUpperCase()] : undefined;
+			const code = t.chain ? (CHAIN_CODES[t.chain.toUpperCase()] ?? t.chain.toUpperCase()) : '';
+			const explorer = code ? explorers[code] : undefined;
+			const paidFor = credits(t.credits - (t.bonus > 0 && t.bonus < t.credits ? t.bonus : 0));
+			const perCredit =
+				t.priceBasis === 'price' ? plain(/** @type {string} */ (t.price)) : LIST_PRICE_USD;
 			return entry({
 				id: `aleph:${address}:purchase:${t.time}:${i}`,
 				chain: 'aleph',
@@ -520,11 +563,16 @@ export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = 
 				asset: 'USD',
 				contract: 'native',
 				decimals: 6,
-				amount: `-${normalize(multiply(credits(t.credits), /** @type {string} */ (t.price), 8))}`,
+				amount: `-${normalize(/** @type {string} */ (t.usd))}`,
 				counterparty: 'aleph',
 				method: '',
 				counterpartyLabel: `Aleph Cloud (Kauf von ${credits(t.credits)} Credits${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`,
-				memo: `${credits(t.credits)} Credits × ${t.price} USD`,
+				memo:
+					`${paidFor} Credits × ${perCredit} USD` +
+					(t.bonus > 0 && t.bonus < t.credits ? ` (+ ${credits(t.bonus)} Bonus)` : '') +
+					(t.tokenAmount && t.token && t.priceBasis === 'list'
+						? `; bezahlt mit ${t.tokenAmount} ${t.token}`
+						: ''),
 				success: true,
 				explorerUrl:
 					explorer && t.txHash ? txUrl(explorer, t.txHash) : `${ALEPH_EXPLORER}${address}`,

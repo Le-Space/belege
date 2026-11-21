@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A made-up Aleph account and month for the tests (Node and browser): a
-// purchase before August at 0.000002 USD per credit, then storage, an
+// purchase before August paid in ALEPH – 1,200,000 credits came in, 200,000
+// of them the bonus, at 0.00008 ALEPH per credit paid for, so 80 ALEPH for
+// 1 USD of credits at the list price – then storage, an
 // instance, a transfer in and one out, and a line in September.
 
 export const ACCOUNT = `0x${'a1'.repeat(20)}`;
@@ -13,11 +15,13 @@ export function sampleRows() {
 	return [
 		{
 			at: '2026-07-20T08:00:00.000Z',
-			amount: 1_000_000,
-			price: '0.000002',
+			amount: 1_200_000,
+			bonus: 200_000,
+			// Units of ALEPH per credit paid for – not dollars, as Aleph's API has it.
+			price: '0.00008',
 			txHash: `0x${'ab'.repeat(32)}`,
 			token: 'ALEPH',
-			chain: 'ETH'
+			chain: 'ethereum'
 		},
 		{
 			at: '2026-08-01T00:30:00.000Z',
@@ -60,8 +64,8 @@ export function sampleRows() {
 	];
 }
 
-/** Balance now: 2,000,000 before July, then every row. */
-export const sampleBalance = () => 2_000_000 + sampleRows().reduce((n, r) => n + r.amount, 0);
+/** Balance now: 1,800,000 before July, then every row. */
+export const sampleBalance = () => 1_800_000 + sampleRows().reduce((n, r) => n + r.amount, 0);
 
 /** EUR per USD, the same every day. */
 export const flatUsd = {
