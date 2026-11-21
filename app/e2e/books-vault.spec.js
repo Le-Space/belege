@@ -211,6 +211,9 @@ test('a device that founded its own books finds the vault its passkey belongs to
 		)
 	);
 	await page.getByTestId('passkey-restore').click();
+	// Nothing in this browser, nothing asked: the page asks before it makes books (#555).
+	await expect(page.getByTestId('new-books-why')).toContainText('Netz pausiert');
+	await page.getByTestId('new-books-open').click();
 	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 	// Paused: Aleph was not asked, and B founded books of its own.
 	expect(aleph.calls.length).toBe(asked);
@@ -260,6 +263,125 @@ test('a device that founded its own books finds the vault its passkey belongs to
 	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 	expect(await books(page)).toEqual(booksOfA);
 	await expect(page.getByTestId('other-books-result')).toHaveCount(0);
+});
+
+// #555: two devices of the same books, each with a vault of its own. Here in
+// one browser: the laptop keeps vault 1 with A and B on Aleph; then this
+// browser forgets its vault record – as a phone set up before the vault was
+// published – and A's unlock makes vault 2, the same books. Its next change
+// takes vault 1 first instead of publishing over it, so B, which only vault 1
+// has, still opens the books on an empty device.
+test('a device with a vault of its own takes the published one, and a later passkey still gets in', async ({
+	page
+}) => {
+	test.setTimeout(240_000);
+	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
+	const cdp = await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('Laptop');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	const booksOfA = await books(page);
+	let keys = await openKeys(page);
+	await keys.getByTestId('keys-add-label').fill('YubiKey');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-done')).toContainText('öffnet dieselben Bücher', {
+		timeout: 30_000
+	});
+	const vault1 = await page.evaluate(
+		() => JSON.parse(String(localStorage.getItem('belege.vaults.v1')))[0].vault.id
+	);
+	const stored = await page.evaluate(() =>
+		JSON.parse(String(localStorage.getItem('belege.webauthnCredential')))
+	);
+	const toBase64 = (/** @type {string} */ u) => Buffer.from(u, 'base64url').toString('base64');
+	const b = (
+		await cdp.send('WebAuthn.getCredentials', { authenticatorId: cdp.authenticatorId })
+	).credentials.find((c) => c.credentialId !== toBase64(stored.credentialId));
+	expect(b).toBeTruthy();
+
+	// The "phone": no vault record, so A's unlock makes vault 2 for the same books.
+	// The network paused, so that nothing asks Aleph yet – the keys page would.
+	await page.evaluate(() => localStorage.removeItem('belege.vaults.v1'));
+	await page.evaluate(() =>
+		localStorage.setItem(
+			'belege.network-paused',
+			JSON.stringify({ ucep: false, at: '2026-01-01T00:00:00.000Z' })
+		)
+	);
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	expect(await books(page)).toEqual(booksOfA);
+	const vault2 = await page.evaluate(
+		() => JSON.parse(String(localStorage.getItem('belege.vaults.v1')))[0].vault.id
+	);
+	expect(vault2).not.toBe(vault1);
+
+	// A passkey added while paused stays in vault 2 alone.
+	keys = await openKeys(page);
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(1);
+	await keys.getByTestId('keys-add-label').fill('Telefon');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(2, { timeout: 30_000 });
+	// "Fortsetzen" in the network menu.
+	await page.getByTestId('local-only').click();
+	await page.getByTestId('network-resume').click();
+	await expect(page.getByTestId('local-only')).not.toHaveAttribute('data-state', 'paused');
+
+	// The keys page, opened again, asks Aleph first: vault 1 is taken, B is in it,
+	// Telefon only in vault 2. (The test authenticator holds three passkeys at most.)
+	await page.keyboard.press('Escape');
+	await page.getByRole('link', { name: 'Home' }).click();
+	keys = await openKeys(page);
+	await expect(keys.getByTestId('keys-lost')).toContainText('Telefon', { timeout: 30_000 });
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(2);
+	await expect(keys.getByTestId('keys-slot').filter({ hasText: 'Telefon' })).toHaveCount(0);
+	expect(
+		await page.evaluate(() =>
+			JSON.parse(String(localStorage.getItem('belege.vaults.v1'))).map(
+				(/** @type {any} */ r) => r.vault.id
+			)
+		)
+	).toEqual([vault2, vault1]);
+
+	// Recovery words, kept on Aleph: published into vault 1, not over it.
+	await keys.getByTestId('words-start').click();
+	await expect(keys.getByTestId('words-word')).toHaveCount(24);
+	const words = await keys.getByTestId('words-word').allTextContents();
+	await keys.getByTestId('words-written').check();
+	await keys.getByTestId('words-next').click();
+	const inputs = keys.getByTestId('words-ask-input');
+	await expect(inputs).toHaveCount(3);
+	const positions = await inputs.evaluateAll((els) =>
+		els.map((e) => Number(e.getAttribute('data-position')))
+	);
+	for (const [i, at] of positions.entries()) await inputs.nth(i).fill(words[at - 1]);
+	await expect(keys.getByTestId('words-publish')).toBeChecked();
+	await keys.getByTestId('words-confirm').click();
+	await expect(keys.getByTestId('words-done')).toContainText('öffnen jetzt die Bücher', {
+		timeout: 30_000
+	});
+
+	// An empty device with B alone: index M names vault 1, which has B's slot.
+	const { credentials } = await cdp.send('WebAuthn.getCredentials', {
+		authenticatorId: cdp.authenticatorId
+	});
+	for (const c of credentials) {
+		if (c.credentialId !== /** @type {any} */ (b).credentialId) {
+			await cdp.send('WebAuthn.removeCredential', {
+				authenticatorId: cdp.authenticatorId,
+				credentialId: c.credentialId
+			});
+		}
+	}
+	await forgetThisDevice(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-restore').click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	expect(await books(page)).toEqual(booksOfA);
 });
 
 // #555: the vault is kept on Aleph, then the network is paused. A passkey

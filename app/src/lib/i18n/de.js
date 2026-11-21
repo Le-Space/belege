@@ -1164,6 +1164,19 @@ export default {
 		sharedOrigin:
 			'Diese Adresse liegt auf einem IPFS-Gateway, das sich der Browser mit allen anderen Seiten dort teilt. Deine Bücher und dein Passkey wären hier nicht geschützt, deshalb öffnet Le Space Belege sie hier nicht. Öffne es unter belege.le-space.de oder über ein Gateway, das jeder CID eine eigene Subdomain gibt (<cid>.ipfs.…).',
 		busy: 'Bitte den Passkey bestätigen …',
+		newBooks: {
+			title: 'Keine Bücher für diesen Passkey gefunden',
+			looked:
+				'Dieser Browser kennt keine Bücher für diesen Passkey, und bei Aleph ist für ihn kein Tresor hinterlegt.',
+			paused:
+				'Dieser Browser kennt keine Bücher für diesen Passkey. Bei Aleph wurde nicht nachgesehen, weil das Netz pausiert ist.',
+			made: 'Hast du mit diesem Passkey Bücher angelegt, öffnet Belege sie jetzt – leer, bis ein eigenes Gerät sie abgleicht oder du ein Backup wiederherstellst.',
+			added:
+				'Wurde der Passkey zu Büchern hinzugefügt, die ein anderes Gerät angelegt hat, bekäme er hier neue, leere Bücher. Dann brich ab: Hinterlege dort unter Einstellungen → Schlüssel den Tresor bei Aleph (oder setze hier das Netz fort) und versuche es noch einmal.',
+			open: 'Bücher dieses Passkeys öffnen',
+			cancel: 'Abbrechen',
+			declined: 'Abgebrochen: Es wurden keine Bücher geöffnet und keine angelegt.'
+		},
 		steps: {
 			count: 'Passkey-Abfrage {n} von {of}',
 			prf: {
@@ -2799,6 +2812,9 @@ export default {
 				'Der Tresor liegt nur in diesem Browser. Ein leeres Gerät findet ihn mit dem zweiten Passkey nur, wenn er bei Aleph hinterlegt ist.',
 			publishNow: 'Jetzt hinterlegen',
 			published: 'Bei Aleph hinterlegt.',
+			lost: 'Bei Aleph lag schon ein Tresor dieser Bücher, den ein anderes Gerät angelegt hat. Dieser Browser nutzt jetzt ihn. Nur im Tresor dieses Browsers standen: {names}. In diesem Browser öffnen sie die Bücher weiter; damit sie es überall tun, füge sie hier neu hinzu.',
+			publishedLacks:
+				'Bei Aleph liegt ein Tresor dieser Bücher, den ein anderes Gerät angelegt hat, und dieser Passkey steht nicht darin. Damit er nicht überschrieben wird, wird hier nichts hinterlegt. Entsperre mit einem Passkey, der in jenem Tresor steht, oder füge diesen dort hinzu.',
 			other: {
 				title: 'Andere Bücher dieses Passkeys',
 				intro:

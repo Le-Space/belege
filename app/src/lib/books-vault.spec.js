@@ -6,6 +6,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	NotInPublishedVaultError,
+	PublishedVaultLacksPasskeyError,
 	RemovedPasskeyError,
 	RemovedWordsError,
 	VAULTS_STORAGE_KEY,
@@ -14,6 +16,7 @@ import {
 	addRecoveryWords,
 	adoptNewerVault,
 	adoptSuccessorVault,
+	convergeOnPublished,
 	hasRecoveryWords,
 	newerWithWords,
 	openWithWords,
@@ -550,5 +553,132 @@ describe('the other books of a passkey (#524)', () => {
 		await addRecoveryWords(withC, bytes(64, 0x5e), phone);
 		expect(loadVaultRecords(phone)[0].aside).toEqual([own.kid]);
 		expect((await openBooksVault({ ...B, storage: phone })).root).toEqual(A.prfOutput);
+	});
+});
+
+describe('two vaults of the same books (#555)', () => {
+	/** Two devices of passkey A, each with a vault of its own: the same root, other ids. */
+	async function twoDevices() {
+		const laptop = memoryStorage();
+		const phone = memoryStorage();
+		const onLaptop = await addPasskey(await openBooksVault({ ...A, storage: laptop }), B, laptop);
+		const onPhone = await addPasskey(await openBooksVault({ ...A, storage: phone }), C, phone);
+		expect(onPhone.root).toEqual(onLaptop.root);
+		expect(onPhone.record.vault.id).not.toBe(onLaptop.record.vault.id);
+		return { laptop, phone, onLaptop, onPhone };
+	}
+	/** @param {import('./books-vault.js').VaultRecord} record */
+	const published = (record) => ({
+		vault: record.vault,
+		slots: record.slots.map((s) => ({ ...s, label: '' }))
+	});
+
+	it('a restore that meets the other device’s vault is refused, not remembered as removed', async () => {
+		const { onLaptop, onPhone } = await twoDevices();
+		// An empty device with B: its index names the laptop's vault, index M the phone's.
+		const empty = memoryStorage();
+		const found = await openBooksVault({ ...B, storage: empty, find: async () => onLaptop.record });
+		expect(found.found).toBe(true);
+		await expect(
+			adoptNewerVault(found, onPhone.record.vault, B, empty, published(onPhone.record).slots)
+		).rejects.toBeInstanceOf(NotInPublishedVaultError);
+		// Nothing kept: B is not refused here for good, and asks again.
+		expect(loadVaultRecords(empty)).toEqual([]);
+		const again = await openBooksVault({ ...B, storage: empty, find: async () => onLaptop.record });
+		expect(again.root).toEqual(A.prfOutput);
+		// … while a passkey taken out of the same vault is refused and remembered, as before.
+		const withoutB = removePasskey(onLaptop, again.kid, memoryStorage());
+		await expect(adoptNewerVault(again, withoutB.record.vault, B, empty)).rejects.toBeInstanceOf(
+			RemovedPasskeyError
+		);
+		expect(loadVaultRecords(empty)[0].removed).toEqual([again.kid]);
+	});
+
+	it('before publishing, the phone takes the published vault; C still opens the books there', async () => {
+		const { phone, onLaptop, onPhone } = await twoDevices();
+		const { opened, lost } = await convergeOnPublished(
+			onPhone,
+			published(onLaptop.record),
+			A,
+			phone
+		);
+		expect(opened.record.vault.id).toBe(onLaptop.record.vault.id);
+		expect(opened.root).toEqual(onPhone.root);
+		// The names this browser knows stay; B comes without one, as published.
+		expect(opened.record.slots.map((s) => [s.credentialId, s.label])).toEqual([
+			['cred-a', 'Laptop'],
+			['cred-b', '']
+		]);
+		expect(lost.map((s) => s.label)).toEqual(['Telefon']);
+		// A opens the published vault from now on; C, only in the old one, the same books.
+		const nextA = await openBooksVault({ ...A, storage: phone });
+		expect(nextA.record.vault.id).toBe(onLaptop.record.vault.id);
+		const withC = await openBooksVault({ ...C, storage: phone });
+		expect(withC.record.vault.id).toBe(onPhone.record.vault.id);
+		expect(withC.root).toEqual(A.prfOutput);
+		// Once taken, publishing again changes nothing.
+		const same = await convergeOnPublished(opened, published(onLaptop.record), A, phone);
+		expect(same.opened).toBe(opened);
+	});
+
+	it('a published vault without this passkey, or with other books, is neither taken nor overwritten', async () => {
+		const { phone, onPhone } = await twoDevices();
+		const other = memoryStorage();
+		const onlyB = await openBooksVault({ ...B, storage: other });
+		await expect(
+			convergeOnPublished(onPhone, published(onlyB.record), A, phone)
+		).rejects.toBeInstanceOf(PublishedVaultLacksPasskeyError);
+		// A vault this passkey opens, of other books: refused as well.
+		const foreign = await addPasskey(onlyB, A, other);
+		await expect(
+			convergeOnPublished(onPhone, published(foreign.record), A, phone)
+		).rejects.toBeInstanceOf(VaultStorageError);
+		expect(loadVaultRecords(phone).map((r) => r.vault.id)).toEqual([onPhone.record.vault.id]);
+	});
+
+	it('its own vault from before a renewal here is replaced by publishing, not taken back', async () => {
+		const storage = memoryStorage();
+		const before = await addPasskey(await openBooksVault({ ...A, storage }), B, storage);
+		const renewed = await renewBooksVault(before, [A], [before.record.slots[1].kid], storage);
+		expect(renewed.record.replaces).toEqual([before.record.vault.id]);
+		const { opened, lost } = await convergeOnPublished(
+			renewed,
+			published(before.record),
+			A,
+			storage
+		);
+		expect(opened).toBe(renewed);
+		expect(lost).toEqual([]);
+		// Kept across reads, and by what is written after.
+		const again = await openBooksVault({ ...A, storage });
+		expect(again.record.replaces).toEqual([before.record.vault.id]);
+	});
+});
+
+describe('a restore that finds no books (#555)', () => {
+	it('asks before a new vault is made, and keeps nothing when the answer is no', async () => {
+		const storage = memoryStorage();
+		let asked = 0;
+		const no = async () => {
+			asked++;
+			throw new Error('no');
+		};
+		await expect(openBooksVault({ ...A, storage, confirmNew: no })).rejects.toThrow('no');
+		expect(asked).toBe(1);
+		expect(storage.getItem(VAULTS_STORAGE_KEY)).toBeNull();
+		const yes = await openBooksVault({ ...A, storage, confirmNew: async () => void asked++ });
+		expect(yes.created).toBe(true);
+		expect(asked).toBe(2);
+		// A vault here, or one found elsewhere: nothing to ask.
+		await openBooksVault({ ...A, storage, confirmNew: no });
+		const empty = memoryStorage();
+		const found = await openBooksVault({
+			...A,
+			storage: empty,
+			find: async () => yes.record,
+			confirmNew: no
+		});
+		expect(found.found).toBe(true);
+		expect(asked).toBe(2);
 	});
 });
