@@ -5,7 +5,8 @@
 // Russia, National Bank of Kazakhstan where the ECB has none), and a token's
 // DEX pool at the booking's block where nobody prices it. Every answer names
 // its source and moment. `fetch` and the keys are handed in. Aleph Cloud
-// credits, priced in USD by Aleph, have their own rule (aleph-credits.js).
+// credits, priced in USD by Aleph, have their own rule (aleph-credits.js); an
+// asset nobody quotes (DOI) a reference value set by hand (reference-rate.js).
 export {
 	CBR_CROSS_CURRENCIES,
 	COINGECKO_PLATFORMS,
@@ -34,3 +35,4 @@ export {
 	alephCreditsInEur,
 	plain
 } from './aleph-credits.js';
+export { referenceRate, withReferenceRates } from './reference-rate.js';
