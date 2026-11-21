@@ -13,6 +13,7 @@
 	import LanguageSwitch from '$lib/LanguageSwitch.svelte';
 	import SampleBanner from '$lib/sample/SampleBanner.svelte';
 	import WordsOffer from '$lib/keys/WordsOffer.svelte';
+	import OtherBooksOffer from '$lib/keys/OtherBooksOffer.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
 	import UploadPanel from '$lib/receipts/UploadPanel.svelte';
 	import { page } from '$app/state';
@@ -199,6 +200,7 @@
 		{:else}
 			<SampleBanner />
 			<WordsOffer />
+			<OtherBooksOffer banner />
 			<!-- Uploading from every page (#308): right in the tab row; on a phone a "+" above the tab bar. -->
 			<div class="relative">
 				<SectionTabs />

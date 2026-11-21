@@ -29,6 +29,7 @@
 		runRestore
 	} from './restore-flow.svelte.js';
 	import BackupProgress from './BackupProgress.svelte';
+	import OtherBooksOffer from '$lib/keys/OtherBooksOffer.svelte';
 	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
 	import { keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { backupDue, setAutoBackup } from './auto.svelte.js';
@@ -1242,6 +1243,7 @@
 				<p class="mt-1 font-mono break-all text-faint">{restoreRun.detail}</p>
 			</details>
 		{/if}
+		<OtherBooksOffer />
 	{/if}
 
 	{#snippet publicNote()}

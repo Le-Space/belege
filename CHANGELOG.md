@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A device that founded books of its own finds the vault its passkey belongs to** ([#524](https://github.com/Le-Space/belege/issues/524)). A passkey that already has a slot in a vault kept on Aleph could open Belege on a new device without "Wiederherstellen": the device made new, empty books, never asked the passkey's index again, and a backup of the real books was refused as another vault's, with no way on but clearing the site data. Now the passkey's own index on Aleph is asked again – after a backup was refused as another vault's, on "Bei Aleph nachfragen" under Einstellungen → Schlüssel, and at an unlock of books without a booking or a receipt on a device whose device sync runs over the public relays; never while the network is paused. A vault it names is offered only when this passkey's slot opens it and it holds other books. On "Jene Bücher öffnen" the page reloads, the passkey answers once, and the other books open, with the account their backups are kept for; the vault founded here stays in the browser, set aside for this passkey, and the books from before open if anything fails. The text of the refused backup names the case. No new host: the same Aleph API the restore already asks.
+
 ### Changed
 
 - **A purchase of Aleph credits paid in ALEPH is the ALEPH that left the wallet, valued at the token's rate of that day** (`@le-space/chains` 0.5.2, `purchaseEntries`): the payment's entry is in ALEPH with `priceAs: 'ALEPH'`, as for any other payment in a token, and its memo names what the credits cost at Aleph's list price, to compare. Until now it was in USD at the list price. A purchase in a dollar token stays in USD. The monthly statement's consumption is still valued at dollars per credit.
