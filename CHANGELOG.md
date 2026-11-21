@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.47.0] – 2026-11-21
+
 ### Security
 
 - **The bridge reaches only the public internet for an address the app names.** An own wallet's endpoints, an Aleph API and the Filecoin Pay sources were held to `https` without credentials and without redirects; now an address or a name that means this machine, a private or link-local network is refused as well – however it is written, in IPv4 or IPv6 – and a name is resolved right before the request and refused when any of its addresses is such a one (`@le-space/chains` 0.5.3: `checkEndpoint`, with `isPrivateAddress` and `isLocalHostname`; the bridge's `public-fetch.js`).
