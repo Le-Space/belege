@@ -24,7 +24,7 @@ export function bindSession(context) {
 
 const isoNow = () => new Date().toISOString();
 
-/** While the network is paused nothing here asks NEAR or the launcher (as hosted-aleph.js). */
+/** While the network is paused nothing here asks NEAR or the launcher (as hosted-aleph.js); stopping is the exception. */
 function refuseWhilePaused() {
 	if (networkPause()) throw new Error(t('messages.hostedBridge.paused'));
 }
@@ -164,7 +164,6 @@ export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
 
 /** Stop the bridge on Phala: the contract forgets the VM at once, the launcher deletes it. */
 export async function stopNearHostedBridge() {
-	refuseWhilePaused();
 	if (!ctx.session?.store) throw new Error(t('messages.bridge.needsSync'));
 	const nb = await import('../integrations/near-bridge.js');
 	const seed = await nb.ensureNearKey(ctx.session.store.settings, { create: false });

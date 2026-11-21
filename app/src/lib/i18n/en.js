@@ -399,7 +399,7 @@ export default {
 			noPayer: 'Le Space Credits named no account for the VM.',
 			creditsOff: 'Le Space Credits are off. Switch them on under Integrations → Aleph.',
 			paused:
-				'The network is paused: nothing is asked, started, unlocked or stopped for the hosted bridge. Resume in the “Network” menu at the top.',
+				'The network is paused: nothing is asked, started, unlocked or built for the hosted bridge. Resume in the “Network” menu at the top.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
 			nodeUnverifiable:
@@ -5105,9 +5105,9 @@ export default {
 			copied: 'Copied',
 			cancel: 'Cancel',
 			paused:
-				'The network is paused: nothing is asked here and nothing started, unlocked, built or stopped until you resume in the “Network” menu at the top.',
+				'The network is paused: nothing is asked here and nothing started, unlocked or built until you resume in the “Network” menu at the top.',
 			pausedRunning:
-				'The VM keeps running and keeps costing. To stop it, resume the network first.',
+				'The VM keeps running and keeps costing. You can stop it now too: for that only Aleph is contacted.',
 			cancelled: 'Cancelled. The VM keeps running: “Unlock” tries again, “Stop” stops it.',
 			instances: {
 				title: 'VMs of the books’ Aleph key',
@@ -5165,8 +5165,9 @@ export default {
 			account: 'NEAR account of the books',
 			balance: 'Balance',
 			paused:
-				'The network is paused: nothing is asked, started or stopped here until you resume in the “Network” menu at the top.',
-			pausedRunning: 'The bridge keeps running. To stop it, resume the network first.',
+				'The network is paused: nothing is asked and nothing started here until you resume in the “Network” menu at the top.',
+			pausedRunning:
+				'The bridge keeps running. You can stop it now too: for that only NEAR is contacted.',
 			notFunded: 'not funded yet',
 			fund: 'Send this account a little testnet NEAR (0.1 is plenty). It pays the gas and, once, 0.01 NEAR storage at the contract.',
 			state: 'Bridge',

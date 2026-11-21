@@ -40,9 +40,11 @@ const isoNow = () => new Date().toISOString();
 /**
  * "Alles pausieren" holds here too: while the network is paused, nothing in
  * this module asks Aleph, Le Space Credits, a node or a VM – not to list, not
- * to start, unlock or build, and not to stop. Asked by every function that
- * dials, so a caller cannot get around the card; marked `fatal`, so a loop
- * that tries again (integrations/hosted-unlock.js) ends at once.
+ * to start, unlock or build. Asked by every function that dials, so a caller
+ * cannot get around the card; marked `fatal`, so a loop that tries again
+ * (integrations/hosted-unlock.js) ends at once. The one exception is stopping
+ * (`stopHostedBridge`, `stopHostedInstance`): a VM costs while it runs, so a
+ * person may stop it while paused; that sends Aleph the FORGET and nothing else.
  */
 function refuseWhilePaused() {
 	if (!networkPause()) return;
@@ -932,10 +934,10 @@ export async function continueHostedStart({
 /**
  * "Stoppen" (#587): FORGET the VM; its node stops and drops it, and the VM
  * keeps nothing. The books keep when it ran, for the hours used; the hosted
- * bridge leaves the devices.
+ * bridge leaves the devices. Works while the network is paused (see
+ * `refuseWhilePaused`): the one message to Aleph is what the person asked for.
  */
 export async function stopHostedBridge() {
-	refuseWhilePaused();
 	const vm = await import('../integrations/hosted-vm.js');
 	const { alephEndpoints } = await import('../backup/keeper.js');
 	const { alephSign } = await import('../backup/aleph-signer.js');
@@ -1005,7 +1007,6 @@ export async function hostedInstances() {
  * @param {string} instance
  */
 export async function stopHostedInstance(instance) {
-	refuseWhilePaused();
 	const hash = String(instance ?? '').trim();
 	const record = await hostedVmRecord();
 	if (record && !record.stoppedAt && record.instance === hash) return stopHostedBridge();

@@ -790,11 +790,24 @@ test('a VM the node cannot bring up: the card says so and stops it (#587)', asyn
 			'data-state',
 			'locked'
 		);
+		// "Alles pausieren" holds back everything but the stop: a VM costs while it runs.
+		const badge = mac.page.getByTestId('local-only');
+		await badge.click();
+		await mac.page.getByTestId('network-pause').click();
+		await expect(badge).toHaveAttribute('data-state', 'paused');
+		await mac.page.keyboard.press('Escape');
+		await expect(mac.page.getByTestId('hosted-bridge-paused')).toContainText(
+			'Stoppen kannst du sie auch jetzt'
+		);
+		await expect(mac.page.getByTestId('hosted-bridge-start')).toHaveCount(0);
 		await mac.page.getByTestId('hosted-bridge-stop').click();
 		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
 			timeout: 60_000
 		});
 		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+		await expect(mac.page.getByTestId('hosted-bridge-stop')).toHaveCount(0);
+		await badge.click();
+		await mac.page.getByTestId('network-resume').click();
 		await expect(mac.page.getByTestId('hosted-bridge-start')).toContainText('Starten');
 	} finally {
 		aleph.failStarts(false);

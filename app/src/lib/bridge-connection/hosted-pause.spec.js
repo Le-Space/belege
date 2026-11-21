@@ -1,6 +1,7 @@
 // "Alles pausieren" and the hosted bridge: while the network is paused, no
 // function of hosted-aleph.js or hosted-near.js that dials asks anybody – the
 // card does not offer it, and a caller that goes around the card is refused.
+// Stopping is the exception: a VM costs while it runs.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t } from '$lib/i18n/index.js';
@@ -61,10 +62,7 @@ const REFUSING = [
 	['continueHostedStart', () => aleph.continueHostedStart({ passphrase: 'made-up' })],
 	['unlockHostedBridge', () => aleph.unlockHostedBridge({ instance: VM, passphrase: 'made-up' })],
 	['buildHostedImage', () => aleph.buildHostedImage()],
-	['stopHostedBridge', () => aleph.stopHostedBridge()],
-	['stopHostedInstance', () => aleph.stopHostedInstance(VM)],
-	['startNearHostedBridge', () => near.startNearHostedBridge()],
-	['stopNearHostedBridge', () => near.stopNearHostedBridge()]
+	['startNearHostedBridge', () => near.startNearHostedBridge()]
 ];
 
 /** The ones a card asks by itself: quiet, with nothing to show. @type {Array<[string, () => Promise<unknown>, unknown]>} */
@@ -86,6 +84,22 @@ describe('the hosted bridge while the network is paused', () => {
 	it.each(QUIET)('%s asks nobody and has nothing to say', async (_name, call, nothing) => {
 		expect(await call()).toBe(nothing);
 		expect(asked).not.toHaveBeenCalled();
+	});
+
+	// A VM costs while it runs: stopping is the one thing the pause does not hold back.
+	it.each(
+		/** @type {Array<[string, () => Promise<unknown>]>} */ ([
+			['stopHostedBridge', () => aleph.stopHostedBridge()],
+			['stopHostedInstance', () => aleph.stopHostedInstance(VM)],
+			['stopNearHostedBridge', () => near.stopNearHostedBridge()]
+		])
+	)('%s is not refused for the pause', async (_name, call) => {
+		// These made-up books have nothing to stop: what it says is not the pause.
+		const said = await call().then(
+			() => '',
+			(/** @type {any} */ e) => String(e?.message ?? e)
+		);
+		expect(said).not.toBe(t('messages.hostedBridge.paused'));
 	});
 
 	it('ends the waiting for a VM that boots: trying again is no use', async () => {

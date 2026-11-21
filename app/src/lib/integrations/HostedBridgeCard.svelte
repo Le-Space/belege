@@ -10,6 +10,7 @@
 	// the shared image, kept nowhere; for the books' own image (#777, built
 	// here with "Bridge-Image bauen" when the books' key pays) derived in the
 	// browser and never typed.
+	import { untrack } from 'svelte';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		app,
@@ -92,8 +93,9 @@
 	const online = $derived(app.sync.online && !paused);
 	// Paused while the card waits for a VM: the waiting ends. A build is not
 	// cut off half-way; it ends by itself, and its builder is forgotten with it.
+	// Only at the moment of pausing: a stop asked for during the pause runs.
 	$effect(() => {
-		if (paused && !building) controller?.abort();
+		if (paused) untrack(() => !building && controller?.abort());
 	});
 
 	const running = $derived(Boolean(vm && !vm.stoppedAt));
@@ -1029,6 +1031,16 @@
 			{t('integrationen.hostedBridge.paused')}
 			{#if running}{t('integrationen.hostedBridge.pausedRunning')}{/if}
 		</p>
+		{#if running}
+			<!-- The one thing offered while paused: a VM costs while it runs. -->
+			<button
+				type="button"
+				class="hover:bg-surface-muted mt-3 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text disabled:opacity-50"
+				disabled={busy}
+				onclick={stop}
+				data-testid="hosted-bridge-stop">{t('integrationen.hostedBridge.stop')}</button
+			>
+		{/if}
 	{:else}
 		<p class="mt-3 text-sm text-text">{t('messages.bridge.needsSync')}</p>
 	{/if}
