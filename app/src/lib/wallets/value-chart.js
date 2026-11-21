@@ -361,7 +361,7 @@ export function chartModel({ series, holdings, hidden, open }) {
 	};
 }
 
-/** The longest period the bridge answers in one call (`rates.range`, @le-space/rates MAX_RANGE_DAYS). */
+/** The longest period the bridge answers in one call (`rates.range`; the rate service caps it, packages/rates/src/rates.js MAX_RANGE_DAYS). */
 export const MAX_SPAN_DAYS = 100;
 
 /** @param {string} day @param {number} n */
