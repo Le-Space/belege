@@ -767,6 +767,33 @@ export function createRateService({
 	}
 
 	/**
+	 * The second leg alone: how many units of `currency` one euro is on `date` –
+	 * for a value already in euros (a reference value set by hand) that goes
+	 * into a document in another currency. The same rate, cache and requests
+	 * as `rate(…, { currency })`; the euro in itself is 1 (`same`).
+	 *
+	 * @param {string} currency from TARGET_CURRENCIES
+	 * @param {string} date YYYY-MM-DD, not in the future
+	 * @returns {Promise<{ currency: string, perEur: string, source: 'ecb' | 'cbr' | 'same', at: string }>}
+	 */
+	async function perEuroOf(currency, date) {
+		if (!TARGET_CURRENCIES.includes(currency)) {
+			throw new RateError(`no rate into ${String(currency).slice(0, 10)}`, 400);
+		}
+		if (!DAY.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+			throw new RateError('date must be YYYY-MM-DD', 400);
+		}
+		if (date > now().toISOString().slice(0, 10)) {
+			throw new RateError('date lies in the future', 400);
+		}
+		if (currency === 'EUR')
+			return { currency, perEur: '1', source: 'same', at: `${date}T00:00:00Z` };
+		const fx = await perEuro(currency, date);
+		if (!fx) throw new RateError(`no rate found for EUR in ${currency} on ${date}`, 502);
+		return fx;
+	}
+
+	/**
 	 * The rate of one unit of `asset` on `date`, in EUR unless another `currency` is asked for.
 	 *
 	 * @param {string} asset a symbol from RATE_SOURCES; with prefer 'kraken', any symbol
@@ -963,5 +990,5 @@ export function createRateService({
 		};
 	}
 
-	return { rate, rates };
+	return { rate, rates, perEuro: perEuroOf };
 }

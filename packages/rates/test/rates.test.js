@@ -878,6 +878,60 @@ describe('a rate into another currency', () => {
 		assert.equal(calls.length, 0);
 		assert.ok(TARGET_CURRENCIES.includes('EUR') && TARGET_CURRENCIES.includes('RUB'));
 	});
+
+	test('perEuro: the second leg alone, for a value already in euros; the same ECB window as rate', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://api.coingecko.com/api/v3/coins/near/history': coingecko(4, 5),
+			[ECB_CHF]: ecb({ '2026-10-01': 0.95, '2026-10-02': 0.9 })
+		});
+		const rates = createRateService({ fetch, now: LATER });
+		assert.deepEqual(await rates.perEuro('CHF', '2026-10-03'), {
+			currency: 'CHF',
+			perEur: '0.9',
+			source: 'ecb',
+			at: '2026-10-02T00:00:00Z'
+		});
+		// Asked through rate afterwards: the window is kept, no second ECB request.
+		assert.equal((await rates.rate('NEAR', '2026-10-01', { currency: 'CHF' })).rate, '3.8');
+		assert.equal(calls.filter((u) => u.startsWith(ECB_CHF)).length, 1);
+		assert.deepEqual(await rates.perEuro('EUR', '2026-10-01'), {
+			currency: 'EUR',
+			perEur: '1',
+			source: 'same',
+			at: '2026-10-01T00:00:00Z'
+		});
+	});
+
+	test('perEuro: RUB from the Bank of Russia; refused codes, bad or future days, a day without a rate', async () => {
+		const { fetch, calls } = fakeFetch({
+			'https://data-api.ecb.europa.eu/': { dataSets: [{ series: {} }], structure: {} },
+			'https://www.cbr.ru/scripts/XML_daily.asp':
+				`<?xml version="1.0" encoding="windows-1251"?><ValCurs Date="30.09.2026" name="x">` +
+				`<Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>1</Nominal><Name>x</Name><Value>100,5000</Value></Valute></ValCurs>`
+		});
+		const rates = createRateService({ fetch, now: LATER });
+		const rub = await rates.perEuro('RUB', '2026-10-01');
+		assert.equal(rub.source, 'cbr');
+		assert.equal(Number(rub.perEur), 100.5);
+		assert.equal(rub.at, '2026-09-30T00:00:00Z');
+		const before = calls.length;
+		for (const [currency, date] of [
+			['UAH', '2026-10-01'],
+			['chf', '2026-10-01'],
+			['CHF', '01.10.2026'],
+			['CHF', '2026-12-01']
+		]) {
+			await assert.rejects(
+				rates.perEuro(currency, date),
+				(e) => e instanceof RateError && e.status === 400
+			);
+		}
+		assert.equal(calls.length, before);
+		await assert.rejects(
+			rates.perEuro('CHF', '2026-10-01'),
+			(e) => e instanceof RateError && e.status === 502
+		);
+	});
 });
 
 describe('a period of days in one call', () => {
