@@ -284,6 +284,16 @@ export function describeEvent(e, { receipts = [], transactions = [] } = {}) {
 					matches: e.matches ?? 0
 				})
 			};
+		case 'wallet-superseded':
+			return {
+				...base,
+				title: t('verlauf.kind.wallet-superseded'),
+				text: t('verlauf.text.walletSuperseded', {
+					source: String(e.source ?? ''),
+					bookings: e.bookings ?? 0,
+					matches: e.matches ?? 0
+				})
+			};
 		default:
 			return { ...base, title: String(e.kind), text: '' };
 	}

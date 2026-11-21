@@ -3413,7 +3413,8 @@ export default {
 			decision: 'Decision',
 			export: 'DATEV export',
 			'books-moved': 'Books taken over',
-			'import-removed': 'File import taken back'
+			'import-removed': 'File import taken back',
+			'wallet-superseded': 'Wallet bookings replaced'
 		},
 		text: {
 			bookingChanged: 'before {from}, now {to}{flipped}{unconfirmed}{receipt}',
@@ -3444,6 +3445,8 @@ export default {
 			export: 'DATEV export {month}: {bookings} bookings, {receipts} receipts',
 			importRemoved:
 				'Account {account} taken out, with {bookings} bookings; {matches} links to receipts undone',
+			walletSuperseded:
+				'{source}: {bookings} bookings taken out because the transaction is read as one movement now; {matches} links to receipts undone',
 			booksMoved: 'Taken over from other books, packed on {date}: {records} records, {files} files',
 			exportSuspense:
 				'DATEV export {month}: {bookings} bookings, {suspense} of them on the suspense account, {receipts} receipts',

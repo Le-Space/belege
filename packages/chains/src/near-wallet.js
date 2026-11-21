@@ -26,6 +26,9 @@
 // unwrapping are movements inside the wallet and give no entry but their gas;
 // wNEAR given to a DEX is NEAR given, so a swap of NEAR for a token is one
 // swap in one transaction; the NEAR balance is the account's plus its wNEAR.
+// The entries left out for it are named in `superseded`: before wNEAR was read
+// as NEAR, the NEAR handed to the wrap contract was a payment of its own, and
+// books that still hold it would count that NEAR twice beside the swap.
 //
 // Error messages name a host at most, never the account: the bridge logs them.
 
@@ -114,7 +117,10 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 			const unknown = new Set();
 			/** @type {import('@le-space/ledger/wallet-entry').WalletEntry[]} */
 			const entries = [];
+			/** @type {Set<string>} ids left out as movements inside the wallet */
+			const superseded = new Set();
 			const native = chain.native.symbol;
+			const short = (/** @type {string} */ id) => id.slice(`near:${account}:`.length);
 			/** @param {{ asset: string, amount: string, listed: boolean }[]} sides */
 			const asNative = (sides) =>
 				sides.map((x) => (WRAPPED_SYMBOLS.has(x.asset) ? { ...x, asset: native } : x));
@@ -131,17 +137,20 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					: undefined;
 				// NEAR for NEAR: wrapping or unwrapping, a movement inside the wallet.
 				const inside = !!swap && swap.got.every((g) => swap.gave.some((x) => x.asset === g.asset));
-				if (!fee) {
-					if (inside) continue;
-					// The same without its other side: wNEAR minted or burnt, NEAR handed to the wrap contract.
-					if (wrap && (e.method === 'mint' || e.method === 'burn' || !e.counterparty)) continue;
-					if (e.contract === 'native' && e.method === 'near_deposit' && wrapped(e.counterparty))
-						continue;
+				if (
+					!fee &&
+					(inside ||
+						// The same without its other side: wNEAR minted or burnt, NEAR handed to the wrap contract.
+						(wrap && (e.method === 'mint' || e.method === 'burn' || !e.counterparty)) ||
+						(e.contract === 'native' && e.method === 'near_deposit' && wrapped(e.counterparty)))
+				) {
+					superseded.add(short(e.id));
+					continue;
 				}
 				const swapped = !!swap && !inside;
 				entries.push({
 					// `<hash>:fee`, `<hash>:deposit`, `<hash>:ft:<receipt>:<event>`
-					id: e.id.slice(`near:${account}:`.length),
+					id: short(e.id),
 					hash: e.hash,
 					height: e.height,
 					time: e.time,
@@ -190,6 +199,7 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 				],
 				transactions: new Set(entries.map((e) => e.hash)).size,
 				unknownAssets: unknown.size,
+				superseded: [...superseded].sort(),
 				history: { earliestHeight: 0, earliestTime: null, pruned: false },
 				addressUrl: addressUrl(chain.explorer, account)
 			};

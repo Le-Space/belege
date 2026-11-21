@@ -22,8 +22,15 @@
 // Entries whose rate cannot be found are left out and named in the result;
 // the next sync tries them again (every sync reads the whole history, and
 // what is known is skipped).
+//
+// A reader that learns to read a transaction better may leave out an entry it
+// gave before, because it is part of another one now: the NEAR handed to the
+// wrap contract, once a payment, is the NEAR of the swap that follows. The
+// bridge names such ids (`superseded`), and the booking an earlier sync made
+// of one is taken out (`retireSuperseded`): it would count twice otherwise.
 
 import { recordEvent } from '../activity/events.js';
+import { isActive } from '../matching/engine.js';
 import { importTransactions, upsertAccount } from '../bank/import.js';
 import { toUnits } from '../assets/quantity.js';
 import { tradeRate, valuedFields } from '../assets/valuation.js';
@@ -673,6 +680,70 @@ export function exchangeWithdrawalHashes(transactions, chain) {
 }
 
 /**
+ * Take out the bookings of entries the source no longer gives because they
+ * are part of another entry now. Only this wallet's own bookings, only the
+ * ids the bridge names, and only what is not taken out already; a link to a
+ * receipt is undone, a question about the booking goes with it. The Verlauf
+ * keeps what was taken out.
+ *
+ * @param {object} params
+ * @param {any} params.store
+ * @param {import('./chains.js').WalletChain} params.chain
+ * @param {Wallet} params.wallet
+ * @param {unknown} params.ids the bridge's `superseded`
+ * @returns {Promise<number>} how many bookings were taken out
+ */
+export async function retireSuperseded({ store, chain, wallet, ids }) {
+	const named = new Set(
+		(Array.isArray(ids) ? ids : []).filter((id) => typeof id === 'string' && id).slice(0, 5000)
+	);
+	if (!named.size) return 0;
+	const own = new Set(
+		(
+			await store.accounts.list({
+				where: (/** @type {Record<string, any>} */ a) =>
+					a.source === chain.id && String(a.sourceAccountId ?? '').startsWith(`${wallet.address}:`)
+			})
+		).map((/** @type {Record<string, any>} */ a) => String(a.id))
+	);
+	const bookings = await store.transactions.list({
+		where: (/** @type {Record<string, any>} */ r) =>
+			r.source === chain.id && own.has(String(r.accountId)) && named.has(String(r.sourceId ?? ''))
+	});
+	if (!bookings.length) return 0;
+	/** @type {Set<string>} */
+	const taken = new Set();
+	for (const b of bookings) {
+		taken.add(String(b.id));
+		await store.transactions.softDelete(b.id);
+	}
+	const points = (/** @type {Record<string, any>} */ r) => taken.has(String(r.transactionId ?? ''));
+	let matches = 0;
+	for (const m of (await store.matches?.list({ where: points })) ?? []) {
+		if (isActive(m)) {
+			await store.matches.put({ ...m, state: 'rejected' });
+			matches++;
+		}
+		await store.matches.softDelete(m.id);
+	}
+	for (const q of (await store.questions?.list({ where: points })) ?? []) {
+		await store.questions.softDelete(q.id);
+	}
+	await recordEvent(store.events, 'wallet-superseded', {
+		source: chain.id,
+		accountIds: [
+			...new Set(bookings.map((/** @type {Record<string, any>} */ b) => String(b.accountId)))
+		],
+		transactionIds: [...taken],
+		bookings: taken.size,
+		withReceipt: bookings.filter((/** @type {Record<string, any>} */ b) => Boolean(b.receiptId))
+			.length,
+		matches
+	});
+	return taken.size;
+}
+
+/**
  * A wallet's history into the books, wherever it came from: the bridge
  * (`syncWallet`) or the wallet's own export (Monero, monero-import.js). Every
  * entry valued at its day's rate, one account per asset, the known ones
@@ -773,6 +844,9 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 		perAccount.push({ accountId: record.id, name: record.name, asset, counts });
 	}
 
+	// After the import, so that what replaces them is in the books first.
+	const superseded = await retireSuperseded({ store, chain, wallet, ids: result.superseded });
+
 	await saveWallet(store.settings, {
 		...wallet,
 		addressUrl: safeExplorerUrl(result.addressUrl) ?? '',
@@ -791,6 +865,7 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 		perAccount,
 		unpriced,
 		unknownAssets: result.unknownAssets ?? 0,
+		superseded,
 		history: result.history ?? { earliestHeight: 0, earliestTime: null, pruned: false },
 		endpoints: result.endpoints ?? {}
 	};
