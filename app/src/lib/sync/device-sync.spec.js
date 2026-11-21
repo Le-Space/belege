@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { multiaddr } from '@multiformats/multiaddr';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
@@ -19,6 +19,9 @@ import {
 	startDeviceSync,
 	MUTE_MS,
 	HANGUP_EVERY_MS,
+	REGOSSIP_SETTLE_MS,
+	REGOSSIP_TRIES,
+	RESYNC_STAGGER_MS,
 	syncLibp2pConfig
 } from './device-sync.js';
 
@@ -638,5 +641,215 @@ describe('the bridge on this machine, started again', () => {
 			knownDevices(await settings.list({ includeDeleted: true })).find((d) => d.peerId === bridge)
 				?.removed
 		).toBe(false);
+	});
+});
+
+describe('the relay closes its circuit beside a direct connection (#393)', () => {
+	const RELAY = '/ip4/127.0.0.1/tcp/4001/ws/p2p/12D3KooWRelayForTheSpec';
+	const MESHSUB = '/meshsub/1.2.0';
+	// The waits of this part are the app's own timers: simulated, not sat through.
+	beforeEach(() => void vi.useFakeTimers());
+	afterEach(() => void vi.useRealTimers());
+	const wait = (/** @type {number} */ ms) => vi.advanceTimersByTimeAsync(ms);
+
+	/**
+	 * A node with events, and a gossipsub that – as the real one – opens its
+	 * outbound stream on the connection it is told of, and only there.
+	 */
+	function nodeWith(/** @type {string} */ self) {
+		/** @type {any[]} */
+		const connections = [];
+		/** @type {Map<string, Set<(e: any) => void>>} */
+		const listeners = new Map();
+		/** @type {any[]} */
+		const told = [];
+		const topology = {
+			onConnect: (/** @type {any} */ _peer, /** @type {any} */ connection) => {
+				told.push(connection);
+				connection.streams.push({ protocol: MESHSUB, direction: 'outbound' });
+			}
+		};
+		const node = {
+			peerId: { toString: () => self },
+			connections,
+			told,
+			services: { pubsub: { protocols: [MESHSUB] } },
+			components: { registrar: { getTopologies: () => [topology] } },
+			/** @param {string} peerId @param {'circuit' | 'webrtc'} kind @param {any[]} [streams] */
+			connect(peerId, kind, streams = []) {
+				const c = {
+					remotePeer: { toString: () => peerId },
+					remoteAddr: {
+						toString: () =>
+							`${RELAY}/p2p-circuit${kind === 'webrtc' ? '/webrtc' : ''}/p2p/${peerId}`
+					},
+					status: 'open',
+					// As libp2p 3 marks a relay's circuit: `limits`, and no `limited`.
+					...(kind === 'circuit' ? { limits: { seconds: 120 } } : {}),
+					streams,
+					close: async () => node.drop(c)
+				};
+				connections.push(c);
+				node.emit('connection:open', c);
+				return c;
+			},
+			/** @param {any} c */
+			drop(c) {
+				connections.splice(connections.indexOf(c), 1);
+				c.status = 'closed';
+				node.emit('connection:close', c);
+			},
+			/** @param {string} type @param {any} detail */
+			emit(type, detail) {
+				for (const l of listeners.get(type) ?? []) l({ detail });
+			},
+			getConnections: () => connections,
+			getMultiaddrs: () => [],
+			dial: async () => {
+				throw new Error('offline in tests');
+			},
+			addEventListener: (/** @type {string} */ type, /** @type {(e: any) => void} */ l) => {
+				if (!listeners.has(type)) listeners.set(type, new Set());
+				listeners.get(type)?.add(l);
+			}
+		};
+		return node;
+	}
+
+	async function twoDevices() {
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		let resyncs = 0;
+		const store = { settings, resync: async () => void resyncs++ };
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const node = nodeWith(mac);
+		const sync = await startDeviceSync({
+			store,
+			relays: [],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac'
+		});
+		await sync.addDevice(phone, 'Android');
+		// The device with the greater id takes its turn later.
+		const turn = 1100 + (mac > phone ? RESYNC_STAGGER_MS : 0);
+		return { node, sync, phone, turn, resyncs: () => resyncs };
+	}
+
+	const BOTH = () => [
+		{ protocol: MESHSUB, direction: 'outbound' },
+		{ protocol: MESHSUB, direction: 'inbound' }
+	];
+
+	it('puts gossipsub on the connection that is left, and exchanges heads again', async () => {
+		const { node, sync, phone, turn, resyncs } = await twoDevices();
+		// As two devices are after they met: gossipsub on the circuit, WebRTC beside it.
+		const circuit = node.connect(phone, 'circuit', BOTH());
+		const direct = node.connect(phone, 'webrtc');
+		// The heads exchange of the direct connection (below); out of the way first.
+		await wait(turn);
+		const before = resyncs();
+
+		node.drop(circuit);
+		await wait(REGOSSIP_SETTLE_MS + 50);
+		// Told of the direct connection, as of a new one; nothing was hung up.
+		expect(node.told).toEqual([direct]);
+		expect(node.connections).toEqual([direct]);
+		// Once the stream is there, the databases exchange their heads once more.
+		await wait(1000 + turn);
+		expect(resyncs()).toBe(before + 1);
+		expect(node.told).toHaveLength(1);
+		await sync.stop();
+	});
+
+	it('leaves a device alone whose streams were not on the connection that closed', async () => {
+		const { node, sync, phone } = await twoDevices();
+		const circuit = node.connect(phone, 'circuit');
+		node.connect(phone, 'webrtc', BOTH());
+		node.drop(circuit);
+		await wait(REGOSSIP_SETTLE_MS + 50);
+		expect(node.told).toEqual([]);
+		await sync.stop();
+	});
+
+	it('does nothing when no connection is left, or while the network is paused', async () => {
+		const { node, sync, phone } = await twoDevices();
+		node.drop(node.connect(phone, 'circuit', BOTH()));
+		await wait(REGOSSIP_SETTLE_MS + 50);
+		expect(node.told).toEqual([]);
+
+		const circuit = node.connect(phone, 'circuit', BOTH());
+		node.connect(phone, 'webrtc');
+		setSyncGateClosed(true);
+		try {
+			node.drop(circuit);
+			await wait(REGOSSIP_SETTLE_MS + 50);
+			expect(node.told).toEqual([]);
+		} finally {
+			setSyncGateClosed(false);
+		}
+		await sync.stop();
+	});
+
+	it('gives up after a few tries when the stream does not come', async () => {
+		const { node, sync, phone } = await twoDevices();
+		const circuit = node.connect(phone, 'circuit', BOTH());
+		const direct = node.connect(phone, 'webrtc');
+		// A gossipsub that is told and opens nothing.
+		node.components.registrar.getTopologies = () => [
+			{ onConnect: (/** @type {any} */ _p, /** @type {any} */ c) => void node.told.push(c) }
+		];
+		node.drop(circuit);
+		await wait(REGOSSIP_SETTLE_MS + 2300);
+		expect(node.told.length).toBeGreaterThanOrEqual(2);
+		expect(node.told.length).toBeLessThanOrEqual(REGOSSIP_TRIES);
+		expect(node.connections).toEqual([direct]);
+		await sync.stop();
+	});
+
+	it('exchanges heads when a connection without limits opens, not for the limited circuit', async () => {
+		const { node, sync, phone, turn, resyncs } = await twoDevices();
+		const before = resyncs();
+		// OrbitDB's heads dial is refused on a limited connection: nothing to gain yet.
+		node.connect(phone, 'circuit', BOTH());
+		await wait(turn);
+		expect(resyncs()).toBe(before);
+		// The direct connection it signalled: now, once.
+		node.connect(phone, 'webrtc');
+		await wait(turn);
+		expect(resyncs()).toBe(before + 1);
+		await sync.stop();
+	});
+
+	it('lets the device with the smaller id exchange heads first', async () => {
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const [first, second] = mac < phone ? [mac, phone] : [phone, mac];
+		/** @param {string} self @param {string} other */
+		const resyncedAfter = async (self, other) => {
+			let tick = 0;
+			const settings = memorySettings(
+				() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+			);
+			let resyncs = 0;
+			const node = nodeWith(self);
+			const sync = await startDeviceSync({
+				store: { settings, resync: async () => void resyncs++ },
+				relays: [],
+				libp2p: /** @type {any} */ (node),
+				label: 'Mac'
+			});
+			await sync.addDevice(other, 'Android');
+			node.connect(other, 'webrtc', BOTH());
+			await wait(1100);
+			const early = resyncs;
+			await wait(RESYNC_STAGGER_MS);
+			await sync.stop();
+			return [early, resyncs];
+		};
+		expect(await resyncedAfter(first, second)).toEqual([1, 1]);
+		expect(await resyncedAfter(second, first)).toEqual([0, 1]);
 	});
 });

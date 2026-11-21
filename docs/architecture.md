@@ -40,6 +40,6 @@ From [resilience-report.md](resilience-report.md), two browser contexts on one m
 - **Same room, two QR codes:** 0 requests leave the machine; pairing in 0.9–1.4 s.
 - **Partition with writes on both sides:** 0 of 90 bookings lost; both sides agree 0.4 s after reconnecting.
 - **A browser that lost everything:** 10 000 bookings back from the backup in 79 s, linear, none lost.
-- **A relay that closes its circuit under gossipsub:** the burst stalls (#393); the app notices the missing gossipsub stream and recovers all of it after about 53 s. The fix belongs in gossipsub.
+- **A relay that closes its circuit under gossipsub:** gossipsub loses its streams and opens none on the direct connection beside it (#393); the app puts it on the connection that is left and exchanges heads again, within seconds and without hanging up. A device that stays mute all the same is hung up after 45 s. The fix belongs in gossipsub.
 
 Open: a device that loses its relay never redials it (#403), and the 23 s reconnect after a pause.
