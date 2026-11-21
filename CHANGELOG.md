@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.49.2] – 2026-11-21
+
 ### Added
 
 - **A BU key says what it means.** Under a payment's "Konto" the key field names the key in words ("9 – Vorsteuer 19 %", "94 – § 13b UStG (Reverse Charge) …") – in the list it offers and under the field for the key that is in it; a key without words on record says so. The list offers the books' own keys first and DATEV's standard keys after (2, 3, 8, 9, 11, 18, 19, 40, 91, 94). A key the books' settings give another role means that role. The learned account of a vendor names its key the same way. The words are for orientation: which key a booking gets is the tax adviser's call.
