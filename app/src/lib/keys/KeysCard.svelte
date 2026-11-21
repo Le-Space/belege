@@ -5,9 +5,11 @@
 	// with a renewed vault for a passkey that may be in other hands; and keep
 	// the vault on Aleph, so an empty device finds it with any of them
 	// (backup/vault-index.js).
+	import { onMount } from 'svelte';
 	import {
 		addBooksPasskey,
 		app,
+		checkPublishedVault,
 		lookForOtherBooks,
 		publishBooksVault,
 		removeBooksPasskey,
@@ -47,6 +49,14 @@
 		);
 
 	const paused = $derived(app.network.paused);
+
+	// The vault the books keep on Aleph, looked at once the page opens (#555):
+	// a change here then asks no request before its passkey prompt.
+	onMount(() => {
+		checkPublishedVault().catch((e) => {
+			error = e instanceof Error ? e.message : String(e);
+		});
+	});
 	// One passkey and no recovery words: its loss is the books' loss.
 	const single = $derived(app.vault.slots.length < 2 && !app.vault.words);
 
@@ -211,6 +221,12 @@
 	</form>
 
 	<RecoveryWords />
+
+	{#if app.vault.lost.length}
+		<p class="mt-3 text-sm text-text" role="status" data-testid="keys-lost">
+			{t('settings.keys.lost', { names: app.vault.lost.join(', ') })}
+		</p>
+	{/if}
 
 	{#if !app.vault.indexOn && !single && !paused}
 		<p class="mt-3 text-sm text-text" data-testid="keys-not-published">

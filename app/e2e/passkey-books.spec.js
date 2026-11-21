@@ -242,6 +242,17 @@ test('a restored passkey derives the same books secret and keeps none', async ({
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-restore').click();
+	// No books for it here or on Aleph: asked before any are made (#555). "Abbrechen"
+	// opens nothing, keeps nothing, and the screen offers the restore again.
+	await expect(page.getByTestId('new-books-dialog')).toBeVisible();
+	await page.getByTestId('new-books-cancel').click();
+	await expect(page.getByTestId('passkey-error')).toContainText('keine angelegt');
+	await expect(page.getByTestId('own-did')).toHaveCount(0);
+	expect(await page.evaluate(() => localStorage.getItem('belege.vaults.v1'))).toBeNull();
+	expect(await page.evaluate(() => localStorage.getItem('belege.webauthnCredential'))).toBeNull();
+	await takeCeremonies(page);
+	await page.getByTestId('passkey-restore').click();
+	await page.getByTestId('new-books-open').click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', created.did);
 
 	const restoring = await takeCeremonies(page);

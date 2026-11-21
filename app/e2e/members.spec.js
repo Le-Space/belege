@@ -307,6 +307,7 @@ test('the bookkeeping backs up, and an empty browser with their passkey restores
 		await keeper.page.goto('/');
 		await acceptConsent(keeper.page);
 		await keeper.page.getByTestId('passkey-restore').click();
+		await keeper.page.getByTestId('new-books-open').click();
 		await expect(keeper.page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 
 		// Aleph's index gave the membership back: the member's books open, still empty.

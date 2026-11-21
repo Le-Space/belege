@@ -150,6 +150,7 @@ export class ReadOnlyError extends Error {
  * @property {{ books: { did: string, identityId: string, label: string }, role: 'bookkeeping' | 'reader', writer: string, vaultId: string } | null} member a member's books (#612), and what they may do (#641); null for the owner
  * @property {{ peers: string[] } | { left: true } | null} moved the books have new keys (#627): this passkey took the new vault (`peers`: whom to dial there), or has no slot in it (`left`)
  * @property {Uint8Array} ownIndexKey this passkey's index key on Aleph (backup/vault-index.js), in memory
+ * @property {(opened: import('./books-vault.js').OpenedVault) => Promise<{ opened: import('./books-vault.js').OpenedVault, lost: import('./books-vault.js').SlotInfo[] }>} convergeVault before publishing (#555): the vault the books keep on Aleph, taken when it is another one this passkey opens (books-vault.js `convergeOnPublished`)
  * @property {() => Promise<import('./books-vault.js').VaultRecord | null>} otherVault the other books this passkey has on Aleph (#524): asked of its index, checked with its slot; null when none
  * @property {string} pointedOwner the paying account a member's index on Aleph named (#613), in memory; '' when none
  * @property {(owner: string | null) => Promise<void>} publishMembership a member's vault on Aleph's index G (#613)
@@ -241,7 +242,8 @@ async function pinnedToCredential(fn) {
  *   lookupVault?: boolean,
  *   otherVault?: boolean,
  *   recovered?: { opened: import('./books-vault.js').OpenedVault, owner: string, label: string },
- *   memberOf?: string }} [options]
+ *   memberOf?: string,
+ *   confirmNewBooks?: () => Promise<void> }} [options]
  *   `lookupVault`: an empty device – ask Aleph's index for the books' vault (#406)
  *   `otherVault`: the person chose the other books this passkey has on Aleph
  *   (#524): the index is asked although this browser keeps a vault for it
@@ -250,12 +252,22 @@ async function pinnedToCredential(fn) {
  *   `memberOf`: a member's books (#612) – the id of the member vault this
  *   passkey opens (members/member-vault.js); the books then open from the
  *   member bundle, never from a root
+ *   `confirmNewBooks`: asked before a new vault is made for this passkey (#555:
+ *   a restore that found none); throws to open nothing
  * @returns {Promise<Session>}
  * @throws {import('./passkey-identity.js').PrfUnavailableError} before anything is opened
  */
 export async function startSession(
 	credential,
-	{ onStatus, beforePrompt, lookupVault = false, otherVault = false, recovered, memberOf } = {}
+	{
+		onStatus,
+		beforePrompt,
+		lookupVault = false,
+		otherVault = false,
+		recovered,
+		memberOf,
+		confirmNewBooks
+	} = {}
 ) {
 	onStatus?.({ step: 'keys' });
 	await beforePrompt?.('prf');
@@ -316,7 +328,8 @@ export async function startSession(
 					label: String(credential.displayName ?? ''),
 					storage: globalThis.localStorage,
 					...(indexes ? { find: () => indexes.findVaultOnAleph({ prfOutput: passkeyPrf }) } : {}),
-					...(otherVault ? { other: true } : {})
+					...(otherVault ? { other: true } : {}),
+					...(confirmNewBooks ? { confirmNew: confirmNewBooks } : {})
 				});
 	/** The paying Aleph account, as the books' index names it (an empty device). */
 	let pointedOwner = recovered?.owner ?? '';
@@ -788,6 +801,25 @@ export async function startSession(
 			vault,
 			moved,
 			ownIndexKey,
+			/**
+			 * Before the vault is published (#555): index M of the books, and the
+			 * vault there taken when it is another one this passkey opens
+			 * (books-vault.js `convergeOnPublished`). The caller respects the pause.
+			 *
+			 * @param {import('./books-vault.js').OpenedVault} opened
+			 */
+			async convergeVault(opened) {
+				const [{ readRootIndex }, { convergeOnPublished }] = await Promise.all([
+					import('./backup/vault-index.js'),
+					import('./books-vault.js')
+				]);
+				return convergeOnPublished(
+					opened,
+					await readRootIndex({ root: opened.root }),
+					{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+					globalThis.localStorage
+				);
+			},
 			/**
 			 * The other books this passkey has on Aleph (#524), for a device that
 			 * founded books of its own: its index there is asked, and what it names

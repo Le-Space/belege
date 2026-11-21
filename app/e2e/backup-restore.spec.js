@@ -170,6 +170,7 @@ test('a browser that lost everything gets its books back from the backup', async
 	await page.goto('/');
 	await acceptConsent(page);
 	await page.getByTestId('passkey-restore').click();
+	await page.getByTestId('new-books-open').click();
 	await expect(page.getByTestId('own-did')).toHaveAttribute('data-did', String(did));
 	expect(await transactions(page)).toEqual([]);
 

@@ -63,9 +63,11 @@ const ROOT_BYTES = 32;
 /**
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string, kind?: 'words' }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
- * @typedef {{ vault: any, slots: SlotInfo[], removed: string[], aside?: string[] }} VaultRecord
+ * @typedef {{ vault: any, slots: SlotInfo[], removed: string[], aside?: string[], replaces?: string[] }} VaultRecord
  *   `aside`: the passkeys (slot ids) that open other books in this browser now
- *   (#524): their slot here stays, and is passed over at unlock
+ *   (#524): their slot here stays, and is passed over at unlock;
+ *   `replaces`: the ids of the vaults this one renewed here (#555) – one of
+ *   them published on Aleph is this record's own older self, not another device's
  * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, previous?: Uint8Array[], kid: string, created: boolean, found?: boolean, switched?: boolean }} OpenedVault
  *   `found`: the record came from elsewhere (the index), not this browser;
  *   `switched`: … in place of books this passkey had founded here (#524);
@@ -86,6 +88,32 @@ export class RemovedPasskeyError extends Error {
 	constructor() {
 		super('This passkey was removed from these books.');
 		this.name = 'RemovedPasskeyError';
+	}
+}
+
+/**
+ * A passkey without a slot in the vault the books keep on Aleph, where that
+ * vault is another than the one this passkey opens (#555): two devices of the
+ * same books may each have made a vault, and the one published lacks this
+ * passkey. Refused like a removed passkey, but not remembered as removed:
+ * once the vault with its slot is published, it opens the books again.
+ */
+export class NotInPublishedVaultError extends Error {
+	constructor() {
+		super('This passkey has no slot in the vault these books keep on Aleph.');
+		this.name = 'NotInPublishedVaultError';
+	}
+}
+
+/**
+ * Another vault of the same books is published, and the passkey open here
+ * has no slot in it (#555): publishing this one would lock out the passkeys
+ * that only that one has.
+ */
+export class PublishedVaultLacksPasskeyError extends Error {
+	constructor() {
+		super('The vault these books keep on Aleph has no slot for this passkey.');
+		this.name = 'PublishedVaultLacksPasskeyError';
 	}
 }
 
@@ -180,13 +208,19 @@ export function loadVaultRecords(storage) {
 			vault: r.vault,
 			slots: Array.isArray(r.slots) ? r.slots : [],
 			removed: Array.isArray(r.removed) ? r.removed.map(String) : [],
-			...(Array.isArray(r.aside) && r.aside.length ? { aside: r.aside.map(String) } : {})
+			...(Array.isArray(r.aside) && r.aside.length ? { aside: r.aside.map(String) } : {}),
+			...(Array.isArray(r.replaces) && r.replaces.length
+				? { replaces: r.replaces.map(String) }
+				: {})
 		};
 	});
 }
 
 /** What a record keeps when it is written anew. @param {VaultRecord} record */
-const asideOf = (record) => (record.aside?.length ? { aside: record.aside } : {});
+const asideOf = (record) => ({
+	...(record.aside?.length ? { aside: record.aside } : {}),
+	...(record.replaces?.length ? { replaces: record.replaces } : {})
+});
 
 /** @param {Uint8Array} a @param {Uint8Array} b */
 const sameBytes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -231,6 +265,8 @@ const slotKeyOf = (prfOutput) => deriveAesKey(prfOutput, VAULT_SLOT_INFO);
  * @param {Pick<Storage, 'getItem' | 'setItem'>} params.storage
  * @param {(kid: string) => Promise<VaultRecord | null>} [params.find] where else to look
  * @param {boolean} [params.other] take the other books `find` names (#524)
+ * @param {() => Promise<void>} [params.confirmNew] asked before a new vault is
+ *   made (#555: a restore); throws to make none, and nothing is kept then
  * @param {() => Date} [params.now]
  * @returns {Promise<OpenedVault>}
  */
@@ -242,6 +278,7 @@ export async function openBooksVault({
 	storage,
 	find,
 	other = false,
+	confirmNew,
 	now = () => new Date()
 }) {
 	const kid = await slotIdFor(rawCredentialId);
@@ -318,6 +355,7 @@ export async function openBooksVault({
 			...(switched ? { switched } : {})
 		};
 	}
+	await confirmNew?.();
 	const root = Uint8Array.from(prfOutput);
 	const { vault, vaultKey } = await createVault(encodePayload(root), { slotKey, rawCredentialId });
 	record = {
@@ -488,7 +526,8 @@ export async function renewBooksVault(opened, answers, removed, storage) {
 		vault,
 		slots: opened.record.slots.filter((s) => kids.includes(s.kid)),
 		removed: [...new Set([...opened.record.removed, ...removed])],
-		...asideOf(opened.record)
+		...asideOf(opened.record),
+		replaces: [...new Set([...(opened.record.replaces ?? []), String(opened.record.vault.id)])]
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);
@@ -514,6 +553,20 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 	if (!vault || !Array.isArray(vault.slots)) return opened;
 	if (JSON.stringify(vault) === JSON.stringify(opened.record.vault)) return opened;
 	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
+		// Another vault (#555): not proof that this passkey was taken out – the
+		// two may be two devices' vaults of the same books. Refused all the same,
+		// and the record found elsewhere goes again, so a later unlock asks anew.
+		if (vault.id !== opened.record.vault.id) {
+			if (opened.found) {
+				storage.setItem(
+					VAULTS_STORAGE_KEY,
+					JSON.stringify(
+						loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id)
+					)
+				);
+			}
+			throw new NotInPublishedVaultError();
+		}
 		const record = {
 			...opened.record,
 			removed: [...new Set([...opened.record.removed, opened.kid])]
@@ -548,6 +601,80 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 	records.push(record);
 	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
 	return { ...opened, record, vaultKey };
+}
+
+/**
+ * Before this browser publishes its vault (#555): the vault the books keep on
+ * Aleph (index M), when it is another one. Two devices of the same books may
+ * each have made a vault – one set up before the vault was published, or
+ * while the network was paused – and the one published last would lock out
+ * the passkeys only the other has. So the published one is taken, when this
+ * passkey's slot opens it and it holds the same root: with what this browser
+ * knows of its slots. The record here stays, set aside for every passkey the
+ * published vault has, so a passkey only this record has still opens the
+ * same books here (`lost`); it is added again to be in the published vault.
+ *
+ * @param {OpenedVault} opened
+ * @param {{ vault: any, slots?: SlotInfo[] } | null} published index M, as read
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array }} passkey this one
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @returns {Promise<{ opened: OpenedVault, lost: SlotInfo[] }>} `lost`: the
+ *   passkeys of the record here the published vault lacks
+ * @throws {PublishedVaultLacksPasskeyError} it has no slot for this passkey
+ * @throws {VaultStorageError} it holds other books
+ */
+export async function convergeOnPublished(opened, published, passkey, storage) {
+	const vault = published?.vault;
+	if (!vault || !Array.isArray(vault.slots) || typeof vault.id !== 'string') {
+		return { opened, lost: [] };
+	}
+	if (vault.id === opened.record.vault.id) return { opened, lost: [] };
+	// This record's own vault before it was renewed here: replaced by publishing.
+	if (opened.record.replaces?.includes(vault.id)) return { opened, lost: [] };
+	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
+		throw new PublishedVaultLacksPasskeyError();
+	}
+	const { payload, vaultKey } = await openVault(vault, {
+		slotKey: await slotKeyOf(passkey.prfOutput),
+		rawCredentialId: passkey.rawCredentialId
+	});
+	const { root, previous } = decodeRoots(payload);
+	if (!sameBytes(root, opened.root))
+		throw new VaultStorageError('The newer vault holds other books.');
+	const kids = new Set(vault.slots.map((/** @type {any} */ s) => String(s.kid)));
+	const here = opened.record.slots.filter((s) => kids.has(s.kid));
+	const record = {
+		vault,
+		slots: [
+			...here,
+			...(published?.slots ?? []).filter(
+				(s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid)
+			)
+		],
+		removed: opened.record.removed
+	};
+	const lost = opened.record.slots.filter((s) => !kids.has(s.kid));
+	const old = opened.record.vault.id;
+	const records = loadVaultRecords(storage);
+	const kept = records
+		.filter((r) => r.vault.id !== vault.id)
+		.map((r) =>
+			r.vault.id === old
+				? {
+						...r,
+						aside: [
+							...new Set([
+								...(r.aside ?? []),
+								...r.vault.slots
+									.map((/** @type {any} */ s) => String(s.kid))
+									.filter((/** @type {string} */ k) => kids.has(k))
+							])
+						]
+					}
+				: r
+		);
+	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify([...kept, record]));
+	return { opened: { ...opened, record, vaultKey, root, previous }, lost };
 }
 
 /** The id of the words' slot. */

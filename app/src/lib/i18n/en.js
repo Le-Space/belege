@@ -1135,6 +1135,18 @@ export default {
 		sharedOrigin:
 			'This address is on an IPFS gateway the browser shares with every other page there. Your books and your passkey would not be safe here, so Le Space Belege does not open them here. Open it at belege.le-space.de or through a gateway that gives every CID a subdomain of its own (<cid>.ipfs.…).',
 		busy: 'Please confirm the passkey …',
+		newBooks: {
+			title: 'No books found for this passkey',
+			looked: 'This browser knows no books for this passkey, and Aleph holds no vault for it.',
+			paused:
+				'This browser knows no books for this passkey. Aleph was not asked, because the network is paused.',
+			made: 'If you made books with this passkey, Belege opens them now – empty until an own device syncs them or you restore a backup.',
+			added:
+				'If the passkey was added to books another device made, it would get new, empty books here. Then cancel: keep the vault on Aleph there under Settings → Keys (or resume the network here), and try again.',
+			open: 'Open this passkey’s books',
+			cancel: 'Cancel',
+			declined: 'Cancelled: no books were opened and none were made.'
+		},
 		steps: {
 			count: 'Passkey prompt {n} of {of}',
 			prf: {
@@ -2755,6 +2767,9 @@ export default {
 				'The vault is only in this browser. An empty device finds it with the second passkey only once it is kept on Aleph.',
 			publishNow: 'Keep it there now',
 			published: 'Kept on Aleph.',
+			lost: 'Aleph already held a vault of these books that another device made. This browser uses it now. Only this browser’s vault had: {names}. They still open the books in this browser; add them again here so they do everywhere.',
+			publishedLacks:
+				'Aleph holds a vault of these books that another device made, and this passkey is not in it. So that it is not overwritten, nothing is kept there from here. Unlock with a passkey that is in that vault, or add this one there.',
 			paused: 'The network is paused.',
 			other: {
 				title: 'Other books of this passkey',

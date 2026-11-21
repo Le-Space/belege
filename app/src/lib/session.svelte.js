@@ -3,6 +3,7 @@ import { networkPause } from './network-pause.js';
 import { OTHER_BOOKS_KEY, asksAtUnlock, describeOther, worthOffering } from './keys/other-vault.js';
 import {
 	createPasskeyCredential,
+	forgetStoredPasskeyCredential,
 	loadStoredPasskeyCredential,
 	restorePasskeyCredential
 } from './passkey-identity.js';
@@ -88,9 +89,11 @@ export const app = $state({
 	 * name for it, and whether it is the one that unlocked. `indexOn`: the
 	 * vault is published on Aleph for empty devices (backup/vault-index.js).
 	 * `words`: the recovery words' slot, when there is one (stage 2).
-	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean, words: { addedAt: string } | null }}
+	 * `lost`: the names of passkeys only this browser's vault had, after it
+	 * took the one published on Aleph (#555) – added again to be in it.
+	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean, words: { addedAt: string } | null, lost: string[] }}
 	 */
-	vault: { slots: [], indexOn: false, words: null },
+	vault: { slots: [], indexOn: false, words: null, lost: [] },
 	/** Books just made: recovery words are offered once (keys/WordsOffer.svelte). */
 	offerWords: false,
 	/**
@@ -578,16 +581,17 @@ export const readOnly = () => session?.member?.role === 'reader';
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
  * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
- * @param {{ lookupVault?: boolean, otherVault?: boolean, recovered?: Recovered, memberOf?: string }} [options] `lookupVault`: an empty
+ * @param {{ lookupVault?: boolean, otherVault?: boolean, recovered?: Recovered, memberOf?: string, confirmNewBooks?: () => Promise<void> }} [options] `lookupVault`: an empty
  *   device – ask Aleph's index for the vault (#406); `otherVault`: the other books this
  *   passkey has there, as the person chose (#524); `recovered`: opened with recovery words;
- *   `memberOf`: a member's books, by the member vault's id (#612)
+ *   `memberOf`: a member's books, by the member vault's id (#612); `confirmNewBooks`: asked
+ *   before a new vault is made (#555)
  */
 async function unlockWith(
 	credential,
 	progress,
 	beforePrompt,
-	{ lookupVault = false, otherVault = false, recovered, memberOf } = {}
+	{ lookupVault = false, otherVault = false, recovered, memberOf, confirmNewBooks } = {}
 ) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
@@ -598,7 +602,8 @@ async function unlockWith(
 		lookupVault,
 		...(otherVault ? { otherVault } : {}),
 		...(recovered ? { recovered } : {}),
-		...(memberOf ? { memberOf } : {})
+		...(memberOf ? { memberOf } : {}),
+		...(confirmNewBooks ? { confirmNewBooks } : {})
 	});
 	app.otherBooks = null;
 	app.otherBooksOpened = otherVault ? (session.vault?.switched ? 'opened' : 'none') : '';
@@ -614,6 +619,7 @@ async function unlockWith(
 		return new Promise(() => {});
 	}
 	app.rekey = session.moved ? 'left' : '';
+	lostSlots = [];
 	app.member = session.member
 		? {
 				books: session.member.books.label,
@@ -755,8 +761,11 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		// Read in every case, so it never waits for a later unlock.
 		const chosen = takeOtherBooksChoice();
 		const otherVault = flow === 'unlock' && !memberOf && chosen;
+		const lookupVault = flow === 'restore' && !networkPause();
 		await unlockWith(credential, progress, passkeyStepsFor(flow), {
-			lookupVault: flow === 'restore' && !networkPause(),
+			lookupVault,
+			// A restore that finds no books for this passkey asks first (#555).
+			...(flow === 'restore' ? { confirmNewBooks: () => askNewBooksOrForget(lookupVault) } : {}),
 			...(otherVault && !networkPause() ? { otherVault } : {}),
 			...(opened ? { recovered: opened } : {}),
 			...(memberOf ? { memberOf } : {})
@@ -774,6 +783,23 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 	} finally {
 		letSleep();
 		letQuiet();
+	}
+}
+
+/**
+ * The question of a restore that found no books (#555). Declined, the
+ * passkey this restore stored is forgotten again, so the screen offers the
+ * restore once more rather than an unlock that would make the books after all.
+ *
+ * @param {boolean} looked whether Aleph's index was asked
+ */
+async function askNewBooksOrForget(looked) {
+	const { askNewBooks } = await import('./new-books-question.svelte.js');
+	try {
+		await askNewBooks({ looked });
+	} catch (e) {
+		forgetStoredPasskeyCredential();
+		throw e;
 	}
 }
 
@@ -809,8 +835,66 @@ async function showVault() {
 				mine: v.kid === kid
 			})),
 		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true,
-		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null
+		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null,
+		lost: lostSlots
 	};
+}
+
+/** See `app.vault.lost`: for the books open now. @type {string[]} */
+let lostSlots = [];
+
+/** How long a look at the published vault counts (`convergeFirst`). */
+const CONVERGED_FOR_MS = 10 * 60_000;
+/** @type {{ session: Session | null, vaultId: string, at: number }} */
+let converged = { session: null, vaultId: '', at: 0 };
+
+/**
+ * Einstellungen → Schlüssel, opened (#555): the published vault looked at
+ * now, so a change made there within the next minutes needs no request
+ * before its passkey prompt. Never while paused, never for a member.
+ */
+export async function checkPublishedVault() {
+	await convergeFirst(app.vault.indexOn, { fresh: true });
+}
+
+/**
+ * Before the vault is changed and published, or published (#555): the one
+ * the books keep on Aleph is taken when it is another vault of the same
+ * books that this passkey opens – two devices may each have made one, and
+ * publishing this one would lock out the passkeys only that one has
+ * (books-vault.js `convergeOnPublished`). Asks Aleph once; never while paused.
+ *
+ * @param {boolean} publishing whether what follows publishes the vault
+ */
+async function convergeFirst(publishing, { fresh = false } = {}) {
+	if (!publishing || networkPause() || !session?.vault || session.member) return;
+	// Asked a moment ago (`checkPublishedVault`): no request now, so the passkey
+	// prompt that follows still starts from its click.
+	if (
+		!fresh &&
+		converged.session === session &&
+		converged.vaultId === ownerVault().record.vault.id &&
+		Date.now() - converged.at < CONVERGED_FOR_MS
+	) {
+		return;
+	}
+	const { PublishedVaultLacksPasskeyError } = await import('./books-vault.js');
+	try {
+		const asked = session;
+		const { opened, lost } = await session.convergeVault(ownerVault());
+		converged = { session: asked, vaultId: opened.record.vault.id, at: Date.now() };
+		if (opened === ownerVault()) return;
+		session.vault = opened;
+		lostSlots = [
+			...new Set([...lostSlots, ...lost.map((s) => s.label || t('settings.keys.unnamed'))])
+		];
+		await showVault();
+	} catch (e) {
+		if (e instanceof PublishedVaultLacksPasskeyError) {
+			throw new Error(t('settings.keys.publishedLacks'));
+		}
+		throw e;
+	}
 }
 
 /** The choice `openOtherBooks` left for this unlock, read once. */
@@ -873,6 +957,7 @@ export async function openOtherBooks() {
 export async function publishBooksVault(extraKeys = []) {
 	if (!session) throw new Error('The books are not open.');
 	if (networkPause()) throw new Error(t('settings.keys.paused'));
+	await convergeFirst(true);
 	const [{ publishVault }, { loadOwner }, { setSetting }] = await Promise.all([
 		import('./backup/vault-index.js'),
 		import('./backup/keeper.js'),
@@ -885,6 +970,7 @@ export async function publishBooksVault(extraKeys = []) {
 		owner: await loadOwner(session.store.settings)
 	});
 	await setSetting(session.store.settings, VAULT_INDEX_SETTING, true);
+	converged = { session, vaultId: ownerVault().record.vault.id, at: Date.now() };
 	await showVault();
 }
 
@@ -1051,6 +1137,12 @@ export async function addBooksPasskey(label, { publish = false } = {}) {
 	// A second prompt: from its own click, as Safari wants (#555).
 	await confirmPasskeyStep({ n: 2, of: 2, purpose: 'added' });
 	const prfOutput = await readPrfOutput(credential);
+	// Into the vault that is published, not into one only this browser has
+	// (#555) – asked after the prompts, which want the click (passkey-steps).
+	// Refused there, the passkey is added here all the same: it exists now.
+	/** @type {unknown} */
+	let refused = null;
+	await convergeFirst(publish || app.vault.indexOn).catch((e) => (refused = e));
 	session.vault = await addPasskey(
 		ownerVault(),
 		{
@@ -1064,6 +1156,7 @@ export async function addBooksPasskey(label, { publish = false } = {}) {
 	const key = await passkeyIndexKey(prfOutput);
 	prfOutput.fill(0);
 	await showVault();
+	if (refused) throw refused;
 	if ((publish || app.vault.indexOn) && !networkPause()) await publishBooksVault([key]);
 }
 
@@ -1115,6 +1208,7 @@ async function answersOf(slots) {
  */
 export async function removeBooksPasskey(kid, { renew = false } = {}) {
 	if (!session) throw new Error('The books are not open.');
+	await convergeFirst(app.vault.indexOn);
 	const vaultModule = await import('./books-vault.js');
 	if (!renew) {
 		session.vault = vaultModule.removePasskey(ownerVault(), kid, globalThis.localStorage);
@@ -1146,6 +1240,7 @@ export async function removeBooksPasskey(kid, { renew = false } = {}) {
  */
 export async function addBooksRecoveryWords(words, { publish = false } = {}) {
 	if (!session) throw new Error('The books are not open.');
+	await convergeFirst(publish || app.vault.indexOn);
 	const [{ seedFromWords }, { addRecoveryWords }, { wordsIndexKey }] = await Promise.all([
 		import('./recovery-words.js'),
 		import('./books-vault.js'),
@@ -1165,6 +1260,7 @@ export async function addBooksRecoveryWords(words, { publish = false } = {}) {
 /** Take the recovery words out of the vault. */
 export async function removeBooksRecoveryWords() {
 	if (!session) throw new Error('The books are not open.');
+	await convergeFirst(app.vault.indexOn);
 	const { removeRecoveryWords } = await import('./books-vault.js');
 	session.vault = await removeRecoveryWords(ownerVault(), globalThis.localStorage);
 	await showVault();

@@ -16,6 +16,7 @@
 	import { intlLocale, t } from './i18n/index.js';
 	import ResetDialog from './storage/ResetDialog.svelte';
 	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
+	import NewBooksDialog from './NewBooksDialog.svelte';
 	import { sharedOrigin } from './shared-origin.js';
 	import { stallAfterOf } from './unlock-progress.js';
 	import { otherWindowOpen } from './other-windows.js';
@@ -314,3 +315,4 @@
 
 <ResetDialog bind:open={resetOpen} onclose={() => (resetOpen = false)} />
 <PasskeyStepDialog />
+<NewBooksDialog />
