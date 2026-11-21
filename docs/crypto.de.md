@@ -641,7 +641,7 @@ Beide sehen den Kontonamen und die IP-Adresse dieses Macs. Für beide kannst du 
 
 **Hash:** Der Hash ist der der Transaktion (base58) – derselbe, den Kraken für eine Auszahlung nennt. So finden eine Auszahlung bei Kraken und der Eingang auf dem Konto als eigene Umbuchung zusammen, und das Detail der Auszahlung nennt NEAR und verlinkt NearBlocks.
 
-**Gebucht werden** NEAR und **USDC** nach Circles eigenem Vertrag (`17208628…36133a1`). Jeder andere Token – das gebrückte USDC.e, USDT, wNEAR und alles Verschenkte – wird gezählt und ausgelassen: Das Symbol eines Tokens ist seine eigene Behauptung. Im Krypto-Ledger-Export ist NEAR `near:mainnet/slip44:397`, USDC `near:mainnet/nep141:<Vertrag>`.
+**Gebucht werden** NEAR und **USDC** nach Circles eigenem Vertrag (`17208628…36133a1`). Gewickeltes NEAR (wNEAR, der Token von `wrap.near`) wird als das NEAR gebucht, das es ist: Wickeln und Entwickeln sind Bewegungen innerhalb der Wallet und hinterlassen nur ihr Gas, der Bestand ist das NEAR des Kontos plus sein wNEAR, und wNEAR, das an eine DEX geht, die USDC auszahlt, ist ein Tausch von NEAR gegen USDC, benannt nach der DEX. Jeder andere Token – das gebrückte USDC.e, USDT und alles Verschenkte – wird gezählt und ausgelassen: Das Symbol eines Tokens ist seine eigene Behauptung. Im Krypto-Ledger-Export ist NEAR `near:mainnet/slip44:397`, USDC `near:mainnet/nep141:<Vertrag>`.
 
 **Noch nicht gelesen:** NEAR, das in den inneren Quittungen einer fremden Transaktion ankommt, etwa die Auszahlung eines Staking-Pools. Der Bestand kommt vom Archivknoten, nicht aus den Buchungen; so eine Lücke zeigt sich als Differenz.
 

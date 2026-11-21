@@ -169,7 +169,8 @@ async function startLoopbackBridgeHeld(saved, createBridgeClient, setBridgeTrans
 		libp2p: node.libp2p,
 		label: ctx.deviceLabel(),
 		devices: () => [],
-		isProved: (peerId) => Boolean(node.gate.isProved(peerId))
+		isProved: (peerId) => Boolean(node.gate.isProved(peerId)),
+		bridgeKey: () => ctx.session?.bridgeAuth.key ?? null
 	});
 	bridgeConsumer = consumer;
 	setBridgeTransport(
@@ -275,7 +276,8 @@ export async function startBridgeForDevices() {
 		// `connected` only once the device proved the passkey (device-gate.js).
 		devices: () =>
 			(ctx.app.sync.state?.devices ?? []).filter((d) => d.connected).map((d) => d.peerId),
-		isProved: (peerId) => Boolean(ctx.session?.deviceGate?.isProved(peerId))
+		isProved: (peerId) => Boolean(ctx.session?.deviceGate?.isProved(peerId)),
+		bridgeKey: () => ctx.session?.bridgeAuth.key ?? null
 	});
 	bridgeConsumer = consumer;
 	setBridgeTransport(

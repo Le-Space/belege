@@ -237,6 +237,52 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(walletB.getByTestId('wallet-balance-gap')).toHaveCount(0);
 	await expect(walletA.getByTestId('wallet-pruned')).toHaveCount(0);
 
+	// The chart above the list (#908): what the wallets were worth, day by
+	// day. One chain with two accounts: one line, 149,995 + 100 NYM at 0,05 EUR.
+	const chart = card.getByTestId('wallet-chart');
+	const brief = (/** @type {string} */ a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+	const today = new Date().toISOString().slice(0, 10);
+	await expect(chart.getByTestId('wallet-chart-missing')).toHaveCount(0);
+	await expect(chart.getByTestId('wallet-chart-chain')).toHaveCount(1);
+	await expect(
+		chart.getByTestId('wallet-chart-chain').getByTestId('wallet-chart-swatch')
+	).toHaveAttribute('data-color', 's1');
+	const dayLine = chart.getByTestId('wallet-chart-day');
+	await expect(dayLine).toContainText(/Nym \(Nyx\): 12,50\sEUR/);
+	await expect(chart.locator('polyline[data-series]')).toHaveCount(1);
+	// Opened: a line per account, the larger one first.
+	await chart.getByTestId('wallet-chart-open').click();
+	await expect(chart.locator('polyline[data-series="s1"]')).toHaveCount(1);
+	await expect(chart.locator('polyline[data-series="s2"]')).toHaveCount(1);
+	await expect(dayLine).toContainText(new RegExp(`${brief(A)}: 7,50\\sEUR`));
+	await expect(dayLine).toContainText(new RegExp(`${brief(B)}: 5,00\\sEUR`));
+	const accountB = chart.locator('li', { hasText: brief(B) }).last();
+	await expect(accountB.getByTestId('wallet-chart-swatch')).toHaveAttribute('data-color', 's2');
+	// A's checkbox off: its line is gone, B's keeps its colour.
+	const toggleA = chart
+		.locator('li', { hasText: brief(A) })
+		.last()
+		.getByTestId('wallet-chart-account-toggle');
+	await toggleA.uncheck();
+	await expect(chart.locator('polyline[data-series="s1"]')).toHaveCount(0);
+	await expect(chart.locator('polyline[data-series="s2"]')).toHaveCount(1);
+	await expect(accountB.getByTestId('wallet-chart-swatch')).toHaveAttribute('data-color', 's2');
+	await expect(dayLine).not.toContainText(brief(A));
+	// Every figure is in the table as well: the day, the value, what was held.
+	await chart.getByTestId('wallet-chart-table-toggle').click();
+	const row = chart.locator(`[data-testid="wallet-chart-row"][data-day="${today}"]`);
+	await expect(row).toContainText(/5,00\sEUR/);
+	await expect(row).toContainText(/100\sNYM/);
+	await expect(row).not.toContainText('7,50');
+	// The choice is this device's: still there after a reload, and nowhere an address.
+	const keptChoice = await page.evaluate(() => localStorage.getItem('belege.walletChart') ?? '');
+	expect(keptChoice).toMatch(/"hidden":\["[0-9a-f]+"\]/);
+	expect(keptChoice).not.toContain(A);
+	await toggleA.check();
+	await expect(chart.locator('polyline[data-series="s1"]')).toHaveCount(1);
+	await chart.getByTestId('wallet-chart-open').click();
+	await expect(dayLine).toContainText(/Nym \(Nyx\): 12,50\sEUR/);
+
 	// A pruned node that claims to know everything: found out, and the
 	// balance shows what is missing.
 	const walletC = await addAndSync(C, prunedNode.url);

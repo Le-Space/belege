@@ -148,3 +148,67 @@ test('SVG: text only, escaped, no script, colours as variables with light and da
 	);
 	assert.match(line, /<polyline class="k-s1" points="[\d., ]+" fill="none"/);
 });
+
+test('a line chart: a value that is missing is a gap, the line starts again after it', () => {
+	const scene = lineChart({
+		title: '',
+		buckets: ['a', 'b', 'c', 'd', 'e'],
+		series: [{ label: 'x', start: 1, values: [1, 2, null, null, 4] }],
+		width: 300,
+		height: 100
+	});
+	const paths = /** @type {import('../src/scene.js').Path[]} */ (of(scene, 'path'));
+	assert.equal(paths.length, 2);
+	const step = (scene.plot.right - scene.plot.left) / 5;
+	// The first run ends with bucket b, the second covers bucket e alone.
+	assert.equal(paths[0].points.at(-1)?.[0], Math.round((scene.plot.left + 2 * step) * 100) / 100);
+	assert.equal(paths[1].points.length, 2);
+	assert.equal(paths[1].points[0][0], Math.round((scene.plot.left + 4 * step) * 100) / 100);
+	assert.equal(paths[1].points[0][1], paths[1].points[1][1]);
+	// Nothing at all: an empty plot from zero, no path.
+	const empty = lineChart({ title: '', buckets: ['a'], series: [{ label: 'x', values: [null] }] });
+	assert.equal(of(empty, 'path').length, 0);
+});
+
+test('a line chart: labels at the lines’ ends, pushed apart; more than four lines; no legend', () => {
+	const scene = lineChart({
+		title: '',
+		buckets: ['a', 'b'],
+		legend: false,
+		ends: true,
+		series: [
+			{ label: 'Konto A', values: [10, 50] },
+			{ label: 'Konto B', values: [10, 50.5] },
+			{ label: 'Konto C', values: [1, 2], color: 's4' },
+			{ label: 'Konto D', values: [1, 0] },
+			{ label: 'Konto E', values: [1, 30] },
+			{ label: 'Übrige', values: [3, 20] },
+			{ label: 'ohne Ende', values: [3, null] }
+		],
+		width: 300,
+		height: 120
+	});
+	assert.equal(of(scene, 'rect').length, 0);
+	const paths = /** @type {import('../src/scene.js').Path[]} */ (of(scene, 'path'));
+	assert.deepEqual(
+		paths.map((p) => p.stroke),
+		['s1', 's2', 's4', 's4', 'other', 'other', 'other']
+	);
+	const ends = /** @type {import('../src/scene.js').Text[]} */ (of(scene, 'text')).filter(
+		(t) => t.x > scene.plot.right
+	);
+	assert.deepEqual(ends.map((t) => t.text).sort(), [
+		'Konto A',
+		'Konto B',
+		'Konto C',
+		'Konto D',
+		'Konto E',
+		'Übrige'
+	]);
+	const ys = ends.map((t) => t.y).sort((a, b) => a - b);
+	for (let i = 1; i < ys.length; i++) assert.ok(ys[i] - ys[i - 1] >= 7.9, 'no label on another');
+	assert.ok(ys.at(-1) <= scene.plot.bottom + 3, 'the lowest label stays at the plot');
+	assert.equal(ends.find((t) => t.text === 'Konto A')?.fill, 's1');
+	// The plot ends where the labels begin.
+	assert.ok(scene.plot.right < 300 - 10);
+});

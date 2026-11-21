@@ -35,6 +35,18 @@ An answer of bytes too big for one stream answer goes as sealed blocks:
 
 Who may speak the protocol is the node's device gate's business (`@belege/device-gate`, `reach`).
 
+## Calls sealed above the connection
+
+A device of the books and their bridge hold a key in common from before any connection: the bridge's own key, which the device proves at the gate. `@le-space/bridge-protocol/seal` seals what a call carries with it, a second time above the connection's own encryption:
+
+- `sealCall(secret, { consumer, provider, command }, args)` gives `{ sent, open }`: the arguments as `{ "$sealed": … }`, and `open(answer)` for the answer to this call. `openCall(secret, context, sent)` gives `{ args, seal }` on the answering side.
+- The key of a call is HKDF-SHA-256 over the secret with a nonce made for the call; the two peers, the command and the direction are the context, and the additional data of AES-256-GCM. A sealed call opens for these peers and this command only, an answer only for the call it answers.
+- A peer says `seal: 1` in `help` when it seals. A device seals for such a peer and then takes only a sealed answer; a peer from before is called as before.
+- `handoverSecret(invitationSecret)`: the key the handover is sealed with, the one call that brings the bridge its key.
+- `sealedSize(n)`: what `n` bytes of JSON take once sealed. An answer grows by a third; JSON that no longer fits a stream answer goes as blocks to a device that takes them.
+
+WebCrypto only: the same bytes in a browser and in Node (`test/seal.test.js`).
+
 ```bash
 pnpm --filter @le-space/bridge-protocol test   # Node, and a scenario in Chromium
 ```

@@ -5573,7 +5573,39 @@ export default {
 				'{count} older transactions with staking rewards, escrow refunds or auto-restake: the indexer does not know their amounts, they are not booked. The balance check shows the gap.',
 			indexerFailed: 'The Akash indexer was not reachable; the next fetch asks it again.',
 			balanceGap:
-				'Booked {booked}, balance {balance}: transactions are missing – older ones the node no longer knows, or tokens from unbonding, which are not a transaction.'
+				'Booked {booked}, balance {balance}: transactions are missing – older ones the node no longer knows, or tokens from unbonding, which are not a transaction.',
+			// The chart of the wallets' value per day (#908).
+			chart: {
+				title: 'Value of the wallets in euros',
+				intro:
+					'The balance at the end of each day, valued at the day’s rate; the last two months, {from} to {to}.',
+				aria: 'Line chart: value of the wallets in euros per day, {from} to {to}. Every figure is in the table below.',
+				lines: 'Lines',
+				linesHint: 'Only this device remembers the choice.',
+				total: 'All visible together',
+				totalShort: 'Total',
+				rest: 'Others',
+				openChain: 'Show accounts one by one',
+				closeChain: 'Show as one line',
+				day: 'Day',
+				daySlider: 'Choose a day in the chart',
+				noRate: 'no rate',
+				loading: 'Fetching rates: {done} of {count}',
+				missing:
+					'Without a rate: {list}. On these days the value of these assets is missing from the lines; nothing is estimated or carried forward.',
+				missingItem: '{asset} (days: {days})',
+				missingDay: 'without a rate: {assets}',
+				retry: 'Fetch the missing rates again',
+				carried:
+					'Without a market rate: {assets}. Valued at the rate of the last booking before, as in the books.',
+				table: {
+					show: 'Show as a table',
+					hide: 'Hide the table',
+					caption: 'Value of the wallets in euros per day, the newest day first',
+					holdings: 'Holdings',
+					notes: 'Note'
+				}
+			}
 		},
 		kraken: {
 			title: 'Kraken (exchange)',
