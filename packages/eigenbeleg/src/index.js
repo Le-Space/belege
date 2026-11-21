@@ -45,7 +45,7 @@ export { valueEntries, fixedRates } from './value.js';
 export { nextSelfNumber, bookingNote, bookingNotInvoice } from './booking.js';
 export { bookingPdf } from './booking-pdf.js';
 export { statementLayout } from './statement-layout.js';
-export { ISSUER_LOGO_BOX } from './layout.js';
+export { ISSUER_LOGO_BOX, LETTERHEAD, MARK_SIZE } from './layout.js';
 // What an issuer's logo may be, and the error a file that is not gets (issuerLogo of the PDFs).
 export { ImageError, IMAGE_LIMITS } from '@le-space/pdf';
 /** @typedef {import('./value.js').Rate} Rate */

@@ -87,15 +87,17 @@ export function monthlyLines(s) {
 
 /**
  * @param {import('./aleph.js').StatementDocument} doc
+ * @param {{ issuerLogo?: Uint8Array | null }} [o] issuerLogo: the company's own logo (settings/issuer-logo.js), top right in the head
  * @returns {Promise<Uint8Array>}
  */
-export async function statementPdf(doc) {
+export async function statementPdf(doc, { issuerLogo = null } = {}) {
 	const s = doc.statement;
 	const created = new Date(doc.createdAt);
 	const { width, head, field, rule, heading, table, signature, save } = await statementLayout({
 		title: `Eigenbeleg ${doc.number} – Aleph-Verbrauch ${s.month}`,
 		created,
-		continuation: `${doc.number} · Aleph-Verbrauch ${s.month} (Fortsetzung)`
+		continuation: `${doc.number} · Aleph-Verbrauch ${s.month} (Fortsetzung)`,
+		issuerLogo
 	});
 
 	head(doc.number, doc.issuer, 'Verbrauchsnachweis Aleph Cloud – Aleph stellt keine Rechnung aus.');

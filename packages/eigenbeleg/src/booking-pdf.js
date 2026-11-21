@@ -18,7 +18,7 @@ import { A4, BLACK, GREY, embedIssuerLogo, pageLayout } from './layout.js';
 /**
  * @param {import('./booking.js').BookingEigenbeleg} doc
  * @param {{ creator?: string, producer?: string, issuerLogo?: Uint8Array | null }} [o] what made it: `Belege` when not given. issuerLogo: the issuer's own
- *   logo, a PNG or JPEG file's bytes, in the head's top right corner (none unless given; an
+ *   logo, a PNG or JPEG file's bytes, large as a letterhead: top right, the text below it (none unless given; an
  *   ImageError of @le-space/pdf when the file is no small PNG or JPEG)
  * @returns {Promise<Uint8Array>}
  */
@@ -48,7 +48,7 @@ export async function bookingPdf(doc, { creator = 'Belege', producer, issuerLogo
 	const out = doc.amountCents < 0;
 
 	// ---- head
-	l.issuerLogo(own, l.y);
+	l.letterhead(own);
 	text('Eigenbeleg', { face: bold, size: 20 });
 	text(`Nr. ${doc.number}`, { face: bold, size: 12 });
 	gap(2);

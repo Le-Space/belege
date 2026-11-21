@@ -95,14 +95,16 @@ const rateOf = (d) =>
  * @param {string} doc.createdAt ISO
  * @param {string | null} doc.corrects the number of the statement this one replaces
  * @param {import('./statement.js').Statement} doc.statement
+ * @param {{ issuerLogo?: Uint8Array | null }} [o] issuerLogo: the company's own logo (settings/issuer-logo.js), top right in the head
  * @returns {Promise<Uint8Array>}
  */
-export async function travelStatementPdf(doc) {
+export async function travelStatementPdf(doc, { issuerLogo = null } = {}) {
 	const s = doc.statement;
 	const { width, head, field, rule, heading, table, signature, save } = await statementLayout({
 		title: `Reisekostenabrechnung ${doc.number} – ${doc.month}`,
 		created: new Date(doc.createdAt),
-		continuation: `${doc.number} · Reisekostenabrechnung ${doc.month} (Fortsetzung)`
+		continuation: `${doc.number} · Reisekostenabrechnung ${doc.month} (Fortsetzung)`,
+		issuerLogo
 	});
 	head(
 		doc.number,

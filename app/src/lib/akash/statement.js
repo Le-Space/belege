@@ -18,6 +18,7 @@ import { nextSelfNumber } from '@le-space/eigenbeleg/booking';
 import { importFile } from '../receipts/import.js';
 import { t } from '../i18n/index.js';
 import { akashMonth } from './usage.js';
+import { issuerLogoOf } from '../settings/issuer-logo.js';
 
 /** @param {string} address @param {string} month */
 export const akashStatementRef = (address, month) => `akash:${address}:${month}`;
@@ -118,7 +119,7 @@ export async function createAkashStatement({
 		createdBy
 	};
 	const { akashStatementPdf } = await import('./statement-pdf.js');
-	const bytes = await akashStatementPdf(doc);
+	const bytes = await akashStatementPdf(doc, { issuerLogo: await issuerLogoOf(store) });
 	const { record } = await importFile({
 		receipts: store.receipts,
 		blobs,
