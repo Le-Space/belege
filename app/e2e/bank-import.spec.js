@@ -192,6 +192,8 @@ test('pair, sync from Hibiscus, see Zahlungen, re-sync adds nothing, import CAMT
 	const debit = page.getByTestId('transaction').filter({ hasText: names.debit });
 	await expect(debit.getByTestId('amount')).toHaveText(/-22,42\sEUR/);
 	await expect(debit.getByTestId('amount')).toHaveClass(/text-red-700/);
+	// A booking in euros has no second line: the amount is what moved.
+	await expect(debit.getByTestId('amount-quantity')).toHaveCount(0);
 	await expect(debit.getByTestId('account-badge')).toHaveText('Hibiscus ···4711');
 	const credit = page.getByTestId('transaction').filter({ hasText: names.credit });
 	await expect(credit.getByTestId('amount')).toHaveText(/1\.439,76\sEUR/);

@@ -1,4 +1,5 @@
 <script>
+	import { quantityText } from '$lib/assets/valuation.js';
 	import { onMount } from 'svelte';
 	import FirstSyncHint from '$lib/sync/FirstSyncHint.svelte';
 	import { addressBook, payeeName, walletParties } from '$lib/bank/payee.js';
@@ -592,17 +593,24 @@
 											data-testid="account-badge">{badge(tx)}</span
 										>
 									{/if}
-									<span
-										class="ml-auto shrink-0 font-mono whitespace-nowrap tabular-nums {txDirection(
-											tx
-										) < 0
-											? 'text-red-700 dark:text-red-400'
-											: txDirection(tx) > 0
-												? 'text-emerald-700 dark:text-emerald-400'
-												: 'text-heading'}"
-										data-testid="amount"
-									>
-										{formatTxAmount(tx)}
+									<!-- The euro value, and under it what moved in the asset's own unit: 0,015 NEAR, 1,04 USDC. -->
+									<span class="ml-auto flex shrink-0 flex-col items-end">
+										<span
+											class="font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
+												? 'text-red-700 dark:text-red-400'
+												: txDirection(tx) > 0
+													? 'text-emerald-700 dark:text-emerald-400'
+													: 'text-heading'}"
+											data-testid="amount"
+										>
+											{formatTxAmount(tx)}
+										</span>
+										{#if quantityText(tx)}
+											<span
+												class="font-mono text-xs whitespace-nowrap text-faint tabular-nums"
+												data-testid="amount-quantity">{quantityText(tx)}</span
+											>
+										{/if}
 									</span>
 								</button>
 							</li>

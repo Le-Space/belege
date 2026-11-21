@@ -266,6 +266,9 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await page.getByTestId('account-filter').selectOption({ label: `Wallet NYM ···${tail(A)}` });
 	const sent = rows.filter({ hasText: 'Gesendet' });
 	await expect(sent.getByTestId('coverage-badge')).toHaveText('Eigene Umbuchung');
+	// The row says the euros and, under them, what moved in the asset's own unit.
+	await expect(sent.getByTestId('amount')).toHaveText(/-5,00\sEUR/);
+	await expect(sent.getByTestId('amount-quantity')).toHaveText('-100 NYM');
 	await sent.click();
 	await expect(detail.getByTestId('tx-detail-quantity')).toHaveText('-100 NYM');
 	await expect(detail.getByTestId('tx-detail-amount')).toHaveText(/-5,00\sEUR/);
