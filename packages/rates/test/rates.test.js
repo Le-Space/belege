@@ -772,21 +772,28 @@ describe('a rate into another currency', () => {
 		assert.equal(calls.length, before);
 	});
 
-	test('USD where CoinGecko answered: its own USD price of the snapshot, no second leg', async () => {
+	test('USD where CoinGecko has its own USD price: still the euro rate times the ECB rate', async () => {
 		const { fetch, calls } = fakeFetch({
-			'https://api.coingecko.com/api/v3/coins/usd-coin/history': coingecko(0.8, 1.0002)
+			'https://api.coingecko.com/api/v3/coins/usd-coin/history': coingecko(0.8, 1.0002),
+			[ECB_USD]: ecb({ '2026-10-01': 1.25 })
 		});
 		const rate = await createRateService({ fetch, now: LATER }).rate('USDC', '2026-10-01', {
 			currency: 'USD'
 		});
-		assert.equal(rate.rate, '1.0002');
+		assert.equal(rate.rate, '1');
 		assert.equal(rate.eurRate, '0.8');
 		assert.equal(rate.currency, 'USD');
-		assert.equal(rate.fx, undefined);
-		assert.ok(!calls.some((u) => u.includes('ecb.europa.eu')));
+		assert.equal(rate.source, 'coingecko');
+		assert.deepEqual(rate.fx, {
+			currency: 'USD',
+			perEur: '1.25',
+			source: 'ecb',
+			at: '2026-10-01T00:00:00Z'
+		});
+		assert.equal(calls.filter((u) => u.startsWith(ECB_USD)).length, 1);
 	});
 
-	test('USD from a Kraken rate: crossed with the ECB rate like any other currency', async () => {
+	test('USD from a Kraken rate: the same ECB leg', async () => {
 		const { fetch } = fakeFetch({
 			'https://api.kraken.com/0/public/OHLC': {
 				error: [],

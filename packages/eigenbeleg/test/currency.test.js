@@ -49,6 +49,16 @@ test('EUR is the default, and nothing about an EUR document says another currenc
 	assert.equal(usageNote('aleph', 'EUR'), USAGE_NOTE);
 });
 
+test('USD like every currency but the ruble: through the euro at the ECB reference rate', () => {
+	assert.equal(conversionText('USD'), conversionText('CHF').replace('CHF', 'USD'));
+	assert.doesNotMatch(conversionText('USD'), /CoinGecko/);
+	assert.match(
+		usageNote('filecoin-pay', 'USD'),
+		/über den Euro in USD umgerechnet zum Euro-Referenzkurs der EZB/
+	);
+	assert.match(conversionText('RUB'), /Bank von Russland/);
+});
+
 test('the list of currencies: the euro, ECB currencies, the ruble; another code is refused by name', async () => {
 	assert.deepEqual(Object.keys(DOCUMENT_CURRENCIES), [
 		...['EUR', 'USD', 'CHF', 'GBP', 'SEK', 'NOK', 'DKK'],
