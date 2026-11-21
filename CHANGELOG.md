@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Security
 
 - **The hosted bridge on NEAR: the sealed secrets are handed only to the VM that was attested.** With its quote the VM's registrar names the hash of a fetch key it made for this start, and the launcher answers the fetch only for that key; anyone else gets the same answer as before the secrets came. The secrets were and are sealed to the VM's intake key, which never leaves it. This changes the bridge image (`registrar.mjs`), so its compose hash is a new one to approve; until then `LAUNCHER_LEGACY_SECRETS_FETCH=1` lets the launcher serve the image released before.
+## [0.48.0] – 2026-11-21
 
 ### Changed
 

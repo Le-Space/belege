@@ -18,6 +18,9 @@
 //                         `near` here, or `@le-space/chains/near`
 //   aleph                 Aleph Cloud credits (no chain: Aleph's API, by the
 //                         Ethereum address); `aleph` here, or `/aleph`
+//   doichain              a Doichain address through ElectrumX over WebSocket,
+//                         name operations included; `doichain` here, or
+//                         `/doichain`
 
 export * from './core.js';
 export { CHAINS, KNOWN_EVM_CONTRACTS, chainOf, publicChains } from './registry.js';
@@ -76,3 +79,4 @@ export {
 /** @typedef {import('@le-space/ledger/wallet-entry').WalletEntry} WalletEntry */
 export * as near from './near.js';
 export * as aleph from './aleph.js';
+export * as doichain from './doichain.js';
