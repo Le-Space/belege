@@ -51,8 +51,8 @@ function cell(v) {
  * @returns {string}
  */
 export function eigenbelegCsv(doc) {
-	/** @type {unknown[][]} */
 	const currency = doc.currency ?? 'EUR';
+	/** @type {unknown[][]} */
 	const rows = [header(currency)];
 	const places = currencyPlaces(currency);
 	const numberOf = (/** @type {number | string} */ pos) =>
