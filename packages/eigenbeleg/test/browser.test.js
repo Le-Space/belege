@@ -15,7 +15,10 @@ test('every document is the same file in Chromium and in Node', async (t) => {
 		'verbrauchsauszug.pdf',
 		'booking-wallet.pdf',
 		'booking-bank.pdf',
-		'statement-sheet.pdf'
+		'statement-sheet.pdf',
+		'eigenbeleg-collective-chf.pdf',
+		'kontoauszug-rub.pdf',
+		'verbrauchsauszug-usd.pdf'
 	]);
 	assert.match(r.csv, /^[0-9a-f]{64}$/);
 });

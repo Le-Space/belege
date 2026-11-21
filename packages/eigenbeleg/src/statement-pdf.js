@@ -13,7 +13,7 @@ import { rgb } from 'pdf-lib';
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
-import { DATA_SOURCES, deDate, deEuro, deNumber } from './document.js';
+import { DATA_SOURCES, conversionText, deDate, deFixed, deMoney, deNumber } from './document.js';
 import { CREATOR, PRODUCER } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
 import { drawScene, sceneMeasure } from './chart-pdf.js';
@@ -23,13 +23,14 @@ import { A4, BAND, BLACK, GREY, OK, RULE, WARN, pageLayout } from './layout.js';
 const M = 44;
 const DARK = { thickness: 0.8, color: rgb(0.2, 0.2, 0.2) };
 
-const COLS = [
+/** The table of bookings; its last column names the statement's currency. @param {string} currency */
+const columns = (currency) => [
 	{ title: 'Buchungstag', width: 52 },
 	{ title: 'Vorgang', width: 175 },
 	{ title: 'Soll', width: 72, right: true },
 	{ title: 'Haben', width: 72, right: true },
 	{ title: 'Saldo', width: 80, right: true },
-	{ title: 'Wert EUR', width: 56, right: true }
+	{ title: `Wert ${currency}`, width: 56, right: true }
 ];
 
 /** Quantities in the table: at most 12 decimals, the CSV keeps them all. @param {string} q */
@@ -51,6 +52,14 @@ export async function statementPdf(
 	const aleph = st.chain === 'aleph';
 	// Filecoin Pay: the same, in USDFC and by rail.
 	const pay = st.chain === 'filecoin-pay';
+	// The statement's currency (EUR unless another): its code in the column heads and sums.
+	const cur = st.currency ?? 'EUR';
+	const COLS = columns(cur);
+	/** @param {string} amount */
+	const money = (amount) => deMoney(amount, cur);
+	/** What the values are: in euro as it always said, or how they became another currency. @param {string} eur @param {string} rate */
+	const valued = (eur, rate) =>
+		cur === 'EUR' ? `Euro-Werte ${eur}` : `Werte in ${cur}: ${rate}, ${conversionText(cur)}`;
 	const title = `${st.title} ${st.number}`;
 	const subject = `${st.title} ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
@@ -125,20 +134,14 @@ export async function statementPdf(
 				l.ensure(14 + lines.length * 11 + 8);
 				l.at('Monatsübersicht', M, 8, bold, GREY);
 				l.right(pay ? s.asset : 'Credits', M + 371 - 4, 7.5, bold, GREY);
-				l.right('Wert EUR', M + 507 - 4, 7.5, bold, GREY);
+				l.right(`Wert ${cur}`, M + 507 - 4, 7.5, bold, GREY);
 				l.y -= 12;
 				for (const ml of lines) {
 					const total = ml === m.usageTotal;
 					const f = total ? bold : regular;
 					l.at(ml.label, M + (total ? 0 : 8), 8, f);
 					l.right(qty(ml.amount), M + 371 - 4, 8, f);
-					l.right(
-						ml.eur ? deEuro(ml.eur, 4).replace(' €', '') : '—',
-						M + 507 - 4,
-						8,
-						f,
-						ml.eur ? BLACK : GREY
-					);
+					l.right(ml.eur ? deFixed(ml.eur, 4) : '—', M + 507 - 4, 8, f, ml.eur ? BLACK : GREY);
 					l.y -= 11;
 				}
 				l.y -= 8;
@@ -201,7 +204,7 @@ export async function statementPdf(
 			l.right(qty(r.balance), x + COLS[4].width - 4, 8, regular);
 			x += COLS[4].width;
 			l.right(
-				r.eur ? deEuro(r.eur, 4).replace(' €', '') : '—',
+				r.eur ? deFixed(r.eur, 4) : '—',
 				x + COLS[5].width - 4,
 				8,
 				regular,
@@ -249,10 +252,14 @@ export async function statementPdf(
 		l.y -= 4;
 		text(
 			pay
-				? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`
+				? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued(`zum Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`, `Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`)}.`
 				: aleph
-					? `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Verbrauch (Aufwand) ${deEuro(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages.`
-					: `Ausgänge ${deEuro(s.eurOut)} · Eingänge ${deEuro(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${deEuro(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – Euro-Werte zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken).`,
+					? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
+							cur === 'EUR'
+								? 'Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages'
+								: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
+						}.`
+					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued('zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)', 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)')}.`,
 			{ size: 7.5, color: GREY }
 		);
 		l.y -= 12;

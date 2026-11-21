@@ -9,7 +9,16 @@
 import { asset, createPdfA, LOGOS, savePdfA } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
-import { DATA_SOURCES, deDate, deEuro, deNumber, noInvoice } from './document.js';
+import {
+	DATA_SOURCES,
+	conversionText,
+	currencyPlaces,
+	deDate,
+	deMoney,
+	deNumber,
+	noInvoice,
+	sourceName
+} from './document.js';
 import { A4, BLACK, GREY, WARN, pageLayout } from './layout.js';
 
 /** What made the file, unless the caller says otherwise. */
@@ -36,6 +45,16 @@ export async function eigenbelegPdf(
 			? await pdf.embedPng(await asset(LOGOS[doc.chain]))
 			: null;
 	const M = 48;
+	// The document's currency (EUR unless another): its code in the column heads, its decimals in the sums.
+	const cur = doc.currency ?? 'EUR';
+	const places = currencyPlaces(cur);
+	/** @param {string} amount @param {number} [p] */
+	const money = (amount, p = places) => deMoney(amount, cur, p);
+	/** What a rounded amount of zero was below: a cent, or the currency's smallest unit. */
+	const below =
+		cur === 'EUR'
+			? 'unter einem Cent'
+			: `unter ${money(places ? `0.${'1'.padStart(places, '0')}` : '1')}`;
 	let pageNo = 1;
 	let current = doc.number;
 	const footerRight = `Daten: ${DATA_SOURCES[doc.chain] ?? doc.chainName} · Kurse: siehe Kursquelle`;
@@ -104,8 +123,8 @@ export async function eigenbelegPdf(
 	const columns = [
 		{ title: 'Bewegung', width: 150 },
 		{ title: 'Menge', width: 118, right: true },
-		{ title: 'Kurs EUR', width: 52, right: true },
-		{ title: 'Wert EUR', width: 66, right: true },
+		{ title: `Kurs ${cur}`, width: 52, right: true },
+		{ title: `Wert ${cur}`, width: 66, right: true },
 		{ title: 'Auf dem Beleg', width: width - 386 }
 	];
 
@@ -148,14 +167,14 @@ export async function eigenbelegPdf(
 					`${m.what}${e.type === 'received' ? ' (Eingang)' : ''}`,
 					`${deNumber(e.amount)} ${e.asset}`,
 					e.eur ? deNumber(e.eur.rate) : '—',
-					e.eur ? deEuro(e.eur.value, 4) : '—',
+					e.eur ? money(e.eur.value, 4) : '—',
 					m.onIt ? 'ja' : `nein – ${m.why}`
 				],
 				{ color: m.onIt ? BLACK : GREY }
 			);
 		}
 		l.ensure(12);
-		l.right(`Auf dem Beleg: ${deEuro(t.eurExact, 4)}`, A4[0] - M, 8.5, bold);
+		l.right(`Auf dem Beleg: ${money(t.eurExact, 4)}`, A4[0] - M, 8.5, bold);
 		l.y -= 14;
 	}
 
@@ -166,6 +185,8 @@ export async function eigenbelegPdf(
 		text(sources.length ? `${sources.join('; ')} – jeweils für den Tag der Zahlung (UTC).` : '—', {
 			size: 8.5
 		});
+		if (cur !== 'EUR' && sources.length)
+			text(`Werte in ${cur}: ${conversionText(cur)}.`, { size: 8.5 });
 		gap(6);
 		if (excluded.length) {
 			text('Nicht auf diesem Eigenbeleg', { face: bold, size: 8.5, color: GREY });
@@ -198,15 +219,11 @@ export async function eigenbelegPdf(
 			ts.flatMap((t) =>
 				t.movements
 					.filter((m) => m.onIt)
-					.map((m) =>
-						/** @type {any} */ (m.entry.eur).source
-							.replace(/ \d{4}-\d{2}-\d{2}.*$/, '')
-							.replace(/ vom$/, '')
-					)
+					.map((m) => sourceName(/** @type {any} */ (m.entry.eur).source))
 			)
 		)
 	];
-	/** The amount line: a label on the left, the euro amount on the right. @param {string} label @param {string} total */
+	/** The amount line: a label on the left, the amount on the right. @param {string} label @param {string} total */
 	const amountLine = (label, total) => {
 		l.ensure(40);
 		l.at(label, M, 10, bold);
@@ -231,9 +248,9 @@ export async function eigenbelegPdf(
 			);
 			transaction(t, { big: true });
 			const what = [...new Set(t.movements.filter((m) => m.onIt).map((m) => m.what))].join(', ');
-			amountLine('Betrag', deEuro(t.eurExact, 2));
-			if (round(t.eurExact, 2) === '0' && t.eurExact !== '0')
-				text(`Ungerundet ${deEuro(t.eurExact, 8)} (unter einem Cent).`, { size: 8, color: GREY });
+			amountLine('Betrag', money(t.eurExact));
+			if (round(t.eurExact, places) === '0' && t.eurExact !== '0')
+				text(`Ungerundet ${money(t.eurExact, 8)} (${below}).`, { size: 8, color: GREY });
 			gap(4);
 			field('Was wurde bezahlt', `${what} an ${t.to.label || t.to.address}`);
 			field('Warum kein Fremdbeleg', noInvoice(doc.chain, doc.chainName).why);
@@ -258,14 +275,14 @@ export async function eigenbelegPdf(
 			const n = doc.transactions.length;
 			amountLine(
 				`Summe (${n} ${n === 1 ? 'Position' : 'Positionen'}): ${qty}`,
-				deEuro(doc.totals.eur, 2)
+				money(doc.totals.eur)
 			);
 			const exact = /^0(\.0*)?$/.test(round(doc.totals.eurExact, 4))
-				? deEuro(doc.totals.eurExact, 8)
-				: deEuro(doc.totals.eurExact, 4);
+				? money(doc.totals.eurExact, 8)
+				: money(doc.totals.eurExact, 4);
 			const subCent = doc.totals.eur === '0' && doc.totals.eurExact !== '0';
 			text(
-				`Ungerundet ${exact}${subCent ? ' (unter einem Cent)' : ''}; jede Position zum Tageskurs ihres Zahlungstages.`,
+				`Ungerundet ${exact}${subCent ? ` (${below})` : ''}; jede Position zum Tageskurs ihres Zahlungstages.`,
 				{ size: 8, color: GREY }
 			);
 		}

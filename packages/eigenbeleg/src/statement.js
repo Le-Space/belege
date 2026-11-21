@@ -20,7 +20,13 @@
 // 10⁻²⁴ NEAR), so an account that moved tokens is off by a few yocto.
 
 import { normalize, sum } from '@le-space/ledger';
-import { CHAIN_NAMES, kindText } from './document.js';
+import {
+	CHAIN_NAMES,
+	checkValued,
+	conversionText,
+	documentCurrency,
+	kindText
+} from './document.js';
 
 /** Smaller than the twelve decimals the documents print (and not zero). @param {string} difference */
 export const isDust = (difference) => /^-?0\.0{12}\d*$/.test(difference);
@@ -54,6 +60,25 @@ export const USAGE_NOTES = /** @type {Record<string, string>} */ ({
 	'filecoin-pay': FILECOIN_PAY_USAGE_NOTE
 });
 
+/**
+ * The note of a Verbrauchsauszug in the document's currency: what its values
+ * are, said for that currency. EUR: the notes above, as they were.
+ *
+ * @param {string} chain from USAGE_NOTES
+ * @param {string} currency
+ */
+export function usageNote(chain, currency) {
+	const note = USAGE_NOTES[chain];
+	if (currency === 'EUR') return note;
+	const head = note.slice(0, note.indexOf('Euro-Wert:'));
+	if (chain === 'aleph') {
+		const price =
+			'USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Alephs Listenpreis von 1 USD je 1.000.000 Credits)';
+		return `${head}Wert in ${currency}: ${price}${currency === 'USD' ? '' : `, ${conversionText(currency)}`}.`;
+	}
+	return `${head}Wert in ${currency}: USDFC ist an den US-Dollar gebunden und wird zum Tageskurs von USDC bewertet, ${conversionText(currency)}.`;
+}
+
 export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
@@ -69,7 +94,7 @@ export const STATEMENT_NOTE =
  * @property {string} debit amount out, positive, or ''
  * @property {string} credit amount in, positive, or ''
  * @property {string} balance running balance after it
- * @property {string} eur signed EUR value at the day's rate, or ''
+ * @property {string} eur signed value at the day's rate, in the statement's currency (EUR unless another), or ''
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
  * @property {boolean} usage consumption billed from the balance (Aleph credits, a Filecoin Pay settlement)
@@ -144,6 +169,8 @@ export function monthly(rows) {
  * @param {Map<string, string>} [p.belege] hash → Eigenbeleg number
  * @param {string} [p.number]
  * @param {string} [p.issuedAt]
+ * @param {string} [p.currency] the statement's currency (DOCUMENT_CURRENCIES), EUR when not
+ *   given; the entries are valued in it, and the fields named `eur…` hold values in it
  */
 export function buildStatement({
 	payer,
@@ -158,8 +185,11 @@ export function buildStatement({
 	at = null,
 	belege = new Map(),
 	number,
-	issuedAt
+	issuedAt,
+	currency: asked
 }) {
+	const currency = documentCurrency(asked);
+	checkValued(entries, currency);
 	// An Aleph credit purchase (kind `swap`) is the payment on another chain; the
 	// credits it bought are the incoming row. Only that row belongs on the statement.
 	const mine = entries.filter(
@@ -236,11 +266,12 @@ export function buildStatement({
 		network,
 		testnet: network !== 'mainnet',
 		period,
+		currency,
 		method,
 		at,
 		sections,
 		unlisted: mine.filter((e) => !e.priceAs && !assets.includes(e.asset)).length,
-		note: usage ? USAGE_NOTES[chain] : STATEMENT_NOTE
+		note: usage ? usageNote(chain, currency) : STATEMENT_NOTE
 	};
 }
 
