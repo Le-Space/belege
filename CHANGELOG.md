@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **What is asked of the bridge right after pairing it by code is answered.** With device sync off, the app pairs the bridge's own node in the background as soon as the code is taken, and the node restarts for it. Calls were held only until the stream to the node was set up, not until the node was paired: one made in the second or two between found a stream, lost it in the restart and fell to HTTP, which no longer serves the bridge's functions – "E-Mails abrufen" or a run of AI suggestions then said the bridge's node was not reachable, or asked nobody. The calls now wait until the node is paired (at most 30 seconds, as before). It is why the browser specs `transfer-first` and `appointments` failed now and then (#916).
+
 ### Changed
 
 - **The browser specs' runners finish together, and a test that needs a second try is named.** The five shards got the same number of tests each, so one of them ran three times as long as another and a pull request waited for it. The specs are now dealt out by the time they take (`app/e2e/durations.json`, `scripts/e2e-shards.mjs`); a spec without a time counts as a middling one. Each shard keeps Playwright's JSON report, and the run's summary lists the tests that passed only on a second try, each shard's time and the ten longest specs (`scripts/e2e-report.mjs`, which also renews the times from a run's reports). Nothing fails for it: the retry stays, it is only no longer silent.
