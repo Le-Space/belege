@@ -37,6 +37,7 @@
 
 import { LIMITS, UcepError } from '@le-space/ucep';
 import { checkArgs, commandInput, command as protocolCommand } from '@le-space/bridge-protocol';
+import { sealedSize } from '@le-space/bridge-protocol/seal';
 
 import { MAX_BODY, errorJson, findCommand, statusOf } from './commands.js';
 
@@ -86,6 +87,7 @@ export const offered = (command) => !HTTP_ONLY.has(command.name) && command.body
  * @param {import('./commands.js').Command[]} p.commands the table (commands.js)
  * @param {Record<string, unknown> | null} p.args `{ method, path, body? }` as the device sent them
  * @param {boolean} p.limited the connection is relayed with a data limit below 32 MiB: UCEP allows 64 KiB, not 1 MiB
+ * @param {boolean} [p.sealed] the answer is sealed above the connection (node.js): it takes more room
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize] may the caller run
  *   this command? Throws the UCEP error that says why not (grants.js)
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent] the command's
@@ -97,6 +99,7 @@ export async function answerRequest({
 	commands,
 	args,
 	limited,
+	sealed = false,
 	authorize = async () => {},
 	spent = () => {},
 	log = () => {}
@@ -129,6 +132,7 @@ export async function answerRequest({
 		command,
 		input: { query: url.searchParams, params, body },
 		limited,
+		sealed,
 		authorize,
 		spent,
 		log
@@ -145,6 +149,7 @@ export async function answerRequest({
  * @param {import('./commands.js').Command} p.command a command of the table, offered over the stream
  * @param {unknown} p.args the arguments as the device sent them
  * @param {boolean} p.limited
+ * @param {boolean} [p.sealed]
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
@@ -155,6 +160,7 @@ export async function answerNamed({
 	command,
 	args: sent,
 	limited,
+	sealed = false,
 	authorize,
 	spent,
 	log = () => {},
@@ -195,6 +201,7 @@ export async function answerNamed({
 		command,
 		input,
 		limited,
+		sealed,
 		authorize,
 		spent,
 		log,
@@ -210,6 +217,7 @@ export async function answerNamed({
  * @param {import('./commands.js').Command} p.command
  * @param {Omit<import('./commands.js').Input, 'token'> & { token?: null }} p.input
  * @param {boolean} p.limited
+ * @param {boolean} [p.sealed]
  * @param {(command: import('./commands.js').Command) => Promise<void>} [p.authorize]
  * @param {(command: import('./commands.js').Command, json: unknown) => void} [p.spent]
  * @param {(line: string) => void} [p.log]
@@ -220,11 +228,15 @@ async function runCommand({
 	command,
 	input,
 	limited,
+	sealed = false,
 	authorize = async () => {},
 	spent = () => {},
 	log = () => {},
 	blocks = null
 }) {
+	const max = limited ? LIMITS.limitedResponse : LIMITS.response;
+	/** What an answer of `n` bytes of JSON takes on the stream. @param {number} n */
+	const onStream = (n) => (sealed ? sealedSize(n + ENVELOPE) : n + ENVELOPE);
 	try {
 		await authorize(command);
 	} catch (/** @type {any} */ error) {
@@ -261,8 +273,7 @@ async function runCommand({
 					log(`${command.name} over the stream: no room for blocks`);
 				}
 			}
-			const max = limited ? LIMITS.limitedResponse : LIMITS.response;
-			if (Math.ceil(answer.bytes.length / 3) * 4 + ENVELOPE > max) {
+			if (onStream(Math.ceil(answer.bytes.length / 3) * 4) > max) {
 				throw new UcepError(
 					'TOO_LARGE',
 					limited ? 'open a direct connection first' : 'too big for a stream'
@@ -282,6 +293,23 @@ async function runCommand({
 			};
 		}
 		spent(command, answer.json);
+		// Sealed, an answer takes a third more room: one that no longer fits goes
+		// as blocks to a device that takes them, as bytes do.
+		if (sealed && blocks) {
+			const text = Buffer.from(JSON.stringify(answer.json ?? null), 'utf8');
+			if (onStream(text.length) > max) {
+				try {
+					return {
+						status: answer.status,
+						contentType: JSON_TYPE,
+						block: await blocks.offer(text)
+					};
+				} catch (/** @type {any} */ error) {
+					if (!(error instanceof RangeError)) throw error;
+					log(`${command.name} over the stream: no room for blocks`);
+				}
+			}
+		}
 		return { status: answer.status, contentType: JSON_TYPE, json: answer.json };
 	} catch (/** @type {any} */ error) {
 		if (error instanceof UcepError) throw error;
