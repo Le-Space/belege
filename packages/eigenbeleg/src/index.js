@@ -15,6 +15,7 @@ export {
 	CHAIN_NAMES,
 	DATA_SOURCES,
 	deNumber,
+	deRate,
 	deEuro,
 	deFixed,
 	deMoney,

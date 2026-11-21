@@ -15,6 +15,7 @@ import {
 	buildDocument,
 	deEuro,
 	deNumber,
+	deRate,
 	eigenbelegCsv,
 	eigenbelegPdf
 } from '../src/index.js';
@@ -162,6 +163,14 @@ test('German number formats', () => {
 	assert.equal(deNumber('-1234567.891'), '−1.234.567,891');
 	assert.equal(deEuro('0.00644619', 4), '0,0064 €');
 	assert.equal(deEuro('1234.5'), '1.234,50 €');
+});
+
+test('a rate in the table: six significant digits, so it fits its column', () => {
+	assert.equal(deRate('0.012345678901234567'), '0,0123457');
+	assert.equal(deRate('0.00000072500003'), '0,000000725');
+	assert.equal(deRate('3.61'), '3,61');
+	assert.equal(deRate('1234.56789'), '1.234,57');
+	assert.equal(deRate('98765432.1'), '98.765.432');
 });
 
 test('the CSV: BOM, semicolons, every entry, formulas defused', async () => {
