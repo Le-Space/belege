@@ -108,8 +108,6 @@ export const currencyPlaces = (currency) => DOCUMENT_CURRENCIES[documentCurrency
 export function conversionText(currency) {
 	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
 	if (documentCurrency(currency) === 'EUR') return '';
-	if (currency === 'USD')
-		return `von CoinGecko dessen USD-Kurs desselben Zeitpunkts, sonst über den Euro in USD umgerechnet ${ecb}`;
 	if (DOCUMENT_CURRENCIES[currency].via === 'cbr')
 		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag (bis 01.03.2022 ${ecb})`;
 	return `über den Euro in ${currency} umgerechnet ${ecb}`;
