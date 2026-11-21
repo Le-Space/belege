@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **The hosted bridge on NEAR: the sealed secrets are handed only to the VM that was attested.** With its quote the VM's registrar names the hash of a fetch key it made for this start, and the launcher answers the fetch only for that key; anyone else gets the same answer as before the secrets came. The secrets were and are sealed to the VM's intake key, which never leaves it. This changes the bridge image (`registrar.mjs`), so its compose hash is a new one to approve; until then `LAUNCHER_LEGACY_SECRETS_FETCH=1` lets the launcher serve the image released before.
+
 ### Changed
 
 - **Zahlungen says what moved in the asset's own unit.** Under a booking's euro amount the row now shows its quantity – 0,015 NEAR, 100 NYM, 12,50 USD – as the detail already did. Many crypto bookings are worth less than a cent ("> −0,01 EUR"), and the euro amount alone did not tell them apart. A booking in euros has no second line.

@@ -67,6 +67,8 @@ const phala = phalaClient({ apiKey: phalaKey });
 const launcher = createLauncher({
 	near,
 	phala,
+	// Only while an image from before the fetch key is still released.
+	legacyFetch: env.LAUNCHER_LEGACY_SECRETS_FETCH === '1',
 	// One VM name per books, without the account in it: Phala sees a hash, not the books' name.
 	provisionBody: (books) =>
 		provisionBody(image, {

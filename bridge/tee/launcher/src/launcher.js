@@ -18,14 +18,15 @@
 //   5. The browser sees the VM attested on NEAR, checks the intake key the
 //      launcher shows against the hash there, seals the bridge's secrets to
 //      it and uploads them, signed (uploadSecrets). The registrar fetches
-//      them (secretsFor) and the bridge starts. The launcher never sees them.
+//      them (secretsFor) with the fetch key whose hash came with its quote,
+//      and the bridge starts. The launcher never sees them.
 //   6. A stop (request_stop): the launcher deletes the VM and answers the
 //      request (ack_request). So does a start nobody finishes in time.
 //
 // State is in memory: after a restart, open starts are provisioned again and
 // running VMs are found by name (belege-bridge-<books>).
 
-import { createHash, createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, timingSafeEqual, verify } from 'node:crypto';
 import { base58 } from '@scure/base';
 
 export const ENV_DOMAIN = 'belege-bridge/env/1';
@@ -84,6 +85,7 @@ export function verifyEd25519(publicKey, message, signature) {
  * @param {ReturnType<typeof import('./phala.js').phalaClient>} o.phala
  * @param {(books: string) => any} o.provisionBody the compose for the released image (provision.mjs)
  * @param {(books: string) => Promise<boolean>} [o.mayStart] the books' Credits; true for the hackathon
+ * @param {boolean} [o.legacyFetch] also serve an image from before the fetch key (its quote names none): its sealed secrets are handed out without one
  * @param {() => number} [o.now]
  * @param {(line: string) => void} [o.log]
  */
@@ -92,12 +94,13 @@ export function createLauncher({
 	phala,
 	provisionBody,
 	mayStart = async () => true,
+	legacyFetch = false,
 	now = Date.now,
 	log = (l) => console.error(`[launcher] ${l}`)
 }) {
 	/** @type {Map<string, { atMs: string, appId?: string, composeHash?: string, envPublicKey?: string, kms?: string, envKeySignature?: string, vmId?: string, since: number, phase: string }>} */
 	const starts = new Map();
-	/** @type {Map<string, { vmId: string, atMs: string, intakeKey: string, since: number, sealed: string | null }>} books → a registered VM */
+	/** @type {Map<string, { vmId: string, atMs: string, intakeKey: string, fetchKeyHash: Buffer | null, since: number, sealed: string | null }>} books → a registered VM */
 	const running = new Map();
 
 	/** Checks the books' signature and that the key is theirs on chain. @param {string} books @param {string} message @param {any} body */
@@ -223,7 +226,7 @@ export function createLauncher({
 		/**
 		 * The VM's registrar.
 		 *
-		 * @param {{ books: string, start_at_ms: string, intake_key: string, quote: string, tcb_info: any }} body
+		 * @param {{ books: string, start_at_ms: string, intake_key: string, fetch_key_hash?: string, quote: string, tcb_info: any }} body
 		 */
 		async quote(body) {
 			const books = String(body?.books ?? '');
@@ -235,6 +238,11 @@ export function createLauncher({
 			const intakeKeyHash = createHash('sha256')
 				.update(Buffer.from(intakeKey, 'hex'))
 				.digest('hex');
+			// The VM's own key for fetching its secrets: only its hash comes here.
+			const named = body.fetch_key_hash === undefined ? '' : String(body.fetch_key_hash);
+			if (named ? !/^[0-9a-f]{64}$/.test(named) : !legacyFetch)
+				return { status: 400, error: 'bad fetch key' };
+			const fetchKeyHash = named ? Buffer.from(named, 'hex') : null;
 			const quoteHex = String(body.quote ?? '').replace(/^0x/, '');
 			if (!/^[0-9a-f]+$/.test(quoteHex) || quoteHex.length > 64 * 1024)
 				return { status: 400, error: 'bad quote' };
@@ -262,7 +270,14 @@ export function createLauncher({
 				}
 			};
 			await near.registerBridge({ books, attestation, intakeKeyHash });
-			running.set(books, { vmId: s.vmId, atMs: s.atMs, intakeKey, since: now(), sealed: null });
+			running.set(books, {
+				vmId: s.vmId,
+				atMs: s.atMs,
+				intakeKey,
+				fetchKeyHash,
+				since: now(),
+				sealed: null
+			});
 			starts.delete(books);
 			log(`${books}: bridge registered`);
 			return { status: 200, body: { registered: true } };
@@ -289,13 +304,20 @@ export function createLauncher({
 		},
 
 		/**
-		 * The VM's registrar fetches its sealed secrets (only it can open them).
+		 * The VM's registrar fetches its sealed secrets (only it can open them),
+		 * with the fetch key whose hash came with its quote. Anyone else gets
+		 * the same nothing as before the secrets came.
 		 *
-		 * @param {string} books @param {string} atMs
+		 * @param {string} books @param {string} atMs @param {string} [fetchKey] 64 hex
 		 */
-		secretsFor(books, atMs) {
+		secretsFor(books, atMs, fetchKey = '') {
 			const r = running.get(books);
 			if (!r || r.atMs !== String(atMs) || !r.sealed) return null;
+			if (r.fetchKeyHash) {
+				if (!/^[0-9a-f]{64}$/.test(fetchKey)) return null;
+				const shown = createHash('sha256').update(Buffer.from(fetchKey, 'hex')).digest();
+				if (!timingSafeEqual(shown, r.fetchKeyHash)) return null;
+			}
 			return { sealed: r.sealed };
 		}
 	};

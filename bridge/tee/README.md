@@ -65,7 +65,7 @@ sequenceDiagram
   P->>V: boot; dstack decrypts the env inside the TEE (no secrets in it)
   V->>V: registrar: an X25519 intake key of its own
   V->>V: quote from dstack: report data = H(books ‖ at_ms) ‖ H(intake key)
-  V->>L: POST /v1/bridge-quote (with the intake key)
+  V->>L: POST /v1/bridge-quote (with the intake key and the hash of a fetch key of its own)
   L->>P: collateral for the quote
   L->>C: register_bridge(books, attestation, H(intake key))
   C-->>C: DCAP, RTMR3, compose hash, PPID ok and answers the open start → store
@@ -73,7 +73,7 @@ sequenceDiagram
   B->>L: GET /v1/starts/<books>: the intake key
   B->>B: check H(intake key) = intake_key_hash; seal the secrets to it
   B->>L: POST /v1/starts/<books>/secrets, signed by a key of the books
-  V->>L: GET /v1/bridge-secrets/<books>/<at_ms>
+  V->>L: GET /v1/bridge-secrets/<books>/<at_ms>, with its fetch key
   V->>V: open, sort into tmpfs, start the bridge (empty environment)
   B->>V: dial over the books' relay; the node key came with the secrets, so the peer id is known (#585)
 ```
@@ -142,7 +142,7 @@ The compose hash the contract checked was the one approved for the hosted launch
 
 The first quote of a new release is refused until the owner approves its measurements and the machine's PPID (`approve_measurements`, `approve_ppids`); the registrar retries meanwhile. The measurements are read from that quote's TCB info: MRTD, RTMR0–2, the digest of the `key-provider` event and the payload of the `compose-hash` event.
 
-A test launcher at another URL sets `LAUNCHER_PUBLIC_URL`: the URL is part of the measured compose, so it is another compose hash to approve. `LAUNCHER_QUOTE_DIR` keeps the quotes it receives.
+A test launcher at another URL sets `LAUNCHER_PUBLIC_URL`: the URL is part of the measured compose, so it is another compose hash to approve. `LAUNCHER_QUOTE_DIR` keeps the quotes it receives. The sealed secrets are handed only to the VM that was attested: its quote names the hash of a fetch key, and the fetch shows the key. `LAUNCHER_LEGACY_SECRETS_FETCH=1` also serves an image from before that (its quote names none); set it only while such an image is still released.
 
 The compose is the same for every books: the VM's name, which is per books, is not in it. So one release and one launcher URL make one compose hash to approve.
 

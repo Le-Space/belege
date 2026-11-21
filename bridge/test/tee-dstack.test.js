@@ -270,7 +270,7 @@ test('the registrar proves its own key, then takes the secrets sealed to it', as
 			pollMs: 1,
 			fetchImpl: /** @type {any} */ (
 				async (/** @type {URL} */ url, /** @type {any} */ init) => {
-					sent.push([String(url), init?.body ? JSON.parse(init.body) : null]);
+					sent.push([String(url), init?.body ? JSON.parse(init.body) : null, init?.headers]);
 					if (String(url).endsWith('/v1/bridge-quote')) return new Response('{}', { status: 200 });
 					if (++polls < 3) return new Response('{}', { status: 404 });
 					const intake = sent[0][1].intake_key;
@@ -297,6 +297,14 @@ test('the registrar proves its own key, then takes the secrets sealed to it', as
 			'243ffdb70c9e7f9fd91e12cc544d57e50bbcc66a37c954cf12bd70a2a2d0a8a2' + keyHash
 		);
 		assert.equal(sent[1][0], 'https://launcher.example.com/v1/bridge-secrets/books-a.testnet/2000');
+		const bearer = /^Bearer ([0-9a-f]{64})$/.exec(sent[1][2]?.authorization ?? '');
+		assert.ok(bearer, 'the fetch carries the VM’s fetch key');
+		assert.equal(
+			createHash('sha256').update(Buffer.from(bearer[1], 'hex')).digest('hex'),
+			quoteBody.fetch_key_hash,
+			'the launcher was told its hash with the quote, not the key'
+		);
+		assert.ok(!JSON.stringify(quoteBody).includes(bearer[1]));
 		assert.equal(await readFile(join(run, 'secrets', 'imap'), 'utf8'), 'imap-secret');
 		assert.deepEqual(JSON.parse(await readFile(join(run, 'start.json'), 'utf8')), {
 			books: 'books-a.testnet',
