@@ -312,3 +312,139 @@ test('the archival RPC is asked again after a rate limit or a failed fetch', asy
 	assert.equal(b.height, 59);
 	assert.ok(calls > 2);
 });
+
+// A made-up account that wraps NEAR and swaps the wNEAR for USDC at a made-up DEX.
+const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
+const ft = (over) => ({
+	transaction_hash: 'SWAP',
+	block_timestamp: '1791000002000000000',
+	block: { block_height: '3' },
+	affected_account_id: 'wolkenfabrik.near',
+	involved_account_id: 'tauschboerse.near',
+	contract_account_id: 'wrap.near',
+	cause: 'TRANSFER',
+	receipt_id: 'r',
+	event_index: '0',
+	outcomes: { status: true },
+	...over
+});
+const call = (over) =>
+	row({
+		signer_account_id: 'wolkenfabrik.near',
+		actions: [{ action: 'FUNCTION_CALL', method: over.method }],
+		...over
+	});
+const wrapAndSwap = () => ({
+	account: 'wolkenfabrik.near',
+	network: 'mainnet',
+	txns: [
+		call({
+			transaction_hash: 'WRAP',
+			block_timestamp: '1791000001000000000',
+			block: { block_height: '2' },
+			receiver_account_id: 'wrap.near',
+			method: 'near_deposit',
+			actions_agg: { deposit: '2000000000000000000000000' }
+		}),
+		call({
+			transaction_hash: 'SWAP',
+			block_timestamp: '1791000002000000000',
+			block: { block_height: '3' },
+			receiver_account_id: 'wrap.near',
+			method: 'ft_transfer_call',
+			actions_agg: { deposit: '1' }
+		})
+	],
+	ftTxns: [
+		ft({
+			transaction_hash: 'WRAP',
+			block_timestamp: '1791000001000000000',
+			block: { block_height: '2' },
+			involved_account_id: '',
+			cause: 'MINT',
+			delta_amount: '2000000000000000000000000'
+		}),
+		ft({ delta_amount: '-2000000000000000000000000' }),
+		ft({ contract_account_id: USDC, delta_amount: '5670000', receipt_id: 'r2' })
+	]
+});
+
+test('wrapping NEAR is a swap of NEAR for wNEAR, with its gas', () => {
+	const wrap = mapRaw(wrapAndSwap()).filter((e) => e.hash === 'WRAP');
+	assert.deepEqual(wrap.map((e) => [e.type, e.kind, e.asset, e.amount]).sort(), [
+		['fee', 'fee', 'NEAR', '-0.000446365125'],
+		['received', 'swap', 'wNEAR', '2'],
+		['sent', 'swap', 'NEAR', '-2']
+	]);
+	assert.deepEqual(wrap.find((e) => e.type === 'sent').swap, {
+		gave: [{ asset: 'NEAR', amount: '2', listed: true }],
+		got: [{ asset: 'wNEAR', amount: '2', listed: true }],
+		via: 'wrap.near',
+		fee: { asset: 'NEAR', amount: '0.000446365125' }
+	});
+});
+
+test('a token given to a DEX that pays out another is a swap; the DEX is named', () => {
+	const swap = mapRaw(wrapAndSwap()).filter((e) => e.hash === 'SWAP');
+	assert.deepEqual(swap.map((e) => [e.type, e.kind, e.asset, e.amount]).sort(), [
+		['fee', 'fee', 'NEAR', '-0.000446365125'],
+		['received', 'swap', 'USDC', '5.67'],
+		['sent', 'swap', 'wNEAR', '-2']
+	]);
+	const { gave, got, via } = swap.find((e) => e.type === 'sent').swap;
+	assert.deepEqual([gave[0].asset, got[0].asset, via], ['wNEAR', 'USDC', 'tauschboerse.near']);
+	assert.equal(swap.find((e) => e.type === 'fee').swap.via, 'tauschboerse.near');
+});
+
+test('no swap: wrapped NEAR without its token, a token that comes back, a token without a price', () => {
+	const raw = wrapAndSwap();
+	// the list of token movements does not show the wNEAR
+	const alone = mapRaw({ ...raw, ftTxns: [] }).find((e) => e.hash === 'WRAP' && e.type === 'sent');
+	assert.deepEqual([alone.kind, alone.swap], ['call', undefined]);
+	// the DEX refuses and sends the same token back
+	const back = mapRaw({
+		...raw,
+		ftTxns: [
+			ft({ delta_amount: '-2000000000000000000000000' }),
+			ft({ delta_amount: '2000000000000000000000000', receipt_id: 'r2' })
+		]
+	}).filter((e) => e.hash === 'SWAP' && e.type !== 'fee');
+	assert.deepEqual(
+		back.map((e) => e.kind),
+		['transfer', 'transfer']
+	);
+	// what came is a token nobody lists: the swap names it, the entry itself stays unvalued
+	const spam = mapRaw({
+		...raw,
+		ftTxns: [
+			ft({ delta_amount: '-2000000000000000000000000' }),
+			ft({
+				contract_account_id: 'usdc-gratis.near',
+				meta: { symbol: 'USDC', decimals: 6 },
+				delta_amount: '5670000',
+				receipt_id: 'r2'
+			})
+		]
+	}).filter((e) => e.hash === 'SWAP' && e.type !== 'fee');
+	const gave = spam.find((e) => e.type === 'sent');
+	const got = spam.find((e) => e.type === 'received');
+	assert.equal(gave.kind, 'swap');
+	assert.deepEqual(gave.swap.got, [{ asset: 'USDC', amount: '5.67', listed: false }]);
+	assert.deepEqual([got.kind, got.priceAs], ['transfer', '']);
+});
+
+test("a DEX's registration for several tokens is a storage deposit", () => {
+	const [paid] = mapRaw({
+		account: 'wolkenfabrik.near',
+		network: 'mainnet',
+		txns: [
+			call({
+				receiver_account_id: 'tauschboerse.near',
+				method: 'tokens_storage_deposit',
+				actions_agg: { deposit: '15000000000000000000000' }
+			})
+		],
+		ftTxns: []
+	}).filter((e) => e.type === 'sent');
+	assert.deepEqual([paid.kind, paid.amount], ['storage', '-0.015']);
+});
