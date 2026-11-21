@@ -197,7 +197,7 @@ Ein Passkey gehört zu der Adresse, unter der er angelegt wurde. Bücher auf `lo
 
 **Was in der Datei steckt:** jeder Eintrag jedes Bereichs (auch gelöschte), jede Belegdatei und jede aufbewahrte Mail. Sie ist für genau diesen Schlüssel versiegelt: ein Einmal-X25519-Schlüssel der alten Bücher, ECDH, HKDF-SHA-256, AES-256-GCM. Lesbar sind nur Datum, Version, Anzahlen und was weggelassen wurde.
 
-**Was weggelassen wird,** weil es zum alten Passkey oder Gerät gehört: die Kopplung der Bridge, Backup-Schlüssel, -Konto und -Liste, die Kopplung der Rechnungs-App, der Netzwerkmodus, das Relay im eigenen Netz, wartende Aufgaben und die Liste der eigenen Geräte. Diese koppelst und richtest du in den neuen Büchern neu ein.
+**Was weggelassen wird,** weil es zum alten Passkey oder Gerät gehört: die Kopplung der Bridge, Backup-Schlüssel, -Konto und -Liste, die Kopplung der Rechnungs-App, der Netzwerkmodus, das Relay im eigenen Netz, wartende Aufgaben und die Liste der eigenen Geräte; und, weil sie zum Tresor der alten Bücher gehören, ob dessen Schlüssel auf Aleph hinterlegt sind, ein Verweis auf neuere Schlüssel und die Mitglieder. Diese koppelst und richtest du in den neuen Büchern neu ein; Mitglieder treten ihnen neu bei.
 
 Einträge behalten ihre IDs, Verknüpfungen und Zeiten. Belegdateien werden mit dem Schlüssel der neuen Bücher neu versiegelt. Bücher, die nicht leer sind, übernehmen nichts. Eine Datei, die sich nicht öffnen oder entpacken lässt, schreibt nichts. Die alten Bücher bleiben in jedem Fall unverändert. Löschen kannst du sie dort unter _Einstellungen → Speicher_.
 

@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The key actions, the recovery words and the book move, after a review of the books' vault (#555).** Adding a passkey under Einstellungen → Schlüssel, and renewing the vault or giving the books new keys, asked the authenticator more than once from one click; Safari refuses the second prompt and left a passkey behind on the authenticator each time. Each further prompt now waits for "Weiter" in a step that says what it is for – for the passkeys that stay, which one. A passkey added while the network is paused, with the vault kept on Aleph, is added and said so; before, the card showed an error for a passkey that had been added. Recovery words with the network on no longer replace what this browser knows of the books' vault: the passkeys removed here stay refused, and the passkeys keep their names. With two sets of books in one browser, the words of the second are no longer taken for wrong ones by the first. A move of books that had themselves been taken over can be carried on when it is cut short, and a moved book no longer says its keys are kept on Aleph, names a successor or keeps the old books' members: those stay with the old books (the move card lists them). New keys for the books keep the vault published, as before. Three findings of the review are still open (#555).
+
 ## [0.50.0] – 2026-11-21
 
 ### Added

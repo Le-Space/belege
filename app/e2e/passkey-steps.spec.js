@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator, recordCeremonies, takeCeremonies } from './webauthn.js';
 import { acceptConsent } from './consent.js';
+import { openSettings } from './settings.js';
 
 /** @param {import('@playwright/test').Page} page */
 async function withSteps(page) {
@@ -56,4 +57,57 @@ test('cancelling between the prompts opens nothing, and the stored passkey carri
 	await page.getByTestId('passkey-unlock').click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await expect(page.getByTestId('passkey-step-dialog')).toBeHidden();
+});
+
+// #555: the key actions under Einstellungen → Schlüssel ask the authenticator
+// more than once from one click. Each further prompt waits for "Weiter" here
+// too, with the passkey it is for named.
+test('adding a passkey and renewing the vault give each further prompt its own click', async ({
+	page
+}) => {
+	await withSteps(page);
+	await page.getByTestId('passkey-label').fill('Laptop');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await page.getByTestId('passkey-step-continue').click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	await takeCeremonies(page);
+
+	await openSettings(page, 'schluessel');
+	const keys = page.getByTestId('keys-card');
+	const dialog = page.getByTestId('passkey-step-dialog');
+	for (const [label, count] of /** @type {const} */ ([
+		['YubiKey', 2],
+		['Telefon', 3]
+	])) {
+		await keys.getByTestId('keys-add-label').fill(label);
+		await keys.getByTestId('keys-publish').uncheck();
+		await keys.getByTestId('keys-add').click();
+		await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 2');
+		await expect(dialog.getByRole('heading')).toHaveText(
+			'Jetzt öffnet der neue Passkey die Bücher'
+		);
+		// Made; the PRF read waits for the click.
+		expect((await takeCeremonies(page)).map((c) => [c.kind, c.name])).toEqual([['create', label]]);
+		await page.getByTestId('passkey-step-continue').click();
+		await expect(keys.getByTestId('keys-slot')).toHaveCount(count, { timeout: 30_000 });
+		await expect(dialog).toBeHidden();
+		expect((await takeCeremonies(page)).map((c) => [c.kind, c.prf, c.allow])).toEqual([
+			['get', true, 1]
+		]);
+	}
+
+	// YubiKey out, the vault renewed: Laptop answers from the click, Telefon after "Weiter".
+	await keys
+		.getByTestId('keys-slot')
+		.filter({ hasText: 'YubiKey' })
+		.getByTestId('keys-remove')
+		.click();
+	await keys.getByTestId('keys-remove-renew').click();
+	await expect(page.getByTestId('passkey-step-count')).toHaveText('Passkey-Abfrage 2 von 2');
+	await expect(dialog.getByRole('heading')).toHaveText('Jetzt der Passkey „Telefon“');
+	expect((await takeCeremonies(page)).map((c) => [c.kind, c.allow])).toEqual([['get', 1]]);
+	await page.getByTestId('passkey-step-continue').click();
+	await expect(keys.getByTestId('keys-done')).toContainText('erneuert', { timeout: 30_000 });
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(2);
+	expect((await takeCeremonies(page)).map((c) => [c.kind, c.allow])).toEqual([['get', 1]]);
 });
