@@ -18,6 +18,7 @@
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
 	import RecoveryWords from './RecoveryWords.svelte';
 	import OtherBooksOffer from './OtherBooksOffer.svelte';
+	import PasskeyStepDialog from '$lib/PasskeyStepDialog.svelte';
 
 	let label = $state('');
 	let publish = $state(true);
@@ -352,3 +353,6 @@
 	>
 	<TechnicalNote class="mt-3" lines={list('settings.keys.technical')} />
 </section>
+
+<!-- The steps between two passkey prompts of the key actions (#555). -->
+<PasskeyStepDialog />

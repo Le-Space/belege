@@ -40,6 +40,7 @@ import { COLLECTIONS } from '../store/repository.js';
 import { getSetting, setSetting } from '../store/settings.js';
 import { isUlid } from '../store/ids.js';
 import { DEVICE_PREFIX } from '../sync/device-sync.js';
+import { SUCCESSOR_SETTING } from './rekey.js';
 
 export const MAGIC = new TextEncoder().encode('belegeM1');
 export const FORMAT = 1;
@@ -56,8 +57,19 @@ export const LEFT_OUT_SETTINGS = Object.freeze([
 	'ucepInvoiceApp',
 	'network-mode',
 	'lan-relay',
-	'pendingJobs'
+	'pendingJobs',
+	// Tied to the old books' vault (#555): the target's vault was never
+	// published, and it has no successor of its own.
+	'vault/index',
+	SUCCESSOR_SETTING
 ]);
+/** … by key prefix: the members of the old books join the new ones anew (#612). */
+export const LEFT_OUT_PREFIXES = Object.freeze(['member:']);
+/**
+ * Left out since #555: a file packed before may still carry them. The
+ * take-over passes them over instead of refusing the file.
+ */
+const LEFT_OUT_LATER = Object.freeze(['vault/index', SUCCESSOR_SETTING, 'member:']);
 /** Collections the target must not have a record in. Settings and events a fresh session writes itself. */
 export const MUST_BE_EMPTY = Object.freeze([
 	'transactions',
@@ -104,7 +116,12 @@ const leftOut = (r, { kept = [], dropped = [] } = {}) =>
 	!kept.includes(r.key) &&
 	(LEFT_OUT_SETTINGS.includes(r.key) ||
 		r.key.startsWith(DEVICE_PREFIX) ||
+		LEFT_OUT_PREFIXES.some((p) => r.key.startsWith(p)) ||
 		dropped.some((p) => r.key.startsWith(p)));
+
+/** A setting a file packed before #555 may carry although it is left out now. @param {Record<string, any>} r */
+const leftOutLater = (r) =>
+	typeof r.key === 'string' && LEFT_OUT_LATER.some((k) => r.key === k || r.key.startsWith(k));
 
 // ── The target's one-time key ────────────────────────────────────────────
 
@@ -209,9 +226,11 @@ async function collect(store, blobs, which = {}) {
 		records[name] =
 			name === 'settings'
 				? all.filter((r) => {
+						// The marker of a take-over these books once had is theirs alone (#555).
+						if (r.key === MOVE_IN_SETTING) return false;
 						if (!leftOut(r, which)) return true;
-						const prefix = [DEVICE_PREFIX, ...(which.dropped ?? [])].find((p) =>
-							r.key.startsWith(p)
+						const prefix = [DEVICE_PREFIX, ...LEFT_OUT_PREFIXES, ...(which.dropped ?? [])].find(
+							(p) => r.key.startsWith(p)
 						);
 						left.add(prefix ? `${prefix}…` : r.key);
 						return false;
@@ -464,7 +483,11 @@ function check(header, body) {
 		for (const r of list) {
 			if (!r || typeof r !== 'object' || !isUlid(String(r.id ?? '')) || ids.has(r.id)) fail(name);
 			ids.add(r.id);
-			if (name === 'settings' && leftOut(r, { kept: header.kept, dropped: header.dropped }))
+			if (
+				name === 'settings' &&
+				leftOut(r, { kept: header.kept, dropped: header.dropped }) &&
+				!leftOutLater(r)
+			)
 				fail('a setting that is left out');
 		}
 	}
@@ -570,6 +593,17 @@ export async function takeOverBooks({ store, blobs, opened, onProgress }) {
 		const total = opened.records[name].length;
 		let done = 0;
 		for (const r of opened.records[name]) {
+			// Passed over (#555): the source's own take-over marker – this one's
+			// stays until the end, so a take-over cut short carries on – and what
+			// a file packed before then carries although it is left out now.
+			if (
+				name === 'settings' &&
+				(r.key === MOVE_IN_SETTING ||
+					leftOut(r, { kept: opened.header.kept, dropped: opened.header.dropped }))
+			) {
+				onProgress?.({ stage: 'records', collection: name, done: ++done, total });
+				continue;
+			}
 			// One record per setting: the moved one counts, the one this fresh session wrote goes.
 			const local = name === 'settings' ? existing.get(String(r.key)) : undefined;
 			if (local && local !== r.id) await store.settings.softDelete(local);

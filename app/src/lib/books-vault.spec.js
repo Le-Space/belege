@@ -248,10 +248,11 @@ describe('recovery words in the vault (stage 2)', () => {
 		const older = /** @type {any} */ (await openWithWords({ seed: SEED, storage }));
 		const newer = await addPasskey(opened, B, storage);
 		const taken = await newerWithWords(older, newer.record.vault, SEED, [
-			{ kid: newer.record.slots[1].kid, label: '', credentialId: 'cred-b', addedAt: '' }
+			{ kid: newer.record.slots[2].kid, label: '', credentialId: 'cred-b', addedAt: '' }
 		]);
 		expect(taken.record.vault.slots).toHaveLength(3);
-		expect(taken.record.slots.map((s) => s.credentialId)).toEqual(['cred-b']);
+		// What this browser knew stays; only B, new there, comes from what was published.
+		expect(taken.record.slots.map((s) => s.credentialId)).toEqual(['cred-a', '', 'cred-b']);
 		// Without the words in it they were taken out there: refused, like a removed passkey.
 		const withoutWords = await removeRecoveryWords(newer, storage);
 		await expect(newerWithWords(older, withoutWords.record.vault, SEED)).rejects.toBeInstanceOf(
@@ -262,6 +263,67 @@ describe('recovery words in the vault (stage 2)', () => {
 		await expect(newerWithWords(older, renewed.record.vault, SEED)).rejects.toBeInstanceOf(
 			RemovedWordsError
 		);
+	});
+});
+
+describe('recovery words with more than one set of books (#555)', () => {
+	const SEED = bytes(64, 0x5e);
+	const OTHER = bytes(64, 0x6f);
+
+	it('a words unlock keeps what this browser knows: its removed passkeys and the slot names', async () => {
+		const storage = memoryStorage();
+		let opened = await addRecoveryWords(await openBooksVault({ ...A, storage }), SEED, storage);
+		opened = await addPasskey(opened, B, storage);
+		opened = removePasskey(
+			opened,
+			opened.record.slots.find((s) => s.label === 'YubiKey')?.kid ?? '',
+			storage
+		);
+		const older = /** @type {any} */ (await openWithWords({ seed: SEED, storage }));
+		// Elsewhere, C was added and the record published without names.
+		const newer = await addPasskey(opened, C, memoryStorage());
+		const published = newer.record.slots.map((s) => ({ ...s, label: '' }));
+		const taken = await newerWithWords(older, newer.record.vault, SEED, published);
+		expect(taken.record.removed).toEqual(opened.record.removed);
+		expect(taken.record.removed).toHaveLength(1);
+		expect(taken.record.slots.map((s) => s.label)).toEqual(['Laptop', '', '']);
+		expect(taken.record.slots.map((s) => s.credentialId)).toEqual(['cred-a', '', 'cred-c']);
+		// Kept as the new passkey's slot is added: B stays refused here.
+		const D = {
+			prfOutput: bytes(32, 4),
+			rawCredentialId: bytes(16, 0xd4),
+			credentialId: 'cred-d',
+			label: 'Neu'
+		};
+		await addPasskey(taken, D, storage);
+		await expect(openBooksVault({ ...B, storage })).rejects.toBeInstanceOf(RemovedPasskeyError);
+	});
+
+	it('the words of the second books in this browser are tried on each record, then elsewhere', async () => {
+		const storage = memoryStorage();
+		await addRecoveryWords(await openBooksVault({ ...A, storage }), SEED, storage);
+		await addRecoveryWords(await openBooksVault({ ...C, storage }), OTHER, storage);
+		expect((await openWithWords({ seed: SEED, storage }))?.root).toEqual(A.prfOutput);
+		expect((await openWithWords({ seed: OTHER, storage }))?.root).toEqual(C.prfOutput);
+
+		// Words of books this browser does not keep: past both records, to the index.
+		const elsewhere = memoryStorage();
+		const third = await addRecoveryWords(
+			await openBooksVault({ ...B, storage: elsewhere }),
+			bytes(64, 0x7a),
+			elsewhere
+		);
+		const found = await openWithWords({
+			seed: bytes(64, 0x7a),
+			storage,
+			find: async () => third.record
+		});
+		expect(found?.found).toBe(true);
+		expect(found?.root).toEqual(B.prfOutput);
+		// Words that open nothing anywhere are wrong words, as before.
+		await expect(
+			openWithWords({ seed: bytes(64, 0x01), storage, find: async () => third.record })
+		).rejects.toMatchObject({ code: 'VAULT_LOCKED' });
 	});
 });
 

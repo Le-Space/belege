@@ -624,36 +624,56 @@ const withoutSlot = (record, kid) => ({
 });
 
 /**
- * Open the vault with recovery words, without any passkey: the record this
+ * Open the vault with recovery words, without any passkey: a record this
  * browser keeps with a words slot, else one found elsewhere (the Aleph index
- * of the words, on an empty device). Nothing is kept here until a passkey has
- * its slot (`addPasskey`), so the next unlock is a passkey's as always.
+ * of the words, on an empty device). Every vault files its words slot under
+ * the same id, so each record here with one is tried in turn (#555): with two
+ * sets of books in this browser, the words of the second are not taken for
+ * wrong ones by the first. Nothing is kept here until a passkey has its slot
+ * (`addPasskey`), so the next unlock is a passkey's as always.
  *
  * @param {object} params
  * @param {Uint8Array} params.seed from `seedFromWords`
  * @param {Pick<Storage, 'getItem'>} params.storage
  * @param {() => Promise<VaultRecord | null>} [params.find] where else to look
  * @returns {Promise<OpenedVault | null>} null: no vault with these words
+ * @throws an error with `code: 'VAULT_LOCKED'` when vaults with words were
+ *   found but these words open none of them
  */
 export async function openWithWords({ seed, storage, find }) {
 	const kid = await wordsSlotId();
 	const has = (/** @type {VaultRecord | null | undefined} */ r) =>
 		Boolean(r?.vault?.slots?.some((/** @type {any} */ s) => s.kid === kid));
-	let record = loadVaultRecords(storage).find(has) ?? null;
-	let found = false;
-	if (!record && find) {
+	const slotKey = await wordsSlotKey(seed);
+	/** @type {unknown} the first refusal, said when nothing else opens */
+	let locked = null;
+	/** @param {VaultRecord} record @param {boolean} found */
+	const attempt = async (record, found) => {
+		try {
+			const { payload, vaultKey } = await openVault(record.vault, {
+				slotKey,
+				rawCredentialId: WORDS_SLOT_ID
+			});
+			return { record, vaultKey, ...decodeRoots(payload), kid, created: false, found };
+		} catch (e) {
+			if (/** @type {any} */ (e)?.code !== 'VAULT_LOCKED') throw e;
+			locked ??= e;
+			return null;
+		}
+	};
+	for (const record of loadVaultRecords(storage).filter(has)) {
+		const opened = await attempt(record, false);
+		if (opened) return opened;
+	}
+	if (find) {
 		const elsewhere = await find();
 		if (has(elsewhere)) {
-			record = elsewhere;
-			found = true;
+			const opened = await attempt(/** @type {VaultRecord} */ (elsewhere), true);
+			if (opened) return opened;
 		}
 	}
-	if (!record) return null;
-	const { payload, vaultKey } = await openVault(record.vault, {
-		slotKey: await wordsSlotKey(seed),
-		rawCredentialId: WORDS_SLOT_ID
-	});
-	return { record, vaultKey, ...decodeRoots(payload), kid, created: false, found };
+	if (locked) throw locked;
+	return null;
 }
 
 /**
@@ -687,10 +707,22 @@ export async function newerWithWords(opened, vault, seed, published = []) {
 	if (root.length !== opened.root.length || root.some((b, i) => b !== opened.root[i])) {
 		throw new VaultStorageError('The newer vault holds other books.');
 	}
+	// Merged as in `adoptNewerVault` (#555): what this browser knows of the
+	// slots – names, credential ids – and the passkeys it removed stay; only
+	// the slots new there are added.
 	const kids = new Set(vault.slots.map((/** @type {any} */ s) => s.kid));
+	const here = (opened.record.slots ?? []).filter((s) => kids.has(s.kid));
 	return {
 		...opened,
-		record: { vault, slots: published.filter((s) => kids.has(s.kid)), removed: [] },
+		record: {
+			vault,
+			slots: [
+				...here,
+				...published.filter((s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid))
+			],
+			removed: Array.isArray(opened.record.removed) ? opened.record.removed : [],
+			...asideOf(opened.record)
+		},
 		vaultKey
 	};
 }

@@ -9,12 +9,18 @@
 
 import { t } from './i18n/index.js';
 
-/** @typedef {'prf'} PasskeyPurpose */
+/**
+ * `prf`: the books' key at unlock; `added`: a passkey just added under
+ * Einstellungen → Schlüssel; `stays`: one of the passkeys that stay when the
+ * vault is renewed or the books get new keys, named by `label` (#555).
+ *
+ * @typedef {'prf' | 'added' | 'stays'} PasskeyPurpose
+ */
 
 /**
  * The step on screen, or null. `resolve` continues, `reject` cancels.
  *
- * @type {{ step: { n: number, of: number, purpose: PasskeyPurpose } | null, resolve: (() => void) | null, reject: ((error: Error) => void) | null }}
+ * @type {{ step: { n: number, of: number, purpose: PasskeyPurpose, label?: string } | null, resolve: (() => void) | null, reject: ((error: Error) => void) | null }}
  */
 export const passkeyStep = $state({ step: null, resolve: null, reject: null });
 
@@ -29,7 +35,7 @@ export class PasskeyStepCancelled extends Error {
 /**
  * Show the step and wait for "Weiter".
  *
- * @param {{ n: number, of: number, purpose: PasskeyPurpose }} step
+ * @param {{ n: number, of: number, purpose: PasskeyPurpose, label?: string }} step
  * @returns {Promise<void>} rejects with PasskeyStepCancelled on "Abbrechen"
  */
 export function confirmPasskeyStep(step) {
@@ -65,7 +71,7 @@ export function confirmPasskeyStep(step) {
  * The steps of a flow after its first prompt, which its own button starts.
  *
  * @param {'create' | 'restore' | 'unlock'} flow
- * @returns {((purpose: PasskeyPurpose) => Promise<void>) | undefined}
+ * @returns {((purpose: 'prf') => Promise<void>) | undefined}
  */
 export function passkeyStepsFor(flow) {
 	// create: the passkey (1), the PRF read (2).

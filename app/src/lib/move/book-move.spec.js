@@ -334,3 +334,83 @@ describe('a take-over that takes minutes', () => {
 		).rejects.toMatchObject({ code: 'not-empty' });
 	});
 });
+
+describe('what a move leaves behind of the old books (#555)', () => {
+	/** @param {any} a @param {any} key @param {Record<string, any>} [extra] */
+	const pack = async (a, key, extra = {}) =>
+		openMoveFile(
+			(
+				await packBooks({
+					store: a.store,
+					blobs: a.blobs,
+					seal: { to: key.publicKey },
+					appVersion: '0.0.0-test',
+					...extra
+				})
+			).file,
+			key
+		);
+
+	it('books that were taken over themselves move on, and a take-over cut short still carries on', async () => {
+		// Books that once took others over: their marker, soft-deleted at the end.
+		const a = await source();
+		const marker = await a.store.settings.put({
+			key: 'move-in',
+			value: { packedAt: '2026-01-01T00:00:00.000Z', counts: {} }
+		});
+		await a.store.settings.softDelete(marker.id);
+		const opened = await pack(a, createMoveKey());
+		expect(opened.records.settings.some((/** @type {any} */ r) => r.key === 'move-in')).toBe(false);
+
+		const b = await books();
+		const restore = b.store.matches.restore;
+		b.store.matches.restore = async () => {
+			throw new Error('the tab was closed');
+		};
+		// Cut short after the settings: this take-over's own marker is still there.
+		await expect(takeOverBooks({ store: b.store, blobs: b.blobs, opened })).rejects.toThrow(
+			/closed/
+		);
+		b.store.matches.restore = restore;
+		expect(await interruptedMove(b.store)).toMatchObject({ packedAt: opened.header.packedAt });
+		await takeOverBooks({ store: b.store, blobs: b.blobs, opened: await pack(a, createMoveKey()) });
+		expect(await interruptedMove(b.store)).toBe(null);
+		expect(await b.store.matches.list()).toHaveLength(1);
+	});
+
+	it('the vault on Aleph, a successor and the members stay with the old books', async () => {
+		const a = await source();
+		for (const [key, value] of [
+			['vault/index', true],
+			['books/successor', { vault: { id: 'v-test', slots: [] } }],
+			['member:did:key:zTest', { role: 'reader' }]
+		]) {
+			await a.store.settings.put({ key, value });
+		}
+		const key = createMoveKey();
+		const opened = await pack(a, key);
+		expect(opened.header.leftOut).toEqual([
+			'backup/aleph-key',
+			'books/successor',
+			'bridge',
+			'device:…',
+			'member:…',
+			'vault/index'
+		]);
+		const b = await books();
+		await takeOverBooks({ store: b.store, blobs: b.blobs, opened });
+		const keys = (await b.store.settings.list()).map((/** @type {any} */ r) => r.key);
+		expect(keys).not.toContain('vault/index');
+		expect(keys).not.toContain('books/successor');
+		expect(keys.some((/** @type {string} */ k) => k.startsWith('member:'))).toBe(false);
+		expect(keys).toContain('datev');
+
+		// New keys in the same browser keep the vault published (move/rekey.js KEPT).
+		const kept = await pack(a, createMoveKey(), { kept: ['vault/index'] });
+		const c = await books();
+		await takeOverBooks({ store: c.store, blobs: c.blobs, opened: kept });
+		expect((await c.store.settings.list()).map((/** @type {any} */ r) => r.key)).toContain(
+			'vault/index'
+		);
+	});
+});
