@@ -51,10 +51,9 @@
 // in CHF, USD, RUB …; Le-Space/eigenbeleg-agent#72) is that euro rate times
 // the currency's units per euro of the day: the ECB reference rate, or the
 // last one before it; for RUB since 2022-03-01 the Bank of Russia's official
-// rate valid on the day. The answer carries both legs (`eurRate`, `fx`). Only
-// for USD, and only where CoinGecko answered, its own USD price of the same
-// 00:00 UTC snapshot is the rate: a midnight price times an afternoon fixing
-// would value a dollar coin at 0.99 or 1.01 USD.
+// rate valid on the day. The answer carries both legs (`eurRate`, `fx`). USD
+// too: the euro is converted with the ECB's reference rate for every currency
+// but the ruble, also where CoinGecko has a USD price of its own.
 
 // Every answer says which source it came from and for what moment, so a
 // booking can show where its euro amount came from.
@@ -730,9 +729,8 @@ export function createRateService({
 	 *   `ref` for `dex`: `uniswap-v2:<pool>@<block>`, V4 with its pool id.
 	 *   With a `currency` other than EUR: `rate` is in that currency, `source`
 	 *   and `at` are those of the euro rate (`eurRate`), and `fx` is the leg
-	 *   from the euro into the currency – absent where the source priced the
-	 *   asset in the currency itself (CoinGecko's USD price), and for the
-	 *   currency in itself (`same`, rate 1).
+	 *   from the euro into the currency (ECB, for RUB the Bank of Russia) –
+	 *   absent only for the currency in itself (`same`, rate 1).
 	 */
 
 	/**
@@ -763,10 +761,6 @@ export function createRateService({
 			};
 		}
 		const eur = await rate(asset, date, options);
-		// The same snapshot priced in USD: no second leg, no second moment.
-		if (currency === 'USD' && eur.source === 'coingecko' && eur.usdRate) {
-			return { ...eur, currency, rate: eur.usdRate, eurRate: eur.rate };
-		}
 		const fx = await perEuro(currency, date);
 		if (!fx) throw new RateError(`no rate found for EUR in ${currency} on ${date}`, 502);
 		return { ...eur, currency, rate: multiplyRates(eur.rate, fx.perEur), eurRate: eur.rate, fx };
