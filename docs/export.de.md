@@ -106,6 +106,22 @@ Auf einem **Automatikkonto** gibt es nie einen Schlüssel. Bei einem Automatikko
 
 Hat eine Buchung keinen Beleg, nimmt die App den Schlüssel, den sie für diesen Anbieter gelernt hat. Die Schlüssel lassen sich unter _Einstellungen → Buchhaltung (DATEV)_ ändern. Code: `app/src/lib/booking/suggest.js`, `tax-keys.js`.
 
+### Ein Privatanteil
+
+Eine Zahlung, die zum Teil privat ist – eine Telefon- oder Internetrechnung –, bekommt unter _Konto_ einen Prozentsatz und ein Konto („Privatanteil … % auf Konto …"). Der Export schreibt dann **zwei Buchungen, die zusammen die Zahlung ergeben**:
+
+- den betrieblichen Teil auf das Aufwandskonto, mit dem BU-Schlüssel;
+- den privaten Teil auf das Konto des Privatanteils, ohne Schlüssel – auf ihn wird also keine Vorsteuer gezogen.
+
+Beide tragen Datum und Belegnummer der Zahlung, und der Buchungstext sagt, welcher Teil es ist. Ein leeres Feld heißt: die ganze Zahlung ist betrieblich.
+
+Der Anteil wird vorgeschlagen, nicht gesetzt:
+
+1. was du für diesen Anbieter zuletzt übernommen hast – auch „ganz betrieblich";
+2. sonst die Regel der Bücher unter _Einstellungen → DATEV_: ein Satz für Festnetz und Internetanschluss, einer für Mobilfunk und alles andere, und das Konto. Sie gilt für Rechnungen, deren Zahlung oder Beleg eine solche Leistung nennt, und ist aus, bis ein Satz und ein Konto eingetragen sind.
+
+Die Sätze und das Konto legt die Steuerberatung fest; die App wählt keins von beiden.
+
 ### Was den Export aufhält und was nur ein Hinweis ist
 
 Die Export-Seite zeigt, was noch fehlt. **Exportiert wird erst, wenn alles hier erledigt ist:**

@@ -26,6 +26,7 @@ import { privateKind } from '../matching/private-kind.js';
 import { receiptCategory, travelAccount } from '../travel/accounts.js';
 import { travelKind } from '../travel/view.js';
 import { isStatementReceipt } from '../travel/payout.js';
+import { cleanPrivateShare, suggestedShare } from './private-share.js';
 
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
@@ -38,6 +39,8 @@ import { isStatementReceipt } from '../travel/payout.js';
  * @property {import('./tax-keys.js').TaxVia | 'learned' | 'confirmed' | 'none'} taxVia where the key comes from
  * @property {string | null} [category] a travel cost's category (travel/accounts.js)
  * @property {string | null} vendor the learned vendor's name
+ * @property {import('./private-share.js').PrivateShare | null} [privateShare] the part that is private use, on its own account (private-share.js)
+ * @property {import('./private-share.js').PrivateShareVia | null} [privateShareVia] where that comes from
  */
 
 /**
@@ -81,7 +84,7 @@ export function learnedPartner(partners, receipt, tx) {
  *   a traveller's clearing account, for an advance (#381) and a statement's payout (travel/accounts.js clearingAccountOf)
  * @returns {Suggestion}
  */
-export function suggestBooking(
+function suggestCore(
 	tx,
 	{
 		classification = null,
@@ -215,4 +218,33 @@ export function suggestBooking(
 		taxVia: useLearnedKey ? 'learned' : fromReceipt.via,
 		vendor: partner ? String(partner.name ?? '') : null
 	};
+}
+
+/**
+ * The suggestion for a booking: its account and BU key (above), and whether a
+ * part of it is private use (private-share.js).
+ *
+ * @param {Rec} tx
+ * @param {Parameters<typeof suggestCore>[1] & { privateShareRule?: { account: string, landline: number, mobile: number } | null }} [context]
+ * @returns {Suggestion}
+ */
+export function suggestBooking(tx, context = {}) {
+	const core = suggestCore(tx, context);
+	if (core.source === 'confirmed') {
+		const share = cleanPrivateShare(tx.booking?.privateShare);
+		return { ...core, privateShare: share, privateShareVia: share ? 'confirmed' : null };
+	}
+	// Only an expense the books learned or do not know yet: a transfer, a fee,
+	// wages, travel and private payments are what they are.
+	if (core.source !== null && core.source !== 'learned') {
+		return { ...core, privateShare: null, privateShareVia: null };
+	}
+	const receipt = context.receipts?.[0] ?? null;
+	const found = suggestedShare({
+		tx,
+		receipt,
+		partner: learnedPartner(context.partners ?? [], receipt, tx),
+		rule: context.privateShareRule ?? null
+	});
+	return { ...core, privateShare: found?.share ?? null, privateShareVia: found?.via ?? null };
 }

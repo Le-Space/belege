@@ -17,7 +17,7 @@ import {
 	normalizeAddress,
 	walletAccountName
 } from './chains.js';
-import { addWallet, syncWallet } from './wallet-sync.js';
+import { addWallet, bookWalletHistory, syncWallet } from './wallet-sync.js';
 
 /** EUR per unit, made up. */
 const RATES = /** @type {Record<string, string>} */ ({ NEAR: '3', USDC: '0.9' });
@@ -136,5 +136,138 @@ describe('a NEAR account as a wallet', () => {
 		expect(
 			ids(chainOfHash({ hash: `0x${'a'.repeat(64)}`, asset: 'USDC', method: 'NEAR' }))
 		).toEqual(['ethereum', 'base', 'arbitrum', 'optimism', 'polygon']);
+	});
+
+	it('a wrap read as a payment before is taken out once the reader reads the swap (#898)', async () => {
+		const s = {
+			...store(),
+			matches: memoryCollection('matches').collection,
+			questions: memoryCollection('questions').collection
+		};
+		const wallet = await addWallet(s.settings, { chain: 'near', address: NEAR.wallet });
+		const other = await addWallet(s.settings, { chain: 'near', address: 'stromwerk.near' });
+		const now = new Date('2026-11-21T08:00:00Z');
+		const WRAP = 'Wrap1111111111111111111111111111111111111111';
+		const SWAP = 'Swap2222222222222222222222222222222222222222';
+		const DEX = 'dex.example.near';
+		/** A wallet entry as the bridge gives it. @param {Record<string, any>} over @returns {any} */
+		const e = (over) => ({
+			height: 300,
+			time: '2026-11-20T14:05:00Z',
+			date: '2026-11-20',
+			kind: 'transfer',
+			asset: 'NEAR',
+			decimals: 24,
+			counterparty: '',
+			counterpartyLabel: '',
+			memo: '',
+			success: true,
+			explorerUrl: '',
+			...over
+		});
+		const gas = (/** @type {string} */ hash) =>
+			e({ id: `${hash}:fee`, hash, type: 'fee', kind: 'fee', amount: '-0.0004' });
+		const usdc = { asset: 'USDC', decimals: 6, amount: '1.03', counterparty: DEX };
+		const balances = [
+			{ asset: 'NEAR', amount: '4', decimals: 24 },
+			{ asset: 'USDC', amount: '1.03', decimals: 6 }
+		];
+		// As the reader before read it: NEAR paid to the wrap contract, USDC arriving.
+		const before = {
+			entries: [
+				gas(WRAP),
+				e({
+					id: `${WRAP}:deposit`,
+					hash: WRAP,
+					type: 'sent',
+					amount: '-0.35',
+					counterparty: 'wrap.near'
+				}),
+				gas(SWAP),
+				e({ id: `${SWAP}:ft:s2:0`, hash: SWAP, type: 'received', ...usdc })
+			],
+			balances
+		};
+		const c = client();
+		const first = await bookWalletHistory({ client: c, store: s, wallet, result: before, now });
+		expect(first.totals.new).toBe(4);
+		expect(first.superseded).toBe(0);
+		// Another own wallet holds a booking under the same id: it is not this wallet's.
+		await bookWalletHistory({
+			client: c,
+			store: s,
+			wallet: other,
+			result: { entries: [before.entries[1]], balances: [] },
+			now
+		});
+		const paid = (await s.transactions.list()).filter((t) => t.sourceId === `${WRAP}:deposit`);
+		expect(paid).toHaveLength(2);
+		const mine = paid.find((t) => t.counterpartyAddress === 'wrap.near' && !t.deleted);
+		const ours = (await s.accounts.list()).filter((a) =>
+			String(a.sourceAccountId).startsWith(`${NEAR.wallet}:`)
+		);
+		const wrapPaid = paid.find((t) => ours.some((a) => a.id === t.accountId));
+		expect(mine).toBeTruthy();
+		const match = await s.matches.put({
+			transactionId: wrapPaid?.id,
+			receiptId: 'r1',
+			state: 'auto'
+		});
+		await s.questions.put({ transactionId: wrapPaid?.id });
+
+		// As it is read now: the wrap leaves its gas, the swap gives NEAR and gets USDC.
+		const swap = {
+			gave: [{ asset: 'NEAR', amount: '0.35', listed: true }],
+			got: [{ asset: 'USDC', amount: '1.03', listed: true }],
+			via: DEX,
+			fee: { asset: 'NEAR', amount: '0.0004' }
+		};
+		const after = {
+			entries: [
+				gas(WRAP),
+				{ ...gas(SWAP), swap },
+				e({
+					id: `${SWAP}:ft:s1:0`,
+					hash: SWAP,
+					type: 'sent',
+					kind: 'swap',
+					amount: '-0.35',
+					counterparty: DEX,
+					swap
+				}),
+				e({ id: `${SWAP}:ft:s2:0`, hash: SWAP, type: 'received', kind: 'swap', ...usdc, swap })
+			],
+			balances,
+			superseded: [`${WRAP}:deposit`, `${WRAP}:ft:w1:0`]
+		};
+		const second = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(second.superseded).toBe(1);
+		expect(second.totals.new).toBe(1);
+
+		const all = await s.transactions.list({ includeDeleted: true });
+		const live = all.filter((t) => !t.deleted);
+		// This wallet's wrap payment is out; the other wallet's stays.
+		expect(all.find((t) => t.id === wrapPaid?.id)?.deleted).toBeTruthy();
+		expect(live.filter((t) => t.sourceId === `${WRAP}:deposit`)).toHaveLength(1);
+		// The NEAR left once: 0.35 in the swap, and the two fees.
+		const nearAccount = ours.find((a) => a.asset === 'NEAR');
+		const left = live
+			.filter((t) => t.accountId === nearAccount?.id)
+			.reduce((sum, t) => sum + BigInt(t.quantity), 0n);
+		expect(left).toBe(-350_800_000_000_000_000_000_000n);
+		// The USDC that arrived is the swap's other leg now, the same booking.
+		expect(live.find((t) => t.sourceId === `${SWAP}:ft:s2:0`)).toMatchObject({ movement: 'trade' });
+		// What pointed at the booking went with it, and the Verlauf says so.
+		expect(
+			(await s.matches.list({ includeDeleted: true })).find((m) => m.id === match.id)
+		).toMatchObject({ state: 'rejected' });
+		expect(await s.questions.list()).toHaveLength(0);
+		const event = (await s.events.list()).find((x) => x.kind === 'wallet-superseded');
+		expect(event).toMatchObject({ source: 'near', bookings: 1, matches: 1 });
+
+		// Once more: nothing left to take out.
+		const third = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(third.superseded).toBe(0);
+		expect(third.totals.new).toBe(0);
 	});
 });

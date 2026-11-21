@@ -25,6 +25,8 @@ import { isAccountNumber } from './skr03.js';
  * @property {number} fiscalYearStartMonth 1–12; the fiscal year starts on the 1st of it
  * @property {number} accountLength Sachkontenlänge, 4–8
  * @property {TaxKeys} taxKeys
+ * @property {{ account: string, landline: number, mobile: number }} privateShare the private share of
+ *   telecommunication bills in percent (private-share.js); 0: none
  * @property {LegalForm} legalForm how private payments are booked (issue #172); '' not said yet
  * @property {string} shareholderAccount a UG/GmbH's shareholder clearing account, '' until set
  * @property {'month' | 'quarter'} vatPeriod how the VAT figures are grouped (issue #195)
@@ -92,7 +94,10 @@ export function defaultDatevSettings() {
 		clientNumber: '1',
 		fiscalYearStartMonth: 1,
 		accountLength: 4,
-		taxKeys: { ...DEFAULT_TAX_KEYS }
+		taxKeys: { ...DEFAULT_TAX_KEYS },
+		// The private share of telecommunication bills (private-share.js): off
+		// until an account and a percentage are set.
+		privateShare: { account: '', landline: 0, mobile: 0 }
 	};
 }
 
@@ -151,6 +156,13 @@ export function cleanDatevSettings(value) {
 			output19: key(keys.output19, d.taxKeys.output19),
 			output7: key(keys.output7, d.taxKeys.output7),
 			reverseCharge: key(keys.reverseCharge, d.taxKeys.reverseCharge)
+		},
+		privateShare: {
+			account: /^\d{4,8}$/.test(String(value?.privateShare?.account ?? '').trim())
+				? String(value.privateShare.account).trim()
+				: '',
+			landline: int(value?.privateShare?.landline, 0, 99, 0),
+			mobile: int(value?.privateShare?.mobile, 0, 99, 0)
 		}
 	};
 }

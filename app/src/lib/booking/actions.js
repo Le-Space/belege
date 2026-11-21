@@ -3,6 +3,7 @@
 // every record); a booking whose receipt names a vendor teaches that vendor
 // the account (partners.js `learnAccount`). One event in the Verlauf.
 
+import { cleanPrivateShare } from './private-share.js';
 import { valueCents } from '../assets/quantity.js';
 import { recordEvent } from '../activity/events.js';
 import { cleanMatchingSettings } from '../matching/classify.js';
@@ -17,24 +18,35 @@ import { t } from '../i18n/index.js';
 /**
  * @param {MatchingStore} store
  * @param {string} transactionId
- * @param {{ account: string, taxKey?: string }} booking
+ * @param {{ account: string, taxKey?: string, privateShare?: unknown }} booking
+ *   `privateShare`: the part that is private use, `{ percent, account }` (private-share.js); null: none, and
+ *   the vendor is remembered as booked whole; left out: none, and nothing about it is learned
  * @param {{ log?: boolean, now?: () => Date }} [options]
  */
 export async function confirmBooking(
 	store,
 	transactionId,
-	{ account, taxKey = '' },
+	{ account, taxKey = '', privateShare },
 	{ log = true, now = () => new Date() } = {}
 ) {
 	const number = String(account ?? '').trim();
 	const key = String(taxKey ?? '').trim();
 	if (!isAccountNumber(number)) throw new Error(t('messages.booking.accountDigits'));
 	if (!/^\d{0,4}$/.test(key)) throw new Error(t('messages.booking.taxKeyDigits'));
+	const share = cleanPrivateShare(privateShare);
+	// Something was given and it cannot be a share: say so, book nothing.
+	if (privateShare && !share) throw new Error(t('messages.booking.privateShare'));
+	if (share && share.account === number) throw new Error(t('messages.booking.privateShareSame'));
 	const tx = await store.transactions.get(transactionId);
 	if (!tx) throw new Error(`No transaction ${transactionId}`);
 	const record = await store.transactions.put({
 		...tx,
-		booking: { account: number, taxKey: key, confirmedAt: now().toISOString() },
+		booking: {
+			account: number,
+			taxKey: key,
+			...(share ? { privateShare: share } : {}),
+			confirmedAt: now().toISOString()
+		},
 		// Confirmed again after a change on re-import: looked at.
 		importChange: null
 	});
@@ -51,7 +63,11 @@ export async function confirmBooking(
 				store.partners,
 				receipt,
 				tx,
-				{ account: number, taxKey: key },
+				{
+					account: number,
+					taxKey: key,
+					...(privateShare === undefined ? {} : { privateShare: share })
+				},
 				{ companyNames }
 			)
 		);
@@ -62,6 +78,7 @@ export async function confirmBooking(
 			transactionId,
 			account: number,
 			taxKey: key,
+			...(share ? { privateShare: share } : {}),
 			learned
 		});
 	}

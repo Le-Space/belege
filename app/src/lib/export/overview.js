@@ -83,6 +83,7 @@ export function overviewCsv(plan, { accounts, classifications }) {
 					})
 				: '',
 			l.suspense ? t('export.overview.suspense') : '',
+			l.share ? t(`export.overview.share.${l.share.part}`, { percent: l.share.percent }) : '',
 			l.transferWith
 				? t('export.overview.transferLine', {
 						date: formatDate(l.transferWith.bookedOn, DOCUMENT_LOCALE)

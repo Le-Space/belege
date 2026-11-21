@@ -372,6 +372,8 @@ export default {
 		booking: {
 			accountDigits: 'Ein Konto hat 4 bis 8 Ziffern.',
 			taxKeyDigits: 'Ein BU-Schlüssel hat bis zu 4 Ziffern.',
+			privateShare: 'Ein Privatanteil braucht 1 bis 99 Prozent und ein Konto mit 4 bis 8 Ziffern.',
+			privateShareSame: 'Der Privatanteil braucht ein anderes Konto als der betriebliche Teil.',
 			rateFormat: 'Der Kurs ist eine Zahl ab 0, z. B. 0,0042 – oder 0 für einen wertlosen Token.',
 			rateAmbiguous:
 				'„{value}“ kann beides sein: mit Tausenderpunkt oder mit drei Nachkommastellen – ein Unterschied um das Tausendfache. Schreib den Kurs ohne Tausendertrennzeichen (58123) oder mit einer Nachkommastelle mehr (2,3450).',
@@ -2989,6 +2991,12 @@ export default {
 				corporation: 'Kapitalgesellschaft (UG, GmbH)'
 			},
 			shareholderAccount: 'Verrechnungskonto Gesellschafter',
+			privateShare: 'Privatanteil bei Telefon und Internet',
+			privateShareLandline: 'Festnetz, Internetanschluss (% privat)',
+			privateShareMobile: 'Mobilfunk und alles andere (% privat)',
+			privateShareAccount: 'Konto für den Privatanteil',
+			privateShareHint:
+				'Eine Telefon- oder Internetrechnung wird mit diesem Anteil vorgeschlagen: der betriebliche Teil auf das Aufwandskonto mit BU-Schlüssel, der private auf das Konto hier, ohne Schlüssel – im DATEV-Export zwei Buchungen. 0 oder kein Konto: keine Aufteilung. Du bestätigst jede Zahlung selbst; ein Anbieter merkt sich, was du zuletzt gewählt hast. Die Sätze legt die Steuerberatung fest.',
 			suspenseAccount: 'Sammelkonto für Buchungen ohne Konto',
 			paymentAccount: 'Konto für Guthaben in Zahlungsverträgen',
 			paymentAccountHint:
@@ -3470,7 +3478,8 @@ export default {
 			decision: 'Entscheidung',
 			export: 'DATEV-Export',
 			'books-moved': 'Bücher übernommen',
-			'import-removed': 'Datei-Import zurückgenommen'
+			'import-removed': 'Datei-Import zurückgenommen',
+			'wallet-superseded': 'Wallet-Buchungen ersetzt'
 		},
 		text: {
 			bookingChanged: 'vorher {from}, jetzt {to}{flipped}{unconfirmed}{receipt}',
@@ -3502,6 +3511,8 @@ export default {
 			export: 'DATEV-Export {month}: {bookings} Buchungen, {receipts} Belege',
 			importRemoved:
 				'Konto {account} herausgenommen, mit {bookings} Buchungen; {matches} Zuordnungen zu Belegen gelöst',
+			walletSuperseded:
+				'{source}: {bookings} Buchungen herausgenommen, weil die Transaktion jetzt als eine Bewegung gelesen wird; {matches} Zuordnungen zu Belegen gelöst',
 			booksMoved:
 				'Übernommen aus anderen Büchern, gepackt am {date}: {records} Einträge, {files} Dateien',
 			exportSuspense:
@@ -3633,6 +3644,17 @@ export default {
 			'Vorschläge aus deinem eingelesenen Kontenplan ({count} Konten). Welches Konto richtig ist, entscheidest du mit deiner Steuerberatung.',
 		taxKey: 'BU-Schlüssel',
 		taxKeyPlaceholder: 'leer = ohne',
+		share: {
+			label: 'Privatanteil',
+			account: 'auf Konto',
+			none: 'Leer: die ganze Zahlung ist betrieblich.',
+			parts: 'betrieblich {business}, privat {private} auf {account} – im Export zwei Buchungen',
+			via: {
+				learned: 'wie zuletzt bei diesem Anbieter',
+				landline: 'Regel für Festnetz und Internetanschluss',
+				mobile: 'Regel für Mobilfunk'
+			}
+		},
 		taxKeyNone: 'ohne Schlüssel',
 		taxKeyUnknown: 'Für diesen Schlüssel ist keine Bedeutung hinterlegt.',
 		// A key the books' settings give a role (Einstellungen → DATEV).
@@ -3787,7 +3809,11 @@ export default {
 			collected:
 				'Sammelbuchung: {count} Netzwerkgebühren vom {from} bis {until}, einzeln im Nachweis',
 			transferSide: 'nicht im Buchungsstapel: enthalten in der Gegenbuchung vom {date} ({bank})',
-			suspense: 'auf Sammelkonto, umbuchen'
+			suspense: 'auf Sammelkonto, umbuchen',
+			share: {
+				business: 'betrieblicher Anteil {percent} % der Zahlung',
+				private: 'Privatanteil {percent} % der Zahlung, ohne Vorsteuer'
+			}
 		},
 		technical: [
 			'Buchungsstapel im DATEV-Format EXTF, Version 700, Kategorie 21, Formatversion 13: Kopfzeile mit 31 Feldern, Spaltenüberschriften, eine Zeile je Buchung mit 125 Feldern; Trennzeichen „;“, Zeilenende CRLF, Zeichensatz Windows-1252 (ANSI).',
@@ -4211,6 +4237,7 @@ export default {
 			take: 'Übernehmen',
 			placeholder: 'Konto',
 			none: 'Die KI nennt kein Konto.',
+			share: 'davon {percent} % privat auf {account}',
 			failed: 'Nach {done} von {total} abgebrochen: {error}'
 		},
 		noReceiptBadge: 'ohne Beleg',

@@ -32,6 +32,7 @@
 //     still goes against that bank's ledger account; nothing is unclear there.
 //     A bank account without its ledger account still blocks
 
+import { cleanPrivateShare, splitCents } from '../booking/private-share.js';
 import { isBookingConfirmed } from '../booking/suggest.js';
 import { ledgerOf } from '../booking/settings.js';
 import { isActive } from '../matching/engine.js';
@@ -64,6 +65,8 @@ export const RECEIPT_NUMBER = /^(\d{4}-\d{2})-(\d{3})$/;
  * @property {import('./datev.js').BookingLine} line
  * @property {Rec[]} [collected] a collective booking's bookings (#305): `tx` is the last of them
  * @property {boolean} [suspense] on the suspense account: no confirmed account (#323)
+ * @property {{ part: 'business' | 'private', percent: number }} [share] one of the two lines of a payment that is partly
+ *   private use (booking/private-share.js): together they are the payment
  */
 
 /**
@@ -376,7 +379,12 @@ export function planMonth({
 		const transferLine = Boolean(other && otherLedger && otherLedger !== ledger);
 		// No account and no transfer to pair it with: onto the suspense account (#323).
 		const unclear = !confirmed && !transferLine;
-		lines.push({
+		// A part of the payment is private use (booking/private-share.js): two
+		// lines that add up to it, the business part with the key, the private
+		// part on its account without one.
+		const share = transferLine || unclear ? null : cleanPrivateShare(tx.booking?.privateShare);
+		const parts = share ? splitCents(Number(tx.amountCents ?? 0), share.percent) : null;
+		const planned = /** @type {PlannedLine} */ ({
 			tx,
 			bank,
 			receipts: linked.map((x) => x.receipt),
@@ -408,6 +416,37 @@ export function planMonth({
 				costCentre: transferLine ? '' : String(bank?.costCentre ?? '')
 			}
 		});
+		// A share so small that a part is nothing: one line, as without it.
+		if (!share || !parts || !parts.private || !parts.business) {
+			lines.push(planned);
+			continue;
+		}
+		const tag = (/** @type {string} */ what, /** @type {number} */ percent) => {
+			const suffix = ` ${percent}% ${what}`;
+			return `${planned.line.text.slice(0, 60 - suffix.length)}${suffix}`;
+		};
+		lines.push(
+			{
+				...planned,
+				share: { part: 'business', percent: 100 - share.percent },
+				line: {
+					...planned.line,
+					amountCents: parts.business,
+					text: tag('betriebl.', 100 - share.percent)
+				}
+			},
+			{
+				...planned,
+				share: { part: 'private', percent: share.percent },
+				line: {
+					...planned.line,
+					amountCents: parts.private,
+					contra: share.account,
+					taxKey: '',
+					text: tag('privat', share.percent)
+				}
+			}
+		);
 	}
 
 	if (collectFees) lines = collectNetworkFees(lines, month);

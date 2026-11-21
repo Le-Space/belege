@@ -14,7 +14,7 @@
 /** @typedef {import('../store/repository.js').Collection} Collection */
 /** @typedef {import('../store/repository.js').StoredRecord} StoredRecord */
 
-/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'paperless-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'travel-assist' | 'booking-assist' | 'matching' | 'decision' | 'export' | 'books-moved' | 'import-removed'} EventKind */
+/** @typedef {'bank-sync' | 'booking-changed' | 'mail-fetch' | 'paperless-fetch' | 'file-import' | 'sender-verdict' | 'extract' | 'mail-assist' | 'match-assist' | 'transfer-assist' | 'vendor-assist' | 'travel-assist' | 'booking-assist' | 'matching' | 'decision' | 'export' | 'books-moved' | 'import-removed' | 'wallet-superseded'} EventKind */
 /** @typedef {'auslesen' | 'abgleich' | 'abruf' | 'entscheidungen'} EventGroup */
 
 /** @type {Record<EventKind, EventGroup>} */
@@ -40,7 +40,9 @@ export const GROUP_OF = {
 	// These books were taken over from other books (#328): the person's act.
 	'books-moved': 'entscheidungen',
 	// A file import taken back, the account with its bookings (bank/remove-import.js).
-	'import-removed': 'entscheidungen'
+	'import-removed': 'entscheidungen',
+	// Wallet bookings a better reading replaced (wallets/wallet-sync.js): part of the sync.
+	'wallet-superseded': 'abruf'
 };
 
 /** The filters on the Verlauf page, in this order. */

@@ -11,6 +11,7 @@
 	import { cleanMatchingSettings } from './matching/classify.js';
 	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
+	import { cleanPrivateShare, splitCents } from './booking/private-share.js';
 	import { offeredTaxKeys, taxKeyLabel, taxKeyName } from './booking/tax-key-names.js';
 	import { assistBody, assistEventData } from './booking/assist-request.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
@@ -21,7 +22,7 @@
 		searchAccounts
 	} from './booking/skr03.js';
 	import { matchesOfTx } from './matching/view.js';
-	import { formatDate } from './bank/format.js';
+	import { formatDate, formatMoney } from './bank/format.js';
 	import AiMark from './AiMark.svelte';
 	import AiCostHint from './AiCostHint.svelte';
 	import { recordEvent } from './activity/events.js';
@@ -48,6 +49,7 @@
 			partners: app.partners ?? [],
 			keys,
 			privateAccounts: privateAccountsNow,
+			privateShareRule: cleanDatevSettings(app.datevSettings).privateShare,
 			travelSet: travelSetOf(cleanDatevSettings(app.datevSettings), app.travel),
 			travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
 		})
@@ -58,12 +60,17 @@
 
 	let accountText = $state('');
 	let keyText = $state('');
+	// The part that is private use (booking/private-share.js): empty for none.
+	let sharePercentText = $state('');
+	let shareAccountText = $state('');
 	let busy = $state(false);
 	/** @type {string | null} */
 	let error = $state(null);
 
 	// Another booking, or a new suggestion (a receipt was linked): start from it.
-	let seed = $derived(`${tx.id}|${suggestion.account}|${suggestion.taxKey}|${suggestion.source}`);
+	let seed = $derived(
+		`${tx.id}|${suggestion.account}|${suggestion.taxKey}|${suggestion.source}|${suggestion.privateShare?.percent ?? ''}|${suggestion.privateShare?.account ?? ''}`
+	);
 	// Only the seed counts: the lists are read again after every write, and
 	// what the person typed must not be reset by that.
 	$effect(() => {
@@ -71,17 +78,33 @@
 		untrack(() => {
 			accountText = suggestion.account ?? '';
 			keyText = suggestion.taxKey;
+			sharePercentText = suggestion.privateShare ? String(suggestion.privateShare.percent) : '';
+			shareAccountText = suggestion.privateShare?.account ?? '';
 			error = null;
 		});
 	});
 
 	/** "4930 Bürobedarf" or "4930" → "4930". */
 	let number = $derived(/^\s*(\d{4,8})(?:\s|$)/.exec(accountText)?.[1] ?? accountText.trim());
-	let valid = $derived(isAccountNumber(number) && /^\d{0,4}$/.test(keyText.trim()));
+	// No percentage: no private share, whatever the account field says.
+	let share = $derived(
+		sharePercentText.trim()
+			? cleanPrivateShare({ percent: sharePercentText, account: shareAccountText })
+			: null
+	);
+	let shareValid = $derived(
+		!sharePercentText.trim() || (share !== null && share.account !== number)
+	);
+	let shareParts = $derived(share ? splitCents(tx.amountCents ?? 0, share.percent) : null);
+	let valid = $derived(isAccountNumber(number) && /^\d{0,4}$/.test(keyText.trim()) && shareValid);
 	let known = $derived(catalogueAccount(number, chart));
 	let confirmed = $derived(suggestion.source === 'confirmed');
 	let unchanged = $derived(
-		confirmed && number === suggestion.account && keyText.trim() === suggestion.taxKey
+		confirmed &&
+			number === suggestion.account &&
+			keyText.trim() === suggestion.taxKey &&
+			(share?.percent ?? 0) === (suggestion.privateShare?.percent ?? 0) &&
+			(share?.account ?? '') === (suggestion.privateShare?.account ?? '')
 	);
 
 	let sourceText = $derived(
@@ -187,7 +210,9 @@
 		try {
 			await confirmBooking(/** @type {any} */ (store), tx.id, {
 				account: number,
-				taxKey: keyText.trim()
+				taxKey: keyText.trim(),
+				// null says "the whole payment": remembered for this vendor, too.
+				privateShare: share
 			});
 			await refreshNow();
 		} catch (e) {
@@ -300,6 +325,58 @@
 					: t('booking.taxKeyNone')}</span
 			>
 		</label>
+		{#if (tx.amountCents ?? 0) < 0}
+			<!-- A part of the payment that is private use: its own line in the export. -->
+			<div
+				class="order-last flex basis-full flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+				data-testid="tx-booking-share"
+				data-via={suggestion.privateShareVia ?? ''}
+			>
+				<label class="flex items-center gap-2">
+					<span class="text-faint">{t('booking.share.label')}</span>
+					<input
+						class="w-16 rounded-md border px-2 py-1 text-right font-mono text-sm"
+						inputmode="numeric"
+						autocomplete="off"
+						bind:value={sharePercentText}
+						placeholder="0"
+						data-testid="tx-booking-share-percent"
+					/>
+					<span class="text-faint">%</span>
+				</label>
+				<label class="flex items-center gap-2">
+					<span class="text-faint">{t('booking.share.account')}</span>
+					<input
+						class="w-24 rounded-md border px-2 py-1 font-mono text-sm"
+						inputmode="numeric"
+						autocomplete="off"
+						bind:value={shareAccountText}
+						placeholder={t('booking.accountPlaceholder')}
+						data-testid="tx-booking-share-account"
+					/>
+				</label>
+				<span class="min-w-0 flex-1 text-xs text-faint" data-testid="tx-booking-share-note">
+					{#if share && shareParts && shareValid}
+						{t('booking.share.parts', {
+							business: formatMoney(Math.abs(shareParts.business), 'EUR'),
+							private: formatMoney(Math.abs(shareParts.private), 'EUR'),
+							account: accountLabel(share.account, chart)
+						})}
+						{#if suggestion.privateShareVia && suggestion.privateShareVia !== 'confirmed' && share.percent === suggestion.privateShare?.percent}
+							· {t(`booking.share.via.${suggestion.privateShareVia}`)}
+						{/if}
+					{:else if sharePercentText.trim()}
+						<span class="text-danger"
+							>{share && share.account === number
+								? t('messages.booking.privateShareSame')
+								: t('messages.booking.privateShare')}</span
+						>
+					{:else}
+						{t('booking.share.none')}
+					{/if}
+				</span>
+			</div>
+		{/if}
 		<button
 			type="submit"
 			class="mb-5 rounded-md bg-coral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"

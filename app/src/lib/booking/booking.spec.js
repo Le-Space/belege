@@ -161,7 +161,8 @@ describe('catalogue and settings', () => {
 				clientNumber: '7',
 				fiscalYearStartMonth: '7',
 				accountLength: 5,
-				taxKeys: { input19: '90', reverseCharge: '', output7: 'x' }
+				taxKeys: { input19: '90', reverseCharge: '', output7: 'x' },
+				privateShare: { account: ' 1390 ', landline: '50', mobile: 130 }
 			})
 		).toEqual({
 			legalForm: '',
@@ -175,7 +176,9 @@ describe('catalogue and settings', () => {
 			clientNumber: '7',
 			fiscalYearStartMonth: 7,
 			accountLength: 5,
-			taxKeys: { input19: '90', input7: '8', output19: '3', output7: '2', reverseCharge: '' }
+			taxKeys: { input19: '90', input7: '8', output19: '3', output7: '2', reverseCharge: '' },
+			// A percentage that cannot be falls back to none.
+			privateShare: { account: '1390', landline: 50, mobile: 0 }
 		});
 		expect(cleanDatevSettings({ consultantNumber: '999', accountLength: 9 })).toMatchObject({
 			consultantNumber: '1001',
@@ -283,6 +286,95 @@ describe('confirmBooking', () => {
 		});
 		const [event] = await store.events.list();
 		expect(event).toMatchObject({ kind: 'decision', action: 'booking', learned: true });
+	});
+
+	it('a private share: kept on the booking, learned for the vendor, suggested next time (#935)', async () => {
+		const r = await store.receipts.put(
+			without(receipt({ vendor: 'Kabelnetz Beispiel GmbH', vat: [{ rate: 19, amount: 6.38 }] }))
+		);
+		const t = await store.transactions.put(
+			without(
+				tx({ amountCents: -3999, counterparty: 'KABELNETZ BEISPIEL', purpose: 'DSL 10/2026' })
+			)
+		);
+		await store.matches.put({
+			transactionId: t.id,
+			receiptId: r.id,
+			state: 'confirmed',
+			score: 100,
+			reasons: []
+		});
+		const rule = { account: '1390', landline: 50, mobile: 30 };
+		// Before anything is confirmed: the books' rule, by the vendor's name.
+		expect(
+			suggestBooking(await store.transactions.get(t.id), { privateShareRule: rule })
+		).toMatchObject({
+			privateShare: { percent: 50, account: '1390' },
+			privateShareVia: 'landline'
+		});
+
+		await confirmBooking(store, t.id, {
+			account: '4920',
+			taxKey: '9',
+			privateShare: { percent: 40, account: '1390' }
+		});
+		const saved = await store.transactions.get(t.id);
+		expect(saved.booking).toMatchObject({
+			account: '4920',
+			taxKey: '9',
+			privateShare: { percent: 40, account: '1390' }
+		});
+		expect(suggestBooking(saved, {})).toMatchObject({
+			source: 'confirmed',
+			privateShare: { percent: 40, account: '1390' },
+			privateShareVia: 'confirmed'
+		});
+		const partners = await store.partners.list();
+		expect(partners[0]).toMatchObject({ privateShare: { percent: 40, account: '1390' } });
+		const next = tx({ amountCents: -3999, counterparty: 'KABELNETZ BEISPIEL' });
+		expect(suggestBooking(next, { partners, privateShareRule: rule })).toMatchObject({
+			account: '4920',
+			privateShare: { percent: 40, account: '1390' },
+			privateShareVia: 'learned'
+		});
+
+		// Booked whole on purpose: the vendor stays whole, whatever the rule says.
+		await confirmBooking(store, t.id, { account: '4920', taxKey: '9', privateShare: null });
+		expect((await store.transactions.get(t.id)).booking.privateShare).toBeUndefined();
+		expect(
+			suggestBooking(next, { partners: await store.partners.list(), privateShareRule: rule })
+		).toMatchObject({ account: '4920', privateShare: null });
+
+		// A share that cannot be is refused, and one on the expense's own account.
+		await expect(
+			confirmBooking(store, t.id, {
+				account: '4920',
+				privateShare: { percent: 120, account: '1390' }
+			})
+		).rejects.toThrow(/Privatanteil/);
+		await expect(
+			confirmBooking(store, t.id, {
+				account: '4920',
+				privateShare: { percent: 30, account: '4920' }
+			})
+		).rejects.toThrow(/anderes Konto/);
+	});
+
+	it('a transfer, a fee and money that came in get no share', () => {
+		const rule = { account: '1390', landline: 50, mobile: 30 };
+		const dsl = { counterparty: 'Kabelnetz Beispiel GmbH', purpose: 'DSL 10/2026' };
+		expect(
+			suggestBooking(tx({ amountCents: -3999, ...dsl }), {
+				classification: { kind: 'bank-fee' },
+				privateShareRule: rule
+			}).privateShare
+		).toBeNull();
+		expect(
+			suggestBooking(tx({ amountCents: 3999, ...dsl }), { privateShareRule: rule }).privateShare
+		).toBeNull();
+		expect(
+			suggestBooking(tx({ amountCents: -3999, ...dsl }), { privateShareRule: rule }).privateShare
+		).toEqual({ percent: 50, account: '1390' });
 	});
 
 	it('learns nothing without a receipt or for our own invoices; refuses bad numbers', async () => {

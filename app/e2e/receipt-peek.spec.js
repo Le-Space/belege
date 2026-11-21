@@ -162,6 +162,9 @@ test('in the lists: a payment shows its receipt, the Belege list each receipt', 
 		.getByTestId('tx-choose')
 		.click();
 	await detail.getByTestId('tx-detail-close').click();
+	// The list shows the link first: a row gets its preview with it, and a
+	// pointer already on the row when that happens is not seen entering it.
+	await expect(row).toHaveAttribute('data-covered', 'true');
 	await page.mouse.move(5, 5);
 	await row.hover();
 	await expect(peek).toBeVisible();
