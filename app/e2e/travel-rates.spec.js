@@ -4,49 +4,29 @@
 // fixed rates that stand for the ECB and the National Bank of Kazakhstan;
 // every vendor, amount and rate is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
-import { pairBridge, stopBridge } from './bridge.js';
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 // EUR per unit, with the source and the day the rate is valid from.
 const RATES = {
 	CZK: { rate: '0.04', source: 'ecb', at: '2026-05-04T00:00:00Z' },
 	KZT: { rate: '0.002', source: 'nbk', at: '2026-05-05T00:00:00Z' }
 };
 
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-travel-rates-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify(RATES) },
-		stdio: ['ignore', 'pipe', 'pipe']
+	bridge = await startBridge({
+		name: 'travel-rates',
+		env: { BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify(RATES) }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
-	if (dir) await rm(dir, { recursive: true, force: true });
+	await bridge?.stop();
 });
 
 test('a trip’s receipts in other currencies get their rates in one go, kept on a click (#693)', async ({
@@ -59,8 +39,7 @@ test('a trip’s receipts in other currencies get their rates in one go, kept on
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	// A bus ticket in CZK and a hotel in KZT, read as travel.
 	await page.evaluate(async () => {

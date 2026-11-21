@@ -8,24 +8,15 @@
 // offered. Every address, hash and amount is made up
 // (@belege/bridge/testing/filecoin-pay); the contract's addresses are public.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
 import { startFakeFilecoinPay } from '@belege/bridge/testing/filecoin-pay';
 import { FILECOIN_PAY } from '@le-space/chains/filecoin-pay';
 import { toFilecoinAddress } from '@le-space/chains/filecoin';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
-import { pairBridge, stopBridge } from './bridge.js';
-
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
+import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const PAYER = `0x${'1a'.repeat(20)}`;
 const WALLET = toFilecoinAddress(PAYER);
@@ -42,9 +33,7 @@ const day = (/** @type {number} */ d, /** @type {string} */ time) =>
 	`${MONTH}-${String(d).padStart(2, '0')}T${time}Z`;
 
 /** @type {Awaited<ReturnType<typeof startFakeFilecoinPay>>} */ let fake;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	fake = await startFakeFilecoinPay({
@@ -78,30 +67,19 @@ test.beforeAll(async () => {
 			{ at: day(25, '12:00:00'), withdraw: '1', token: USDFC, from: PAYER, to: PAYER }
 		]
 	});
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-filpay-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{ ...defaultConfig(), bridge: { port: BRIDGE_PORT }, appOrigins: [APP_ORIGIN] },
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
+	bridge = await startBridge({
+		name: 'filpay',
 		env: {
-			...process.env,
 			BELEGE_BRIDGE_TEST_FILECOINPAY_URL: fake.url,
 			BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY: KEY,
 			BELEGE_BRIDGE_TEST_FIXED_RATES: JSON.stringify({ USDFC: '0.9' })
-		},
-		stdio: ['ignore', 'pipe', 'pipe']
+		}
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	await stopBridge(bridge);
+	await bridge?.stop();
 	await fake?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('a wallet’s balance in Filecoin Pay is found, and last month becomes an Eigenbeleg', async ({
@@ -115,8 +93,7 @@ test('a wallet’s balance in Filecoin Pay is found, and last month becomes an E
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await page.getByRole('link', { name: 'Integrationen' }).click();
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openIntegration(page, 'wallets');
 	// No Filecoin wallet yet: no card, nothing asked.
@@ -168,11 +145,11 @@ test('a wallet’s balance in Filecoin Pay is found, and last month becomes an E
 
 	// Neither address nor the key reaches the bridge's log; the key went to
 	// the keyed host only, in a header.
-	expect(bridgeOut).not.toContain(PAYER);
-	expect(bridgeOut).not.toContain(WALLET);
-	expect(bridgeOut).not.toContain(KEY);
-	expect(bridgeOut).toContain('filecoin pay: statement');
-	expect(bridgeOut).toContain('Blockscout with a key');
+	expect(bridge.out()).not.toContain(PAYER);
+	expect(bridge.out()).not.toContain(WALLET);
+	expect(bridge.out()).not.toContain(KEY);
+	expect(bridge.out()).toContain('filecoin pay: statement');
+	expect(bridge.out()).toContain('Blockscout with a key');
 	expect(fake.authorizations.length).toBeGreaterThan(0);
 	expect(fake.authorizations.every((a) => a.startsWith('/keyed/'))).toBe(true);
 });

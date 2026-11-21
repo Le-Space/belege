@@ -297,6 +297,8 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 			([url, pins]) => {
 				localStorage.setItem('belege.e2e.attestUrl', url);
 				localStorage.setItem('belege.e2e.hostedPins', pins);
+				// The fake node opens the port at once: look every second, not every ten.
+				localStorage.setItem('belege.e2e.hostedPatience', JSON.stringify({ delayMs: 1_000 }));
 			},
 			[vmRelay.url, JSON.stringify(published)]
 		);
@@ -622,6 +624,8 @@ test('Le Space pays the hosted bridge from a plan: its sub-account is the payer,
 			([url, pins]) => {
 				localStorage.setItem('belege.e2e.attestUrl', url);
 				localStorage.setItem('belege.e2e.hostedPins', pins);
+				// The fake node opens the port at once: look every second, not every ten.
+				localStorage.setItem('belege.e2e.hostedPatience', JSON.stringify({ delayMs: 1_000 }));
 			},
 			[vmRelay.url, JSON.stringify(published)]
 		);
@@ -867,6 +871,8 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 			([url, pins]) => {
 				localStorage.setItem('belege.e2e.attestUrl', url);
 				localStorage.setItem('belege.e2e.hostedPins', pins);
+				// The fake node opens the port at once: look every second, not every ten.
+				localStorage.setItem('belege.e2e.hostedPatience', JSON.stringify({ delayMs: 1_000 }));
 			},
 			[vmRelay.url, JSON.stringify(published)]
 		);

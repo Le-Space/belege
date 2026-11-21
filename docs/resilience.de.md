@@ -56,9 +56,34 @@ In den Läufen mit Ruhe reist der ganze Schub als einzelne Gossipsub-Nachrichten
 
 Zweierlei fiel daneben auf. Die Browser des Benchmarks hatten keine Medienberechtigung, die die Browser-Specs seit einiger Zeit haben: Hinter einem VPN erreichen sich die beiden Geräte dann nie über WebRTC, und der Nachzügler wartet ewig; der Benchmark setzt sie jetzt. Und der erste Abgleich des Nachzüglers bleibt manchmal hängen, bevor irgendein Circuit schließt – auf main in 7 von 12 Läufen (4 spät, 3 nicht binnen 45 s), mit der Korrektur in keinem der zwölf Läufe der Tabelle, aber in 9 von 40 früheren (4 spät, 5 nicht binnen der Wartezeit) – mit einer WebRTC-Verbindung, die auf einer Seite tot ist und auf der anderen noch gelistet wird; das ist nicht dieser Fehler, sondern [#909](https://github.com/Le-Space/belege/issues/909). Der Benchmark schreibt das Netzwerk jetzt schon mit, bevor sich die Geräte treffen (`initialNetwork`), und behält einen Lauf, dessen erster Abgleich scheiterte.
 
+**Der erste Abgleich des Nachzüglers, erneut angefragt (#909, 21.11.2026).** Warum er hängen blieb, soweit es die App betrifft: OrbitDB tauscht die Heads einer Datenbank mit einem Gerät einmal aus und zählt es danach als abgeglichen. Bricht dieser eine Austausch – ein zurückgesetzter Stream, eine Verbindung, die unter ihm verschwindet –, meldet es einen Fehler, vergisst den Peer und wartet auf ein neues Abonnement, das nie kommt. Und kommt der Head an, die Einträge dahinter aber lassen sich nicht holen – der Abruf wartet seine 30 s auf einer Verbindung ab, die auf einer Seite tot ist –, schluckt die Datenbank den Fehlschlag, und der Austausch gilt als erledigt, ohne dass etwas übernommen wurde; die kleinen Sammlungen, je ein Eintrag, brauchen keinen Abruf und kommen durch. Der Store beobachtet jetzt beides, den Fehler und den gescheiterten Join, an jeder Datenbank und startet deren Sync neu, wenn eines davon geschieht; das lässt das andere Gerät die Heads erneut austauschen: nach 2 s, dann nach 10 s, 35 s und 2 Minuten, wenn es wieder verloren geht, höchstens viermal in Folge; ein Austausch, der durchläuft, setzt die Zählung zurück. Nichts wird angewählt, keine Verbindung wird angefasst.
+
+Relay-Szenario auf dem lokalen Test-Relay, 50 Buchungen, eine einzelne Buchung je Richtung (`app/bench/results/2026-11-21-resilience-replication-relay-50-retry-*.json`); wie lange es dauerte, bis der Nachzügler alle 50 hatte, ohne dass etwas Neues geschrieben wurde:
+
+| | main (12 Läufe, 45 s gewartet) | mit der Wiederholung (21 Läufe, 120 s gewartet) |
+| --- | --- | --- |
+| binnen 2,5 s | 5 | 9 |
+| binnen 4,6–10,8 s | 0 | 11 |
+| später | 4, nach 23–34 s | 1, nach 62 s |
+| nicht binnen der Wartezeit | 3 | **0** |
+
+Die 21 sind zwölf mit einem Circuit, der nach 5 s abläuft (wie die zwölf auf main), und neun mit den Standardgrenzen der Bibliothek; drei weitere von diesen starteten nie, weil der Build auf einer inzwischen mit anderem überlasteten Maschine (Load über 100) nicht rechtzeitig fertig wurde. Diese Last ist auch der Grund, warum die Schübe dieser Läufe wenig sagen: Jeder Schub kam vollständig an, aber das Schreiben von 100 Buchungen dauerte zwischen 4 und 65 s, und drei Schübe überschritten so die 20-Sekunden-Marke, ohne dass eine Verbindung verloren ging. In neun Läufen kam die Wiederholung 2 s nach dem gebrochenen Austausch, und die Bücher waren nach spätestens 11 s drüben; in einem musste der Abruf erst in seine 30 s laufen, und die zweite Anfrage brachte sie. Nicht behoben ist die Ursache: eine WebRTC-Verbindung, die auf einer Seite tot ist und auf der anderen noch gelistet wird; das gehört upstream, sobald es sich außerhalb der App zeigen lässt. Und die 30 s sind OrbitDBs Block-Timeout, den die App nicht setzt.
+
 Ebenfalls berichtigt: Die App fragte eine Verbindung nach `limited`, das libp2p 3 nicht mehr setzt (es heißt `limits`); der Heads-Austausch, der für „jetzt ist eine direkte Verbindung da" gedacht war, wurde deshalb eine Sekunde nach dem Öffnen des Relay-Circuits verbraucht – wo OrbitDBs Anwahl abgelehnt wird – und für die folgende Verbindung nicht wiederholt. Er wartet jetzt auf eine Verbindung ohne Grenzen.
 
-Nicht gemessen: die Produktions-Relays. Der Mechanismus ist dort derselbe – was auch immer den Circuit schließt, die 20-Minuten-Grenze oder eine verlorene Relay-Verbindung, lässt Gossipsub neben einer direkten Verbindung ohne Streams –, aber ein Lauf gegen sie (21 Minuten Ruhe wie am 14.10.2026) ist mit der Korrektur nicht gemacht. Und die Korrektur in Gossipsub selbst bleibt die richtige: Sie gälte auch für Peers, die nicht diese App sind.
+**Gegen einen Produktions-Relay (21.11.2026, nachmittags).** Die Messung, die am 14.10.2026 offen blieb: das Relay-Szenario über einen Le-Space-Relay auf Aleph (20 Minuten und 10 GiB je Circuit), beide Geräte auf einem Laptop, 50 Buchungen, zehn einzelne Buchungen je Richtung, dann 21 Minuten Ruhe und der Schub – auf main mit der Korrektur, zwei Läufe (`app/bench/results/2026-11-21-resilience-replication-relay-50-aleph-quiet21m-fix-*.json`; beim zweiten war ein zweiter Relay eingestellt, zu dem die Geräte keine Verbindung hielten, er ist also ein zweiter Lauf desselben).
+
+| | Lauf 1 | Lauf 2 |
+| --- | --- | --- |
+| der Relay schließt den Circuit, in die Ruhe hinein | nach 1139 s | nach 1185 s |
+| Gossipsubs Streams auf der WebRTC-Verbindung | 1 s später | 1 s später |
+| Heads erneut ausgetauscht, ein Gerät nach dem anderen | 2 s und 5 s nach dem Schließen | 2 s und 5 s nach dem Schließen |
+| aufgelegte Verbindungen, getrennte Geräte | keine | keine |
+| Schub von 100, 75 bis 121 s nach dem Schließen | **100 von 100**, 3,7 s nach dem letzten Schreiben | **100 von 100**, 3,7 s nach dem letzten Schreiben |
+
+Das ist der Fall, für den das Issue angelegt wurde – der Circuit läuft in seine 20 Minuten, während die Geräte auf einer direkten Verbindung ruhen –, und der im Oktober bei 0 von 100 stand; hier stockt nichts, und nichts wird aufgelegt. Zwei Läufe, ein Relay, eine Maschine, ein Nachmittag: genug, um zu sagen, dass der Mechanismus gegen den echten Relay trägt, keine Aussage über jedes Netz. Im ersten Lauf brauchte der Nachzügler 38,5 s für seinen ersten Abgleich, mit einer WebRTC-Verbindung, die nach 13 s schloss – #909, jetzt auch über das Internet gesehen.
+
+Die Korrektur in Gossipsub selbst bleibt die richtige: Sie gälte auch für Peers, die nicht diese App sind.
 
 **Mit produktionsnahen Grenzen** (die Le-Space-Relays laufen mit 20 Minuten und 10 GiB je Circuit; `E2E_RELAY_UNLIMITED=1` hebt die Grenze des Test-Relays auf) läuft alles durch, und die Zahlen decken sich im Rauschen mit denen ohne Relay:
 
@@ -164,7 +189,7 @@ Dieselben 108 232 Bytes von beiden: Die Domain liefert genau den CID, den die Re
 
 - Gemessen: Latenz und Durchsatz der Replikation zwischen zwei Browsern auf einer Maschine, mit und ohne Relay; das Verhalten über eine Netztrennung; Sicherungs- und Wiederherstellungszeiten nach Größe; was die App wiegt und wie schnell sie aus zwei Quellen kommt. Jeder Lauf ist mit den Befehlen oben reproduzierbar; die JSON-Dateien halten die Rohzahlen.
 - Nicht gemessen: echte Netze jenseits eines Relays über das Internet (oben, beide Geräte auf einer Maschine — NAT-Traversal zwischen zwei Netzen, Mobilfunk), mehr als zwei Geräte, Belegdateien (die Bücher hier halten nur Buchungen — ein Jahr PDFs bringt Megabytes ins Backup), ein echtes Aleph (das Fake antwortet aus dem Speicher) und andere Browser als Chromium.
-- Ehrliche Schwachstellen, alle gemessen statt vermutet: der abbrechende Schub, wenn ein Relay seinen Circuit schließt, den die App jetzt binnen Sekunden behebt, indem sie Gossipsub auf die verbliebene Verbindung setzt, dessen Ursache aber in Gossipsub liegt (#393); ein erster Abgleich des Nachzüglers, der manchmal hängen bleibt (#909); ein Gerät, das ein verlorenes Relay nie wieder anwählt (#403); die 23 s Wiederverbindung nach einer Pause. Die überlineare Wiederherstellung früherer Versionen gibt es nicht mehr (oben).
+- Ehrliche Schwachstellen, alle gemessen statt vermutet: der abbrechende Schub, wenn ein Relay seinen Circuit schließt, den die App jetzt binnen Sekunden behebt, indem sie Gossipsub auf die verbliebene Verbindung setzt, dessen Ursache aber in Gossipsub liegt (#393); ein erster Abgleich des Nachzüglers, der manchmal an einer halbtoten WebRTC-Verbindung bricht und den die App jetzt binnen Sekunden erneut anfragt, dessen Ursache aber upstream liegt (#909); ein Gerät, das ein verlorenes Relay nie wieder anwählt (#403); die 23 s Wiederverbindung nach einer Pause. Die überlineare Wiederherstellung früherer Versionen gibt es nicht mehr (oben).
 
 ## Früher: wie die Bücher sich beim Wachsen verhalten
 

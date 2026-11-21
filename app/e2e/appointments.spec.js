@@ -4,13 +4,8 @@
 // trip made from it with its place, occasion and times. The organiser, the
 // attendees and the links never reach the app. Everything is made up.
 import { test, expect } from '@playwright/test';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { defaultConfig, saveConfig } from '@belege/bridge';
+import { defaultConfig } from '@belege/bridge';
 import {
 	ACCOUNTING,
 	FAKE_IMAP_PASSWORD,
@@ -21,26 +16,18 @@ import {
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
 import { pairBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
-const BRIDGE_PORT = Number(process.env.E2E_BRIDGE_PORT || 4392);
-const APP_ORIGIN = `http://localhost:${process.env.E2E_PORT || 4391}`;
-const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const BASE = new Date(Date.now() - 2 * 864e5);
 
 /** @type {Awaited<ReturnType<typeof startFakeImap>>} */ let imap;
-/** @type {import('node:child_process').ChildProcess} */ let bridge;
-/** @type {string} */ let dir;
-let bridgeOut = '';
+/** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
 test.beforeAll(async () => {
 	imap = await startFakeImap({ storage: sampleMailbox({ base: BASE, invitation: true }) });
-	dir = await mkdtemp(join(tmpdir(), 'belege-e2e-appointments-'));
-	const configPath = join(dir, 'bridge.json');
-	await saveConfig(
-		{
-			...defaultConfig(),
-			bridge: { port: BRIDGE_PORT },
-			appOrigins: [APP_ORIGIN],
+	bridge = await startBridge({
+		name: 'appointments',
+		config: {
 			mail: {
 				...defaultConfig().mail,
 				host: imap.host,
@@ -50,25 +37,13 @@ test.beforeAll(async () => {
 				accountingAddress: ACCOUNTING
 			}
 		},
-		configPath
-	);
-	bridge = spawn(process.execPath, [CLI, '--test-mode', '--config', configPath], {
-		env: { ...process.env, BELEGE_BRIDGE_TEST_IMAP_PASSWORD: FAKE_IMAP_PASSWORD },
-		stdio: ['ignore', 'pipe', 'pipe']
+		env: { BELEGE_BRIDGE_TEST_IMAP_PASSWORD: FAKE_IMAP_PASSWORD }
 	});
-	bridge.stdout?.on('data', (d) => (bridgeOut += d));
-	bridge.stderr?.on('data', (d) => (bridgeOut += d));
-	await expect.poll(() => bridgeOut, { timeout: 15_000 }).toMatch(/Pairing code/);
 });
 
 test.afterAll(async () => {
-	if (bridge && bridge.exitCode === null) {
-		const exited = new Promise((resolve) => bridge.once('exit', resolve));
-		bridge.kill('SIGTERM');
-		await exited;
-	}
+	await bridge?.stop();
 	await imap?.close();
-	if (dir) await rm(dir, { recursive: true, force: true });
 });
 
 test('an invitation’s appointment becomes a trip, with nobody’s name in the books', async ({
@@ -83,9 +58,8 @@ test('an invitation’s appointment becomes a trip, with nobody’s name in the 
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
-	const code = /Pairing code[^:]*: (\S+)/.exec(bridgeOut)?.[1] ?? '';
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: code, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await tab('Belege').click();
 	await page.getByTestId('mail-read-after').uncheck();
