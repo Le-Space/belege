@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.50.0] – 2026-11-21
+
 ### Added
 
 - **A payment that is partly private use is booked in two parts** (#935). Under a payment's "Konto" a private share takes a percentage and an account; the DATEV export then writes two bookings that add up to the payment to the cent – the business part on the expense account with its BU key, the private part on the share's account without a key – and the overview names both. The share is suggested: what was confirmed for this vendor last time (also "whole"), else a rule of the books under Einstellungen → DATEV with one percentage for a landline or fixed internet connection and one for mobile and everything else, applied to bills whose payment or receipt names such a service. The rule is off until a percentage and an account are set; nothing is split without a confirmation. The language model's account suggestion is unchanged.
