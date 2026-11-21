@@ -10,7 +10,7 @@ An Eigenbeleg is a receipt the payer writes for a payment that has no receipt fr
 - **The Eigenbeleg of one booking** (Belege's, `@le-space/eigenbeleg/booking`, `/booking-pdf`): `bookingPdf(doc)` for a `BookingEigenbeleg` – a bank booking or a crypto payment, with an own wallet's transaction in full (whole hash, both addresses, every movement with the gas, the explorer link as a QR code). The booking's context is the caller's to gather. `nextSelfNumber(receipts, year)` – the range EB-YYYY-NNN.
 - **A statement Eigenbeleg** (Belege's Aleph, Akash and travel statements, `@le-space/eigenbeleg/statement-layout`): `statementLayout({ title, created, continuation })` → `head`, `field`, `rule`, `heading`, `table` (the header repeats on a new page), `signature`, `save`.
 
-Every PDF has Eigenbeleg's look (`layout.js`): A4, grey labels beside their values, a note in a tinted box, page numbers at the foot, a line to sign. `creator` names the program in the metadata (`eigenbeleg` for the period's documents, `Belege` for a booking's and a statement's unless given).
+Every PDF has Eigenbeleg's look (`layout.js`, [#951](https://github.com/Le-Space/belege/issues/951)): A4 with 48 pt margins, the title first and a strong rule under the head, small grey labels, rules in two weights and no fills or boxes, a total between two rules, colour for a warning only, page numbers at the foot, a line to sign. The sizes, colours and rule weights are tokens (`TYPE`, `INK`, `GREY`, `RULE`, `WARN`, `STROKE`); nothing is set outside them. `creator` names the program in the metadata (`eigenbeleg` for the period's documents, `Belege` for a booking's and a statement's unless given).
 
 ## The issuer's own logo
 
