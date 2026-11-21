@@ -163,3 +163,101 @@ test('a second passkey opens the same books, also alone on an empty device', asy
 	await expect.poll(() => transactions(page)).toEqual(['Mit B gebucht']);
 	expect(await books(page)).toEqual(booksOfA);
 });
+
+// #524: passkey B has a slot in books made elsewhere, kept on Aleph – and
+// opens Belege on an empty device without the index being asked (here: the
+// network is paused). The device founds books of its own. Under
+// Einstellungen → Schlüssel it then asks Aleph, is offered the other books,
+// and opens them; the books it founded stay in the browser, set aside.
+test('a device that founded its own books finds the vault its passkey belongs to', async ({
+	page
+}) => {
+	await page.addInitScript((url) => localStorage.setItem('belege.e2e.alephUrl', url), aleph.url);
+	const cdp = await addVirtualAuthenticator(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	await page.getByTestId('passkey-label').fill('Laptop');
+	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible();
+	const booksOfA = await books(page);
+	let keys = await openKeys(page);
+	await keys.getByTestId('keys-add-label').fill('YubiKey');
+	await keys.getByTestId('keys-add').click();
+	await expect(keys.getByTestId('keys-done')).toContainText('öffnet dieselben Bücher', {
+		timeout: 30_000
+	});
+
+	// The other device: only passkey B, nothing in the browser, the network paused.
+	const stored = await page.evaluate(() =>
+		JSON.parse(String(localStorage.getItem('belege.webauthnCredential')))
+	);
+	const { credentials } = await cdp.send('WebAuthn.getCredentials', {
+		authenticatorId: cdp.authenticatorId
+	});
+	const toBase64 = (/** @type {string} */ u) => Buffer.from(u, 'base64url').toString('base64');
+	const a = credentials.find((c) => c.credentialId === toBase64(stored.credentialId));
+	await cdp.send('WebAuthn.removeCredential', {
+		authenticatorId: cdp.authenticatorId,
+		credentialId: /** @type {any} */ (a).credentialId
+	});
+	await forgetThisDevice(page);
+	await page.goto('/');
+	await acceptConsent(page);
+	const asked = aleph.calls.length;
+	await page.evaluate(() =>
+		localStorage.setItem(
+			'belege.network-paused',
+			JSON.stringify({ ucep: false, at: '2026-01-01T00:00:00.000Z' })
+		)
+	);
+	await page.getByTestId('passkey-restore').click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	// Paused: Aleph was not asked, and B founded books of its own.
+	expect(aleph.calls.length).toBe(asked);
+	const ownBooks = await books(page);
+	expect(ownBooks.booksDid).not.toBe(booksOfA.booksDid);
+
+	// The network on again. An unlock by itself still asks nothing: device sync is off.
+	await page.evaluate(() => localStorage.removeItem('belege.network-paused'));
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	expect(await books(page)).toEqual(ownBooks);
+	expect(aleph.calls.length).toBe(asked);
+	await expect(page.getByTestId('other-books-banner')).toHaveCount(0);
+
+	// Asked under Einstellungen → Schlüssel: the other vault, with its two passkeys.
+	keys = await openKeys(page);
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(1);
+	await keys.getByTestId('keys-other-ask').click();
+	const offer = keys.getByTestId('other-books-offer');
+	await expect(offer).toContainText('Passkeys darin: 2', { timeout: 30_000 });
+	await offer.getByTestId('other-books-open').click();
+
+	// The page reloads; the passkey answers once and opens the books made elsewhere.
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	await expect(page.getByTestId('other-books-result')).toHaveAttribute('data-result', 'opened');
+	expect(await books(page)).toEqual(booksOfA);
+	keys = await openKeys(page);
+	await expect(keys.getByTestId('keys-slot')).toHaveCount(2);
+	// Both vaults are kept, sealed: the one founded here set aside for this passkey.
+	const kept = await page.evaluate(() =>
+		JSON.parse(String(localStorage.getItem('belege.vaults.v1'))).map((/** @type {any} */ r) => ({
+			slots: r.vault.slots.length,
+			aside: (r.aside ?? []).length
+		}))
+	);
+	expect(kept).toEqual([
+		{ slots: 1, aside: 1 },
+		{ slots: 2, aside: 0 }
+	]);
+	expect(await page.evaluate(() => sessionStorage.getItem('belege.vault.other'))).toBeNull();
+
+	// From now on, with nothing asked: the same books.
+	await page.reload();
+	await page.getByRole('button', { name: 'Mit gespeichertem Passkey entsperren' }).click();
+	await expect(page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
+	expect(await books(page)).toEqual(booksOfA);
+	await expect(page.getByTestId('other-books-result')).toHaveCount(0);
+});

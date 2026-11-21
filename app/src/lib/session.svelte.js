@@ -1,5 +1,6 @@
 // App-wide state: who is signed in, and the records the pages show.
 import { networkPause } from './network-pause.js';
+import { OTHER_BOOKS_KEY, asksAtUnlock, describeOther, worthOffering } from './keys/other-vault.js';
 import {
 	createPasskeyCredential,
 	loadStoredPasskeyCredential,
@@ -92,6 +93,20 @@ export const app = $state({
 	vault: { slots: [], indexOn: false, words: null },
 	/** Books just made: recovery words are offered once (keys/WordsOffer.svelte). */
 	offerWords: false,
+	/**
+	 * The other books this passkey has on Aleph (#524, keys/other-vault.js):
+	 * a vault of other books that it opens, offered in place of the ones this
+	 * device founded. null: none known, or not asked.
+	 * @type {{ passkeys: number, words: boolean, since: string } | null}
+	 */
+	otherBooks: null,
+	/**
+	 * After the person took that offer and the passkey answered: `opened` –
+	 * these are those books; `none` – they could not be opened, these are the
+	 * books of before.
+	 * @type {'' | 'opened' | 'none'}
+	 */
+	otherBooksOpened: '',
 	/**
 	 * New keys for the books (#627): `left` – this passkey has no slot in the
 	 * new vault, these are the old books; `done` – the books were taken over
@@ -562,15 +577,16 @@ export const readOnly = () => session?.member?.role === 'reader';
  * @param {any} credential
  * @param {ReturnType<typeof import('./unlock-progress.js').createUnlockProgress>} [progress]
  * @param {(purpose: 'prf') => Promise<void>} [beforePrompt] what the next touch is for (#429)
- * @param {{ lookupVault?: boolean, recovered?: Recovered, memberOf?: string }} [options] `lookupVault`: an empty
- *   device – ask Aleph's index for the vault (#406); `recovered`: opened with recovery words;
+ * @param {{ lookupVault?: boolean, otherVault?: boolean, recovered?: Recovered, memberOf?: string }} [options] `lookupVault`: an empty
+ *   device – ask Aleph's index for the vault (#406); `otherVault`: the other books this
+ *   passkey has there, as the person chose (#524); `recovered`: opened with recovery words;
  *   `memberOf`: a member's books, by the member vault's id (#612)
  */
 async function unlockWith(
 	credential,
 	progress,
 	beforePrompt,
-	{ lookupVault = false, recovered, memberOf } = {}
+	{ lookupVault = false, otherVault = false, recovered, memberOf } = {}
 ) {
 	// Loaded lazily: Helia, libp2p and OrbitDB are most of the bundle, and the
 	// onboarding screen needs none of them.
@@ -579,9 +595,12 @@ async function unlockWith(
 		onStatus: (s) => progress?.status(s),
 		beforePrompt,
 		lookupVault,
+		...(otherVault ? { otherVault } : {}),
 		...(recovered ? { recovered } : {}),
 		...(memberOf ? { memberOf } : {})
 	});
+	app.otherBooks = null;
+	app.otherBooksOpened = otherVault ? (session.vault?.switched ? 'opened' : 'none') : '';
 	// The books have new keys (#627): this passkey took the new vault – the
 	// page opens it at once, with one more answer of the passkey – or has no
 	// slot in it, and stays in the old books, which say so.
@@ -629,6 +648,20 @@ async function unlockWith(
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
+	// Books that look empty, on a device that is online: this passkey may have
+	// others on Aleph (#524). Not awaited, and no reason for an unlock to fail.
+	if (
+		!otherVault &&
+		asksAtUnlock({
+			paused: Boolean(networkPause()),
+			online: Boolean(session.online),
+			mode: session.mode,
+			member: Boolean(session.member),
+			empty: app.transactions.length === 0 && app.receipts.length === 0
+		})
+	) {
+		lookForOtherBooks('unlock').catch((e) => console.warn('other books on Aleph:', e));
+	}
 	// New keys made on this device (#627): the books packed before the reload come in.
 	await takeOverAfterNewKeys().catch((e) => console.error('new keys:', e));
 	// Changed elsewhere while this device was locked: one run, in the background (#473).
@@ -717,8 +750,13 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		// The books chosen on the unlock screen (#612): the own, or a member's.
 		const { chosenBooks } = await import('./members/open-choice.js');
 		const memberOf = flow === 'unlock' ? chosenBooks() : '';
+		// The person chose the other books of this passkey (#524): this one unlock.
+		// Read in every case, so it never waits for a later unlock.
+		const chosen = takeOtherBooksChoice();
+		const otherVault = flow === 'unlock' && !memberOf && chosen;
 		await unlockWith(credential, progress, passkeyStepsFor(flow), {
 			lookupVault: flow === 'restore' && !networkPause(),
+			...(otherVault && !networkPause() ? { otherVault } : {}),
 			...(opened ? { recovered: opened } : {}),
 			...(memberOf ? { memberOf } : {})
 		});
@@ -772,6 +810,56 @@ async function showVault() {
 		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true,
 		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null
 	};
+}
+
+/** The choice `openOtherBooks` left for this unlock, read once. */
+function takeOtherBooksChoice() {
+	try {
+		const chosen = globalThis.sessionStorage?.getItem(OTHER_BOOKS_KEY) === '1';
+		globalThis.sessionStorage?.removeItem(OTHER_BOOKS_KEY);
+		return chosen;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Ask this passkey's index on Aleph whether it has other books than the ones
+ * open (#524), and offer them (`app.otherBooks`). Never while the network is
+ * paused, never for a member's books. What the index names is checked with
+ * the passkey's own slot before anything is said (books-vault.js `otherBooks`).
+ *
+ * @param {'restore' | 'asked' | 'unlock'} why a backup was refused, the person asked, or books that look empty
+ * @returns {Promise<boolean>} whether there are such books to offer
+ */
+export async function lookForOtherBooks(why) {
+	if (!session?.vault || session.member || networkPause()) return false;
+	const asked = session;
+	const { wordsSlotId } = await import('./books-vault.js');
+	const there = await asked.otherVault();
+	// The books were closed, or others opened, while Aleph answered.
+	if (session !== asked || !asked.vault) return false;
+	app.otherBooks =
+		there && worthOffering(why, asked.vault.record, there)
+			? describeOther(there, await wordsSlotId())
+			: null;
+	return Boolean(app.otherBooks);
+}
+
+/**
+ * The person's yes to the offer: the page reloads, and the next unlock asks
+ * the index again and opens those books with the passkey's answer – or the
+ * ones here, when that fails. The books this device founded stay in this
+ * browser, set aside for this passkey (books-vault.js `openBooksVault`).
+ */
+export async function openOtherBooks() {
+	if (!session) throw new Error('The books are not open.');
+	if (networkPause()) throw new Error(t('settings.keys.paused'));
+	globalThis.sessionStorage.setItem(OTHER_BOOKS_KEY, '1');
+	await session.stop().catch(() => {});
+	session = null;
+	location.reload();
+	return new Promise(() => {});
 }
 
 /**

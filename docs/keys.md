@@ -47,6 +47,8 @@ In this browser the vault record is in `localStorage`. On an empty device, a pas
 
 Both are sealed, signed by keys only the passkey or R lead to, and carry no names, no wallet: beside the vault only each slot's credential id and date (`app/src/lib/backup/vault-index.js`). "Mit vorhandenem Passkey wiederherstellen" asks there, unless the network is paused; then the books open with their keys, and "Wiederherstellen" lists the backups.
 
+**A device that founded books of its own** ([#524](https://github.com/Le-Space/belege/issues/524)): a passkey that already has a slot in a vault made elsewhere, opened here without "Wiederherstellen" or with the network paused, gets new, empty books, and a backup of the others is refused as another vault's. From then on the browser has a vault for that passkey and does not ask Aleph by itself. The passkey's own index is asked again in three cases, never while the network is paused: after a backup was refused as another vault's; when you press "Bei Aleph nachfragen" under _Einstellungen → Schlüssel_; and at an unlock of books that hold no booking and no receipt, on a device with device sync on over the public relays. What the index names counts only if this passkey's slot opens it and it holds another root than the books open. Then the other books are offered. On your yes the page reloads, the passkey answers once, and that unlock asks the index again, opens the other vault and keeps it; the vault founded here stays in `localStorage`, set aside for this passkey (`aside`), so nothing is deleted. If anything fails on the way, the books from before open.
+
 ## What comes from R
 
 HKDF-SHA-256 derives each key from R under a label of its own (`app/src/lib/database-keys.js`); the main ones:
