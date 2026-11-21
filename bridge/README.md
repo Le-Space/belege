@@ -493,6 +493,12 @@ All portal calls answer 409 `PORTAL_BUSY` while another run of the same portal i
 
 ### Mail
 
+- What the app is handed, and what it may move: mails to the accounting address – and, of the rest
+  of the mailbox, only what the targeted search found. A mail's id says where it lies and nothing
+  more; for a mail outside the accounting scope the search adds a seal to the id that only this
+  bridge can make (from the mailbox's password, so it holds across restarts). `/mail/attachment`
+  and `/mail/trash` take a mail to the accounting address, or an id with its seal; `/mail/raw`
+  takes a mail to the accounting address only. Anything else is `403 MAIL_SCOPE`.
 - Every folder is opened read-only (EXAMINE) – with one exception: `POST /mail/trash` opens the one mail's folder to move that mail into the Trash (SPECIAL-USE `\Trash`, else a folder named Trash, Papierkorb or Deleted), only on a person's confirmed click in the app, one mail at a time. Not a delete: the mail can be taken back from the Trash in the mail program. The listing skips Trash, Junk and Drafts (by
   SPECIAL-USE, else by the usual names) and keeps Sent. `X-Original-To` and `Delivered-To` are empty
   on this server, so the server is asked for `To:` or `Received: … for <alias>`, and every hit is
@@ -768,6 +774,10 @@ a token). `POST /portals/new` (`src/portals/local.js`):
   sent to the LLM (the bridge refuses) nor previewed in the app (pdf.js, with eval off) until you
   confirm them. Of an attachment the bridge hands out only PDFs, images and e-invoices (XML), by
   their bytes; a whole mail only when it was sent to the accounting address.
+- **A node or API address the app names** (an own wallet's endpoints, an Aleph API, the Filecoin
+  Pay sources): `https` on the public internet only. An address or a name that means this machine,
+  a private or link-local network is refused as it is written, and a name is resolved right before
+  the request and refused when any of its addresses is such a one; no redirect is followed.
 - **Customer portals**: the browser talks to the portal's own site only (a base URL in
   `bridge.json` is honoured for loopback test servers alone); a download is accepted only as a PDF
   by its bytes. The browser profile with the live session is the new asset here, see

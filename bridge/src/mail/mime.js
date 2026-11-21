@@ -2,6 +2,7 @@
 // first bytes say it is, a plain-text excerpt, the ids the API hands out, the
 // spellings of an amount, date windows. No IMAP here, so all of it is tested
 // without a server.
+import { createHmac } from 'node:crypto';
 
 /**
  * @typedef {object} PartInfo
@@ -204,32 +205,54 @@ export function excerpt(text, max = 2000) {
 }
 
 /**
- * An opaque id for one mail: folder, UIDVALIDITY and UID. The UIDVALIDITY
- * makes an id from before a mailbox was rebuilt fail instead of pointing at
- * another mail.
+ * An id for one mail: folder, UIDVALIDITY and UID. The UIDVALIDITY makes an
+ * id from before a mailbox was rebuilt fail instead of pointing at another
+ * mail.
+ *
+ * The id says where a mail is, and anybody can write one down. So for a mail
+ * outside the accounting scope – a hit of the search in the private mailbox –
+ * the bridge adds a seal (`mac`) only it can make: `<id>.<seal>`. Without the
+ * seal such a mail's attachments are not handed out and it is not moved
+ * (imap.js, `inScope`).
  *
  * @param {{ folder: string, uidValidity: bigint | number | string, uid: number }} ref
+ * @param {(base: string) => string} [seal] for a mail outside the accounting scope
  */
-export function encodeMailId({ folder, uidValidity, uid }) {
-	return Buffer.from(JSON.stringify([folder, String(uidValidity), uid]), 'utf8').toString(
+export function encodeMailId({ folder, uidValidity, uid }, seal) {
+	const base = Buffer.from(JSON.stringify([folder, String(uidValidity), uid]), 'utf8').toString(
 		'base64url'
 	);
+	return seal ? `${base}.${seal(base)}` : base;
+}
+
+/**
+ * The seal of a mail id: an HMAC-SHA-256 under a key only the bridge has,
+ * cut to 128 bits.
+ *
+ * @param {Buffer} key
+ * @param {string} base the id without a seal
+ */
+export function mailIdSeal(key, base) {
+	return createHmac('sha256', key).update(base).digest('base64url').slice(0, 22);
 }
 
 /**
  * @param {string} id
- * @returns {{ folder: string, uidValidity: string, uid: number } | null}
+ * @returns {{ folder: string, uidValidity: string, uid: number, base: string, seal: string | null } | null}
  */
 export function decodeMailId(id) {
-	if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{8,700}$/.test(id)) return null;
+	if (typeof id !== 'string') return null;
+	const m = /^([A-Za-z0-9_-]{8,700})(?:\.([A-Za-z0-9_-]{22}))?$/.exec(id);
+	if (!m) return null;
+	const [, base, seal = null] = m;
 	try {
-		const value = JSON.parse(Buffer.from(id, 'base64url').toString('utf8'));
+		const value = JSON.parse(Buffer.from(base, 'base64url').toString('utf8'));
 		if (!Array.isArray(value) || value.length !== 3) return null;
 		const [folder, uidValidity, uid] = value;
 		if (typeof folder !== 'string' || !folder || folder.length > 200) return null;
 		if (typeof uidValidity !== 'string' || !/^\d{1,20}$/.test(uidValidity)) return null;
 		if (!Number.isSafeInteger(uid) || uid < 1) return null;
-		return { folder, uidValidity, uid };
+		return { folder, uidValidity, uid, base, seal };
 	} catch {
 		return null;
 	}

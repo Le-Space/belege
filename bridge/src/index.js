@@ -36,6 +36,7 @@ import { createFilecoinPayClient } from '@le-space/chains/filecoin-pay';
 import { createAlephBackup } from './aleph-backup.js';
 import { buildRecipes, createPortalManager, keychainAccount } from './portals/index.js';
 import { macosPasswordDialog } from './portals/credentials.js';
+import { publicOnlyFetch } from './public-fetch.js';
 import { dirname, join } from 'node:path';
 
 export { createBridgeServer, LOOPBACK } from './server.js';
@@ -345,6 +346,17 @@ export async function startBridge({
 		log
 	});
 
+	// The chain nodes, indexers and APIs a caller may name: the public internet
+	// only, also for what a name resolves to (public-fetch.js). A fetch handed
+	// in by a test is taken as it is; this machine is let through only when the
+	// bridge itself was started against a stand-in there (tests).
+	const standIn =
+		Boolean(alchemyBaseUrl) ||
+		[alephApi, filecoinPayFake?.index].some((url) => typeof url === 'string' && isLoopbackUrl(url));
+	const chainFetch =
+		walletFetch === fetch
+			? publicOnlyFetch(fetch, { allowLoopback: walletLoopback || standIn })
+			: walletFetch;
 	const rates = fixedRates
 		? /** @type {ReturnType<typeof createRateService>} */ (
 				/** @type {unknown} */ (fixedRateService(fixedRates))
@@ -354,7 +366,7 @@ export async function startBridge({
 				coingeckoKey: () => coingeckoKeychain.read().catch(() => null),
 				// A token CoinGecko does not price: its pool at the block, through the Alchemy key (#163).
 				dex: createDexRates({
-					fetch: walletFetch,
+					fetch: chainFetch,
 					alchemyKey: () => alchemyKeychain.read().catch(() => null),
 					...(alchemyBaseUrl ? { alchemyBaseUrl } : {})
 				})
@@ -641,7 +653,7 @@ export async function startBridge({
 			: null,
 		rates,
 		// Aleph Cloud credits, read only (issue #113); valued with the same rates.
-		aleph: createAlephClient({ fetch: walletFetch, rates }),
+		aleph: createAlephClient({ fetch: chainFetch, rates }),
 		alephLoopback: walletLoopback,
 		...(alephApi ? { alephApi } : {}),
 		alephBackup: config.alephBackup.configured
@@ -654,7 +666,7 @@ export async function startBridge({
 			: null,
 		// Filecoin Pay, read only: a payer's month, valued with the same rates.
 		filecoinPay: createFilecoinPayClient({
-			fetch: walletFetch,
+			fetch: chainFetch,
 			rates,
 			...(filecoinPayFake
 				? { keyed: { api: filecoinPayFake.keyedApi, rpc: filecoinPayFake.keyedRpc }, pauseMs: 0 }
@@ -673,7 +685,7 @@ export async function startBridge({
 		// Read on every statement, so a key set up while the bridge runs counts at once.
 		blockscoutKey: () => blockscoutKeychain.read().catch(() => null),
 		wallets: createWalletService({
-			fetch: walletFetch,
+			fetch: chainFetch,
 			allowLoopback: walletLoopback,
 			getZpub: () => bitcoinKeychain.read().catch(() => null),
 			bitcoinPauseMs,

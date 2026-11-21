@@ -8,6 +8,8 @@ import http from 'node:http';
 import {
 	addressUrl,
 	checkEndpoint,
+	isLocalHostname,
+	isPrivateAddress,
 	createJsonFetcher,
 	hostOf,
 	markSwaps,
@@ -32,6 +34,79 @@ test('explorer links fill the templates, encoded', () => {
 	};
 	assert.equal(txUrl(explorer, 'ab/cd'), 'https://explorer.example.com/tx/ab%2Fcd');
 	assert.equal(addressUrl(explorer, 'f1xyz'), 'https://explorer.example.com/a/f1xyz');
+});
+
+test('an endpoint is on the public internet: no private, local or link-local host, however written', () => {
+	for (const host of [
+		'127.0.0.1',
+		'127.1.2.3',
+		'localhost',
+		'api.localhost',
+		'10.0.0.5',
+		'172.16.0.1',
+		'172.31.255.255',
+		'192.168.1.20',
+		'169.254.169.254',
+		'100.64.0.1',
+		'0.0.0.0',
+		'224.0.0.1',
+		'[::1]',
+		'[::]',
+		'[fc00::1]',
+		'[fd12:3456::1]',
+		'[fe80::1]',
+		'[::ffff:10.0.0.5]',
+		'[::ffff:7f00:1]',
+		'[64:ff9b::10.0.0.5]',
+		// Other spellings of 127.0.0.1 and 10.0.0.5, which a URL reads as addresses.
+		'2130706433',
+		'0x7f.0.0.1',
+		'0177.0.0.1',
+		'10.5',
+		// A machine's bare name, and suffixes kept for local use.
+		'nas',
+		'printer.local',
+		'db.internal',
+		'router.lan',
+		'box.home.arpa',
+		'intranet.corp'
+	]) {
+		assert.equal(checkEndpoint(`https://${host}/api`), null, host);
+		assert.equal(checkEndpoint(`https://${host}:8443`), null, host);
+	}
+	// The public internet, in a name and in both kinds of address.
+	assert.equal(checkEndpoint('https://rpc.example.com/v1'), 'https://rpc.example.com/v1');
+	assert.equal(checkEndpoint('https://172.15.0.1'), 'https://172.15.0.1');
+	assert.equal(checkEndpoint('https://172.32.0.1'), 'https://172.32.0.1');
+	assert.equal(checkEndpoint('https://100.63.0.1'), 'https://100.63.0.1');
+	assert.equal(checkEndpoint('https://[2001:db8::1]'), 'https://[2001:db8::1]');
+	assert.equal(checkEndpoint('https://internal.example.com'), 'https://internal.example.com');
+	// For the tests: this machine, by its two plain names only.
+	assert.equal(
+		checkEndpoint('https://127.0.0.1:9', { allowLoopback: true }),
+		'https://127.0.0.1:9'
+	);
+	assert.equal(checkEndpoint('http://10.0.0.5:9', { allowLoopback: true }), null);
+	assert.equal(checkEndpoint('https://192.168.1.20', { allowLoopback: true }), null);
+});
+
+test('an address is told from a public one as a resolver gives it', () => {
+	for (const address of [
+		'127.0.0.1',
+		'10.1.2.3',
+		'169.254.0.1',
+		'::1',
+		'fe80::1%en0',
+		'fd00::1',
+		'::ffff:192.168.0.1'
+	]) {
+		assert.equal(isPrivateAddress(address), true, address);
+	}
+	for (const address of ['93.184.216.34', '2606:2800:220:1::1', '1.1.1.1']) {
+		assert.equal(isPrivateAddress(address), false, address);
+	}
+	assert.equal(isLocalHostname('example.com.'), false);
+	assert.equal(isLocalHostname(''), true);
 });
 
 test('an endpoint must be https without user, query or fragment; loopback only when allowed', () => {
