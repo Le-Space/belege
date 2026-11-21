@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **The fix for #393 is measured against a production relay** ([docs/resilience-report.md](docs/resilience-report.md), German twin). Through a Le Space relay on Aleph, with 21 minutes of quiet so that the circuit runs into its 20 minutes while the devices idle on a direct connection: in 2 of 2 runs gossipsub's streams were back on the direct connection a second after the relay closed the circuit, nothing was hung up, and a burst of 100 bookings arrived in full. In October the same shape stood at 0 of 100.
+- **The browser specs' runners finish together, and a test that needs a second try is named.** The five shards got the same number of tests each, so one of them ran three times as long as another and a pull request waited for it. The specs are now dealt out by the time they take (`app/e2e/durations.json`, `scripts/e2e-shards.mjs`); a spec without a time counts as a middling one. Each shard keeps Playwright's JSON report, and the run's summary lists the tests that passed only on a second try, each shard's time and the ten longest specs (`scripts/e2e-report.mjs`, which also renews the times from a run's reports). Nothing fails for it: the retry stays, it is only no longer silent.
 
 ## [0.49.1] – 2026-11-21
 
