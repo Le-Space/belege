@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An Aleph usage proof can be corrected.** On the Aleph page, a month that already has its proof shows "Berichtigen": the app reads the month from Aleph again and issues a new proof with a new number that names the one it replaces (and its amount) on the PDF. The old one keeps its number and its file, is marked as replaced and leaves the lists; its number is never given out again. Refused when Aleph's figures are the same as before, which is also what a bridge still running the old reader would give. For the proofs made while a purchase paid in ALEPH valued every credit many times too high. The Verlauf says it.
+
 ### Changed
 
 - **A purchase of Aleph credits paid in ALEPH is the ALEPH that left the wallet, valued at the token's rate of that day** (`@le-space/chains` 0.5.2, `purchaseEntries`): the payment's entry is in ALEPH with `priceAs: 'ALEPH'`, as for any other payment in a token, and its memo names what the credits cost at Aleph's list price, to compare. Until now it was in USD at the list price. A purchase in a dollar token stays in USD. The monthly statement's consumption is still valued at dollars per credit.

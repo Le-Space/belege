@@ -308,6 +308,7 @@ export const REASON =
  * @property {string} reason
  * @property {string} createdAt ISO
  * @property {string} createdBy
+ * @property {{ number: string, amountCents: number, createdAt: string } | null} [replaces] the statement this one corrects
  */
 
 /**
@@ -345,6 +346,117 @@ export async function createAlephStatement({
 	if (!statement.usage.length && !statement.topUps.length && !statement.transfersOut.length) {
 		throw new Error(t('messages.aleph.nothing'));
 	}
+	return issueStatement({
+		store,
+		blobs,
+		all,
+		statement,
+		address,
+		month,
+		accountName,
+		issuer,
+		createdBy,
+		now
+	});
+}
+
+/**
+ * Correct the statement of an account and month: a new one, read again from
+ * Aleph, with a number of its own, that says which one it replaces. The old
+ * one keeps its number and its file, is marked as replaced and taken out of
+ * the lists (a soft delete: a numbered Eigenbeleg is never removed, and its
+ * number is never given out again). For a statement made with a wrong
+ * valuation – until November 2026 a purchase paid in ALEPH valued every
+ * credit many times too high (packages/rates aleph-credits.js).
+ *
+ * Refused when the statement read now says the same amount: nothing would be
+ * corrected, and with a bridge that still runs the old reader the new
+ * document would repeat the mistake.
+ *
+ * @param {Parameters<typeof createAlephStatement>[0]} p
+ */
+export async function correctAlephStatement({
+	store,
+	blobs,
+	client,
+	address,
+	month,
+	accountName = '',
+	issuer = '',
+	createdBy = '',
+	now = () => new Date()
+}) {
+	const all = await store.receipts.list({ includeDeleted: true });
+	const old = findStatement(all, address, month);
+	if (!old) throw new Error(t('messages.aleph.noneToCorrect'));
+	const statement = await client.alephStatement(address, month);
+	await rememberPurchases(store.settings, statement);
+	const before = old.selfReceipt?.aleph ?? {};
+	if (
+		(statement.totals.eurCents ?? 0) === Number(old.amountCents ?? 0) &&
+		statement.totals.usage === before.usage &&
+		statement.totals.topUps === before.topUps
+	) {
+		throw new Error(t('messages.aleph.sameAgain', { number: old.selfNumber }));
+	}
+	const made = await issueStatement({
+		store,
+		blobs,
+		all,
+		statement,
+		address,
+		month,
+		accountName,
+		issuer,
+		createdBy,
+		now,
+		replaces: {
+			id: String(old.id),
+			number: String(old.selfNumber),
+			amountCents: Number(old.amountCents ?? 0),
+			createdAt: String(old.selfReceipt?.createdAt ?? old.createdAt)
+		}
+	});
+	// The old one: marked, then out of the lists. Its number and file stay in the books.
+	await store.receipts.put({
+		...old,
+		selfReceipt: {
+			...old.selfReceipt,
+			replacedBy: made.number,
+			replacedAt: now().toISOString()
+		}
+	});
+	await store.receipts.softDelete(old.id);
+	return { ...made, replaced: String(old.selfNumber) };
+}
+
+/**
+ * @param {object} p
+ * @param {import('../matching/engine.js').MatchingStore} p.store
+ * @param {import('../receipts/blob-store.js').BlobStore} p.blobs
+ * @param {Record<string, any>[]} p.all every receipt, deleted ones too: the number range
+ * @param {AlephStatement} p.statement
+ * @param {string} p.address
+ * @param {string} p.month
+ * @param {string} p.accountName
+ * @param {string} p.issuer
+ * @param {string} p.createdBy
+ * @param {() => Date} p.now
+ * @param {{ id: string, number: string, amountCents: number, createdAt: string } | null} [p.replaces]
+ */
+async function issueStatement({
+	store,
+	blobs,
+	all,
+	statement,
+	address,
+	month,
+	accountName,
+	issuer,
+	createdBy,
+	now,
+	replaces = null
+}) {
 	const created = now();
 	const number = nextSelfNumber(all, month.slice(0, 4));
 	/** @type {StatementDocument} */
@@ -355,7 +467,14 @@ export async function createAlephStatement({
 		statement,
 		reason: REASON,
 		createdAt: created.toISOString(),
-		createdBy
+		createdBy,
+		replaces: replaces
+			? {
+					number: replaces.number,
+					amountCents: replaces.amountCents,
+					createdAt: replaces.createdAt
+				}
+			: null
 	};
 	const { statementPdf } = await import('./statement-pdf.js');
 	const bytes = await statementPdf(doc);
@@ -380,6 +499,7 @@ export async function createAlephStatement({
 				reason: REASON,
 				createdAt: doc.createdAt,
 				createdBy,
+				...(replaces ? { replaces: replaces.number } : {}),
 				// The numbers, for the invoice app later (issue #113, stage 2).
 				aleph: {
 					address,
@@ -397,10 +517,11 @@ export async function createAlephStatement({
 	});
 	if (!record) throw new Error(t('messages.aleph.saveFailed'));
 	await recordEvent(store.events, 'decision', {
-		action: 'aleph-statement',
+		action: replaces ? 'aleph-statement-corrected' : 'aleph-statement',
 		receiptId: record.id,
 		number,
-		month
+		month,
+		...(replaces ? { replaces: replaces.number } : {})
 	});
 	return { receipt: record, number, statement };
 }

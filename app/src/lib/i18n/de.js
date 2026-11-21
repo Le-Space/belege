@@ -529,7 +529,11 @@ export default {
 		aleph: {
 			exists: 'Für diesen Monat gibt es schon den Verbrauchsnachweis {number}.',
 			nothing: 'In diesem Monat hat das Konto keine Credits bewegt: kein Nachweis nötig.',
-			saveFailed: 'Der Verbrauchsnachweis konnte nicht gespeichert werden.'
+			saveFailed: 'Der Verbrauchsnachweis konnte nicht gespeichert werden.',
+			noneToCorrect:
+				'Für diesen Monat gibt es noch keinen Verbrauchsnachweis, der berichtigt werden könnte.',
+			sameAgain:
+				'Aleph liefert für diesen Monat dieselben Zahlen wie in {number}: nichts zu berichtigen. Wurde der Nachweis mit einer falschen Bewertung erstellt, muss zuerst die Bridge auf dem neuen Stand laufen.'
 		},
 		filecoinPay: {
 			exists: 'Für diesen Monat gibt es schon den Filecoin-Pay-Verbrauchsnachweis {number}.',
@@ -1680,7 +1684,11 @@ export default {
 		make: 'Verbrauchsnachweis erstellen',
 		making: 'Erstelle …',
 		exists: 'Nachweis {number} liegt unter Belege.',
-		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.'
+		made: 'Eigenbeleg {number} für {month} erstellt ({eur}); er liegt unter Belege.',
+		correct: 'Berichtigen',
+		correctConfirm:
+			'Den Verbrauchsnachweis {number} für {month} berichtigen? Die App liest den Monat neu von Aleph und stellt einen neuen Nachweis mit neuer Nummer aus, der {number} ersetzt. {number} bleibt mit seiner Nummer und seiner Datei in den Büchern, gilt aber nicht mehr und verschwindet aus den Listen.',
+		corrected: 'Nachweis {number} für {month} ausgestellt ({eur}); er ersetzt {replaced}.'
 	},
 	filecoinPay: {
 		title: 'Filecoin Pay (Speicher in der Filecoin Onchain Cloud)',
@@ -3506,6 +3514,8 @@ export default {
 			'receipt-moved': 'Beleg von einer anderen Zahlung hierher umgehängt',
 			eigenbeleg: 'Eigenbeleg erstellt und zugeordnet',
 			'aleph-statement': 'Aleph-Verbrauchsnachweis {number} für {month} erstellt',
+			'aleph-statement-corrected':
+				'Aleph-Verbrauchsnachweis {number} für {month} ausgestellt, als Berichtigung',
 			'ledger-from-chart': 'Buchhaltungskonten aus dem Kontenplan übernommen',
 			'filecoin-pay-statement': 'Filecoin-Pay-Verbrauchsnachweis {number} für {month} erstellt',
 			booking: 'Konto übernommen',
