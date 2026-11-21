@@ -1394,6 +1394,18 @@ function installE2EHooks() {
 					String(p)
 				),
 			watchNet: () => watchNet(session?.libp2p, session?.store?.databases?.()),
+			// What a relay does when a circuit's time or data is used up: every
+			// relayed connection to another device closed, the relay's own and
+			// the direct ones left alone (e2e/device-circuit-close.spec.js, #393).
+			async closeRelayed() {
+				let closed = 0;
+				for (const c of session?.libp2p?.getConnections?.() ?? []) {
+					if (!/\/p2p-circuit\/p2p\//.test(String(c.remoteAddr))) continue;
+					await c.close().catch(() => {});
+					closed++;
+				}
+				return closed;
+			},
 			netlog: () => netlog.slice()
 		}
 	};
@@ -1408,8 +1420,8 @@ const watched = new WeakSet();
 const describeConnection = (c) => ({
 	peer: String(c.remotePeer),
 	addr: String(c.remoteAddr),
-	// libp2p 3 marks a relayed connection with `limits`; `limited` is the
-	// older flag the app's device-sync still reads. Both, to tell them apart.
+	// libp2p 3 marks a limited (relayed) connection with `limits`; `limited` is
+	// the older flag, kept here to show that nothing sets it any more.
 	limited: c.limited ?? null,
 	limits: c.limits ?? null,
 	direction: c.direction,

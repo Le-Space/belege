@@ -30,6 +30,11 @@
 // is refused and swallowed. So once a device is connected directly, every
 // database's sync is restarted once (bounded, debounced) – the exchange then
 // runs over the direct connection.
+//
+// gossipsub keeps its streams on the first connection to a device, the
+// relay's circuit. When the relay closes it beside a direct connection,
+// gossipsub is told of the connection that is left (regossip.js, #393), and
+// the databases exchange their heads once more.
 
 import { FaultTolerance } from '@libp2p/interface';
 import { isLoopback, isPrivate } from '@libp2p/utils';
@@ -42,6 +47,7 @@ import { webRTC, webRTCDirect } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { isLocal } from '../ucep/net.js';
 import { qrTransport } from './qr-link.js';
+import { connectionToRegossip, gossips, regossip } from './regossip.js';
 import { t } from '../i18n/index.js';
 
 export const SYNC_FLAG_KEY = 'belege.device-sync';
@@ -57,8 +63,22 @@ export const HANGUP_EVERY_MS = 5 * 60_000;
 /** The first wait before a lost place at a relay is asked for again; it doubles up to RELAY_RETRY_MAX_MS. */
 export const RELAY_RETRY_MS = 30_000;
 export const RELAY_RETRY_MAX_MS = 10 * 60_000;
-/** What OrbitDB's heads ride on. A connection without it carries no replication. */
-const MESHSUB = '/meshsub/';
+/**
+ * After a connection to a device closed: how long until gossipsub is looked
+ * at. Its own bookkeeping of the closed streams has run by then, and a device
+ * that is gone altogether has been reported as disconnected.
+ */
+export const REGOSSIP_SETTLE_MS = 250;
+/**
+ * How much later the device with the greater peer id runs its extra heads
+ * exchange. Both devices see the same connection open or close at the same
+ * moment; restarting every database's sync on both at once, each can ask
+ * while the other has just stopped listening, and the exchange is lost. One
+ * after the other, either restart alone brings both up to date.
+ */
+export const RESYNC_STAGGER_MS = 3000;
+/** How often gossipsub is told of the connection that is left, a second apart, before the redial round takes over. */
+export const REGOSSIP_TRIES = 5;
 /** A settings record per device: one record each, so two devices never overwrite each other. */
 export const DEVICE_PREFIX = 'device:';
 
@@ -483,8 +503,10 @@ export async function startDeviceSync({
 	}
 	await writeSelf();
 
-	const open = (/** @type {string} */ peerId) =>
-		libp2p.getConnections().some((/** @type {any} */ c) => c.remotePeer.toString() === peerId);
+	/** @returns {any[]} the connections to a device */
+	const linksTo = (/** @type {string} */ peerId) =>
+		libp2p.getConnections().filter((/** @type {any} */ c) => c.remotePeer.toString() === peerId);
+	const open = (/** @type {string} */ peerId) => linksTo(peerId).length > 0;
 	const connected = (/** @type {string} */ peerId) => open(peerId) && gate.isProved(peerId);
 	const direct = (/** @type {string} */ peerId) =>
 		libp2p
@@ -502,16 +524,11 @@ export async function startDeviceSync({
 	 * connection beside it survives, and gossipsub opens nothing on the
 	 * survivor. Asking whether a connection is open cannot see that.
 	 */
-	const gossiping = (/** @type {string} */ peerId) =>
-		libp2p
-			.getConnections()
-			.some(
-				(/** @type {any} */ c) =>
-					c.remotePeer.toString() === peerId &&
-					(c.streams ?? []).some((/** @type {any} */ st) =>
-						String(st.protocol ?? '').startsWith(MESHSUB)
-					)
-			);
+	const gossiping = (/** @type {string} */ peerId) => {
+		const to = linksTo(peerId);
+		// Both ways: each device opens only the stream it speaks on.
+		return gossips(to, 'outbound') && gossips(to, 'inbound');
+	};
 
 	/** Since when a device has been connected with gossipsub silent, in ms. */
 	const muteSince = new Map();
@@ -593,6 +610,60 @@ export async function startDeviceSync({
 		hangUps++;
 		await hangUp(peerId);
 		return true;
+	}
+
+	/** Timers of `putGossipBack`, by device: one look at a time. @type {Map<string, ReturnType<typeof setTimeout>>} */
+	const regossiping = new Map();
+
+	/**
+	 * Put gossipsub back on a connection to a device it has no stream of its
+	 * own to (#393, regossip.js): told of the best connection that is left, as
+	 * it would be of a new one, and looked at again a second later until the
+	 * stream is there. Then every database exchanges its heads once more: what
+	 * was written into the silence is not sent again by itself, and OrbitDB
+	 * saw no disconnect that would make it ask.
+	 *
+	 * Nothing is dialled and nothing closed. Not while the network is paused,
+	 * and not for a device that has not proved the passkey.
+	 *
+	 * @param {string} peerId
+	 * @param {number} [tries] how often it is still told when the stream does not come
+	 */
+	function putGossipBack(peerId, tries = REGOSSIP_TRIES) {
+		clearTimeout(regossiping.get(peerId));
+		regossiping.delete(peerId);
+		if (stopped || gateClosed || !known.has(peerId) || isBridge(peerId) || !connected(peerId))
+			return;
+		const connection = connectionToRegossip(linksTo(peerId), isDirectAddr);
+		if (!connection) return;
+		if (tries <= 0 || !regossip(libp2p, connection)) return;
+		regossiping.set(
+			peerId,
+			setTimeout(() => {
+				regossiping.delete(peerId);
+				if (stopped) return;
+				if (gossips(linksTo(peerId), 'outbound')) {
+					report();
+					resyncSoon(peerId);
+				} else putGossipBack(peerId, tries - 1);
+			}, 1000)
+		);
+	}
+
+	/**
+	 * Every database's heads exchange once more, a moment from now; several
+	 * askings make one. The two devices take turns (RESYNC_STAGGER_MS).
+	 *
+	 * @param {string} peerId the device it is for
+	 */
+	function resyncSoon(peerId) {
+		clearTimeout(resyncTimer);
+		resyncTimer = setTimeout(
+			() => {
+				if (!stopped) store.resync().catch(() => {});
+			},
+			1000 + (self > peerId ? RESYNC_STAGGER_MS : 0)
+		);
 	}
 
 	/** Another device removed this one: stop and hang up. */
@@ -686,9 +757,16 @@ export async function startDeviceSync({
 		if (open(peerId)) {
 			// Connected, but not proved yet (the first exchange failed): again.
 			await gate.proveTo?.(peerId);
-			// Open is not the same as replicating: a mute one is hung up, and
-			// then dialled below as if it had never been connected (#393, #403).
-			if (isBridge(peerId) || !(await hangUpIfMute(peerId))) return;
+			if (isBridge(peerId)) return;
+			// Open is not the same as replicating. A mute one first has gossipsub
+			// put back on it, should the look after a closed connection have
+			// missed it; one that stays mute is hung up, and then dialled below
+			// as if it had never been connected (#393, #403).
+			// Only one seen mute on an earlier round already: a connection that
+			// is just being set up has no streams yet either.
+			if (muteSince.has(peerId) && !regossiping.has(peerId) && !gossiping(peerId))
+				putGossipBack(peerId);
+			if (!(await hangUpIfMute(peerId))) return;
 		}
 		const { multiaddr } = await import('@multiformats/multiaddr');
 		// Through the relays; the bridge's node also where it listens itself (on this machine).
@@ -748,22 +826,32 @@ export async function startDeviceSync({
 		report();
 	}
 
-	// A device connected directly: run every database's heads exchange once
-	// more, now that it goes over a connection OrbitDB may use (see above).
+	// A device connected over a connection OrbitDB may use: run every
+	// database's heads exchange once more, now that it can go through (see
+	// above). A relay's limited circuit is not one – libp2p 3 marks it with
+	// `limits` (`limited` is gone) –, so the exchange waits for the connection
+	// that follows it, instead of being spent on the circuit a second after it
+	// opened.
 	libp2p.addEventListener('connection:open', (/** @type {any} */ e) => {
 		const peerId = e.detail.remotePeer.toString();
 		report();
-		if (!known.has(peerId) || isBridge(peerId) || e.detail.limited || resynced.has(peerId)) return;
+		if (!known.has(peerId) || isBridge(peerId) || e.detail.limits != null || resynced.has(peerId))
+			return;
 		resynced.add(peerId);
-		clearTimeout(resyncTimer);
-		resyncTimer = setTimeout(() => {
-			if (!stopped) store.resync().catch(() => {});
-		}, 1000);
+		resyncSoon(peerId);
 	});
 	libp2p.addEventListener('connection:close', (/** @type {any} */ e) => {
 		const peerId = e.detail.remotePeer.toString();
 		if (!connected(peerId)) resynced.delete(peerId);
 		report();
+		// The connection gossipsub's streams were on may be the one that went
+		// (#393): looked at once its close has settled.
+		if (!stopped && known.has(peerId) && !isBridge(peerId) && !regossiping.has(peerId)) {
+			regossiping.set(
+				peerId,
+				setTimeout(() => putGossipBack(peerId), REGOSSIP_SETTLE_MS)
+			);
+		}
 		// A relay's connection takes this node's place there with it, a moment
 		// after the close: told again, so the relay light does not stay green.
 		setTimeout(() => {
@@ -781,6 +869,8 @@ export async function startDeviceSync({
 		stopped = true;
 		clearInterval(timer);
 		clearTimeout(resyncTimer);
+		for (const pending of regossiping.values()) clearTimeout(pending);
+		regossiping.clear();
 		unsubscribe();
 		unproved();
 	}
@@ -902,7 +992,7 @@ export async function startDeviceSync({
  *   a device's `bridge`: the bridge's own node (#573), reached for the bridge's functions, replicating nothing;
  *   `addrs`: this node's own addresses (a `/p2p-circuit` one is its place at a relay);
  *   a device's `links`: each connection to it, by remote address, direct or relayed, with the last round trip in ms
- *   `gossiping`: a `/meshsub/` stream is open to it, so replication can actually move (#393);
+ *   `gossiping`: a `/meshsub/` stream is open to it each way, so replication can actually move (#393);
  *   `hangUps`: how often a device was hung up for staying mute while connected
  */
 

@@ -35,6 +35,15 @@ export default defineConfig({
 		reuseExistingServer: false,
 		timeout: 240_000
 	},
-	use: { baseURL: `http://localhost:${port}`, locale: 'de-DE', trace: 'off', video: 'off' },
+	use: {
+		baseURL: `http://localhost:${port}`,
+		locale: 'de-DE',
+		// As in playwright.config.js: without a media permission Chromium offers
+		// only the default route's address, and behind a VPN the two devices never
+		// reach each other over WebRTC – the initial sync then waits for ever.
+		permissions: ['microphone'],
+		trace: 'off',
+		video: 'off'
+	},
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
 });

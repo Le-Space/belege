@@ -40,6 +40,6 @@ Aus [resilience.de.md](resilience.de.md), zwei Browser-Kontexte auf einer Maschi
 - **Gleicher Raum, zwei QR-Codes:** 0 Anfragen verlassen die Maschine; Kopplung in 0,9–1,4 s.
 - **Netztrennung mit Schreiben auf beiden Seiten:** 0 von 90 Buchungen verloren; beide Seiten sind 0,4 s nach der Wiederverbindung gleich.
 - **Ein Browser, der alles verloren hat:** 10 000 Buchungen in 79 s aus dem Backup zurück, linear, keine verloren.
-- **Ein Relay, das seine Verbindung unter gossipsub schließt:** Der Schub bleibt hängen (#393); die App bemerkt den fehlenden gossipsub-Stream und holt nach etwa 53 s alles nach. Die Korrektur gehört in gossipsub.
+- **Ein Relay, das seine Verbindung unter gossipsub schließt:** gossipsub verliert seine Streams und öffnet auf der direkten Verbindung daneben keine neuen (#393); die App setzt es auf die verbliebene Verbindung und tauscht die Heads erneut aus, binnen Sekunden und ohne aufzulegen. Ein Gerät, das trotzdem stumm bleibt, wird nach 45 s aufgelegt. Die Korrektur gehört in gossipsub.
 
 Offen: Ein Gerät, das sein Relay verliert, wählt es nie wieder an (#403), und die 23 s Wiederverbindung nach einer Pause.

@@ -42,6 +42,24 @@ Both arms stall the same way, within one booking of each other; the only differe
 
 This is a stopgap and nothing more. It hangs up a connection that looks healthy to force a new one, it waits 45 s before doing so, and it is rate-limited to once per device every five minutes because a wrong guess must not drop a working device in a loop. The bug it works around is gossipsub's, so [#393](https://github.com/Le-Space/belege/issues/393) and [#403](https://github.com/Le-Space/belege/issues/403) stay open.
 
+**Closed in the app (2026-11-21).** The stopgap waited for the silence and then tore the connection down. What a new connection does for gossipsub can be done for the one that is still there: when a connection to a known device closes and another stays, the app looks – a quarter of a second later, once the close has settled – whether it still has an outbound gossipsub stream to that device, and if not tells gossipsub's topology of the best connection that is left (one without a relay's limits before a limited one, a direct one before a relayed one), exactly as libp2p's registrar does for a new connection. gossipsub opens its stream there and sends its subscriptions; the other device does the same for its side; then every database exchanges its heads once more, for what was written into the silence – the device with the smaller peer id first, the other three seconds later, because two devices that restart their sync in the same instant can miss each other. No connection is closed and nothing is dialled, so the pause and the network mode have nothing to refuse; a paused network and a device that has not proved the passkey are left alone. The 45-second hang-up stays as the last resort behind it.
+
+Same machine, same test relay, 50 bookings, ten single bookings each way before the burst (`app/bench/results/2026-11-21-resilience-replication-relay-50-*.json`):
+
+| | main, before | with the fix |
+| --- | --- | --- |
+| circuit expires after 5 s, 8 s of quiet, then the burst | stalled at 0 of 100 in 2 of 2 runs (and in 8 of 9 further runs with one round trip); back after 37–84 s by hanging up | **100 of 100 in 6 of 6 runs**, 2.5–2.6 s after the last booking was written |
+| library default limits (the data cap closes the circuit during the burst) | stalled at 23 of 100 in 1 of 1; back after 61 s | **100 of 100 in 6 of 6 runs**, 0.9–3.1 s after the last booking was written |
+| connections hung up to get there | every run | none |
+
+In the quiet runs the whole burst travels as single gossipsub messages, which the receiving store takes in one at a time; in the default runs the heads exchange after the close brings most of it at once. In two of the default runs the data cap closed the circuit already during the single bookings: the one booking written into that silence took 4.4 s, the time until the heads exchange, instead of 70 ms. Writing the burst itself took 2.8–3.8 s on that day against 0.8 s in October, on main as with the fix, so the absolute times of this table compare with each other and not with the tables above.
+
+Two things came out beside it. The benchmark's browsers had no media permission, which the browser specs have had for a while: behind a VPN the two devices then never reach each other over WebRTC and the late joiner waits for ever; the benchmark sets it now. And the late joiner's first sync sometimes hangs before any circuit closes – on main in 7 of 12 runs (4 late, 3 not within 45 s), with the fix in none of the twelve runs of the table but in 9 of 40 earlier ones (4 late, 5 not within the wait) – with a WebRTC connection that is dead on one side and still listed on the other; that is not this bug, and it is [#909](https://github.com/Le-Space/belege/issues/909). The benchmark now writes down the network from before the devices meet (`initialNetwork`) and keeps a run whose first sync failed.
+
+Also corrected: the app asked a connection for `limited`, which libp2p 3 no longer sets (it is `limits`), so the heads exchange meant for "now that a direct connection is there" was spent a second after the relay's circuit opened – where OrbitDB's dial is refused – and not repeated for the connection that followed. It now waits for a connection without limits.
+
+What is not measured: the production relays. The mechanism is the same there – whatever closes the circuit, the 20-minute limit or a lost relay connection, leaves gossipsub without streams beside a direct connection – but a run against them (21 minutes of quiet, as on 2026-10-14) has not been made with the fix. And the fix in gossipsub itself is still the right one: it would also cover peers that are not this app.
+
 **With production-like limits** (the Le Space relays run 20 minutes and 10 GiB per circuit; `E2E_RELAY_UNLIMITED=1` lifts the test relay's cap), everything passes, and the numbers match the relay-free ones within noise:
 
 | books (bookings) | pair (scan → "verbunden") | late joiner gets all of them | Mac → phone, median (p95) | phone → Mac, median (p95) | burst of 100 |
@@ -50,7 +68,7 @@ This is a stopgap and nothing more. It hangs up a connection that looks healthy 
 | 500              | 0.3 s                     | 5.5 s                        | 122 ms (139)              | 125 ms (148)              | 1.7 s        |
 | 2 000            | 0.3 s                     | 22.5 s                       | 1.6 s (1.9)               | 1.2 s (1.4)               | 3.8 s        |
 
-So the relay adds nothing measurable to latency on one machine; what matters is its circuit limit. A relay that caps circuits at the library's default will cut a bank import in half and leave the devices apart until the next reconnect — which is why the Le Space relays raise the limits. Their 20 minutes are a limit too, which is why #393 remains the thing to fix on the client.
+So the relay adds nothing measurable to latency on one machine; what matters is its circuit limit. A relay that caps circuits at the library's default will cut a bank import in half and leave the devices apart until the next reconnect — which is why the Le Space relays raise the limits. Their 20 minutes are a limit too; since 2026-11-21 the app puts gossipsub back on the direct connection when a circuit closes (above, #393).
 
 ### Over a real relay: the Le Space relay on Aleph (2026-10-14)
 
@@ -146,7 +164,7 @@ The same 108 232 bytes from both: the domain serves exactly the CID the release 
 
 - Measured: replication latency and throughput between two browsers on one machine, with and without a relay; the behaviour across a partition; backup and restore times by size; what the app weighs and how fast it arrives from two sources. Every run is reproducible with the commands above; the JSON files hold the raw numbers.
 - Not measured: real networks beyond one relay across the internet (above, both devices on one machine — NAT traversal between two networks, mobile links), more than two devices, receipt files (the books here hold bookings only — a year of PDFs adds megabytes to the backup), a real Aleph (the fake answers from memory), and browsers other than Chromium.
-- Honest weak spots, all measured rather than assumed: the burst stall over a default-limited relay, which the app now notices and recovers from after about 53 s but which stays gossipsub's to fix (#393); a device that never redials a lost relay (#403); the 23 s reconnect after a pause. The superlinear restore of earlier versions is gone (above).
+- Honest weak spots, all measured rather than assumed: the burst stall when a relay closes its circuit, which the app now repairs within seconds by putting gossipsub on the connection that is left, though the cause stays gossipsub's to fix (#393); a late joiner's first sync that sometimes hangs (#909); a device that never redials a lost relay (#403); the 23 s reconnect after a pause. The superlinear restore of earlier versions is gone (above).
 
 ## Earlier: how the books behave as they grow
 

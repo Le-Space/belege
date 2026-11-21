@@ -44,6 +44,8 @@ const BURST_TIMEOUT_MS = Number(process.env.RESILIENCE_BURST_TIMEOUT_MS || 10 * 
  * import after twenty minutes on a Le Space relay.
  */
 const BURST_DELAY_MS = Number(process.env.RESILIENCE_BURST_DELAY_MS || 0);
+/** How long the late joiner may take to get the books before the run gives up. */
+const INITIAL_TIMEOUT_MS = Number(process.env.RESILIENCE_INITIAL_TIMEOUT_MS || 10 * 60 * 1000);
 /**
  * How long a burst may take before it counts as stalled.
  *
@@ -419,8 +421,38 @@ for (const mode of /** @type {const} */ (['relay', 'qr'])) {
 				expect(await count(phone.page)).toBe(0);
 
 				// The late joiner: connected, then every booking the Mac already had.
+				// Watched from before they meet: which connections opened and
+				// closed, and when OrbitDB exchanged heads, until the books are over.
+				await Promise.all([net.watch(mac.page), net.watch(phone.page)]);
+				const met = Date.now();
+				const initialNetwork = async () =>
+					Object.fromEntries(
+						await Promise.all(
+							[
+								['mac', mac.page],
+								['phone', phone.page]
+							].map(async ([name, page]) => [
+								name,
+								(await net.log(/** @type {any} */ (page))).map((/** @type {any} */ e) => ({
+									...e,
+									t: e.t - met
+								}))
+							])
+						)
+					);
 				r.pairMs = mode === 'qr' ? await pairViaQr(mac, phone) : await pairViaRelay(mac, phone);
-				r.initialSyncMs = await untilCount(phone.page, size);
+				try {
+					r.initialSyncMs = await untilCount(phone.page, size, INITIAL_TIMEOUT_MS);
+				} catch (e) {
+					// Never came over: the finding is kept, with what the network did.
+					r.initialSyncMs = null;
+					r.initialArrived = await count(phone.page);
+					r.initialNetwork = await initialNetwork();
+					if (mode === 'relay') r.relayLimits = RELAY_LIMITS;
+					keep(r);
+					throw e;
+				}
+				r.initialNetwork = await initialNetwork();
 				expect(await sourceIds(phone.page)).toEqual(await sourceIds(mac.page));
 
 				// Single bookings, both ways.
