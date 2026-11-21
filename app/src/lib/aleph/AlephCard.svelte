@@ -11,6 +11,7 @@
 	import { amount } from '$lib/export/datev.js';
 	import { loadWallets } from '$lib/wallets/wallet-sync.js';
 	import {
+		correctAlephStatement,
 		createAlephStatement,
 		findStatement,
 		loadAleph,
@@ -138,6 +139,43 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			scanning = false;
+		}
+	}
+
+	/**
+	 * Correct the month's statement: read again, a new number, the old one marked as replaced.
+	 * @param {string} address @param {string} oldNumber
+	 */
+	async function correctStatement(address, oldNumber) {
+		const store = currentStore();
+		const blobs = currentBlobs();
+		if (!store || !blobs) return;
+		const chosen = month[address] ?? previousMonth(new Date());
+		if (!confirm(t('aleph.correctConfirm', { number: oldNumber, month: chosen }))) return;
+		making = address;
+		error = null;
+		try {
+			const { number, statement, replaced } = await correctAlephStatement({
+				store,
+				blobs,
+				client,
+				address,
+				month: chosen,
+				accountName: nameOf(address),
+				issuer: app.matchingSettings?.companyNames?.[0] ?? '',
+				createdBy: app.did ?? ''
+			});
+			made[address] = t('aleph.corrected', {
+				number,
+				replaced,
+				month: chosen,
+				eur: statement.totals.eurCents === null ? '—' : `${amount(statement.totals.eurCents)} EUR`
+			});
+			await refreshNow();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			making = null;
 		}
 	}
 
@@ -314,6 +352,14 @@
 							{#if existing}
 								<span class="text-xs text-success" data-testid="aleph-statement-exists"
 									>{t('aleph.exists', { number: existing.selfNumber })}</span
+								>
+								<button
+									type="button"
+									class="text-xs text-faint underline hover:text-heading"
+									disabled={making !== null}
+									onclick={() => correctStatement(a.address, String(existing.selfNumber))}
+									data-testid="aleph-correct"
+									>{making === a.address ? t('aleph.making') : t('aleph.correct')}</button
 								>
 							{:else}
 								<button
