@@ -12,7 +12,7 @@
 	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
 	import { suggestBooking } from './booking/suggest.js';
 	import { offeredTaxKeys, taxKeyLabel, taxKeyName } from './booking/tax-key-names.js';
-	import { accountsForAssist, learnedForAssist } from './booking/assist-input.js';
+	import { assistBody, assistEventData } from './booking/assist-request.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
 		accountLabel,
@@ -21,11 +21,10 @@
 		searchAccounts
 	} from './booking/skr03.js';
 	import { matchesOfTx } from './matching/view.js';
-	import { formatDate, formatMoney } from './bank/format.js';
+	import { formatDate } from './bank/format.js';
 	import AiMark from './AiMark.svelte';
 	import AiCostHint from './AiCostHint.svelte';
 	import { recordEvent } from './activity/events.js';
-	import { eventCalls } from './stats/usage.js';
 	import { list, t } from './i18n/index.js';
 
 	/**
@@ -110,70 +109,25 @@
 	let aiResult = $state(null);
 	let aiBusy = $state(false);
 
-	/** @param {number} cents */
-	const plainMoney = (cents) => formatMoney(Math.abs(cents), 'EUR').replace(/\s*EUR$/, '');
-
 	async function suggestByAi() {
 		if (!client) return;
 		aiBusy = true;
 		error = null;
 		aiResult = null;
 		try {
-			const receipt = receipts[0] ?? null;
-			const ex = /** @type {Record<string, any>} */ (receipt?.extraction ?? {});
-			const own = app.accounts.find((a) => a.id === tx.accountId);
-			const learned = learnedForAssist(app.partners ?? [], [
-				tx.counterparty,
-				tx.purpose,
-				receipt?.vendor ?? ex.vendor
-			]);
-			const r = await client.bookingAssist({
-				booking: {
-					direction: income ? 'in' : 'out',
-					amount: plainMoney(tx.amountCents ?? 0),
-					day: String(tx.bookedOn ?? '').slice(0, 10),
-					account: own ? String(own.name ?? '').slice(0, 200) : null,
-					counterparty: String(tx.counterparty ?? '').slice(0, 200),
-					purpose: String(tx.purpose ?? '').slice(0, 1000)
-				},
-				receipt: receipt
-					? {
-							vendor: String(receipt.vendor ?? ex.vendor ?? '').slice(0, 200) || null,
-							kind: typeof ex.document_type === 'string' ? ex.document_type.slice(0, 60) : null,
-							vat:
-								(Array.isArray(ex.vat) ? ex.vat : [])
-									.map((/** @type {any} */ v) => v?.rate)
-									.filter((/** @type {unknown} */ x) => typeof x === 'number')
-									.map((/** @type {number} */ x) => `${x} %`)
-									.join(', ')
-									.slice(0, 60) || null,
-							items: (Array.isArray(ex.line_items) ? ex.line_items : [])
-								.map((/** @type {any} */ i) => String(i?.description ?? '').slice(0, 200))
-								.filter(Boolean)
-								.slice(0, 20)
-						}
-					: null,
-				learned,
-				accounts: accountsForAssist(catalogue, learned, chart, (vendors) =>
-					t('booking.aiLearnedAccount', { vendors })
-				)
-			});
+			const r = await client.bookingAssist(
+				assistBody({
+					tx,
+					receipt: receipts[0] ?? null,
+					own: app.accounts.find((a) => a.id === tx.accountId),
+					partners: app.partners ?? [],
+					catalogue,
+					chart,
+					learnedName: (vendors) => t('booking.aiLearnedAccount', { vendors })
+				})
+			);
 			aiResult = { picks: r.picks ?? [], sent: r.llm?.sent ?? [] };
-			await recordEvent(currentStore()?.events, 'booking-assist', {
-				transactionId: tx.id,
-				picks: aiResult.picks.length,
-				model: r.llm?.calls?.at(-1)?.model ?? null,
-				calls: eventCalls(r.llm?.calls ?? []),
-				ms: (r.llm?.calls ?? []).reduce(
-					(/** @type {number} */ n, /** @type {any} */ c) => n + (c.ms ?? 0),
-					0
-				),
-				tokensTotal: (r.llm?.calls ?? []).reduce(
-					(/** @type {number} */ n, /** @type {any} */ c) =>
-						n + (c.usage?.prompt ?? 0) + (c.usage?.completion ?? 0),
-					0
-				)
-			});
+			await recordEvent(currentStore()?.events, 'booking-assist', assistEventData(tx.id, r));
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
