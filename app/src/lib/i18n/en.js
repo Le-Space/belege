@@ -4032,6 +4032,12 @@ export default {
 	},
 	zahlungen: {
 		title: 'Payments',
+		statement: {
+			button: 'Statement (PDF)',
+			busy: 'Making …',
+			title: 'This account’s statement for the chosen month, with the same number as in the export',
+			none: 'The account has no booking in this month: no statement.'
+		},
 		tests: {
 			title: '{count} test booking(s) in the books.',
 			what: 'Made with “Testbuchung anlegen” (development build only) – no real payments. They block the export of their month.',

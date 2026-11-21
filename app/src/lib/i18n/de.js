@@ -4091,6 +4091,13 @@ export default {
 	},
 	zahlungen: {
 		title: 'Zahlungen',
+		statement: {
+			button: 'Kontoauszug (PDF)',
+			busy: 'Erstelle …',
+			title:
+				'Der Kontoauszug dieses Kontos für den gewählten Monat, mit derselben Nummer wie im Export',
+			none: 'In diesem Monat hat das Konto keine Buchung: kein Kontoauszug.'
+		},
 		tests: {
 			title: '{count} Testbuchung(en) in den Büchern.',
 			what: 'Angelegt mit „Testbuchung anlegen“ (nur in der Entwicklungsversion) – keine echten Zahlungen. Sie blockieren den Export ihres Monats.',

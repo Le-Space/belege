@@ -41,6 +41,52 @@
 	/** @typedef {{ id: string, bookedOn: string, counterparty?: string, purpose?: string, amountCents?: number, currency?: string, accountId?: string, source?: string, receiptId?: string | null, noReceipt?: any, booking?: any, importChange?: any }} Tx */
 
 	let accountId = $state('');
+	/** The account's statement of the open month is being drawn. */
+	let statementBusy = $state(false);
+	/** @type {string | null} why there is no statement to hand out */
+	let statementNote = $state(null);
+
+	/**
+	 * The chosen account's statement of the open month as a PDF: the same file, with the
+	 * same number, as in the month's export (export/account-statement.js). Loaded on the
+	 * click, so the PDF code is not part of this page.
+	 */
+	async function downloadStatement() {
+		if (!accountId || !month || statementBusy) return;
+		statementBusy = true;
+		statementNote = null;
+		try {
+			const { accountStatement, accountStatementFile } = await import(
+				'$lib/export/account-statement.js'
+			);
+			const statement = accountStatement({
+				month,
+				accountId,
+				transactions: app.transactions,
+				accounts: app.accounts,
+				receipts: app.receipts,
+				matches: app.matches,
+				classifications: app.classifications
+			});
+			if (!statement) {
+				statementNote = t('zahlungen.statement.none');
+				return;
+			}
+			const { bytes, fileName } = await accountStatementFile(statement);
+			const { saveFile } = await import('$lib/ui/save-file.js');
+			saveFile(new Blob([/** @type {BlobPart} */ (bytes)], { type: 'application/pdf' }), fileName);
+		} catch (e) {
+			statementNote = e instanceof Error ? e.message : String(e);
+		} finally {
+			statementBusy = false;
+		}
+	}
+	$effect(() => {
+		// Another account or month: what was said about the last one no longer holds.
+		void accountId;
+		void month;
+		statementNote = null;
+	});
 	let query = $state('');
 	/** @type {'ohne' | 'alle' | 'konto' | 'geaendert'} */
 	let receiptFilter = $state('ohne');
@@ -288,6 +334,22 @@
 				<option value={account.id}>{accountLabel(account)}</option>
 			{/each}
 		</select>
+		{#if accountId && month}
+			<button
+				type="button"
+				class="rounded-md border border-border px-3 py-1.5 text-sm text-heading hover:bg-surface disabled:opacity-60"
+				disabled={statementBusy}
+				title={t('zahlungen.statement.title')}
+				onclick={downloadStatement}
+				data-testid="account-statement"
+				>{statementBusy ? t('zahlungen.statement.busy') : t('zahlungen.statement.button')}</button
+			>
+			{#if statementNote}
+				<span class="text-sm text-faint" role="status" data-testid="account-statement-note"
+					>{statementNote}</span
+				>
+			{/if}
+		{/if}
 		{#if flow}
 			<span
 				class="inline-flex items-center gap-1 rounded-full border border-cyan-800/40 bg-surface px-3 py-1 text-sm text-heading dark:border-cyan/40"
