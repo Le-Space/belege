@@ -58,7 +58,19 @@ Two things came out beside it. The benchmark's browsers had no media permission,
 
 Also corrected: the app asked a connection for `limited`, which libp2p 3 no longer sets (it is `limits`), so the heads exchange meant for "now that a direct connection is there" was spent a second after the relay's circuit opened – where OrbitDB's dial is refused – and not repeated for the connection that followed. It now waits for a connection without limits.
 
-What is not measured: the production relays. The mechanism is the same there – whatever closes the circuit, the 20-minute limit or a lost relay connection, leaves gossipsub without streams beside a direct connection – but a run against them (21 minutes of quiet, as on 2026-10-14) has not been made with the fix. And the fix in gossipsub itself is still the right one: it would also cover peers that are not this app.
+**Against a production relay (2026-11-21, afternoon).** The measurement left open on 2026-10-14: the relay scenario through a Le Space relay on Aleph (20 minutes and 10 GiB per circuit), both devices on one laptop, 50 bookings, ten single bookings each way, then 21 minutes of quiet and the burst – on main with the fix merged, two runs (`app/bench/results/2026-11-21-resilience-replication-relay-50-aleph-quiet21m-fix-*.json`; the second had a second relay configured, which the devices held no connection to, so it is a second run of the same).
+
+| | run 1 | run 2 |
+| --- | --- | --- |
+| the relay closes the circuit, into the quiet | after 1139 s | after 1185 s |
+| gossipsub's streams on the WebRTC connection | 1 s later | 1 s later |
+| heads exchanged again, one device after the other | 2 s and 5 s after the close | 2 s and 5 s after the close |
+| connections hung up, devices disconnected | none | none |
+| burst of 100, 75 to 121 s after the close | **100 of 100**, 3.7 s after the last write | **100 of 100**, 3.7 s after the last write |
+
+This is the case the issue was filed for – the circuit running into its 20 minutes while the devices idle on a direct connection –, which stood at 0 of 100 in October; here nothing stalls and nothing is hung up. Two runs, one relay, one machine, one afternoon: enough to say the mechanism holds against the real relay, not a statement about every network. In the first run the late joiner needed 38.5 s for its first sync, with a WebRTC connection closing 13 s in – #909, now also seen across the internet.
+
+The fix in gossipsub itself is still the right one: it would also cover peers that are not this app.
 
 **With production-like limits** (the Le Space relays run 20 minutes and 10 GiB per circuit; `E2E_RELAY_UNLIMITED=1` lifts the test relay's cap), everything passes, and the numbers match the relay-free ones within noise:
 

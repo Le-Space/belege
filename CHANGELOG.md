@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The fix for #393 is measured against a production relay** ([docs/resilience-report.md](docs/resilience-report.md), German twin). Through a Le Space relay on Aleph, with 21 minutes of quiet so that the circuit runs into its 20 minutes while the devices idle on a direct connection: in 2 of 2 runs gossipsub's streams were back on the direct connection a second after the relay closed the circuit, nothing was hung up, and a burst of 100 bookings arrived in full. In October the same shape stood at 0 of 100.
+
 ## [0.49.1] – 2026-11-21
 
 ## [0.49.0] – 2026-11-21
