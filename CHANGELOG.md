@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A purchase of Aleph credits paid in ALEPH is the ALEPH that left the wallet, valued at the token's rate of that day** (`@le-space/chains` 0.5.2, `purchaseEntries`): the payment's entry is in ALEPH with `priceAs: 'ALEPH'`, as for any other payment in a token, and its memo names what the credits cost at Aleph's list price, to compare. Until now it was in USD at the list price. A purchase in a dollar token stays in USD. The monthly statement's consumption is still valued at dollars per credit.
+
 ### Fixed
 
 - **A purchase of Aleph credits paid in ALEPH was valued many times too high, and every day's consumption after it.** A purchase row's `price` in Aleph's credit history is in units of the payment token per credit, not in US dollars; for a purchase in ALEPH that number is some sixty to a hundred times Aleph's list price. It was taken for dollars per credit. So the payment behind such a purchase came out as its token amount (plus the bonus) labelled USD, and the consumption statement valued each credit at that price. Now the dollars are what the credits paid for cost: the row's price for a purchase in a dollar token, Aleph's list price (1 USD per 1,000,000 credits) for one in ALEPH; a credit is valued at dollars paid / credits that came in, the bonus included. The statement also counted the bonus twice in its credits column, and a purchase on `ethereum` linked Aleph's explorer instead of the paying transaction. Checked against Aleph's node software and a paying transaction on Ethereum. `@le-space/rates` 0.4.0 (`alephPurchase`), `@le-space/chains` 0.5.1. **Statements and Eigenbelege for Aleph made before this are wrong where a purchase was paid in ALEPH and have to be made again**; a bridge has to run this version for the app's statement to be right.
