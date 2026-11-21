@@ -414,6 +414,8 @@ export default {
 			noPlan: 'Für diese Bücher läuft kein Paket der gehosteten Bridge. Erst ein Paket wählen.',
 			noPayer: 'Le Space Credits haben kein Konto für die VM genannt.',
 			creditsOff: 'Le Space Credits sind aus. Unter Integrationen → Aleph einschalten.',
+			paused:
+				'Das Netz ist pausiert: Für die gehostete Bridge wird nichts abgefragt, gestartet, entsperrt oder gestoppt. Im Menü „Netzwerk“ oben fortsetzen.',
 			noVm: 'Diese Bücher haben keine laufende gehostete VM.',
 			noPort: 'Der Knoten hat Port 443 der VM nicht freigegeben.',
 			nodeUnverifiable:
@@ -5142,6 +5144,9 @@ export default {
 			copy: 'Kopieren',
 			copied: 'Kopiert',
 			cancel: 'Abbrechen',
+			paused:
+				'Das Netz ist pausiert: Hier wird nichts abgefragt und nichts gestartet, entsperrt, gebaut oder gestoppt, bis du im Menü „Netzwerk“ oben fortsetzt.',
+			pausedRunning: 'Die VM läuft weiter und kostet weiter. Zum Stoppen erst das Netz fortsetzen.',
 			cancelled:
 				'Abgebrochen. Die VM läuft weiter: „Entsperren“ versucht es wieder, „Stoppen“ hält sie an.',
 			instances: {
@@ -5200,6 +5205,9 @@ export default {
 			testnet: 'NEAR-Testnet, ein Prototyp für den NEAR-Hackathon: nur Testdaten.',
 			account: 'NEAR-Konto der Bücher',
 			balance: 'Guthaben',
+			paused:
+				'Das Netz ist pausiert: Hier wird nichts abgefragt, gestartet oder gestoppt, bis du im Menü „Netzwerk“ oben fortsetzt.',
+			pausedRunning: 'Die Bridge läuft weiter. Zum Stoppen erst das Netz fortsetzen.',
 			notFunded: 'noch nicht aufgeladen',
 			fund: 'Schick diesem Konto etwas Testnet-NEAR (0,1 reicht). Es bezahlt das Gas und einmalig 0,01 NEAR Speicher beim Vertrag.',
 			state: 'Bridge',

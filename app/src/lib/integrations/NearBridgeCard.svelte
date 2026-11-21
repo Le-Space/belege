@@ -26,8 +26,10 @@
 		status = await nearBridgeStatus().catch(() => null);
 		noteNear(status);
 	}
+	/** "Alles pausieren" (network-pause.js): the card asks nothing and offers nothing that dials. */
+	const paused = $derived(app.network.paused);
 	$effect(() => {
-		if (app.sync.online) refresh();
+		if (app.sync.online && !paused) refresh();
 	});
 
 	const running = $derived(Boolean(status?.contract?.bridge?.valid));
@@ -83,6 +85,11 @@
 
 	{#if !app.sync.online}
 		<p class="mt-3 text-sm text-text">{t('messages.bridge.needsSync')}</p>
+	{:else if paused}
+		<p class="mt-3 text-sm text-text" role="status" data-testid="near-bridge-paused">
+			{t('integrationen.nearBridge.paused')}
+			{#if running}{t('integrationen.nearBridge.pausedRunning')}{/if}
+		</p>
 	{:else if status}
 		<dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
 			<dt class="text-faint">{t('integrationen.nearBridge.account')}</dt>

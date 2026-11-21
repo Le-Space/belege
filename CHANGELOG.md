@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **"Alles pausieren" holds for the hosted bridge too.** With the network paused during a session that had gone online at unlock, Integrationen → Bridge still asked Aleph's node list, Aleph's API and Le Space Credits when the page was opened, and offered to start, unlock and build a hosted bridge; the cards went by whether the session was online, not by the pause. While paused, the cards for the hosted bridge on Aleph and on Phala now ask nothing and offer nothing, and say that the network is paused; the functions behind them refuse as well, and a wait for a VM that boots ends. Stopping a VM waits for the network too: the card says that the VM keeps running and costing, and "Fortsetzen" in the network menu brings the buttons back. A build of the books' own image that already runs is finished, not cut off. The consent text is unchanged. ([#PRNUM](https://github.com/Le-Space/belege/pull/PRNUM))
+
 ### Changed
 
 - **The browser specs' runners finish together, and a test that needs a second try is named.** The five shards got the same number of tests each, so one of them ran three times as long as another and a pull request waited for it. The specs are now dealt out by the time they take (`app/e2e/durations.json`, `scripts/e2e-shards.mjs`); a spec without a time counts as a middling one. Each shard keeps Playwright's JSON report, and the run's summary lists the tests that passed only on a second try, each shard's time and the ten longest specs (`scripts/e2e-report.mjs`, which also renews the times from a run's reports). Nothing fails for it: the retry stays, it is only no longer silent.

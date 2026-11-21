@@ -398,6 +398,8 @@ export default {
 			noPlan: 'These books have no plan of the hosted bridge. Choose a plan first.',
 			noPayer: 'Le Space Credits named no account for the VM.',
 			creditsOff: 'Le Space Credits are off. Switch them on under Integrations → Aleph.',
+			paused:
+				'The network is paused: nothing is asked, started, unlocked or stopped for the hosted bridge. Resume in the “Network” menu at the top.',
 			noVm: 'These books have no hosted VM running.',
 			noPort: 'The node did not open the VM’s port 443.',
 			nodeUnverifiable:
@@ -5078,6 +5080,10 @@ export default {
 			copy: 'Copy',
 			copied: 'Copied',
 			cancel: 'Cancel',
+			paused:
+				'The network is paused: nothing is asked here and nothing started, unlocked, built or stopped until you resume in the “Network” menu at the top.',
+			pausedRunning:
+				'The VM keeps running and keeps costing. To stop it, resume the network first.',
 			cancelled: 'Cancelled. The VM keeps running: “Unlock” tries again, “Stop” stops it.',
 			instances: {
 				title: 'VMs of the books’ Aleph key',
@@ -5134,6 +5140,9 @@ export default {
 			testnet: 'NEAR testnet, a prototype for the NEAR hackathon: test data only.',
 			account: 'NEAR account of the books',
 			balance: 'Balance',
+			paused:
+				'The network is paused: nothing is asked, started or stopped here until you resume in the “Network” menu at the top.',
+			pausedRunning: 'The bridge keeps running. To stop it, resume the network first.',
 			notFunded: 'not funded yet',
 			fund: 'Send this account a little testnet NEAR (0.1 is plenty). It pays the gas and, once, 0.01 NEAR storage at the contract.',
 			state: 'Bridge',

@@ -7,6 +7,7 @@
 // consent text for the hosted bridge.
 
 import { twoN6Host } from '$lib/ucep/net.js';
+import { networkPause } from '$lib/network-pause.js';
 
 /** After this long without the next step the card says the start is stuck. */
 export const STUCK_AFTER_S = 3 * 60;
@@ -89,6 +90,8 @@ export function hostedStartHint(status, stuckAfter = STUCK_AFTER_S) {
  */
 export async function fetchStartStatus(instance, opts = {}) {
 	if (!/^[0-9a-f]{64}$/.test(instance)) return null;
+	// "Alles pausieren": the VM is not asked either.
+	if (networkPause()) return null;
 	// An E2E build's VMs are the tests' own and have no name at 2n6.me: ask nobody.
 	if (import.meta.env.VITE_E2E === 'true' && !opts.fetch) return null;
 	const doFetch = opts.fetch ?? fetch;
