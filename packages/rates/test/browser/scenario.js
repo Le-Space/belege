@@ -75,6 +75,7 @@ export default async function scenario() {
 		btc: await rates.rate('BTC', '2026-09-01'),
 		usd: await rates.rate('USD', '2026-08-30'),
 		rub: await rates.rate('RUB', '2026-08-31'),
+		usdPerEuro: await rates.perEuro('USD', '2026-08-30'),
 		keys: [...new Set(keys)],
 		alephEur: alephCreditsInEur(
 			2778,
