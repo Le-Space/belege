@@ -1469,6 +1469,10 @@ function watchNet(libp2p, databases) {
 		db.events.on('error', (/** @type {any} */ error) =>
 			note('orbitdb:error', { db: name, name: error?.name, message: error?.message })
 		);
+		// A lost heads exchange asked for again (store/heads-retry.js, #909).
+		db.events.on('heads-retry', (/** @type {number} */ attempt) =>
+			note('heads-retry', { db: name, attempt })
+		);
 	}
 	return netlog.length;
 }

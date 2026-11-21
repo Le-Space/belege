@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **The browser specs' runners finish together, and a test that needs a second try is named.** The five shards got the same number of tests each, so one of them ran three times as long as another and a pull request waited for it. The specs are now dealt out by the time they take (`app/e2e/durations.json`, `scripts/e2e-shards.mjs`); a spec without a time counts as a middling one. Each shard keeps Playwright's JSON report, and the run's summary lists the tests that passed only on a second try, each shard's time and the ten longest specs (`scripts/e2e-report.mjs`, which also renews the times from a run's reports). Nothing fails for it: the retry stays, it is only no longer silent.
 
+### Fixed
+
+- **A new device gets its books also when the first exchange with the other device breaks (#909).** Now and then a device that had just been added stayed empty, or took half a minute: the accounts and settings came over, the bookings did not, while both devices said "verbunden". OrbitDB exchanges a collection's heads with a device once; when that exchange broke, or the entries behind a head could not be fetched in time, it counted the device as synced all the same, and only the next booking written on the other device brought the rest. The store now notices both and has the heads exchanged again – after 2 s, then 10 s, 35 s and 2 minutes if it is lost again, at most four times in a row. Measured on the local test relay: the late joiner had all its bookings in 21 of 21 runs (20 within 11 s, one after 62 s); before, in 12 runs, 4 took 23–34 s and 3 did not get them within 45 s. The cause, a WebRTC connection that is dead on one side and still listed on the other, is not the app's and is not fixed by this.
+
 ## [0.49.1] – 2026-11-21
 
 ## [0.49.0] – 2026-11-21

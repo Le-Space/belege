@@ -20,6 +20,7 @@ import { IPFSAccessController } from '@orbitdb/core';
 import { payloadEncryption, sealedEncryption } from '../entry-encryption.js';
 import { deriveDatabaseName, deriveSealedDatabaseName } from '../database-keys.js';
 import { moveLog } from './migrate.js';
+import { retryLostHeads } from './heads-retry.js';
 import { ulid, isUlid } from './ids.js';
 import SealedDocuments from './sealed-documents.js';
 
@@ -353,6 +354,9 @@ export async function openStore({
 		if (expectAddresses && String(dbs[name].address) !== expectAddresses[name]) {
 			throw new Error(`${name} opened to another address than the books’: not these books.`);
 		}
+		// An exchange with another device that was lost is asked for again (#909).
+		const db = dbs[name];
+		retryLostHeads(db, { onRetry: (attempt) => db.events.emit('heads-retry', attempt) });
 		collections[name] = createCollection(dbs[name], name, { author });
 	}
 
