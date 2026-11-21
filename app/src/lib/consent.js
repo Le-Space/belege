@@ -135,7 +135,17 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     read from the makers' index at Goldsky (api.goldsky.com) and from
 //     Blockscout (filecoin.blockscout.com, or api.blockscout.com with the
 //     person's own key); each sees the address and the IP address.
-export const CONSENT_VERSION = '58';
+// 59: the corrections of the security audit (docs/security-audit.md, area 11;
+//     #900), in one go: what localStorage and sessionStorage hold, and that
+//     keys are never stored unsealed; the mailbox – the search over the whole
+//     mailbox and the one move to the trash; a model on this computer is
+//     redacted for until setup:llm is told it runs here; "Konto vorschlagen"
+//     as a seventh use of the model; the hosts of a restore over IPFS
+//     (cid.contact, delegated-ipfs.dev) and of "Wer hält es?" (ipwho.is), the
+//     nodes the wallet cards suggest, AMD's revocation list; the readable copy
+//     of the own network's relay address; what the invoicing link's node
+//     tells a relay.
+export const CONSENT_VERSION = '59';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
