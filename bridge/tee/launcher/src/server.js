@@ -6,7 +6,8 @@
 //   POST /v1/starts/<books>   the browser's encrypted start, signed        (CORS)
 //   POST /v1/starts/<books>/secrets  the secrets, sealed to the attested VM (CORS)
 //   POST /v1/bridge-quote     the VM's quote (registrar.mjs)
-//   GET  /v1/bridge-secrets/<books>/<start ms>  the VM fetches its sealed secrets
+//   GET  /v1/bridge-secrets/<books>/<start ms>  the VM fetches its sealed secrets,
+//        with its fetch key as `authorization: Bearer <64 hex>`
 //   GET  /healthz
 //
 // Bodies are limited; nothing secret is logged (the env and the secrets are
@@ -90,7 +91,8 @@ export function launcherServer(
 			if (fetchSecrets && req.method === 'GET') {
 				const books = decodeURIComponent(fetchSecrets[1]);
 				if (!ACCOUNT.test(books)) return send(400, { error: 'not a NEAR account' });
-				const r = launcher.secretsFor(books, fetchSecrets[2]);
+				const bearer = /^Bearer ([0-9a-f]{64})$/.exec(String(req.headers.authorization ?? ''));
+				const r = launcher.secretsFor(books, fetchSecrets[2], bearer?.[1]);
 				return r ? send(200, r) : send(404, { error: 'not yet' });
 			}
 			if (url.pathname === '/v1/bridge-quote' && req.method === 'POST') {

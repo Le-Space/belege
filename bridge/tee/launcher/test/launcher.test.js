@@ -26,7 +26,8 @@ function keypair() {
 	};
 }
 
-function world() {
+/** @param {{ legacyFetch?: boolean }} [options] */
+function world(options = {}) {
 	const books = keypair();
 	/** @type {any[]} */
 	const open = [];
@@ -68,6 +69,7 @@ function world() {
 		near,
 		phala,
 		provisionBody: (b) => ({ name: `belege-bridge-${b.length}` }),
+		...options,
 		now: () => t,
 		log: () => {}
 	});
@@ -96,6 +98,9 @@ test('the books sign what they hand over; ed25519 as NEAR keys are', () => {
 });
 
 const INTAKE = '0a'.repeat(32);
+/** The VM's fetch key, and what the launcher is told of it. */
+const FETCH_KEY = '0f'.repeat(32);
+const FETCH_KEY_HASH = createHash('sha256').update(Buffer.from(FETCH_KEY, 'hex')).digest('hex');
 
 test('a start: provision, signed env, VM, quote, register_bridge, sealed secrets', async () => {
 	const w = world();
@@ -145,6 +150,7 @@ test('a start: provision, signed env, VM, quote, register_bridge, sealed secrets
 		books: 'books-a.testnet',
 		start_at_ms: '2000',
 		intake_key: INTAKE,
+		fetch_key_hash: FETCH_KEY_HASH,
 		quote: '0x0102',
 		tcb_info: JSON.stringify({
 			mrtd: 'aa',
@@ -171,7 +177,7 @@ test('a start: provision, signed env, VM, quote, register_bridge, sealed secrets
 		phase: 'attested',
 		intake_key: INTAKE
 	});
-	assert.equal(w.launcher.secretsFor('books-a.testnet', '2000'), null, 'nothing yet');
+	assert.equal(w.launcher.secretsFor('books-a.testnet', '2000', FETCH_KEY), null, 'nothing yet');
 	const sealed = '5e'.repeat(60);
 	/** @param {any} who @param {string} message */
 	const upload = (who, message) =>
@@ -189,8 +195,23 @@ test('a start: provision, signed env, VM, quote, register_bridge, sealed secrets
 		'an env signature is not a secrets signature'
 	);
 	assert.equal((await upload(w.books, right)).status, 202);
-	assert.deepEqual(w.launcher.secretsFor('books-a.testnet', '2000'), { sealed });
-	assert.equal(w.launcher.secretsFor('books-a.testnet', '1999'), null, 'only for its start');
+	assert.deepEqual(w.launcher.secretsFor('books-a.testnet', '2000', FETCH_KEY), { sealed });
+	assert.equal(
+		w.launcher.secretsFor('books-a.testnet', '1999', FETCH_KEY),
+		null,
+		'only for its start'
+	);
+	assert.equal(w.launcher.secretsFor('books-a.testnet', '2000'), null, 'not without the fetch key');
+	assert.equal(
+		w.launcher.secretsFor('books-a.testnet', '2000', '1f'.repeat(32)),
+		null,
+		'not with another key'
+	);
+	assert.equal(
+		w.launcher.secretsFor('books-a.testnet', '2000', FETCH_KEY_HASH),
+		null,
+		'the hash the launcher holds is not the key'
+	);
 	assert.equal((await upload(w.books, right)).status, 409, 'once');
 });
 
@@ -259,6 +280,80 @@ test('a start nobody finishes is given up', async () => {
 		outcome: 'no env in time'
 	});
 	assert.equal(w.launcher.startInfo('books-a.testnet'), null);
+});
+
+/**
+ * A world whose VM was created and whose secrets the books uploaded, up to the quote.
+ *
+ * @param {{ legacyFetch?: boolean }} [options]
+ */
+async function booted(options) {
+	const w = world(options);
+	w.open.push(start);
+	await w.launcher.tick();
+	const env = 'ab'.repeat(40);
+	await w.launcher.uploadEnv('books-a.testnet', {
+		at_ms: '2000',
+		encrypted_env: env,
+		public_key: w.books.publicKey,
+		signature: w.books.sign(envMessage('books-a.testnet', '2000', env))
+	});
+	const sealed = '5e'.repeat(60);
+	/** @param {object} [extra] what the quote names besides the intake key */
+	const quoteAndUpload = async (extra = {}) => {
+		const q = await w.launcher.quote({
+			books: 'books-a.testnet',
+			start_at_ms: '2000',
+			intake_key: INTAKE,
+			quote: '0x0102',
+			tcb_info: {},
+			...extra
+		});
+		if (q.status !== 200) return q;
+		return w.launcher.uploadSecrets('books-a.testnet', {
+			at_ms: '2000',
+			sealed,
+			public_key: w.books.publicKey,
+			signature: w.books.sign(secretsMessage('books-a.testnet', '2000', sealed))
+		});
+	};
+	return { ...w, sealed, quoteAndUpload };
+}
+
+test('a quote that names no fetch key is refused, or not a fetch key', async () => {
+	const w = await booted();
+	assert.equal((await w.quoteAndUpload()).status, 400);
+	assert.equal((await w.quoteAndUpload({ fetch_key_hash: 'zz' })).status, 400);
+	assert.equal(
+		w.calls.filter((c) => c[0] === 'register').length,
+		0,
+		'nothing went to the contract'
+	);
+	assert.equal((await w.quoteAndUpload({ fetch_key_hash: FETCH_KEY_HASH })).status, 202);
+});
+
+test('an image from before the fetch key is served only when the launcher is told so', async () => {
+	const w = await booted({ legacyFetch: true });
+	assert.equal((await w.quoteAndUpload()).status, 202);
+	assert.deepEqual(w.launcher.secretsFor('books-a.testnet', '2000'), { sealed: w.sealed });
+});
+
+test('the HTTP API hands the sealed secrets to the fetch key only', async () => {
+	const w = await booted();
+	assert.equal((await w.quoteAndUpload({ fetch_key_hash: FETCH_KEY_HASH })).status, 202);
+	const server = launcherServer(w.launcher, { origins: [], log: () => {} });
+	await new Promise((r) => server.listen(0, '127.0.0.1', () => r(undefined)));
+	const url = `http://127.0.0.1:${/** @type {any} */ (server.address()).port}/v1/bridge-secrets/books-a.testnet/2000`;
+	try {
+		assert.equal((await fetch(url)).status, 404, 'as if nothing were there');
+		const wrong = await fetch(url, { headers: { authorization: `Bearer ${'1f'.repeat(32)}` } });
+		assert.equal(wrong.status, 404);
+		const right = await fetch(url, { headers: { authorization: `Bearer ${FETCH_KEY}` } });
+		assert.equal(right.status, 200);
+		assert.deepEqual(await right.json(), { sealed: w.sealed });
+	} finally {
+		server.close();
+	}
 });
 
 test('the HTTP API: CORS for the app only, a body limit, accounts checked', async () => {
