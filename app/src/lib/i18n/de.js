@@ -2855,7 +2855,7 @@ export default {
 			'Ein Name je Zeile, z. B. „le space UG“. Zahlungen an diesen Namen gelten als eigene Umbuchung (Konto 1360), Rechnungen von ihm als deine Ausgangsrechnungen.',
 		issuerLogo: {
 			label: 'Firmenlogo auf den eigenen Belegen',
-			hint: 'PNG oder JPEG, höchstens 512 kB. Steht oben rechts auf jedem Eigenbeleg und Verbrauchsnachweis, den Belege für diese Bücher erstellt; schon erstellte Belege bleiben, wie sie sind. Verschlüsselt gespeichert und mit deinen Geräten abgeglichen wie die übrigen Einstellungen.',
+			hint: 'PNG oder JPEG, höchstens 512 kB. Steht groß oben rechts wie im Briefkopf auf jedem Eigenbeleg und Verbrauchsnachweis, den Belege für diese Bücher erstellt; schon erstellte Belege bleiben, wie sie sind. Verschlüsselt gespeichert und mit deinen Geräten abgeglichen wie die übrigen Einstellungen.',
 			choose: 'Logo auswählen',
 			replace: 'Anderes Logo auswählen',
 			remove: 'Logo entfernen',

@@ -18,7 +18,7 @@ import { CREATOR, PRODUCER } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
 import { drawScene, sceneMeasure } from './chart-pdf.js';
 import { statementChart } from './statement-chart.js';
-import { A4, BAND, BLACK, GREY, OK, RULE, WARN, embedIssuerLogo, pageLayout } from './layout.js';
+import { A4, BAND, BLACK, GREY, MARK_SIZE, OK, RULE, WARN, pageLayout } from './layout.js';
 
 const M = 44;
 const DARK = { thickness: 0.8, color: rgb(0.2, 0.2, 0.2) };
@@ -38,16 +38,15 @@ const qty = (q) => (q ? deNumber(round(q, 12)) : '');
 
 /**
  * @param {import('./statement.js').Statement} st
- * @param {{ creator?: string, producer?: string, logo?: boolean, chart?: boolean, issuerLogo?: Uint8Array | null }} [o] logo: the chain's
- *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS). chart: the
- *   diagram above each list of bookings (on unless switched off). issuerLogo: the issuer's own
- *   logo, a PNG or JPEG file's bytes, in the top right corner beside the title (none unless given; an
- *   ImageError of @le-space/pdf when the file is no small PNG or JPEG)
+ * @param {{ creator?: string, producer?: string, logo?: boolean, chart?: boolean }} [o] logo: the chain's
+ *   mark, larger than on an Eigenbeleg, beside the title (off unless asked for; @le-space/pdf's LOGOS).
+ *   chart: the diagram above each list of bookings (on unless switched off). A statement carries no
+ *   issuer's logo: it shows what the account did, it is not the issuer's own receipt.
  * @returns {Promise<Uint8Array>}
  */
 export async function statementPdf(
 	st,
-	{ creator = CREATOR, producer = PRODUCER, logo = false, chart = true, issuerLogo = null } = {}
+	{ creator = CREATOR, producer = PRODUCER, logo = false, chart = true } = {}
 ) {
 	const created = new Date(st.issuedAt);
 	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
@@ -70,7 +69,6 @@ export async function statementPdf(
 		logo && Object.hasOwn(LOGOS, st.chain)
 			? await pdf.embedPng(await asset(LOGOS[st.chain]))
 			: null;
-	const own = await embedIssuerLogo(pdf, issuerLogo);
 	const l = pageLayout(pdf, fonts, {
 		margin: M,
 		bottom: 16,
@@ -114,8 +112,9 @@ export async function statementPdf(
 		l.y -= 12;
 	}
 	l.y = Math.min(l.y, leftEnd) - 14;
-	l.issuerLogo(own, l.y);
-	l.title(st.title, { face: bold, size: 18 }, mark);
+	// The chain's mark, larger: a statement shows what the network's account did. The issuer's logo is
+	// not on it: a statement is not the issuer's own receipt.
+	l.title(st.title, { face: bold, size: 18 }, mark, MARK_SIZE.large);
 	text('Konto', { face: bold, size: 7.5, color: GREY });
 	text(st.account, { face: mono, size: 9 });
 	l.y -= 6;

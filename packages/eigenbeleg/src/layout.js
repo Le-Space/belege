@@ -26,8 +26,16 @@ export const BAND = rgb(0.93, 0.94, 0.95);
 export const WARN = rgb(0.6, 0.12, 0.08);
 export const OK = rgb(0.1, 0.42, 0.2);
 
-/** The room the issuer's logo is fitted into, in points: wide enough for a word mark, as high as a title and its line below. */
-export const ISSUER_LOGO_BOX = /** @type {readonly [number, number]} */ ([120, 40]);
+/**
+ * The room the issuer's logo is fitted into, in points: about 70 × 25 mm, a letterhead's logo.
+ * It stands top right, in the head zone of a German business letter (DIN 5008, form B: the
+ * first 45 mm of the page); the text of the document starts below it.
+ */
+export const ISSUER_LOGO_BOX = /** @type {readonly [number, number]} */ ([200, 70]);
+/** Where the text starts below a letterhead: 45 mm from the top edge (DIN 5008, form B). */
+export const LETTERHEAD = 45 * (72 / 25.4);
+/** The chain's mark beside the title, in points: small on an Eigenbeleg, larger on a statement. */
+export const MARK_SIZE = /** @type {const} */ ({ small: 11, large: 34 });
 
 /**
  * The issuer's own logo for a document: the bytes of a PNG or JPEG file,
@@ -125,39 +133,46 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		},
 
 		/**
-		 * A one-line title and, when given, an image beside it, a little higher
-		 * than the letters: the chain's mark (`logo`).
+		 * A one-line title and, when given, the chain's mark (`logo`) beside it:
+		 * `mark` points square, its middle level with the middle of the capitals.
+		 * A mark larger than the line makes room below it.
 		 *
 		 * @param {string} t
 		 * @param {{ face: Face, size: number }} o
 		 * @param {import('pdf-lib').PDFImage | null} [image]
+		 * @param {number} [mark] the mark's side; the title's size when not given
 		 */
-		title(t, { face, size }, image = null) {
+		title(t, { face, size }, image = null, mark = size) {
+			const lineTop = l.y;
 			l.text(t, { face, size });
 			if (!image) return;
-			const top = l.y + size * 1.35;
+			// The capitals' middle: a little above the line's baseline.
+			const middle = lineTop - size + size * 0.36;
+			const bottom = middle - mark / 2;
 			l.page.drawImage(image, {
-				x: margin + face.width(t, size) + 10,
-				y: top - size - 2,
-				width: size + 2,
-				height: size + 2
+				x: margin + face.width(t, size) + Math.max(6, mark * 0.3),
+				y: bottom,
+				width: mark,
+				height: mark
 			});
+			l.y = Math.min(l.y, bottom - 4);
 		},
 
 		/**
-		 * The issuer's logo in the head's top right corner: fitted into
-		 * ISSUER_LOGO_BOX keeping its proportions, its top at `top`, its right
-		 * edge at the margin. The text of the head is where it is without one.
+		 * The issuer's logo as a letterhead: fitted into ISSUER_LOGO_BOX keeping
+		 * its proportions, top right with its top at the current line and its
+		 * right edge at the margin. The text goes on below it, and not above the
+		 * head zone of DIN 5008 (LETTERHEAD). Without a logo nothing moves.
 		 *
 		 * @param {import('pdf-lib').PDFImage | null} image
-		 * @param {number} top
 		 */
-		issuerLogo(image, top) {
+		letterhead(image) {
 			if (!image) return;
 			const k = Math.min(ISSUER_LOGO_BOX[0] / image.width, ISSUER_LOGO_BOX[1] / image.height);
 			const width = image.width * k;
 			const height = image.height * k;
-			l.page.drawImage(image, { x: A4[0] - margin - width, y: top - height, width, height });
+			l.page.drawImage(image, { x: A4[0] - margin - width, y: l.y - height, width, height });
+			l.y = Math.min(l.y - height - 14, A4[1] - LETTERHEAD);
 		},
 
 		/** @param {number} [thickness] @param {Color} [color] */

@@ -27,7 +27,7 @@ const LABEL = 120;
  * @param {string} [p.subject]
  * @param {string} [p.creator] what made it: `Belege` when not given
  * @param {Uint8Array | null} [p.issuerLogo] the issuer's own logo, the bytes of a PNG or JPEG
- *   file: drawn in the head's top right corner, fitted into ISSUER_LOGO_BOX (layout.js); a file
+ *   file: a letterhead, top right above the title, fitted into ISSUER_LOGO_BOX (layout.js); a file
  *   that cannot be one is an ImageError (@le-space/pdf) before anything is drawn
  */
 export async function statementLayout({
@@ -65,8 +65,8 @@ export async function statementLayout({
 	function head(no, by, subtitle, heading = 'Eigenbeleg') {
 		number = no;
 		issuer = by;
-		// The logo's top is the title's: right of it, the text of the head where it is without one.
-		l.issuerLogo(own, l.y);
+		// The issuer's logo as a letterhead, the title below it.
+		l.letterhead(own);
 		l.text(heading, { face: bold, size: 20 });
 		l.text(`Nr. ${no}`, { face: bold, size: 12 });
 		l.gap(2);

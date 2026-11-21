@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The issuer's own logo on its own documents (#906): on the Eigenbeleg of a
-// period, the Kontoauszug and the Eigenbeleg of one booking, only when a
-// file is handed in, as one opaque picture, and without moving a word.
+// The issuer's own logo on its own documents (#906): large, as a letterhead,
+// on the Eigenbeleg of a period, the Eigenbeleg of one booking and the app's
+// statement Eigenbelege, only when a file is handed in, as one opaque picture
+// and without a word more or less. The Kontoauszug is not the issuer's own
+// receipt: it carries the chain's mark, larger, and never the issuer's logo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { extractText, getDocumentProxy } from 'unpdf';
@@ -10,6 +12,8 @@ import { sampleJpeg, samplePng } from '@le-space/pdf/testing/sample-images';
 
 import {
 	bookingPdf,
+	LETTERHEAD,
+	MARK_SIZE,
 	buildDocument,
 	buildStatement,
 	eigenbelegPdf,
@@ -79,7 +83,10 @@ async function documents() {
 
 test("the issuer's logo is on each document when a file is handed in, and only then", async () => {
 	const { draw } = await documents();
-	for (const [name, pdf] of Object.entries(draw)) {
+	const { Kontoauszug: statement, ...own3 } = draw;
+	// The statement: the same bytes with a logo handed in as without one.
+	assert.deepEqual(await statement({ issuerLogo: samplePng() }), await statement(), 'Kontoauszug');
+	for (const [name, pdf] of Object.entries(own3)) {
 		const plain = await pdf();
 		assert.deepEqual(pdfaStructure(plain).images, [], `${name}: no picture without one`);
 		assert.deepEqual(await pdf({ issuerLogo: null }), plain, `${name}: null is none`);
@@ -93,29 +100,38 @@ test("the issuer's logo is on each document when a file is handed in, and only t
 				with1,
 				`${name}: the same bytes every time`
 			);
-			// Not a word more, fewer or elsewhere in the reading order.
-			assert.equal(await text(with1), await text(plain), `${name}: the text is the same`);
+			// Not a word more, fewer or elsewhere in the reading order. The letterhead takes room, so a
+			// page may break earlier: the footers ("Seite 2") are left out of the comparison.
+			const words = async (/** @type {Uint8Array} */ b) =>
+				(await text(b))
+					.split('\n')
+					.filter((line) => !/Seite \d+/.test(line))
+					.join('\n');
+			assert.equal(await words(with1), await words(plain), `${name}: the text is the same`);
 		}
 	}
 });
 
-test("beside the chain's mark: two pictures, each its own", async () => {
+test("the chain's mark: small beside the letterhead on an Eigenbeleg, alone and larger on a statement", async () => {
 	const { draw, single } = await documents();
-	for (const name of ['Eigenbeleg', 'Kontoauszug']) {
-		const both = pdfaStructure(await draw[name]({ logo: true, issuerLogo: samplePng() }));
-		assert.deepEqual(
-			both.images.toSorted((a, b) => a.width - b.width),
-			[mark, own],
-			name
-		);
-	}
+	const both = pdfaStructure(await draw.Eigenbeleg({ logo: true, issuerLogo: samplePng() }));
+	assert.deepEqual(
+		both.images.toSorted((a, b) => a.width - b.width),
+		[mark, own]
+	);
+	const statement = pdfaStructure(await draw.Kontoauszug({ logo: true, issuerLogo: samplePng() }));
+	assert.deepEqual(statement.images, [mark], 'the statement: the mark only');
+	assert.ok(
+		MARK_SIZE.small < 14 && MARK_SIZE.large >= 2 * 14,
+		'very small, and larger than a line'
+	);
 	// One Eigenbeleg per payment, each with the logo in its head: embedded once.
 	const pages = await eigenbelegPdf(single, { issuerLogo: samplePng() });
 	assert.deepEqual(pdfaStructure(pages).images, [own]);
 });
 
 test('a file that is no small PNG or JPEG is an ImageError, never a document', async () => {
-	const { draw } = await documents();
+	const { Kontoauszug: _statement, ...draw } = (await documents()).draw;
 	const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
 	for (const [name, pdf] of Object.entries(draw)) {
 		await assert.rejects(pdf({ issuerLogo: svg }), ImageError, name);
@@ -127,7 +143,10 @@ test('a file that is no small PNG or JPEG is an ImageError, never a document', a
 	}
 });
 
-test('the room for it: a word mark fits, and a tall logo is no taller than the title block', () => {
-	assert.deepEqual([...ISSUER_LOGO_BOX], [120, 40]);
+test('the room for it: a letterhead of about 70 × 25 mm, the text from 45 mm down (DIN 5008, form B)', () => {
+	assert.deepEqual([...ISSUER_LOGO_BOX], [200, 70]);
 	assert.ok(IMAGE_LIMITS.widest >= ISSUER_LOGO_BOX[0] / ISSUER_LOGO_BOX[1]);
+	assert.equal(Math.round(LETTERHEAD * 100) / 100, 127.56);
+	// Margin and logo end within the head zone.
+	assert.ok(48 + ISSUER_LOGO_BOX[1] <= LETTERHEAD);
 });

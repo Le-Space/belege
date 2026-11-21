@@ -2811,7 +2811,7 @@ export default {
 			'One name per line, e.g. “le space UG”. Payments to this name count as an own transfer (account 1360), invoices from it as your outgoing invoices.',
 		issuerLogo: {
 			label: 'Company logo on your own receipts',
-			hint: 'PNG or JPEG, at most 512 kB. Printed top right on every Eigenbeleg and usage statement Belege makes for these books; receipts made before stay as they are. Stored encrypted and synced with your devices like the other settings.',
+			hint: 'PNG or JPEG, at most 512 kB. Printed large at the top right, as in a letterhead, on every Eigenbeleg and usage statement Belege makes for these books; receipts made before stay as they are. Stored encrypted and synced with your devices like the other settings.',
 			choose: 'Choose a logo',
 			replace: 'Choose another logo',
 			remove: 'Remove the logo',
