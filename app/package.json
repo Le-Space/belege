@@ -73,7 +73,7 @@
 		"@le-space/orbitdb-storage-bridge": "0.29.0",
 		"@le-space/pdf": "workspace:^",
 		"@le-space/sealed-image": "0.12.8",
-		"@le-space/ucep": "0.2.0-draft.5",
+		"@le-space/ucep": "0.2.0-draft.6",
 		"@libp2p/circuit-relay-v2": "4.2.9",
 		"@libp2p/crypto": "5.1.23",
 		"@libp2p/gossipsub": "16.1.0",

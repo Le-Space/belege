@@ -498,11 +498,9 @@ export async function startBridgeConsumer({
 	 */
 	async function callPeer(peerId, name, args, options) {
 		const key = await sealKey(peerId);
-		// UCEP's types do not name `signal`, which it takes.
-		const how = /** @type {any} */ (options);
-		if (!key) return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), how);
+		if (!key) return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), options);
 		const call = await sealCall(key, { consumer: self(), provider: peerId, command: name }, args);
-		return call.open(await consumer.call(peerId, EXTENSION, name, call.sent, how));
+		return call.open(await consumer.call(peerId, EXTENSION, name, call.sent, options));
 	}
 	// Big answers of the bridge's node as blocks (#578): Bitswap on the
 	// bridge's own protocol, which the device gate lets the bridge reach
