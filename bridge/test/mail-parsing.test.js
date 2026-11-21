@@ -13,6 +13,7 @@ import {
 	htmlToText,
 	isIsoDay,
 	isPartNumber,
+	mailIdSeal,
 	searchWindow,
 	sniff,
 	textPart
@@ -195,12 +196,29 @@ test('mail ids: round trip, and nothing else decodes', () => {
 	assert.deepEqual(decodeMailId(id), {
 		folder: 'INBOX/Rechnungen',
 		uidValidity: '1234567890',
-		uid: 42
+		uid: 42,
+		base: id,
+		seal: null
 	});
+	// With a seal: the same place, the seal beside it; made from a key and the id.
+	const key = Buffer.alloc(32, 7);
+	const sealed = encodeMailId(
+		{ folder: 'INBOX/Rechnungen', uidValidity: 1234567890n, uid: 42 },
+		(base) => mailIdSeal(key, base)
+	);
+	assert.equal(sealed, `${id}.${mailIdSeal(key, id)}`);
+	assert.match(mailIdSeal(key, id), /^[A-Za-z0-9_-]{22}$/);
+	assert.deepEqual(decodeMailId(sealed), { ...decodeMailId(id), seal: mailIdSeal(key, id) });
+	assert.notEqual(mailIdSeal(key, id), mailIdSeal(Buffer.alloc(32, 8), id));
+	assert.notEqual(mailIdSeal(key, id), mailIdSeal(key, `${id}A`));
 	for (const bad of [
 		'',
 		'short',
 		'../../etc',
+		`${id}.short`,
+		`${id}.${'A'.repeat(23)}`,
+		`${id}.${'A'.repeat(22)}.${'A'.repeat(22)}`,
+		`.${'A'.repeat(22)}`,
 		Buffer.from('[1,2,3]').toString('base64url'),
 		Buffer.from('["INBOX","1",-1]').toString('base64url')
 	]) {

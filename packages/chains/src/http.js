@@ -28,10 +28,95 @@ export function hostOf(url) {
 	}
 }
 
+/** @param {string} text four numbers with dots @returns {number[] | null} */
+function ipv4Of(text) {
+	const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+	if (!m) return null;
+	const parts = m.slice(1).map(Number);
+	return parts.every((n) => n <= 255) ? parts : null;
+}
+
+/** @param {number[]} ip */
+const privateIpv4 = ([a, b, c]) =>
+	a === 0 || // "this network"
+	a === 10 ||
+	a === 127 || // loopback
+	(a === 100 && b >= 64 && b <= 127) || // shared address space (carrier NAT)
+	(a === 169 && b === 254) || // link-local, and where cloud metadata lives
+	(a === 172 && b >= 16 && b <= 31) ||
+	(a === 192 && b === 168) ||
+	(a === 192 && b === 0 && c === 0) || // protocol assignments
+	(a === 198 && (b === 18 || b === 19)) || // benchmarking
+	a >= 224; // multicast, reserved, broadcast
+
 /**
- * An endpoint the bridge may call: https, or http on this machine when
- * `allowLoopback` (tests). No user:password@, no fragment. Returns it
- * without a trailing slash, or null.
+ * Whether an address is not one on the public internet: this machine, a
+ * private or link-local network, a carrier's shared space, multicast – in
+ * IPv4 or IPv6, an IPv4 address mapped into IPv6 included. For an address as
+ * a resolver gives it, or as it stands in a URL (IPv6 in brackets).
+ *
+ * @param {string} address
+ */
+export function isPrivateAddress(address) {
+	const text = String(address)
+		.trim()
+		.toLowerCase()
+		.replace(/^\[|\]$/g, '');
+	const v4 = ipv4Of(text);
+	if (v4) return privateIpv4(v4);
+	if (!text.includes(':')) return false; // not an address
+	const zone = text.split('%')[0];
+	if (zone === '::' || zone === '::1') return true; // unspecified, loopback
+	// An IPv4 address in an IPv6 one – mapped, compatible, or under the NAT64
+	// prefix – written with dots or, as `URL` writes it, as two hex groups.
+	const dotted = /^(?:::ffff:|::|64:ff9b::)(\d{1,3}(?:\.\d{1,3}){3})$/.exec(zone);
+	if (dotted) {
+		const inner = ipv4Of(dotted[1]);
+		return !inner || privateIpv4(inner);
+	}
+	const hex = /^(?:::ffff:|::|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(zone);
+	if (hex) {
+		const hi = parseInt(hex[1], 16);
+		const lo = parseInt(hex[2], 16);
+		return privateIpv4([hi >> 8, hi & 255, lo >> 8, lo & 255]);
+	}
+	const first = parseInt(zone.split(':')[0] || '0', 16);
+	return (
+		(first & 0xfe00) === 0xfc00 || // unique local, fc00::/7
+		(first & 0xffc0) === 0xfe80 || // link-local, fe80::/10
+		(first & 0xff00) === 0xff00 // multicast
+	);
+}
+
+/**
+ * Whether a host name in a URL can only mean this machine or a private
+ * network: an address that is one (above), `localhost`, a name without a dot,
+ * or one under a suffix kept for local use.
+ *
+ * @param {string} hostname as `URL.hostname` gives it
+ */
+export function isLocalHostname(hostname) {
+	const name = String(hostname).trim().toLowerCase().replace(/\.$/, '');
+	if (!name) return true;
+	if (name.startsWith('[') || ipv4Of(name)) return isPrivateAddress(name);
+	// Other spellings of an IPv4 address (one number, hex, octal): `URL` has
+	// turned those into dotted form already; what is left of digits and dots is no name.
+	if (/^[\d.]+$/.test(name) || /^0x[0-9a-f.x]+$/.test(name)) return true;
+	if (!name.includes('.')) return true; // `localhost`, a machine's bare name
+	return /(^|\.)(localhost|local|localdomain|internal|intranet|lan|home|corp|home\.arpa)$/.test(
+		name
+	);
+}
+
+/**
+ * An endpoint the bridge may call: https on a host of the public internet –
+ * not this machine, not a private or link-local address, not a name kept for
+ * local use – or http on this machine when `allowLoopback` (tests). No
+ * user:password@, no query, no fragment. Returns it without a trailing slash,
+ * or null.
+ *
+ * A name is checked as it is written. What it resolves to is checked where
+ * the request is made (the bridge's `publicOnlyFetch`).
  *
  * @param {unknown} value
  * @param {{ allowLoopback?: boolean }} [options]
@@ -46,9 +131,10 @@ export function checkEndpoint(value, { allowLoopback = false } = {}) {
 	}
 	if (url.username || url.password || url.hash || url.search) return null;
 	const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
-	if (url.protocol !== 'https:' && !(allowLoopback && loopback && url.protocol === 'http:')) {
-		return null;
+	if (allowLoopback && loopback && (url.protocol === 'http:' || url.protocol === 'https:')) {
+		return url.toString().replace(/\/+$/, '');
 	}
+	if (url.protocol !== 'https:' || isLocalHostname(url.hostname)) return null;
 	return url.toString().replace(/\/+$/, '');
 }
 

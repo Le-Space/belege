@@ -352,6 +352,89 @@ describe('mail endpoints', () => {
 		assert.equal((await get(`/mail/search?${seven}`)).status, 400);
 	});
 
+	test('a mail outside the accounting scope: only under the id the search gave it', async () => {
+		const post = (/** @type {unknown} */ body) =>
+			request(port, '/mail/trash', {
+				method: 'POST',
+				headers: {
+					origin: APP,
+					authorization: `Bearer ${token}`,
+					'content-type': 'application/json'
+				},
+				body
+			});
+		const found = (await get(`/mail/search?amount=52.59&around=${isoDay(BASE)}&days=2`)).json
+			.messages;
+		const privat = found.find((/** @type {any} */ m) => m.subject.includes('Privatgeheimnis'));
+		assert.ok(privat, 'the private mail is found by the search');
+		assert.equal(privat.addressedBy, null);
+		// Its id carries a seal; the same search a second time gives the same id.
+		assert.match(privat.id, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{22}$/);
+		const again = (await get(`/mail/search?amount=52.59&around=${isoDay(BASE)}&days=2`)).json
+			.messages;
+		assert.equal(
+			again.find((/** @type {any} */ m) => m.uid === privat.uid && m.folder === privat.folder).id,
+			privat.id
+		);
+		// A mail to the accounting address keeps the id it has in the listing, found or listed.
+		for (const hit of found.filter((/** @type {any} */ m) => m.addressedBy)) {
+			assert.doesNotMatch(hit.id, /\./);
+			const same = listed.find((x) => x.uid === hit.uid && x.folder === hit.folder);
+			if (same) assert.equal(hit.id, same.id);
+		}
+
+		const part = privat.attachments[0]?.part ?? '2';
+		// Under the sealed id the scope is passed: the attachment, or "no such part".
+		const sealed = await get(`/mail/attachment?id=${privat.id}&part=${part}`);
+		assert.equal(sealed.status, privat.attachments.length ? 200 : 404);
+		// The same place written down without the seal, or with another one: refused,
+		// for the attachment and for the move – and the answer says nothing of the mail.
+		const bare = encodeMailId({ folder: privat.folder, uidValidity: 1, uid: privat.uid });
+		const forged = `${bare}.${'A'.repeat(22)}`;
+		assert.equal(bare, privat.id.split('.')[0]);
+		for (const id of [bare, forged]) {
+			const refused = await get(`/mail/attachment?id=${id}&part=${part}`);
+			assert.equal(refused.status, 403, id);
+			assert.equal(refused.json.code, 'MAIL_SCOPE');
+			assert.ok(!refused.text.includes('Privatgeheimnis'));
+			const unmoved = await post({ id });
+			assert.equal(unmoved.status, 403, id);
+			assert.equal(unmoved.json.code, 'MAIL_SCOPE');
+		}
+		// A seal is for one mail: it does not open another.
+		const other = found.find((/** @type {any} */ m) => m.id !== privat.id && !m.addressedBy);
+		if (other) {
+			const swapped = `${other.id.split('.')[0]}.${privat.id.split('.')[1]}`;
+			assert.equal((await get(`/mail/attachment?id=${swapped}&part=2`)).status, 403);
+		}
+		// Still there: nothing was moved.
+		const still = (await get(`/mail/search?amount=52.59&around=${isoDay(BASE)}&days=2`)).json
+			.messages;
+		assert.ok(still.some((/** @type {any} */ m) => m.id === privat.id));
+	});
+
+	test('a sealed id holds when the bridge starts again', async () => {
+		const found = (await get(`/mail/search?amount=52.59&around=${isoDay(BASE)}&days=2`)).json
+			.messages;
+		const privat = found.find((/** @type {any} */ m) => m.subject.includes('Privatgeheimnis'));
+		const same = createMailClient({
+			config: mailConfig,
+			getPassword: async () => FAKE_IMAP_PASSWORD
+		});
+		const part = privat.attachments[0]?.part ?? '2';
+		// A new client for the same mailbox, as after a restart: the id still
+		// passes the scope (an attachment, or "no such part" – never "not in scope") …
+		await same.attachment(privat.id, part).then(
+			() => {},
+			(/** @type {any} */ e) => assert.equal(e.code, 'MAIL_UNKNOWN')
+		);
+		// … and the place without the seal still does not.
+		await assert.rejects(
+			same.attachment(privat.id.split('.')[0], part),
+			(/** @type {any} */ e) => e.code === 'MAIL_SCOPE' && e.status === 403
+		);
+	});
+
 	test('trash: one mail moved to the Trash on request; gone from the listing; nothing else changes', async () => {
 		const post = (/** @type {unknown} */ body) =>
 			request(port, '/mail/trash', {

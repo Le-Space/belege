@@ -22,6 +22,8 @@
 //
 // Nothing here logs a subject, an address or a body.
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 import { ImapFlow } from 'imapflow';
 
 import { authVerdict, headerValues } from './auth-results.js';
@@ -33,6 +35,7 @@ import {
 	calendarParts,
 	decodeMailId,
 	encodeMailId,
+	mailIdSeal,
 	excerpt,
 	htmlToText,
 	searchWindow,
@@ -123,9 +126,36 @@ export function createMailClient({
 	/** @type {Map<string, { verdict: string, outgoing: boolean }>} */
 	const verdicts = new Map();
 
+	/**
+	 * The key that seals the id of a mail outside the accounting scope
+	 * (mime.js): from the mailbox's password, which only the bridge holds, so
+	 * a sealed id outlives a restart and nobody else can make one. Set when a
+	 * session opens; every function that needs it runs in one.
+	 */
+	/** @type {Buffer | null} */
+	let idKey = null;
+
+	/**
+	 * Whether a mail may be handed out or moved under this id: it was sent to
+	 * the accounting address, or the id carries the seal the search gave it.
+	 *
+	 * @param {NonNullable<ReturnType<typeof decodeMailId>>} ref
+	 * @param {any} msg with its envelope and headers
+	 */
+	function inScope(ref, msg) {
+		if (addressedBy(msg.envelope, msg.headers?.toString('utf8') ?? '')) return true;
+		if (!ref.seal || !idKey) return false;
+		const expected = Buffer.from(mailIdSeal(idKey, ref.base));
+		const given = Buffer.from(ref.seal);
+		return given.length === expected.length && timingSafeEqual(given, expected);
+	}
+
 	/** @template T @param {(client: ImapFlow) => Promise<T>} fn @returns {Promise<T>} */
 	async function session(fn) {
 		const pass = await getPassword();
+		idKey = createHmac('sha256', String(pass))
+			.update(`belege/mail-id/v1\n${user}\n${host}`)
+			.digest();
 		const client = new ImapClient({
 			host,
 			port,
@@ -223,7 +253,7 @@ export function createMailClient({
 	 * @param {any} msg a fetched message
 	 * @returns {Promise<MailMessage>}
 	 */
-	async function describe(client, folder, uidValidity, msg) {
+	async function describe(client, folder, uidValidity, msg, { found = false } = {}) {
 		const headers = msg.headers?.toString('utf8') ?? '';
 		const fromAddr = msg.envelope?.from?.[0] ?? {};
 		const from = {
@@ -280,7 +310,14 @@ export function createMailClient({
 			}
 		}
 
-		const id = encodeMailId({ folder: folder.path, uidValidity, uid: msg.uid });
+		const reached = addressedBy(msg.envelope, headers);
+		// A hit of the search that is not a mail to the accounting address gets
+		// a sealed id; every other id stays as it always was.
+		const key = idKey;
+		const id = encodeMailId(
+			{ folder: folder.path, uidValidity, uid: msg.uid },
+			found && !reached && key ? (base) => mailIdSeal(key, base) : undefined
+		);
 		verdicts.set(id, { verdict: auth.verdict, outgoing: folder.sent });
 		return {
 			id,
@@ -295,7 +332,7 @@ export function createMailClient({
 			attachments,
 			calendar,
 			excerpt: text,
-			addressedBy: addressedBy(msg.envelope, headers),
+			addressedBy: reached,
 			bulk: /^(list-unsubscribe|list-id):|^precedence:\s*(bulk|list|junk)/im.test(headers)
 		};
 	}
@@ -397,7 +434,7 @@ export function createMailClient({
 					}
 					const uids = [...matched.keys()].slice(-MAX_LISTED);
 					for (const msg of await fetchAll(client, uids)) {
-						const d = await describe(client, folder, box.uidValidity, msg);
+						const d = await describe(client, folder, box.uidValidity, msg, { found: true });
 						out.push({ ...d, matched: matched.get(msg.uid) ?? [] });
 					}
 				}
@@ -420,14 +457,13 @@ export function createMailClient({
 				if (!box || String(box.uidValidity) !== ref.uidValidity) {
 					throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
 				}
-				const msg = await client.fetchOne(
-					String(ref.uid),
-					{ uid: true, bodyStructure: true },
-					{ uid: true }
-				);
-				const info = msg
-					? attachmentParts(msg.bodyStructure).find((p) => p.part === part)
-					: undefined;
+				const msg = await client.fetchOne(String(ref.uid), FETCH, { uid: true });
+				if (!msg) throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				// A mail to the accounting address, or one the search handed out.
+				if (!inScope(ref, msg)) {
+					throw new MailError('not a mail to the accounting address', 403, 'MAIL_SCOPE');
+				}
+				const info = attachmentParts(msg.bodyStructure).find((p) => p.part === part);
 				if (!info) throw new MailError('unknown attachment', 404, 'MAIL_UNKNOWN');
 				// Encoded (base64) size is about 4/3 of the bytes; refuse early when far over.
 				if (info.size > MAX_ATTACHMENT_BYTES * 1.4) {
@@ -552,6 +588,11 @@ export function createMailClient({
 				const found = await client.search({ uid: String(ref.uid) }, { uid: true });
 				if (!Array.isArray(found) || !found.includes(ref.uid)) {
 					throw new MailError('unknown mail', 404, 'MAIL_UNKNOWN');
+				}
+				// Only a mail the app was given: to the accounting address, or a hit of the search.
+				const msg = await client.fetchOne(String(ref.uid), FETCH, { uid: true });
+				if (!msg || !inScope(ref, msg)) {
+					throw new MailError('not a mail to the accounting address', 403, 'MAIL_SCOPE');
 				}
 				const moved = await client.messageMove(String(ref.uid), trash.path, { uid: true });
 				if (!moved) throw new MailError('the mail could not be moved', 502, 'MAIL_MOVE');
