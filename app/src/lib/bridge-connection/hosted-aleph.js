@@ -6,6 +6,7 @@
 
 import { getSetting, setSetting } from '$lib/store/settings.js';
 import { intlLocale, t } from '$lib/i18n/index.js';
+import { networkPause } from '$lib/network-pause.js';
 import {
 	keyGenerationOf,
 	readBridgeRecord,
@@ -35,6 +36,23 @@ export function bindSession(context) {
 }
 
 const isoNow = () => new Date().toISOString();
+
+/**
+ * "Alles pausieren" holds here too: while the network is paused, nothing in
+ * this module asks Aleph, Le Space Credits, a node or a VM – not to list, not
+ * to start, unlock or build. Asked by every function that dials, so a caller
+ * cannot get around the card; marked `fatal`, so a loop that tries again
+ * (integrations/hosted-unlock.js) ends at once. The one exception is stopping
+ * (`stopHostedBridge`, `stopHostedInstance`): a VM costs while it runs, so a
+ * person may stop it while paused; that sends Aleph the FORGET and nothing else.
+ */
+function refuseWhilePaused() {
+	if (!networkPause()) return;
+	const error = new Error(t('messages.hostedBridge.paused'));
+	/** @type {any} */ (error).fatal = true;
+	/** @type {any} */ (error).code = 'NETWORK_PAUSED';
+	throw error;
+}
 
 /**
  * The hosted bridge the books know (settings `bridge/hosted`): which VM, its
@@ -114,6 +132,7 @@ export async function unlockHostedBridge({
 	onProgress = () => {}
 }) {
 	const { fatal, pause } = await import('../integrations/hosted-unlock.js');
+	refuseWhilePaused();
 	if (
 		!ctx.session?.online ||
 		!ctx.session.bridgeAuthBase ||
@@ -352,7 +371,7 @@ async function alephAppKey(key, owner) {
  * device that may not write the settings leaves it to the next one.
  */
 export async function forgetLeftHostedBuilder() {
-	if (!ctx.session?.store || !ctx.session.online || ctx.app.member) return;
+	if (!ctx.session?.store || !ctx.session.online || ctx.app.member || networkPause()) return;
 	const { BUILDER_SETTING, forgetLeftBuilder } = await import('../integrations/hosted-image.js');
 	const left = /** @type {any} */ (await getSetting(ctx.session.store.settings, BUILDER_SETTING));
 	if (!left?.vprogram) return;
@@ -408,6 +427,7 @@ async function buildReserve({ owner, apiHost, running }) {
 export async function hostedBuildReserve() {
 	if (!ctx.session?.online || !ctx.session.store || !ctx.session.imageBase || ctx.app.member)
 		return null;
+	if (networkPause()) return null;
 	try {
 		const { alephEndpoints } = await import('../backup/keeper.js');
 		const { owner } = await hostedOwner();
@@ -429,6 +449,7 @@ export async function hostedBuildReserve() {
  * @param {{ signal?: AbortSignal, onProgress?: (p: { phase: string, detail?: string, received?: number, total?: number | null, step?: string, data?: Record<string, any> }) => void }} [p]
  */
 export async function buildHostedImage({ signal, onProgress = () => {} } = {}) {
+	refuseWhilePaused();
 	if (!ctx.session?.online || !ctx.session.store) throw new Error(t('messages.bridge.needsSync'));
 	if (!ctx.session.imageBase || ctx.app.member)
 		throw new Error(t('messages.hostedBridge.ownImageOwnerOnly'));
@@ -561,6 +582,7 @@ export async function hostedNodeHistory() {
 
 /** The confidential nodes a hosted bridge can start on, best first (#587). */
 export async function hostedNodes() {
+	refuseWhilePaused();
 	const { loadNodes } = await import('../integrations/hosted-vm.js');
 	return loadNodes(await hostedNodeList());
 }
@@ -604,6 +626,7 @@ async function leSpaceVmAccount(key) {
  * fields when Credits are off.
  */
 export async function hostedCredits() {
+	refuseWhilePaused();
 	const { key } = await hostedOwner();
 	const client = await creditsClientOf(key);
 	if (!client)
@@ -635,6 +658,7 @@ export async function hostedCredits() {
  * @param {string} planId one of credits.js BRIDGE_PLANS
  */
 export async function chooseHostedPlan(planId) {
+	refuseWhilePaused();
 	const { BRIDGE_PLANS } = await import('../credits/credits.js');
 	if (!BRIDGE_PLANS.some((p) => p.id === planId))
 		throw new Error('not a plan of the hosted bridge');
@@ -696,6 +720,7 @@ export async function startHostedBridge({
 	signal,
 	onProgress = () => {}
 }) {
+	refuseWhilePaused();
 	if (!ctx.session?.online || !ctx.session.bridgeAuthBase || !ctx.deviceSync) {
 		throw new Error(t('messages.bridge.needsSync'));
 	}
@@ -806,6 +831,7 @@ export async function continueHostedStart({
 	onProgress = () => {},
 	patience = {}
 }) {
+	refuseWhilePaused();
 	const vm = await import('../integrations/hosted-vm.js');
 	const { pause, reasonOf, unlockVerdict } = await import('../integrations/hosted-unlock.js');
 	const { alephEndpoints } = await import('../backup/keeper.js');
@@ -861,6 +887,7 @@ export async function continueHostedStart({
 			if (gaveUp(placed)) break;
 			onProgress({ phase: 'network', detail: record.instance, attempt: i + 1, tries });
 			await pause(delayMs, signal);
+			refuseWhilePaused();
 			placed = await vm.onNode(nodeUrl, record.instance);
 		}
 		if (gaveUp(placed)) {
@@ -907,7 +934,8 @@ export async function continueHostedStart({
 /**
  * "Stoppen" (#587): FORGET the VM; its node stops and drops it, and the VM
  * keeps nothing. The books keep when it ran, for the hours used; the hosted
- * bridge leaves the devices.
+ * bridge leaves the devices. Works while the network is paused (see
+ * `refuseWhilePaused`): the one message to Aleph is what the person asked for.
  */
 export async function stopHostedBridge() {
 	const vm = await import('../integrations/hosted-vm.js');
@@ -947,6 +975,7 @@ export async function stopHostedBridge() {
  * @returns {Promise<Array<import('../integrations/hosted-vm.js').OwnInstance & { nodeName: string | null, nodeUrl: string | null, known: boolean }>>}
  */
 export async function hostedInstances() {
+	refuseWhilePaused();
 	const vm = await import('../integrations/hosted-vm.js');
 	const { alephEndpoints } = await import('../backup/keeper.js');
 	const { owner } = await hostedOwner();

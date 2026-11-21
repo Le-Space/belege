@@ -5,6 +5,7 @@
 // functions is first asked for and hands it the open session.
 
 import { t } from '$lib/i18n/index.js';
+import { networkPause } from '$lib/network-pause.js';
 import {
 	keyGenerationOf,
 	readBridgeRecord,
@@ -22,6 +23,11 @@ export function bindSession(context) {
 }
 
 const isoNow = () => new Date().toISOString();
+
+/** While the network is paused nothing here asks NEAR or the launcher (as hosted-aleph.js); stopping is the exception. */
+function refuseWhilePaused() {
+	if (networkPause()) throw new Error(t('messages.hostedBridge.paused'));
+}
 
 /**
  * The bridge on Phala this browser started last, as the books keep it (no
@@ -44,7 +50,7 @@ export async function nearHostedRecord() {
  * @returns {Promise<{ accountId: string, balance: bigint | null, contract: any, kept: any } | null>}
  */
 export async function nearBridgeStatus() {
-	if (!ctx.session?.store) return null;
+	if (!ctx.session?.store || networkPause()) return null;
 	const nb = await import('../integrations/near-bridge.js');
 	const settings = ctx.session.store.settings;
 	const seed = await nb.ensureNearKey(settings, { create: !ctx.app.member });
@@ -68,6 +74,7 @@ export async function nearBridgeStatus() {
  * @returns {Promise<{ peerId: string, composeHash: string }>}
  */
 export async function startNearHostedBridge({ onPhase = () => {} } = {}) {
+	refuseWhilePaused();
 	if (
 		!ctx.session?.online ||
 		!ctx.session.bridgeAuthBase ||

@@ -7,6 +7,7 @@
 	import {
 		app,
 		nearBridgeStatus,
+		nearHostedRecord,
 		startNearHostedBridge,
 		stopNearHostedBridge
 	} from '$lib/session.svelte.js';
@@ -26,8 +27,18 @@
 		status = await nearBridgeStatus().catch(() => null);
 		noteNear(status);
 	}
+	/** "Alles pausieren" (network-pause.js): the card asks nothing and offers nothing that dials. */
+	const paused = $derived(app.network.paused);
 	$effect(() => {
-		if (app.sync.online) refresh();
+		if (app.sync.online && !paused) refresh();
+	});
+	/** Opened while paused: whether these books started a bridge on Phala, as they keep it (no network). */
+	let keptWhilePaused = $state(false);
+	$effect(() => {
+		if (!app.sync.online || !paused) return;
+		nearHostedRecord()
+			.then((kept) => (keptWhilePaused = Boolean(kept)))
+			.catch(() => {});
 	});
 
 	const running = $derived(Boolean(status?.contract?.bridge?.valid));
@@ -83,6 +94,24 @@
 
 	{#if !app.sync.online}
 		<p class="mt-3 text-sm text-text">{t('messages.bridge.needsSync')}</p>
+	{:else if paused}
+		<p class="mt-3 text-sm text-text" role="status" data-testid="near-bridge-paused">
+			{t('integrationen.nearBridge.paused')}
+			{#if running}{t('integrationen.nearBridge.pausedRunning')}{/if}
+		</p>
+		{#if running || pending || keptWhilePaused}
+			<!-- The one thing offered while paused. -->
+			<button
+				type="button"
+				class="mt-3 min-h-11 rounded-md border border-border px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={Boolean(busy)}
+				onclick={stop}
+				data-testid="near-bridge-stop">{t('integrationen.nearBridge.stop')}</button
+			>
+			{#if busy === 'stop'}
+				<p class="mt-2 text-sm text-text">{t('integrationen.nearBridge.stopping')}</p>
+			{/if}
+		{/if}
 	{:else if status}
 		<dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
 			<dt class="text-faint">{t('integrationen.nearBridge.account')}</dt>

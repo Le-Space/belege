@@ -10,6 +10,7 @@
 	// the shared image, kept nowhere; for the books' own image (#777, built
 	// here with "Bridge-Image bauen" when the books' key pays) derived in the
 	// browser and never typed.
+	import { untrack } from 'svelte';
 	import { intlLocale, t } from '$lib/i18n/index.js';
 	import {
 		app,
@@ -86,6 +87,17 @@
 	/** A build of the own image runs: it cannot be cancelled half-way, so no "Abbrechen". */
 	let building = $state(false);
 
+	/** "Alles pausieren" (network-pause.js): the card asks nothing and offers nothing that dials. */
+	const paused = $derived(app.network.paused);
+	/** The session's node went online at unlock and the network is not paused. */
+	const online = $derived(app.sync.online && !paused);
+	// Paused while the card waits for a VM: the waiting ends. A build is not
+	// cut off half-way; it ends by itself, and its builder is forgotten with it.
+	// Only at the moment of pausing: a stop asked for during the pause runs.
+	$effect(() => {
+		if (paused) untrack(() => !building && controller?.abort());
+	});
+
 	const running = $derived(Boolean(vm && !vm.stoppedAt));
 	/** A start Aleph has, not yet unlocked from here. */
 	const halfway = $derived(running && /** @type {any} */ (kept)?.instance !== vm?.instance);
@@ -118,7 +130,7 @@
 		const id = /** @type {any} */ (kept)?.instance;
 		const mine = id && (!vm || (!vm.stoppedAt && vm.instance === id));
 		const silent = bridge.state !== 'online' || reachedFor !== id;
-		if (!mine || !silent || !app.sync.online || busy) {
+		if (!mine || !silent || !online || busy) {
 			startStatus = null;
 			return;
 		}
@@ -138,7 +150,7 @@
 	const startHint = $derived(hostedStartHint(startStatus));
 	// The status block above says what this card says (bridge-status.js `bridgeStatusRows`).
 	$effect(() => {
-		const shown = app.sync.online && !busy;
+		const shown = online && !busy;
 		noteAlephStart(
 			/** @type {any} */ (kept)?.instance ?? null,
 			shown ? startHint : null,
@@ -157,6 +169,8 @@
 	}
 
 	async function loadInstances() {
+		// Paused meanwhile: asked again once the network is resumed.
+		if (!online) return void (instances = null);
 		instancesError = false;
 		try {
 			instances = await hostedInstances();
@@ -166,13 +180,14 @@
 		}
 	}
 
+	// What the books keep about the VM is read without the network, paused or not.
 	$effect(() => {
 		if (app.sync.online) reload();
 	});
 	// A builder a closed window left on Aleph is forgotten as soon as the card opens (#777).
 	let leftChecked = false;
 	$effect(() => {
-		if (!app.sync.online || leftChecked) return;
+		if (!online || leftChecked) return;
 		leftChecked = true;
 		forgetLeftHostedBuilder().catch(() => {});
 	});
@@ -180,10 +195,10 @@
 		if (kept && !instance) instance = kept.instance;
 	});
 	$effect(() => {
-		if (app.sync.online && instances === null) loadInstances();
+		if (online && instances === null) loadInstances();
 	});
 	$effect(() => {
-		if (!app.sync.online || running || nodes) return;
+		if (!online || running || nodes) return;
 		Promise.all([hostedNodes(), hostedNodeHistory()])
 			.then(([list, remembered]) => {
 				nodes = list;
@@ -194,7 +209,7 @@
 			.catch((e) => (error = e instanceof Error ? e.message : String(e)));
 	});
 	$effect(() => {
-		if (!app.sync.online || running || credits) return;
+		if (!online || running || credits) return;
 		hostedCredits()
 			.then((c) => {
 				credits = c;
@@ -378,7 +393,7 @@
 	 */
 	let reserve = $state(null);
 	$effect(() => {
-		if (!app.sync.online || paidBy !== 'books' || busy) return;
+		if (!online || paidBy !== 'books' || busy) return;
 		hostedBuildReserve().then((r) => (reserve = r));
 	});
 	/** @param {{ credits: number, needed: number } | null} r */
@@ -562,7 +577,7 @@
 			{t('integrationen.hostedBridge.measurement')}
 			{kept.measurement}
 		</p>
-		{#if startHint && app.sync.online && !busy}
+		{#if startHint && online && !busy}
 			<p
 				class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
 				role="status"
@@ -571,7 +586,7 @@
 			>
 				{t(`integrationen.hostedBridge.vmStart.${startHint}`)}
 			</p>
-		{:else if notUp && !startStatus && app.sync.online && !busy}
+		{:else if notUp && !startStatus && online && !busy}
 			<div
 				class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
 				role="status"
@@ -589,7 +604,7 @@
 		{/if}
 	{/if}
 
-	{#if app.sync.online}
+	{#if online}
 		{#if running && !halfway}
 			<button
 				type="button"
@@ -1011,6 +1026,21 @@
 			</form>
 			<p class="mt-2 text-xs text-faint">{t('integrationen.hostedBridge.hint')}</p>
 		</details>
+	{:else if paused}
+		<p class="mt-3 text-sm text-text" role="status" data-testid="hosted-bridge-paused">
+			{t('integrationen.hostedBridge.paused')}
+			{#if running}{t('integrationen.hostedBridge.pausedRunning')}{/if}
+		</p>
+		{#if running}
+			<!-- The one thing offered while paused: a VM costs while it runs. -->
+			<button
+				type="button"
+				class="hover:bg-surface-muted mt-3 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-text disabled:opacity-50"
+				disabled={busy}
+				onclick={stop}
+				data-testid="hosted-bridge-stop">{t('integrationen.hostedBridge.stop')}</button
+			>
+		{/if}
 	{:else}
 		<p class="mt-3 text-sm text-text">{t('messages.bridge.needsSync')}</p>
 	{/if}

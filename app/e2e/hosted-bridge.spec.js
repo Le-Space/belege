@@ -687,6 +687,62 @@ test('Le Space pays the hosted bridge from a plan: its sub-account is the payer,
 	}
 });
 
+test('"Alles pausieren": the hosted bridge cards ask nobody and offer nothing, until the network is resumed', async ({
+	browser
+}) => {
+	test.setTimeout(120_000);
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E Pause');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	// The session went online at unlock: without the pause the cards would ask.
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+
+	const badge = mac.page.getByTestId('local-only');
+	await badge.click();
+	await mac.page.getByTestId('network-pause').click();
+	await expect(badge).toHaveAttribute('data-state', 'paused');
+	await mac.page.keyboard.press('Escape');
+	const asked = aleph.calls.length;
+
+	await openIntegration(mac.page, 'bridge');
+	const card = mac.page.getByTestId('hosted-bridge');
+	await expect(card.getByTestId('hosted-bridge-paused')).toContainText('Das Netz ist pausiert');
+	await expect(mac.page.getByTestId('near-bridge-paused')).toContainText('Das Netz ist pausiert');
+	for (const id of [
+		'hosted-bridge-start',
+		'hosted-bridge-unlock',
+		'hosted-bridge-build-image',
+		'hosted-bridge-instances',
+		'hosted-bridge-node'
+	]) {
+		await expect(card.getByTestId(id)).toHaveCount(0);
+	}
+	await expect(mac.page.getByTestId('near-bridge-start')).toHaveCount(0);
+	// Time enough for the node list, the VMs and the credits to have been asked, had the cards asked.
+	await mac.page.waitForTimeout(2000);
+	expect(aleph.calls.slice(asked)).toEqual([]);
+
+	// "Fortsetzen": the card asks Aleph and offers the start again.
+	await badge.click();
+	await mac.page.getByTestId('network-resume').click();
+	await expect(card.getByTestId('hosted-bridge-paused')).toHaveCount(0);
+	await expect(card.getByTestId('hosted-bridge-node')).toHaveValue(FAKE_CRN, { timeout: 30_000 });
+	await expect(card.getByTestId('hosted-bridge-start')).toBeVisible();
+	expect(aleph.calls.slice(asked)).toContain('/crns.json');
+	await mac.context.close();
+});
+
 test('a VM the node cannot bring up: the card says so and stops it (#587)', async ({ browser }) => {
 	test.setTimeout(120_000);
 	const mac = await device(browser);
@@ -734,11 +790,24 @@ test('a VM the node cannot bring up: the card says so and stops it (#587)', asyn
 			'data-state',
 			'locked'
 		);
+		// "Alles pausieren" holds back everything but the stop: a VM costs while it runs.
+		const badge = mac.page.getByTestId('local-only');
+		await badge.click();
+		await mac.page.getByTestId('network-pause').click();
+		await expect(badge).toHaveAttribute('data-state', 'paused');
+		await mac.page.keyboard.press('Escape');
+		await expect(mac.page.getByTestId('hosted-bridge-paused')).toContainText(
+			'Stoppen kannst du sie auch jetzt'
+		);
+		await expect(mac.page.getByTestId('hosted-bridge-start')).toHaveCount(0);
 		await mac.page.getByTestId('hosted-bridge-stop').click();
 		await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
 			timeout: 60_000
 		});
 		expect(aleph.instances.get(instance)?.status).toBe('forgotten');
+		await expect(mac.page.getByTestId('hosted-bridge-stop')).toHaveCount(0);
+		await badge.click();
+		await mac.page.getByTestId('network-resume').click();
 		await expect(mac.page.getByTestId('hosted-bridge-start')).toContainText('Starten');
 	} finally {
 		aleph.failStarts(false);
