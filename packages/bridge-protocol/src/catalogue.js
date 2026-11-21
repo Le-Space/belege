@@ -689,6 +689,26 @@ export const COMMANDS = [
 		description: 'The euro rate of an asset on a day, with its source'
 	},
 	{
+		name: 'rates.range',
+		version: 1,
+		scope: 'bridge:chains:read',
+		method: 'GET',
+		path: '/rates/range',
+		args: 'query',
+		answer: 'json',
+		via: 'both',
+		request: object(
+			{
+				asset: { type: 'string', pattern: '^[A-Z0-9]{2,10}$' },
+				from: day,
+				to: day
+			},
+			['asset', 'from', 'to']
+		),
+		response: answerWith(['rates']),
+		description: 'The euro rates of a listed asset on each day of a period, with their sources'
+	},
+	{
 		name: 'kraken.balances',
 		version: 1,
 		scope: 'bridge:chains:read',

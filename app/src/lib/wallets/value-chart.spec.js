@@ -8,6 +8,7 @@ import {
 	loadRates,
 	neededRates,
 	rateSource,
+	rateSpans,
 	walletHoldings
 } from './value-chart.js';
 
@@ -241,5 +242,127 @@ describe('the wallets’ value per day (#908)', () => {
 		expect(asked.filter((a) => a.startsWith('XYZ'))).toHaveLength(3);
 		expect(result.failed).toBe(5);
 		expect(progress.at(-1)).toBe('8/8');
+	});
+
+	const nym = ['04', '03', '02', '01'].map((d) => ({
+		key: 'NYM',
+		symbol: 'NYM',
+		day: `2026-10-${d}`
+	}));
+	const token = ['04', '03'].map((d) => ({
+		key: 'XYZ@base:0xddd',
+		symbol: 'XYZ',
+		day: `2026-10-${d}`,
+		contract: '0xddd',
+		chain: 'base'
+	}));
+
+	it('periods: one per listed asset from its first needed day to its last; a token stays day by day', () => {
+		const akt = [{ key: 'AKT', symbol: 'AKT', day: '2026-10-02' }];
+		// Interleaved, the newest first, as neededRates hands them over.
+		const { spans, single } = rateSpans([nym[0], token[0], akt[0], nym[1], token[1], nym[3]]);
+		expect(spans.map((s) => [s.symbol, s.from, s.to, s.needs.length])).toEqual([
+			['NYM', '2026-10-01', '2026-10-04', 3],
+			['AKT', '2026-10-02', '2026-10-02', 1]
+		]);
+		expect(single).toEqual(token);
+		// Longer than the bridge takes at once: cut.
+		const long = rateSpans(
+			['2026-06-01', '2026-09-08', '2026-09-09', '2026-10-01'].map((day) => ({
+				key: 'NYM',
+				symbol: 'NYM',
+				day
+			}))
+		);
+		expect(long.spans.map((s) => [s.from, s.to])).toEqual([
+			['2026-06-01', '2026-09-08'],
+			['2026-09-09', '2026-10-01']
+		]);
+	});
+
+	it('asking for rates: one call per listed asset; a day missing in the answer stays missing', async () => {
+		/** @type {string[]} */
+		const asked = [];
+		/** @type {string[]} */
+		const got = [];
+		/** @type {string[]} */
+		const progress = [];
+		const result = await loadRates({
+			needs: [...nym, ...token],
+			parallel: 1,
+			getRange: async ({ symbol, from, to }) => {
+				asked.push(`${symbol} ${from}..${to}`);
+				return {
+					rates: [
+						{ date: '2026-10-01', rate: '0.05' },
+						{ date: '2026-10-02', rate: '0.06' },
+						{ date: '2026-10-04', rate: '0.07' },
+						// Not a rate: left out.
+						{ date: '2026-10-03', rate: 'NaN' }
+					]
+				};
+			},
+			getRate: async ({ symbol, day, contract }) => {
+				asked.push(`${symbol} ${day} ${contract}`);
+				return { rate: '2' };
+			},
+			onRate: (key, day, rate) => got.push(`${key} ${day} ${rate}`),
+			onProgress: (done, count) => progress.push(`${done}/${count}`)
+		});
+		expect(asked).toEqual([
+			'NYM 2026-10-01..2026-10-04',
+			'XYZ 2026-10-04 0xddd',
+			'XYZ 2026-10-03 0xddd'
+		]);
+		expect(got).toEqual([
+			'NYM 2026-10-01 0.05',
+			'NYM 2026-10-02 0.06',
+			'NYM 2026-10-04 0.07',
+			'XYZ@base:0xddd 2026-10-04 2',
+			'XYZ@base:0xddd 2026-10-03 2'
+		]);
+		expect(result.failed).toBe(1);
+		expect(progress).toEqual(['4/6', '5/6', '6/6']);
+	});
+
+	it('asking for rates: a bridge without the call for a period is asked day by day; another failure is not', async () => {
+		const akt = ['02', '01'].map((d) => ({ key: 'AKT', symbol: 'AKT', day: `2026-10-${d}` }));
+		/** @type {string[]} */
+		const asked = [];
+		/** @type {string[]} */
+		const got = [];
+		const old = await loadRates({
+			needs: [...nym, ...akt],
+			parallel: 1,
+			getRange: async ({ symbol }) => {
+				asked.push(`range ${symbol}`);
+				throw Object.assign(new Error('outdated'), { status: 404, code: 'BRIDGE_OUTDATED' });
+			},
+			getRate: async ({ symbol, day }) => {
+				asked.push(`${symbol} ${day}`);
+				return { rate: '0.05' };
+			},
+			onRate: (key, day) => got.push(`${key} ${day}`)
+		});
+		// Asked once, not again for the next asset.
+		expect(asked.filter((a) => a.startsWith('range'))).toEqual(['range NYM']);
+		expect(got).toHaveLength(6);
+		expect(old.failed).toBe(0);
+
+		/** @type {string[]} */
+		const days = [];
+		const down = await loadRates({
+			needs: nym,
+			getRange: async () => {
+				throw Object.assign(new Error('unreachable'), { status: 0 });
+			},
+			getRate: async ({ day }) => {
+				days.push(day);
+				return { rate: '0.05' };
+			},
+			onRate: () => {}
+		});
+		expect(days).toEqual([]);
+		expect(down.failed).toBe(4);
 	});
 });

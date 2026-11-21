@@ -34,7 +34,7 @@
 		walletHoldings
 	} from './value-chart.js';
 
-	/** @type {{ wallets: import('./wallet-sync.js').Wallet[], client: { rate: ReturnType<typeof import('$lib/bridge/client.js').createBridgeClient>['rate'] }, busy?: boolean }} `busy`: a sync is running; rates are asked for after it */
+	/** @type {{ wallets: import('./wallet-sync.js').Wallet[], client: Pick<ReturnType<typeof import('$lib/bridge/client.js').createBridgeClient>, 'rate' | 'rateRange'>, busy?: boolean }} `busy`: a sync is running; rates are asked for after it */
 	let { wallets, client, busy = false } = $props();
 
 	// What is hidden and opened is a convenience of this device, not of the
@@ -110,6 +110,8 @@
 			needs,
 			getRate: (n) =>
 				client.rate(n.symbol, n.day, n.contract ? { contract: n.contract, chain: n.chain } : {}),
+			// One call per asset for all its days; an older bridge is asked day by day (loadRates).
+			getRange: (span) => client.rateRange(span.symbol, span.from, span.to),
 			onRate: (key, day, rate) => {
 				rateCache.set(`${key}@${day}`, rate);
 			},

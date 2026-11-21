@@ -26,6 +26,7 @@
 //   POST /llm/choice { answer: 'local' | 'keep' }                 token → the answer to the question about the old DeepSeek default, kept in bridge.json
 //   POST /extract      { text, hints, source, confirmedByUser }   token
 //   GET  /rates?asset=BTC&date=YYYY-MM-DD[&prefer=kraken][&contract=0x…&chain=ethereum[&block=N&decimals=D]]  token → EUR per unit, source (rates.js; the DEX pool at the block: dex-rate.js)
+//   GET  /rates/range?asset=BTC&from=YYYY-MM-DD&to=YYYY-MM-DD    token → { rates }: EUR per unit for each day of a period that has one, at most 100 days (rates.js)
 //   GET  /enablebanking/banks?country=DE                          token → the banks Enable Banking offers (enablebanking-links.js)
 //   POST /enablebanking/link { bank, country, psuType? }         token → { url, state, validUntil }: the bank's page
 //   POST /enablebanking/finish { code, state }                   token → { link }: the bank's answer becomes a session

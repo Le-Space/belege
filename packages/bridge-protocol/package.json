@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/bridge-protocol",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "The Belege bridge's commands: names, scopes, argument and answer schemas, and how HTTP carries them. One catalogue for the bridge and every client, in a browser and in Node.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",

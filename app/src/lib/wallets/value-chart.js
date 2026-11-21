@@ -7,7 +7,9 @@
 // quantity, running), anchored at the balance the source reports (`balance`,
 // `balanceOn` on the account); where the source gave none, from the bookings
 // alone. The value of a day is quantity × the day's rate: the rate a booking
-// of that day was valued with, else the day's market rate through the bridge.
+// of that day was valued with, else the day's market rate through the bridge
+// (a listed asset's days in one call for the whole period, a token's by its
+// contract day by day).
 // A day without a rate leaves the asset out and says so; only an asset the
 // books themselves never value at a market rate (a token priced by its pool,
 // a rate typed by hand) is valued with the rate of its last booking, and the
@@ -359,14 +361,73 @@ export function chartModel({ series, holdings, hidden, open }) {
 	};
 }
 
+/** The longest period the bridge answers in one call (`rates.range`, @le-space/rates MAX_RANGE_DAYS). */
+export const MAX_SPAN_DAYS = 100;
+
+/** @param {string} day @param {number} n */
+const addDays = (day, n) =>
+	new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+
 /**
- * Asks for rates, a few at a time, and hands each over as it arrives. An
- * asset the bridge has no rate for three times, and never had one, is not
- * asked for again in this run: its days stay without a rate.
+ * @typedef {{ key: string, symbol: string, day: string, contract?: string, chain?: string }} RateNeed
+ * @typedef {{ key: string, symbol: string, from: string, to: string, needs: RateNeed[] }} RateSpan
+ *   the days of one asset to ask for in one call, from the first needed to the last
+ */
+
+/**
+ * The needed rates as periods, one per listed asset – the bridge answers a
+ * period in one call – and what stays day by day: a token by its contract.
+ * A period longer than the bridge takes is cut.
+ *
+ * @param {RateNeed[]} needs
+ * @param {number} [maxDays]
+ * @returns {{ spans: RateSpan[], single: RateNeed[] }}
+ */
+export function rateSpans(needs, maxDays = MAX_SPAN_DAYS) {
+	/** @type {Map<string, RateNeed[]>} */
+	const perAsset = new Map();
+	/** @type {RateNeed[]} */
+	const single = [];
+	for (const need of needs) {
+		if (need.contract) single.push(need);
+		else perAsset.set(need.key, [...(perAsset.get(need.key) ?? []), need]);
+	}
+	/** @type {RateSpan[]} */
+	const spans = [];
+	for (const [key, list] of perAsset) {
+		const sorted = [...list].sort((a, b) => (a.day < b.day ? -1 : 1));
+		for (const need of sorted) {
+			const last = spans.at(-1);
+			if (last?.key === key && need.day <= addDays(last.from, maxDays - 1)) {
+				last.to = need.day;
+				last.needs.push(need);
+			} else {
+				spans.push({ key, symbol: need.symbol, from: need.day, to: need.day, needs: [need] });
+			}
+		}
+	}
+	return { spans, single };
+}
+
+/** A bridge older than the command for a period (bridge/client.js: 404, `BRIDGE_OUTDATED`). @param {any} error */
+const unknownToBridge = (error) => error?.code === 'BRIDGE_OUTDATED' || error?.status === 404;
+
+const RATE = /^\d+(\.\d+)?$/;
+
+/**
+ * Asks for rates and hands each over as it arrives: a listed asset's days in
+ * one call for the whole period (`getRange`), a token by its contract day by
+ * day (`getRate`), a few calls at a time. A day the period's answer has no
+ * rate for stays without one. A bridge that does not know the call for a
+ * period is asked day by day, as before. An asset the bridge has no rate for
+ * three times day by day, and never had one, is not asked for again in this
+ * run: its days stay without a rate.
  *
  * @param {object} p
- * @param {{ key: string, symbol: string, day: string, contract?: string, chain?: string }[]} p.needs
+ * @param {RateNeed[]} p.needs
  * @param {(need: { symbol: string, day: string, contract?: string, chain?: string }) => Promise<{ rate: string }>} p.getRate
+ * @param {(span: { symbol: string, from: string, to: string }) => Promise<{ rates: { date: string, rate: string }[] }>} [p.getRange]
+ *   without it, everything goes day by day
  * @param {(key: string, day: string, rate: string) => void} p.onRate
  * @param {(done: number, count: number) => void} [p.onProgress]
  * @param {() => boolean} [p.stopped] true: stop asking (the page was left)
@@ -376,6 +437,7 @@ export function chartModel({ series, holdings, hidden, open }) {
 export async function loadRates({
 	needs,
 	getRate,
+	getRange,
 	onRate,
 	onProgress,
 	stopped = () => false,
@@ -385,12 +447,50 @@ export async function loadRates({
 	const tally = new Map();
 	/** @type {Set<string>} */
 	const givenUp = new Set();
-	let next = 0;
 	let done = 0;
 	let failed = 0;
+	const { spans, single } = getRange ? rateSpans(needs) : { spans: [], single: needs };
+	/** What goes day by day: the tokens, and every asset of a bridge without the call for a period. */
+	const byDay = [...single];
+	let rangeKnown = true;
+	let nextSpan = 0;
+	const spanWorker = async () => {
+		while (nextSpan < spans.length && !stopped()) {
+			const span = spans[nextSpan++];
+			if (!rangeKnown) {
+				byDay.push(...span.needs);
+				continue;
+			}
+			/** @type {Map<string, string>} */
+			const got = new Map();
+			try {
+				const answer = await /** @type {NonNullable<typeof getRange>} */ (getRange)(span);
+				for (const r of Array.isArray(answer?.rates) ? answer.rates : []) {
+					if (typeof r?.date === 'string' && typeof r.rate === 'string' && RATE.test(r.rate))
+						got.set(r.date, r.rate);
+				}
+			} catch (error) {
+				if (unknownToBridge(error)) {
+					rangeKnown = false;
+					byDay.push(...span.needs);
+					continue;
+				}
+			}
+			for (const need of span.needs) {
+				const rate = got.get(need.day);
+				if (rate) onRate(need.key, need.day, rate);
+				else failed++;
+			}
+			done += span.needs.length;
+			onProgress?.(done, needs.length);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.max(1, parallel) }, spanWorker));
+
+	let next = 0;
 	const worker = async () => {
-		while (next < needs.length && !stopped()) {
-			const need = needs[next++];
+		while (next < byDay.length && !stopped()) {
+			const need = byDay[next++];
 			const count = tally.get(need.key) ?? { ok: 0, failed: 0 };
 			tally.set(need.key, count);
 			if (givenUp.has(need.key)) {
@@ -398,7 +498,7 @@ export async function loadRates({
 			} else {
 				try {
 					const answer = await getRate(need);
-					if (typeof answer?.rate !== 'string' || !/^\d+(\.\d+)?$/.test(answer.rate))
+					if (typeof answer?.rate !== 'string' || !RATE.test(answer.rate))
 						throw new Error('no rate');
 					count.ok++;
 					onRate(need.key, need.day, answer.rate);

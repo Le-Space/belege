@@ -22,6 +22,7 @@ import { HibiscusUnreachableError, PinMismatchError } from './hibiscus.js';
 import { ibanAllowed, normalizeAccount, normalizeTransaction } from './normalize.js';
 import { decodeMailId, isIsoDay, isPartNumber } from './mail/mime.js';
 import { ALEPH_API } from '@le-space/chains/aleph';
+import { MAX_RANGE_DAYS } from '@le-space/rates';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from '@le-space/chains/http';
 import { withExtraTerms } from './llm/redact.js';
@@ -1100,6 +1101,31 @@ export function createCommands({
 						decimals: decimalsText === null ? null : Number(decimalsText)
 					})
 				);
+			}
+		},
+		{
+			// A period of days of one listed asset, for a chart: one call instead of one per day.
+			name: 'rates.range',
+			method: 'GET',
+			path: '/rates/range',
+			scope: 'bridge:chains:read',
+			run: async ({ query }) => {
+				if (!rates) return notSetUpAnswer.rates;
+				const asset = query.get('asset') ?? '';
+				const from = query.get('from') ?? '';
+				const to = query.get('to') ?? '';
+				if (!/^[A-Z0-9]{2,10}$/.test(asset)) return json(400, { error: 'asset is required' });
+				if (!isIsoDay(from) || !isIsoDay(to)) {
+					return json(400, { error: 'from and to must be YYYY-MM-DD' });
+				}
+				if (from > to) return json(400, { error: 'from lies after to' });
+				const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400_000;
+				if (days >= MAX_RANGE_DAYS) {
+					return json(400, { error: `at most ${MAX_RANGE_DAYS} days at once` });
+				}
+				// An older rate service (a hosted bridge's own) may not have it.
+				if (typeof rates.rates !== 'function') return json(404, { error: 'not found' });
+				return json(200, await rates.rates(asset, from, to));
 			}
 		},
 		{
