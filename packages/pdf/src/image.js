@@ -14,6 +14,7 @@
 //
 // The same bytes in, the same bytes out, in a browser and in Node.
 
+// @ts-ignore pako 1.x ships no types; it is used through PAKO below.
 import pakoModule from 'pako';
 import upngModule from '@pdf-lib/upng';
 
