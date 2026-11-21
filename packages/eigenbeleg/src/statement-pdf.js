@@ -5,7 +5,9 @@
 // bookings (date, text, debit, credit, running balance, EUR value), the
 // closing balance with its check against the chain, and the sums a
 // bookkeeper needs. German, for German bookkeeping. Aleph Cloud credits get
-// the same layout titled »Verbrauchsauszug« (`st.title`).
+// the same layout titled »Verbrauchsauszug« (`st.title`). Above each list of
+// bookings a small diagram (#889, statement-chart.js): the balance over the
+// period, or what was consumed per day.
 
 import { rgb } from 'pdf-lib';
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
@@ -14,6 +16,8 @@ import { round } from '@le-space/ledger';
 import { DATA_SOURCES, deDate, deEuro, deNumber } from './document.js';
 import { CREATOR, PRODUCER } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
+import { drawScene, sceneMeasure } from './chart-pdf.js';
+import { statementChart } from './statement-chart.js';
 import { A4, BAND, BLACK, GREY, OK, RULE, WARN, pageLayout } from './layout.js';
 
 const M = 44;
@@ -33,13 +37,14 @@ const qty = (q) => (q ? deNumber(round(q, 12)) : '');
 
 /**
  * @param {import('./statement.js').Statement} st
- * @param {{ creator?: string, producer?: string, logo?: boolean }} [o] logo: the chain's
- *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS)
+ * @param {{ creator?: string, producer?: string, logo?: boolean, chart?: boolean }} [o] logo: the chain's
+ *   mark, small, beside the title (off unless asked for; @le-space/pdf's LOGOS). chart: the
+ *   diagram above each list of bookings (on unless switched off)
  * @returns {Promise<Uint8Array>}
  */
 export async function statementPdf(
 	st,
-	{ creator = CREATOR, producer = PRODUCER, logo = false } = {}
+	{ creator = CREATOR, producer = PRODUCER, logo = false, chart = true } = {}
 ) {
 	const created = new Date(st.issuedAt);
 	// Aleph credits: a Verbrauchsauszug in the same layout, valued by its own rule.
@@ -138,6 +143,13 @@ export async function statementPdf(
 				}
 				l.y -= 8;
 			}
+		}
+		// The diagram, above the list of bookings (#889); every figure in it is in the tables.
+		const drawn = chart ? statementChart(st, s, { width, measure: sceneMeasure(fonts) }) : null;
+		if (drawn) {
+			l.ensure(drawn.scene.height + 40);
+			drawScene(l.page, drawn.scene, { x: M, top: l.y, fonts });
+			l.y -= drawn.scene.height + 12;
 		}
 		const head = () => {
 			let x = M;

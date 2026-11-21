@@ -467,6 +467,19 @@ importers:
         specifier: 3.6.2
         version: 3.6.2
 
+  packages/charts:
+    dependencies:
+      '@le-space/ledger':
+        specifier: workspace:^
+        version: link:../ledger
+    devDependencies:
+      '@le-space/browser-test':
+        specifier: workspace:*
+        version: link:../browser-test
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+
   packages/device-gate:
     dependencies:
       '@libp2p/identify':
@@ -482,6 +495,9 @@ importers:
 
   packages/eigenbeleg:
     dependencies:
+      '@le-space/charts':
+        specifier: workspace:^
+        version: link:../charts
       '@le-space/ledger':
         specifier: workspace:^
         version: link:../ledger
