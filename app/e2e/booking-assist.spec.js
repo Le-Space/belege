@@ -21,7 +21,8 @@ const IBAN = 'DE00 1234 5678 9012 3456 78';
 /** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 /** @type {import('./bridge-process.js').StartedBridge} */ let bridge;
 
-test.beforeAll(async () => {
+// A bridge of its own for each test: a pairing code is good for one device.
+test.beforeEach(async () => {
 	hibiscus = await startFakeHibiscus({ data: sampleData() });
 	llm = await startFakeLlm();
 	llm.answers.respond = (body) =>
@@ -51,7 +52,7 @@ test.beforeAll(async () => {
 	});
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
 	await bridge?.stop();
 	await llm?.close();
 	await hibiscus?.close();
@@ -165,7 +166,7 @@ test('"Ohne Konto": the model suggests an account for every listed payment, each
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
 	await tab('Integrationen').click();
-	await pairBridge(page, { code: pairingCode, out: () => bridgeOut });
+	await pairBridge(page, bridge);
 
 	await openSettings(page, 'kontenplan');
 	const chart = page.getByTestId('chart');
