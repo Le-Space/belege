@@ -198,7 +198,7 @@ _Everything left of the line never leaves the device; what crosses it is ciphert
   - **The key check** is the tag of an empty plaintext: a wrong key is known there.
   - **What it gives:** a frame can be opened by itself, so the file can be read as it arrives. A frame left out, moved, repeated or altered, a file cut short and a file with anything appended are refused at the frame.
 
-- **Format up to 0.47:** `belegeB1 ‖ nonce ‖ ciphertext`, the whole CAR sealed in one piece with AES-256-GCM under the backup key itself. It still restores. One tag at the end of the file vouches for all of it, so it can only be opened whole.
+- **Format up to 0.48:** `belegeB1 ‖ nonce ‖ ciphertext`, the whole CAR sealed in one piece with AES-256-GCM under the backup key itself. It still restores. One tag at the end of the file vouches for all of it, so it can only be opened whole.
 - **Memory:** a restore of a backup in frames holds a frame, a block and the names of the blocks: measured in Node with blocks on disk, about 9 MiB for a backup of 64 MiB against about 190 MiB for the same backup in one piece (`restore-memory.spec.js`, `bench/restore-memory.js`). Making a backup still builds the file in memory, and the upload sends it as one body.
 - **Upload:** the storage bridge's `aleph` backend, `POST https://ipfs.aleph.cloud/api/v0/add`, with no key.
 - **Keeping:**

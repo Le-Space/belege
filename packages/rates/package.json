@@ -1,6 +1,6 @@
 {
 	"name": "@le-space/rates",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"description": "The euro rate of a day for Le Space's tools: the price at 00:00 UTC (CoinGecko, Kraken), the ECB reference rate (Bank of Russia, National Bank of Kazakhstan where it has none), a token's DEX pool at a block. Every answer names its source. Browser and Node; fetch and keys handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
@@ -15,9 +15,12 @@
 		".": "./src/index.js",
 		"./rates": "./src/rates.js",
 		"./dex-rate": "./src/dex-rate.js",
-		"./aleph-credits": "./src/aleph-credits.js"
+		"./aleph-credits": "./src/aleph-credits.js",
+		"./reference-rate": "./src/reference-rate.js"
 	},
-	"files": ["src"],
+	"files": [
+		"src"
+	],
 	"engines": {
 		"node": ">=22"
 	},

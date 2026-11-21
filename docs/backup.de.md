@@ -248,7 +248,7 @@ _Alles links der Linie verlässt das Gerät nie; was sie überquert, ist Chiffre
   - **Die Schlüsselprüfung** ist das Tag eines leeren Klartexts: Ein falscher Schlüssel fällt dort auf.
   - **Was das bringt:** Ein Frame lässt sich für sich öffnen, die Datei also lesen, während sie ankommt. Ein ausgelassener, verschobener, wiederholter oder veränderter Frame, eine abgeschnittene Datei und eine Datei mit Angehängtem werden am Frame abgewiesen.
 
-- **Format bis 0.47:** `belegeB1 ‖ Nonce ‖ Chiffretext`, das ganze CAR in einem Stück mit AES-256-GCM unter dem Backup-Schlüssel selbst versiegelt. Es lässt sich weiter wiederherstellen. Ein einziges Tag am Ende der Datei bürgt für alles, deshalb lässt es sich nur als Ganzes öffnen.
+- **Format bis 0.48:** `belegeB1 ‖ Nonce ‖ Chiffretext`, das ganze CAR in einem Stück mit AES-256-GCM unter dem Backup-Schlüssel selbst versiegelt. Es lässt sich weiter wiederherstellen. Ein einziges Tag am Ende der Datei bürgt für alles, deshalb lässt es sich nur als Ganzes öffnen.
 - **Arbeitsspeicher:** Die Wiederherstellung eines Backups in Frames hält einen Frame, einen Block und die Namen der Blöcke: gemessen in Node mit Blöcken auf der Platte etwa 9 MiB für ein Backup von 64 MiB, gegenüber etwa 190 MiB für dasselbe Backup in einem Stück (`restore-memory.spec.js`, `bench/restore-memory.js`). Ein Backup zu erstellen baut die Datei weiterhin im Arbeitsspeicher, und der Upload schickt sie als einen Körper.
 - **Upload:** das `aleph`-Backend der Storage-Bridge, `POST https://ipfs.aleph.cloud/api/v0/add`, ohne Schlüssel.
 - **Aufbewahren:**

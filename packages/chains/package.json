@@ -1,7 +1,7 @@
 {
 	"name": "@le-space/chains",
 	"version": "0.5.3",
-	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks), Aleph Cloud credits – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
+	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks), Doichain (ElectrumX), Aleph Cloud credits – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
 	"repository": {
@@ -34,13 +34,17 @@
 		"./near": "./src/near.js",
 		"./aleph": "./src/aleph.js",
 		"./filecoin-pay": "./src/filecoin-pay.js",
+		"./doichain": "./src/doichain.js",
+		"./doichain-chain": "./src/doichain-chain.js",
+		"./electrum": "./src/electrum.js",
 		"./testing/cosmos": "./test/support/fake-cosmos.js",
 		"./testing/filfox": "./test/support/fake-filfox.js",
 		"./testing/near": "./test/support/fake-near.js",
 		"./testing/blockscout": "./test/support/fake-blockscout.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
 		"./testing/aleph": "./test/support/aleph.js",
-		"./testing/filecoin-pay": "./test/support/filecoin-pay-fetch.js"
+		"./testing/filecoin-pay": "./test/support/filecoin-pay-fetch.js",
+		"./testing/doichain": "./test/support/fake-electrum.js"
 	},
 	"files": [
 		"src",
