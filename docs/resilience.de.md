@@ -71,7 +71,19 @@ Die 21 sind zwölf mit einem Circuit, der nach 5 s abläuft (wie die zwölf auf 
 
 Ebenfalls berichtigt: Die App fragte eine Verbindung nach `limited`, das libp2p 3 nicht mehr setzt (es heißt `limits`); der Heads-Austausch, der für „jetzt ist eine direkte Verbindung da" gedacht war, wurde deshalb eine Sekunde nach dem Öffnen des Relay-Circuits verbraucht – wo OrbitDBs Anwahl abgelehnt wird – und für die folgende Verbindung nicht wiederholt. Er wartet jetzt auf eine Verbindung ohne Grenzen.
 
-Nicht gemessen: die Produktions-Relays. Der Mechanismus ist dort derselbe – was auch immer den Circuit schließt, die 20-Minuten-Grenze oder eine verlorene Relay-Verbindung, lässt Gossipsub neben einer direkten Verbindung ohne Streams –, aber ein Lauf gegen sie (21 Minuten Ruhe wie am 14.10.2026) ist mit der Korrektur nicht gemacht. Und die Korrektur in Gossipsub selbst bleibt die richtige: Sie gälte auch für Peers, die nicht diese App sind.
+**Gegen einen Produktions-Relay (21.11.2026, nachmittags).** Die Messung, die am 14.10.2026 offen blieb: das Relay-Szenario über einen Le-Space-Relay auf Aleph (20 Minuten und 10 GiB je Circuit), beide Geräte auf einem Laptop, 50 Buchungen, zehn einzelne Buchungen je Richtung, dann 21 Minuten Ruhe und der Schub – auf main mit der Korrektur, zwei Läufe (`app/bench/results/2026-11-21-resilience-replication-relay-50-aleph-quiet21m-fix-*.json`; beim zweiten war ein zweiter Relay eingestellt, zu dem die Geräte keine Verbindung hielten, er ist also ein zweiter Lauf desselben).
+
+| | Lauf 1 | Lauf 2 |
+| --- | --- | --- |
+| der Relay schließt den Circuit, in die Ruhe hinein | nach 1139 s | nach 1185 s |
+| Gossipsubs Streams auf der WebRTC-Verbindung | 1 s später | 1 s später |
+| Heads erneut ausgetauscht, ein Gerät nach dem anderen | 2 s und 5 s nach dem Schließen | 2 s und 5 s nach dem Schließen |
+| aufgelegte Verbindungen, getrennte Geräte | keine | keine |
+| Schub von 100, 75 bis 121 s nach dem Schließen | **100 von 100**, 3,7 s nach dem letzten Schreiben | **100 von 100**, 3,7 s nach dem letzten Schreiben |
+
+Das ist der Fall, für den das Issue angelegt wurde – der Circuit läuft in seine 20 Minuten, während die Geräte auf einer direkten Verbindung ruhen –, und der im Oktober bei 0 von 100 stand; hier stockt nichts, und nichts wird aufgelegt. Zwei Läufe, ein Relay, eine Maschine, ein Nachmittag: genug, um zu sagen, dass der Mechanismus gegen den echten Relay trägt, keine Aussage über jedes Netz. Im ersten Lauf brauchte der Nachzügler 38,5 s für seinen ersten Abgleich, mit einer WebRTC-Verbindung, die nach 13 s schloss – #909, jetzt auch über das Internet gesehen.
+
+Die Korrektur in Gossipsub selbst bleibt die richtige: Sie gälte auch für Peers, die nicht diese App sind.
 
 **Mit produktionsnahen Grenzen** (die Le-Space-Relays laufen mit 20 Minuten und 10 GiB je Circuit; `E2E_RELAY_UNLIMITED=1` hebt die Grenze des Test-Relays auf) läuft alles durch, und die Zahlen decken sich im Rauschen mit denen ohne Relay:
 
