@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Eigenbeleg's look, shared by every document this package draws (the
 // Eigenbeleg of a period, the Kontoauszug, the Eigenbeleg of one booking, a
-// statement Eigenbeleg): A4, a 48 pt margin, grey labels beside their values,
-// thin rules, a tinted box for the note, tables whose header repeats on a
-// new page, a QR code of the explorer link. Text in any script the fonts
-// have (@le-space/pdf); pages as many as the content needs.
+// statement Eigenbeleg), one style for all of them (#951): A4, a 48 pt margin,
+// the title first and a strong rule under the head, labels small and grey
+// beside or above their values, rules in two weights and nothing else to
+// separate (no fills, no boxes), ink and one grey, red for a warning only, a
+// total between two rules, tables whose header repeats on a new page, a QR
+// code of the explorer link. Text in any script the fonts have
+// (@le-space/pdf); pages as many as the content needs.
 //
 // The drawing helpers of Eigenbeleg's pdf.js and statement-pdf.js (from
 // Le-Space/eigenbeleg-agent at e6cde90), on faces instead of pdf-lib fonts.
@@ -18,13 +21,28 @@ import { embedPdfImage, pdfImage, pdfText, wrapText } from '@le-space/pdf';
 /** @typedef {import('pdf-lib').Color} Color */
 
 export const A4 = /** @type {[number, number]} */ ([595.28, 841.89]);
-export const BLACK = rgb(0, 0, 0);
-export const GREY = rgb(0.38, 0.38, 0.38);
-export const RULE = rgb(0.78, 0.78, 0.78);
-export const TINT = rgb(0.95, 0.95, 0.93);
-export const BAND = rgb(0.93, 0.94, 0.95);
-export const WARN = rgb(0.6, 0.12, 0.08);
-export const OK = rgb(0.1, 0.42, 0.2);
+/** Ink: the text, the strong rules, the QR code. A near-black, softer on paper and screen than pure black. */
+export const INK = rgb(0.09, 0.1, 0.13);
+/** What every text is drawn in unless it says otherwise: ink. */
+export const BLACK = INK;
+/** Secondary text: labels, table heads, fine print. */
+export const GREY = rgb(0.4, 0.42, 0.46);
+/** Hairlines. */
+export const RULE = rgb(0.78, 0.8, 0.83);
+/** The one colour: a warning (the test network, a balance that does not reconcile). */
+export const WARN = rgb(0.62, 0.13, 0.1);
+
+/** The sizes every document is set in, in points. Nothing is set in a size between them. */
+export const TYPE = /** @type {const} */ ({
+	title: 22,
+	lead: 10,
+	body: 9,
+	table: 8,
+	small: 7.5,
+	label: 7
+});
+/** The two rules: a strong one for structure (under the head, around a total), a hairline between rows. */
+export const STROKE = /** @type {const} */ ({ strong: 0.8, hair: 0.3 });
 
 /**
  * The room the issuer's logo is fitted into, in points: about 70 × 25 mm, a letterhead's logo.
@@ -108,7 +126,7 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		text(t, o = {}) {
 			const {
 				x = margin,
-				size = 9.5,
+				size = TYPE.body,
 				face = regular,
 				color = BLACK,
 				max = l.width - (x - margin),
@@ -175,14 +193,123 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 			l.y = Math.min(l.y - height - 14, A4[1] - LETTERHEAD);
 		},
 
-		/** @param {number} [thickness] @param {Color} [color] */
-		rule(thickness = 0.6, color = RULE) {
+		/** A hairline across the page; `strong()` for the other one. @param {number} [thickness] @param {Color} [color] */
+		rule(thickness = STROKE.hair, color = RULE) {
 			l.page.drawLine({
 				start: { x: margin, y: l.y },
 				end: { x: A4[0] - margin, y: l.y },
 				thickness,
 				color
 			});
+		},
+
+		/** The strong rule: under a head, around a total. */
+		strong() {
+			l.rule(STROKE.strong, INK);
+		},
+
+		/**
+		 * A label: what the value below or beside it is. Small, grey, never bold.
+		 *
+		 * @param {string} t
+		 * @param {{ x?: number, max?: number }} [o]
+		 */
+		label(t, o = {}) {
+			l.text(t, { ...o, size: TYPE.label, color: GREY, lead: 1.55 });
+		},
+
+		/**
+		 * The head of a document: its kind as the title (with the chain's mark when
+		 * given), its number, what it is in one line, and the strong rule under them.
+		 *
+		 * @param {string} kind
+		 * @param {{ number?: string, subtitle?: string, image?: import('pdf-lib').PDFImage | null, mark?: number }} [o]
+		 */
+		head(kind, { number = '', subtitle = '', image = null, mark } = {}) {
+			l.title(kind, { face: fonts.bold, size: TYPE.title }, image, mark);
+			if (number) l.text(`Nr. ${number}`, { size: TYPE.lead });
+			if (subtitle) {
+				l.gap(1);
+				l.text(subtitle, { size: TYPE.body, color: GREY });
+			}
+			l.gap(8);
+			l.strong();
+			l.gap(12);
+		},
+
+		/**
+		 * A total, alone between two strong rules: its label on the left, the
+		 * amount large on the right, both on one baseline.
+		 *
+		 * @param {string} label
+		 * @param {string} total
+		 */
+		total(label, total) {
+			const size = 14;
+			l.ensure(size + 30);
+			l.strong();
+			l.y -= 8;
+			const amount = pdfText(total);
+			const room = l.width - fonts.bold.width(amount, size) - 16;
+			const lines = wrapText(label, fonts.bold, TYPE.lead, room);
+			// The first line of the label shares the amount's baseline.
+			lines.forEach((line, i) =>
+				fonts.bold.draw(l.page, line, {
+					x: margin,
+					y: l.y - size - i * TYPE.lead * 1.35,
+					size: TYPE.lead,
+					color: INK
+				})
+			);
+			l.right(amount, A4[0] - margin, size, fonts.bold, INK);
+			l.y -= size + (lines.length - 1) * TYPE.lead * 1.35 + 8;
+			l.strong();
+			l.y -= 10;
+		},
+
+		/**
+		 * The line to sign, with room above it for a hand.
+		 *
+		 * @param {string} caption
+		 */
+		signature(caption) {
+			l.ensure(70);
+			l.gap(40);
+			l.page.drawLine({
+				start: { x: margin, y: l.y },
+				end: { x: margin + 230, y: l.y },
+				thickness: 0.5,
+				color: INK
+			});
+			l.y -= 4;
+			l.label(caption);
+		},
+
+		/**
+		 * The foot of a page: a hairline, the document and page on the left, where
+		 * the data is from on the right.
+		 *
+		 * @param {import('pdf-lib').PDFPage} page
+		 * @param {string} left
+		 * @param {string} [right]
+		 */
+		foot(page, left, right = '') {
+			page.drawLine({
+				start: { x: margin, y: margin - 12 },
+				end: { x: A4[0] - margin, y: margin - 12 },
+				thickness: STROKE.hair,
+				color: RULE
+			});
+			const size = TYPE.label;
+			regular.draw(page, pdfText(left), { x: margin, y: margin / 2, size, color: GREY });
+			const r = pdfText(right);
+			if (r)
+				regular.draw(page, r, {
+					x: A4[0] - margin - regular.width(r, size),
+					y: margin / 2,
+					size,
+					color: GREY
+				});
 		},
 
 		/**
@@ -194,11 +321,13 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		 */
 		field(label, value, o = {}) {
 			const lw = o.labelWidth ?? 92;
-			const size = o.size ?? 8.5;
+			const size = o.size ?? TYPE.body;
 			const lines = wrapText(value || '—', o.face ?? regular, size, (o.max ?? l.width) - lw);
 			l.ensure(Math.min(lines.length, 3) * size * 1.35);
 			const top = l.y;
-			l.text(label, { face: fonts.bold, size: 8, color: GREY, max: lw - 6 });
+			// The label on the value's baseline, though it is smaller.
+			l.y = top - (size - TYPE.small) * 0.9;
+			l.text(label, { size: TYPE.small, color: GREY, max: lw - 6 });
 			const after = l.y;
 			const page = l.page;
 			l.y = top;
@@ -212,26 +341,23 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 			l.y = l.page === page ? Math.min(l.y, after) : l.y;
 		},
 
-		/** A note in a tinted box. @param {string} t @param {number} [size] */
-		box(t, size = 9) {
-			const lines = wrapText(t, regular, size, l.width - 16);
-			const h = lines.length * size * 1.35 + 14;
+		/**
+		 * A note: what the document is, said once. A paragraph with an ink bar at
+		 * its left edge; no box, no fill.
+		 *
+		 * @param {string} t
+		 * @param {number} [size]
+		 */
+		note(t, size = TYPE.body) {
+			const lead = size * 1.4;
+			const lines = wrapText(t, regular, size, l.width - 12);
+			const h = lines.length * lead;
 			l.ensure(h);
-			l.page.drawRectangle({
-				x: margin,
-				y: l.y - h,
-				width: l.width,
-				height: h,
-				color: TINT,
-				borderColor: RULE,
-				borderWidth: 0.6
-			});
-			l.y -= 7;
+			l.page.drawRectangle({ x: margin, y: l.y - h + 1, width: 1.5, height: h - 1, color: INK });
 			for (const line of lines) {
-				regular.draw(l.page, line, { x: margin + 8, y: l.y - size, size });
-				l.y -= size * 1.35;
+				regular.draw(l.page, line, { x: margin + 12, y: l.y - size, size, color: INK });
+				l.y -= lead;
 			}
-			l.y -= 7;
 		},
 
 		/** A QR code of `value`, `side` points wide, its top left at (x, top). @param {string} value @param {number} x @param {number} top @param {number} side */
@@ -257,6 +383,22 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		},
 
 		/**
+		 * The head of a table: the columns' titles as labels over a strong rule.
+		 *
+		 * @param {Column[]} columns
+		 */
+		tableHead(columns) {
+			l.row(
+				columns.map((c) => ({ ...c, mono: false })),
+				columns.map((c) => c.title),
+				{ color: GREY, size: TYPE.label, lead: 9 }
+			);
+			l.y -= 1;
+			l.strong();
+			l.y -= 3;
+		},
+
+		/**
 		 * One row of a table, its cells wrapped; a new page (and `header` again) where it does not fit.
 		 *
 		 * @param {Column[]} columns
@@ -264,7 +406,7 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		 * @param {{ face?: Face, color?: Color, size?: number, lead?: number, header?: () => void }} [o]
 		 */
 		row(columns, cells, o = {}) {
-			const { face = regular, color = BLACK, size = 7.5, lead = 9.5, header } = o;
+			const { face = regular, color = BLACK, size = TYPE.small, lead = 10.5, header } = o;
 			const wrapped = columns.map((c, i) =>
 				wrapText(cells[i] ?? '', c.mono ? fonts.mono : face, size, c.width - 6)
 			);

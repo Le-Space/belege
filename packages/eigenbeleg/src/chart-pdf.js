@@ -18,9 +18,28 @@ const color = (hex) =>
 		parseInt(hex.slice(5, 7), 16) / 255
 	);
 
-/** Paper is light. */
+/**
+ * A document's own tones (#951): the diagram is drawn in the ink of the page,
+ * its series a ramp from ink to light that is told apart by lightness alone,
+ * so it reads on a black-and-white print and with any colour vision. The
+ * roles are the chart's; a role this map does not name keeps the chart's
+ * light colour.
+ */
+const DOCUMENT = /** @type {Partial<Record<Role, string>>} */ ({
+	text: '#17191f',
+	muted: '#666b75',
+	grid: '#e3e5e9',
+	axis: '#9a9fa8',
+	s1: '#1f3350',
+	s2: '#6d87a8',
+	s3: '#b3c1d3',
+	s4: '#3f5f8a',
+	other: '#9a9fa8'
+});
 const COLORS = /** @type {Record<Role, import('pdf-lib').Color>} */ (
-	Object.fromEntries(Object.entries(PALETTE.light).map(([role, hex]) => [role, color(hex)]))
+	Object.fromEntries(
+		Object.entries({ ...PALETTE.light, ...DOCUMENT }).map(([role, hex]) => [role, color(hex)])
+	)
 );
 
 /**

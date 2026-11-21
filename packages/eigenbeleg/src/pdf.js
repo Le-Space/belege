@@ -19,7 +19,7 @@ import {
 	noInvoice,
 	sourceName
 } from './document.js';
-import { A4, BLACK, GREY, MARK_SIZE, WARN, embedIssuerLogo, pageLayout } from './layout.js';
+import { A4, BLACK, GREY, MARK_SIZE, TYPE, WARN, embedIssuerLogo, pageLayout } from './layout.js';
 
 /** What made the file, unless the caller says otherwise. */
 export const CREATOR = 'eigenbeleg';
@@ -62,16 +62,8 @@ export async function eigenbelegPdf(
 	let current = doc.number;
 	const footerRight = `Daten: ${DATA_SOURCES[doc.chain] ?? doc.chainName} · Kurse: siehe Kursquelle`;
 
-	const footer = (/** @type {import('./layout.js').Layout} */ l) => {
-		const s = 7;
-		regular.draw(l.page, `${current} · Seite ${pageNo}`, { x: M, y: M / 2, size: s, color: GREY });
-		regular.draw(l.page, footerRight, {
-			x: A4[0] - M - regular.width(footerRight, s),
-			y: M / 2,
-			size: s,
-			color: GREY
-		});
-	};
+	const footer = (/** @type {import('./layout.js').Layout} */ l) =>
+		l.foot(l.page, `${current} · Seite ${pageNo}`, footerRight);
 	const l = pageLayout(pdf, fonts, {
 		margin: M,
 		leavePage: footer,
@@ -79,7 +71,7 @@ export async function eigenbelegPdf(
 			pageNo++;
 		}
 	});
-	const { text, gap, field, title: heading } = l;
+	const { text, gap, field, label } = l;
 	const width = l.width;
 
 	/** @param {string} number @param {string} subtitle */
@@ -90,40 +82,32 @@ export async function eigenbelegPdf(
 		if (doc.testnet) {
 			text(
 				'TESTNET – keine echte Zahlung. Kurse des Mainnet-Assets nur zur Veranschaulichung; dieser Beleg ist kein Buchungsbeleg.',
-				{ face: bold, size: 9, color: WARN }
+				{ face: bold, size: TYPE.table, color: WARN }
 			);
-			gap(4);
+			gap(6);
 		}
 		// The chain's mark only small: the document is the issuer's, not the network's.
-		heading('Eigenbeleg', { face: bold, size: 20 }, mark, MARK_SIZE.small);
-		text(`Nr. ${number}`, { face: bold, size: 12 });
-		gap(2);
-		text(subtitle, { size: 10 });
-		gap(10);
+		l.head('Eigenbeleg', { number, subtitle, image: mark, mark: MARK_SIZE.small });
 		// payer | issue data, two columns
 		const top = l.y;
-		text('Zahlender und Aussteller', { face: bold, size: 8.5, color: GREY, max: width / 2 - 10 });
-		text(doc.payer.name, { face: bold, size: 10, max: width / 2 - 10 });
-		text(doc.payer.address, { size: 9.5, max: width / 2 - 10 });
+		label('Zahlender und Aussteller', { max: width / 2 - 10 });
+		text(doc.payer.name, { face: bold, size: TYPE.lead, max: width / 2 - 10 });
+		text(doc.payer.address, { max: width / 2 - 10 });
 		const leftEnd = l.y;
 		l.y = top;
 		const rx = M + width / 2 + 10;
-		text('Ausgestellt am', { x: rx, face: bold, size: 8.5, color: GREY });
+		label('Ausgestellt am', { x: rx });
 		text(`${deDate(doc.issuedAt)}, ${doc.issuedAt.slice(11, 16)} UTC`, { x: rx });
-		gap(3);
-		text('Empfänger', { x: rx, face: bold, size: 8.5, color: GREY });
+		gap(5);
+		label('Empfänger', { x: rx });
 		text(noInvoice(doc.chain, doc.chainName).recipient, { x: rx });
 		l.y = Math.min(l.y, leftEnd);
 		gap(8);
-		text(doc.payer.addresses.length > 1 ? 'Eigene Zahlungsadressen' : 'Eigene Zahlungsadresse', {
-			face: bold,
-			size: 8.5,
-			color: GREY
-		});
-		for (const a of doc.payer.addresses) text(a, { face: mono, size: 8 });
-		gap(10);
-		l.box(doc.note);
+		label(doc.payer.addresses.length > 1 ? 'Eigene Zahlungsadressen' : 'Eigene Zahlungsadresse');
+		for (const a of doc.payer.addresses) text(a, { face: mono, size: TYPE.table });
 		gap(12);
+		l.note(doc.note);
+		gap(16);
 	}
 
 	const columns = [
@@ -141,30 +125,23 @@ export async function eigenbelegPdf(
 	 * @param {import('./document.js').Transaction} t @param {{ big?: boolean }} [o]
 	 */
 	function transaction(t, { big = false } = {}) {
-		const side = big ? 96 : 58;
-		const textMax = width - side - 12;
+		// The code is a convenience beside the link, not the picture of the page.
+		const side = big ? 72 : 50;
+		const textMax = width - side - 16;
 		l.ensure(big ? 150 : 120);
 		const top = l.y;
 		const title = `${big ? 'Zahlung' : `Position ${t.pos}`} · ${deDate(t.time)} ${t.time.slice(11, 19)} UTC`;
-		text(title, { face: bold, size: 9.5, max: textMax });
-		gap(2);
-		field('Transaktion', t.hash, { face: mono, size: 7.5, max: textMax });
-		field('Von', `${t.from.address} (${t.from.label})`, { face: mono, size: 7.5, max: textMax });
-		field('An', t.to.label ? `${t.to.address} (${t.to.label})` : t.to.address, {
-			face: mono,
-			size: 7.5,
-			max: textMax
-		});
-		field('Block-Explorer', t.explorerUrl, { face: mono, size: 6.5, max: textMax });
-		const qrTop = top - 2;
-		l.qr(t.explorerUrl, A4[0] - M - side, qrTop, side);
-		l.y = Math.min(l.y, qrTop - side - 4);
+		text(title, { face: bold, size: TYPE.lead, max: textMax });
 		gap(3);
-		l.row(
-			columns,
-			columns.map((c) => c.title),
-			{ face: bold, color: GREY }
-		);
+		const hash = { face: mono, size: TYPE.small, max: textMax, labelWidth: 76 };
+		field('Transaktion', t.hash, hash);
+		field('Von', `${t.from.address} (${t.from.label})`, hash);
+		field('An', t.to.label ? `${t.to.address} (${t.to.label})` : t.to.address, hash);
+		field('Block-Explorer', t.explorerUrl, { ...hash, size: TYPE.label });
+		l.qr(t.explorerUrl, A4[0] - M - side, top, side);
+		l.y = Math.min(l.y, top - side);
+		gap(10);
+		l.tableHead(columns);
 		for (const m of t.movements) {
 			const e = m.entry;
 			l.row(
@@ -179,44 +156,39 @@ export async function eigenbelegPdf(
 				{ color: m.onIt ? BLACK : GREY }
 			);
 		}
-		l.ensure(12);
-		l.right(`Auf dem Beleg: ${money(t.eurExact, 4)}`, A4[0] - M, 8.5, bold);
-		l.y -= 14;
+		l.ensure(14);
+		l.y -= 1;
+		l.rule();
+		l.y -= 4;
+		// Not bold: the amount below is the figure to read; this is how it came about.
+		l.right(`Auf dem Beleg: ${money(t.eurExact, 4)}`, A4[0] - M, TYPE.table, regular);
+		l.y -= 16;
 	}
 
 	/** @param {{ why: string }[]} excluded @param {string[]} sources */
 	function sourcesAndSignature(excluded, sources) {
-		gap(6);
-		text('Kursquelle', { face: bold, size: 8.5, color: GREY });
+		gap(8);
+		label('Kursquelle');
 		text(sources.length ? `${sources.join('; ')} – jeweils für den Tag der Zahlung (UTC).` : '—', {
-			size: 8.5
+			size: TYPE.table
 		});
 		if (cur !== 'EUR' && sources.length)
-			text(`Werte in ${cur}: ${conversionText(cur)}.`, { size: 8.5 });
-		gap(6);
+			text(`Werte in ${cur}: ${conversionText(cur)}.`, { size: TYPE.table });
+		gap(8);
 		if (excluded.length) {
-			text('Nicht auf diesem Eigenbeleg', { face: bold, size: 8.5, color: GREY });
+			label('Nicht auf diesem Eigenbeleg');
 			/** @type {Record<string, number>} */
 			const why = {};
 			for (const x of excluded) why[x.why] = (why[x.why] ?? 0) + 1;
-			for (const [w, n] of Object.entries(why)) text(`${n} × ${w}`, { size: 8.5 });
+			for (const [w, n] of Object.entries(why)) text(`${n} × ${w}`, { size: TYPE.table });
 			text('Alle Bewegungen des Zeitraums stehen in der CSV-Datei zu diesem Eigenbeleg.', {
-				size: 8.5,
+				size: TYPE.table,
 				color: GREY
 			});
-			gap(6);
+			gap(8);
 		}
-		text(doc.notInvoice, { size: 8.5, color: GREY });
-		gap(24);
-		l.ensure(40);
-		l.page.drawLine({
-			start: { x: M, y: l.y },
-			end: { x: M + 230, y: l.y },
-			thickness: 0.6,
-			color: BLACK
-		});
-		l.y -= 4;
-		text('Ort, Datum, Unterschrift des Zahlenden', { size: 8, color: GREY });
+		text(doc.notInvoice, { size: TYPE.table, color: GREY });
+		l.signature('Ort, Datum, Unterschrift des Zahlenden');
 	}
 
 	/** @param {import('./document.js').Transaction[]} ts */
@@ -230,12 +202,7 @@ export async function eigenbelegPdf(
 		)
 	];
 	/** The amount line: a label on the left, the amount on the right. @param {string} label @param {string} total */
-	const amountLine = (label, total) => {
-		l.ensure(40);
-		l.at(label, M, 10, bold);
-		l.right(total, A4[0] - M, 11, bold);
-		l.y -= 16;
-	};
+	const amountLine = (label, total) => l.total(label, total);
 	const period = `${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
 
 	if (doc.layout === 'single' && doc.transactions.length > 0) {
@@ -256,9 +223,10 @@ export async function eigenbelegPdf(
 			const what = [...new Set(t.movements.filter((m) => m.onIt).map((m) => m.what))].join(', ');
 			amountLine('Betrag', money(t.eurExact));
 			if (round(t.eurExact, places) === '0' && t.eurExact !== '0')
-				text(`Ungerundet ${money(t.eurExact, 8)} (${below}).`, { size: 8, color: GREY });
-			gap(4);
+				text(`Ungerundet ${money(t.eurExact, 8)} (${below}).`, { size: TYPE.table, color: GREY });
+			gap(6);
 			field('Was wurde bezahlt', `${what} an ${t.to.label || t.to.address}`);
+			gap(2);
 			field('Warum kein Fremdbeleg', noInvoice(doc.chain, doc.chainName).why);
 			sourcesAndSignature([], sourcesOf([t]));
 		});
@@ -268,11 +236,11 @@ export async function eigenbelegPdf(
 			`Sammel-Eigenbeleg für Zahlungen auf ${doc.chainName} (${doc.network}), Zeitraum ${period}`
 		);
 		if (doc.transactions.length === 0) {
-			text('Keine Zahlungen an das Netzwerk in diesem Zeitraum.', { size: 10 });
+			text('Keine Zahlungen an das Netzwerk in diesem Zeitraum.', { size: TYPE.lead });
 		} else {
 			for (const t of doc.transactions) {
 				transaction(t);
-				l.rule();
+				// Room between two positions; the rules belong to their tables.
 				gap(8);
 			}
 			const qty = Object.entries(doc.totals.quantities)
@@ -289,7 +257,7 @@ export async function eigenbelegPdf(
 			const subCent = doc.totals.eur === '0' && doc.totals.eurExact !== '0';
 			text(
 				`Ungerundet ${exact}${subCent ? ` (${below})` : ''}; jede Position zum Tageskurs ihres Zahlungstages.`,
-				{ size: 8, color: GREY }
+				{ size: TYPE.table, color: GREY }
 			);
 		}
 		gap(4);
