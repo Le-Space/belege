@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The consent screen says what the code does, where the security audit found it out of date (#900; `docs/security-audit.md`, area 11).** One change, so it opens once more for everybody (version 59). It lists what `localStorage` and `sessionStorage` hold instead of "three flags" – readable settings and technical details of the device, and sealed the vaults and the log of device sync – and says keys are never stored unsealed. The mailbox: the app gets the mails to the bookkeeping address and, of the rest, the hits of a search the person starts, which runs over the whole mailbox; folders are opened read-only except for the move of one mail to the trash on a confirmed click. A model on this computer is redacted for until `pnpm setup:llm` is told that it runs here. "Konto vorschlagen" is listed as the seventh use of the language model. Named now: the IPFS routing a restore asks when Aleph's gateway is silent or switched off (cid.contact, delegated-ipfs.dev), the services behind "Wer hält es?" (delegated-ipfs.dev, ipwho.is), the further public nodes a wallet card suggests (asked only when entered), AMD's revocation list, the readable copy of the own network's relay address in this browser, and that the invoicing link's node tells a relay which protocols it serves. No behaviour changes. The audit page marks each point fixed, the STUN servers and the hosted bridge's attestation statements as checked, and leaves one point open: the hosted bridge's cards do not ask the pause.
+
 ## [0.49.1] – 2026-11-21
 
 ## [0.49.0] – 2026-11-21
