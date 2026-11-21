@@ -95,16 +95,15 @@ test('a purchase in the month is an entry with its price and paying transaction'
 	);
 });
 
-test('the payment behind a purchase in ALEPH: in USD at the list price, never the token amount; linked on the chain it was paid on', async () => {
+test('the payment behind a purchase in ALEPH: the ALEPH paid, to be valued at its rate of the day; linked on the chain it was paid on', async () => {
 	const july = await client().statement({ address: ACCOUNT, month: '2026-07' });
 	const [paid] = purchaseEntries(july);
 	assert.deepEqual(
 		[paid.chain, paid.type, paid.kind, paid.asset, paid.decimals, paid.amount, paid.priceAs],
-		['aleph', 'sent', 'swap', 'USD', 6, '-1', 'USD'],
-		"1,000,000 credits paid for × the list price; the row's price, 0.00008, is ALEPH per credit"
+		['aleph', 'sent', 'swap', 'ALEPH', 18, '-80', 'ALEPH'],
+		'1,000,000 credits paid for × 0.00008 ALEPH per credit: 80 ALEPH left the wallet'
 	);
-	// What the old reading made of it: credits × price as dollars, 96 instead of 1.
-	assert.notEqual(paid.amount, '-96');
+	// Never the row's price as dollars (96 USD), and the list price only to compare.
 	assert.deepEqual(
 		[july.topUps[0].tokenAmount, july.topUps[0].usd, july.topUps[0].priceBasis],
 		['80', '1', 'list']
@@ -114,7 +113,10 @@ test('the payment behind a purchase in ALEPH: in USD at the list price, never th
 		paid.counterpartyLabel,
 		'Aleph Cloud (Kauf von 1200000 Credits mit ALEPH auf ethereum)'
 	);
-	assert.equal(paid.memo, '1000000 Credits × 0.000001 USD (+ 200000 Bonus); bezahlt mit 80 ALEPH');
+	assert.equal(
+		paid.memo,
+		'80 ALEPH für 1000000 Credits (+ 200000 Bonus); nach Alephs Listenpreis 1 USD'
+	);
 	assert.equal(paid.hash, `0x${'ab'.repeat(32)}`);
 	assert.equal(paid.explorerUrl, `https://etherscan.io/tx/0x${'ab'.repeat(32)}`);
 	const [bought] = alephEntries(july);
@@ -160,7 +162,16 @@ test('the payment behind a purchase in ALEPH: in USD at the list price, never th
 			}
 		]
 	});
-	assert.deepEqual([dollars.amount, dollars.memo], ['-2', '2000000 Credits × 0.000001 USD']);
+	assert.deepEqual(
+		[dollars.asset, dollars.amount, dollars.priceAs, dollars.memo],
+		['USD', '-2', 'USD', '2000000 Credits × 0.000001 USD']
+	);
+	// A token without a market rate here: in USD at the list price, the tokens named.
+	const [other] = purchaseEntries({ ...july, topUps: [{ ...july.topUps[0], token: 'XYZ' }] });
+	assert.deepEqual(
+		[other.asset, other.amount, other.memo],
+		['USD', '-1', '1000000 Credits × 0.000001 USD (+ 200000 Bonus); bezahlt mit 80 XYZ']
+	);
 });
 
 test('a month without credit rows: Aleph answers 404 in plain text, the statement is empty', async () => {

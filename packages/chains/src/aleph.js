@@ -523,16 +523,24 @@ const CHAIN_CODES = /** @type {Record<string, string>} */ ({
 	BASE: 'BASE'
 });
 
+/** Payment tokens with a market rate of the day (@le-space/rates knows them): what was paid is the token. */
+const MARKET_TOKENS = new Set(['ALEPH']);
+
 /**
  * The payments behind a month's credit purchases: one `sent` entry per
- * purchase, in USD, of kind `swap` – a token for credits; the ledger has no
- * `purchase` kind. The dollars are what the credits paid for cost (rates'
- * alephPurchase): the row's price for a purchase in a dollar token, Aleph's
- * list price for one in ALEPH – never the row's `price` taken for dollars,
- * which for ALEPH is a token amount. The memo names the tokens paid; they are
- * checked through the paying transaction's hash, whose explorer link is on
- * the chain it was paid on (Ethereum or Base), else Aleph's explorer page of
- * the account. The credits
+ * purchase, of kind `swap` – a token for credits; the ledger has no
+ * `purchase` kind.
+ *
+ * A purchase paid in ALEPH is the ALEPH that left the wallet: the entry is in
+ * ALEPH (credits paid for × the row's price, which is ALEPH per credit) and
+ * `priceAs: 'ALEPH'`, so whoever values it takes the token's market rate of
+ * that day, as for any other payment in a token. The memo names what the
+ * credits cost at Aleph's list price, to compare. A purchase in a dollar
+ * token is in USD, at the row's price (rates' alephPurchase); one in a token
+ * without a market rate here is in USD at the list price.
+ *
+ * The explorer link is the paying transaction's, on the chain it was paid on
+ * (Ethereum or Base), else Aleph's explorer page of the account. The credits
  * bought stay the `received` row of `alephEntries`, with the same hash, so an
  * Eigenbeleg shows both sides.
  *
@@ -550,6 +558,15 @@ export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = 
 			const paidFor = credits(t.credits - (t.bonus > 0 && t.bonus < t.credits ? t.bonus : 0));
 			const perCredit =
 				t.priceBasis === 'price' ? plain(/** @type {string} */ (t.price)) : LIST_PRICE_USD;
+			const bonus = t.bonus > 0 && t.bonus < t.credits ? ` (+ ${credits(t.bonus)} Bonus)` : '';
+			// Paid in a token with a market rate: the payment is the token, valued at its rate of the day.
+			const market =
+				t.priceBasis === 'list' &&
+				t.tokenAmount &&
+				t.token &&
+				MARKET_TOKENS.has(t.token.toUpperCase())
+					? t.token.toUpperCase()
+					: null;
 			return entry({
 				id: `aleph:${address}:purchase:${t.time}:${i}`,
 				chain: 'aleph',
@@ -560,23 +577,23 @@ export function purchaseEntries(statement, { explorers = PURCHASE_EXPLORERS } = 
 				time: t.time,
 				type: 'sent',
 				kind: 'swap',
-				asset: 'USD',
+				asset: market ?? 'USD',
 				contract: 'native',
-				decimals: 6,
-				amount: `-${normalize(/** @type {string} */ (t.usd))}`,
+				decimals: market ? 18 : 6,
+				amount: `-${normalize(/** @type {string} */ (market ? t.tokenAmount : t.usd))}`,
 				counterparty: 'aleph',
 				method: '',
 				counterpartyLabel: `Aleph Cloud (Kauf von ${credits(t.credits)} Credits${t.token ? ` mit ${t.token}` : ''}${t.chain ? ` auf ${t.chain}` : ''})`,
-				memo:
-					`${paidFor} Credits × ${perCredit} USD` +
-					(t.bonus > 0 && t.bonus < t.credits ? ` (+ ${credits(t.bonus)} Bonus)` : '') +
-					(t.tokenAmount && t.token && t.priceBasis === 'list'
-						? `; bezahlt mit ${t.tokenAmount} ${t.token}`
-						: ''),
+				memo: market
+					? `${t.tokenAmount} ${market} für ${paidFor} Credits${bonus}; nach Alephs Listenpreis ${normalize(/** @type {string} */ (t.usd))} USD`
+					: `${paidFor} Credits × ${perCredit} USD${bonus}` +
+						(t.tokenAmount && t.token && t.priceBasis === 'list'
+							? `; bezahlt mit ${t.tokenAmount} ${t.token}`
+							: ''),
 				success: true,
 				explorerUrl:
 					explorer && t.txHash ? txUrl(explorer, t.txHash) : `${ALEPH_EXPLORER}${address}`,
-				priceAs: 'USD'
+				priceAs: market ?? 'USD'
 			});
 		});
 }
