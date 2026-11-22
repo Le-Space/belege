@@ -129,9 +129,17 @@ test('three devices with three passkeys share one vault by QR, without Aleph', a
 		await expect(office.page.getByTestId('transaction')).toHaveCount(2, { timeout: 90_000 });
 
 		// The vault's record reached every device: three passkeys on each.
-		for (const d of [laptop, phone, office]) {
+		// The phone and the office laptop are each connected to the laptop only:
+		// what the office laptop wrote reaches the phone through it (#979).
+		for (const [name, d] of /** @type {const} */ ([
+			['laptop', laptop],
+			['phone', phone],
+			['office laptop', office]
+		])) {
 			await openSettings(d.page, 'schluessel');
-			await expect(d.page.getByTestId('keys-slot')).toHaveCount(3, { timeout: 90_000 });
+			await expect(d.page.getByTestId('keys-slot'), `the passkeys on the ${name}`).toHaveCount(3, {
+				timeout: 90_000
+			});
 		}
 
 		// Nobody else was asked: no Aleph, no relay, no WebSocket at all.

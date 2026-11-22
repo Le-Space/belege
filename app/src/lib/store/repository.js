@@ -21,6 +21,7 @@ import { payloadEncryption, sealedEncryption } from '../entry-encryption.js';
 import { deriveDatabaseName, deriveSealedDatabaseName } from '../database-keys.js';
 import { moveLog } from './migrate.js';
 import { retryLostHeads } from './heads-retry.js';
+import { passOnHeads } from './pass-on-heads.js';
 import { ulid, isUlid } from './ids.js';
 import SealedDocuments from './sealed-documents.js';
 
@@ -357,6 +358,8 @@ export async function openStore({
 		// An exchange with another device that was lost is asked for again (#909).
 		const db = dbs[name];
 		retryLostHeads(db, { onRetry: (attempt) => db.events.emit('heads-retry', attempt) });
+		// … and what came in an exchange goes on to the devices not in it (#979).
+		passOnHeads(db);
 		collections[name] = createCollection(dbs[name], name, { author });
 	}
 
