@@ -162,8 +162,8 @@ export async function fillFx({ client, transactions, gaps, limit = 60 }) {
 		const rate = asked.get(key);
 		if (!rate || typeof rate.rate !== 'string' || !(Number(rate.rate) > 0)) continue;
 		if (near && !comesNear(tx, Number(rate.rate), near)) continue;
-		const [current] = await transactions.list({ where: (/** @type {Rec} */ r) => r.id === tx.id });
-		if (!current || current.fx?.[currency]?.rate) continue;
+		const current = await transactions.get(String(tx.id));
+		if (!current || current.deleted || current.fx?.[currency]?.rate) continue;
 		await transactions.put({
 			...current,
 			fx: {

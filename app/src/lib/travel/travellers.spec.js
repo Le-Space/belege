@@ -213,6 +213,19 @@ describe('travellers (#380)', () => {
 			suggestStatements(tx('DE00000000000000009999', 7000), /** @type {any} */ (all), travellers)
 		).toEqual(['001', '003']);
 	});
+
+	it('the exact search is capped (#539): past the cap, the oldest until used up', () => {
+		const powers = Array.from({ length: 13 }, (_, i) => ({
+			head: { id: `S${i}`, number: null, travellerId: 'O' },
+			openCents: 2 ** i
+		}));
+		expect(
+			suggestStatements(
+				{ amountCents: -(2 ** 12), purpose: 'Reisekosten' },
+				/** @type {any} */ (powers)
+			)
+		).toEqual(powers.map((s) => s.head.id));
+	});
 });
 
 describe('overnight flat rates without an invoice (#380, step 2)', () => {

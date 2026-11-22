@@ -7,7 +7,9 @@
 // a booking of the card's account, as a bank line does:
 //
 //   date         the purchase's day (Belegdatum, Umsatzdatum …); else the
-//                posting day (Buchungsdatum)
+//                posting day (Buchungsdatum); slash dates day or month
+//                first, as the file's values settle it – a file where
+//                none does is refused rather than guessed (#539)
 //   description  the merchant – as the counterparty, for the matching
 //   amount       in euros, the card's currency; or debit and credit apart
 //   original     an amount in another currency with its currency (and rate):
@@ -238,21 +240,62 @@ export function parseAmount(text) {
 	return negative ? -cents : cents;
 }
 
+/** A day written with slashes: `31/05/2026`, `05/31/26`. */
+const SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})\b/;
+
+/**
+ * @typedef {'dmy' | 'mdy'} DayOrder the order of a slash date: day first, or month first
+ */
+
+/**
+ * The order the slash dates of one file are written in (#539): a value over
+ * 12 on one side settles it. Null where no slash date needs an order (none
+ * there, or day and month the same); `ambiguous` where none settles it,
+ * `mixed` where the file says both.
+ *
+ * @param {Iterable<string>} texts
+ * @returns {DayOrder | 'ambiguous' | 'mixed' | null}
+ */
+export function slashDayOrder(texts) {
+	let dayFirst = false;
+	let monthFirst = false;
+	let open = false;
+	for (const text of texts) {
+		const m = SLASH.exec(String(text ?? '').trim());
+		if (!m) continue;
+		const [a, b] = [+m[1], +m[2]];
+		if (a > 12 && b <= 12) dayFirst = true;
+		else if (b > 12 && a <= 12) monthFirst = true;
+		else if (a !== b) open = true;
+	}
+	if (dayFirst && monthFirst) return 'mixed';
+	if (dayFirst) return 'dmy';
+	if (monthFirst) return 'mdy';
+	return open ? 'ambiguous' : null;
+}
+
 /**
  * A day as issuers write it: `31.05.2026`, `31.05.26`, `2026-05-31`,
- * `31/05/2026`; a time after it is ignored. Null for anything else.
+ * `31/05/2026` (or `05/31/2026`, month first, where the file says so:
+ * `slashDayOrder`); a time after it is ignored. Null for anything else.
  *
  * @param {string} text
+ * @param {DayOrder} [order] of a slash date; dots are always day first
  * @returns {string | null}
  */
-export function parseDay(text) {
+export function parseDay(text, order = 'dmy') {
 	const s = String(text ?? '').trim();
 	let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
 	/** @type {[number, number, number] | null} */
 	let ymd = m ? [+m[1], +m[2], +m[3]] : null;
+	const year = (/** @type {string} */ y) => (y.length === 2 ? 2000 + +y : +y);
 	if (!ymd) {
-		m = /^(\d{1,2})[./](\d{1,2})[./](\d{2}|\d{4})\b/.exec(s);
-		if (m) ymd = [m[3].length === 2 ? 2000 + +m[3] : +m[3], +m[2], +m[1]];
+		m = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\b/.exec(s);
+		if (m) ymd = [year(m[3]), +m[2], +m[1]];
+	}
+	if (!ymd) {
+		m = SLASH.exec(s);
+		if (m) ymd = order === 'mdy' ? [year(m[3]), +m[1], +m[2]] : [year(m[3]), +m[2], +m[1]];
 	}
 	if (!ymd) return null;
 	const [y, mo, d] = ymd;
@@ -291,7 +334,8 @@ export function chargesPositive({ rows, mapping }) {
  *
  * @param {{ rows: string[][], mapping: Mapping }} table
  * @param {{ invert?: boolean, currency?: string }} [options] invert: charges come positive
- * @returns {{ lines: IncomingTransaction[], skipped: { row: number, why: 'date' | 'amount' | 'currency' }[] }}
+ * @returns {{ lines: IncomingTransaction[], skipped: { row: number, why: 'date' | 'amount' | 'currency' }[], refused: 'ambiguousDates' | 'mixedDates' | null }}
+ *   refused: the file's slash dates could be day or month first (`slashDayOrder`) – no line read
  */
 export function cardLines({ rows, mapping }, { invert = false, currency = 'EUR' } = {}) {
 	/** @type {IncomingTransaction[]} */
@@ -300,8 +344,13 @@ export function cardLines({ rows, mapping }, { invert = false, currency = 'EUR' 
 	const skipped = [];
 	const cell = (/** @type {string[]} */ r, /** @type {Field} */ f) =>
 		mapping[f] === undefined ? '' : String(r[/** @type {number} */ (mapping[f])] ?? '').trim();
+	// Day or month first, as the whole file says; never guessed (#539).
+	const order = slashDayOrder(rows.flatMap((r) => [cell(r, 'date'), cell(r, 'postingDate')]));
+	if (order === 'ambiguous' || order === 'mixed')
+		return { lines, skipped, refused: order === 'ambiguous' ? 'ambiguousDates' : 'mixedDates' };
+	const day = (/** @type {string} */ text) => parseDay(text, order ?? 'dmy');
 	rows.forEach((r, row) => {
-		const date = parseDay(cell(r, 'date')) ?? parseDay(cell(r, 'postingDate'));
+		const date = day(cell(r, 'date')) ?? day(cell(r, 'postingDate'));
 		if (!date) return skipped.push({ row, why: 'date' });
 		let cents;
 		if (mapping.debit !== undefined || mapping.credit !== undefined) {
@@ -332,7 +381,7 @@ export function cardLines({ rows, mapping }, { invert = false, currency = 'EUR' 
 		lines.push({
 			sourceId: reference ? `card:${reference}` : null,
 			date,
-			valueDate: parseDay(cell(r, 'postingDate')) ?? date,
+			valueDate: day(cell(r, 'postingDate')) ?? date,
 			amountCents: cents,
 			currency,
 			counterpartyName: description,
@@ -341,5 +390,5 @@ export function cardLines({ rows, mapping }, { invert = false, currency = 'EUR' 
 			...(original ? { original } : {})
 		});
 	});
-	return { lines, skipped };
+	return { lines, skipped, refused: null };
 }
