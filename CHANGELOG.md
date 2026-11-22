@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.51.0] – 2026-11-22
+
 ### Added
 
 - **The second leg of a rate into another currency on its own** (Le-Space/eigenbeleg-agent#72; `@le-space/rates` 0.7.0). `perEuro(currency, date)` on the rate service answers how many units of a currency one euro is on the day – the ECB reference rate of the day or the last before it, for RUB the Bank of Russia's – from the same window and cache as the rate into that currency. For a value already in euros, such as a reference value set by hand, that goes into a document in another currency.
