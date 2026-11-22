@@ -1,0 +1,40 @@
+name: Aleph smoke test
+
+# Once a day: does the real Aleph answer the question a restore asks on an
+# empty device (#406)? A read for a passkey nobody has, free of charge
+# (app/src/lib/backup/vault-index.live.spec.js). The E2E restore asks the same
+# Aleph; when it fails, this run says whether Aleph was down. A failed run is
+# mailed by GitHub to whoever last changed the schedule.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: aleph-smoke
+  cancel-in-progress: true
+
+jobs:
+  vault-index:
+    name: Vault index on Aleph
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.x'
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Ask Aleph
+        working-directory: app
+        env:
+          ALEPH_LIVE: '1'
+        run: pnpm exec vitest --run src/lib/backup/vault-index.live.spec.js
