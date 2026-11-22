@@ -61,6 +61,7 @@ export const LEFT_OUT_SETTINGS = Object.freeze([
 	// Tied to the old books' vault (#555): the target's vault was never
 	// published, and it has no successor of its own.
 	'vault/index',
+	'books/vault',
 	SUCCESSOR_SETTING
 ]);
 /** … by key prefix: the members of the old books join the new ones anew (#612). */
@@ -69,7 +70,7 @@ export const LEFT_OUT_PREFIXES = Object.freeze(['member:']);
  * Left out since #555: a file packed before may still carry them. The
  * take-over passes them over instead of refusing the file.
  */
-const LEFT_OUT_LATER = Object.freeze(['vault/index', SUCCESSOR_SETTING, 'member:']);
+const LEFT_OUT_LATER = Object.freeze(['vault/index', 'books/vault', SUCCESSOR_SETTING, 'member:']);
 /** Collections the target must not have a record in. Settings and events a fresh session writes itself. */
 export const MUST_BE_EMPTY = Object.freeze([
 	'transactions',

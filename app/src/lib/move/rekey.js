@@ -39,7 +39,8 @@ export const KEPT = Object.freeze([
 	'vault/index'
 ]);
 /** Left out besides: members join again; the backup chain names the old databases. */
-export const DROPPED = Object.freeze(['member:', 'backup/chain', SUCCESSOR_SETTING]);
+/** … and the old vault's record (#962): the new books keep their own. */
+export const DROPPED = Object.freeze(['member:', 'backup/chain', SUCCESSOR_SETTING, 'books/vault']);
 
 const KEY_INFO = new TextEncoder().encode('belege/rekey/v1');
 

@@ -649,9 +649,11 @@ async function unlockWith(
 	}
 	session.store.settings.onChange(() => {
 		applyStoredMode().catch(() => {});
+		syncVault();
 	});
 	await watchSync();
 	await applyStoredMode();
+	await syncVault();
 	progress?.status({ step: 'books' });
 	await refresh();
 	installE2EHooks();
@@ -845,6 +847,44 @@ async function showVault() {
 		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null,
 		lost: lostSlots
 	};
+	// What changed here goes to the other own devices (#962).
+	syncVault();
+}
+
+/** One merge at a time (#962). */
+let vaultSync = Promise.resolve();
+
+/**
+ * The vault's record as the books keep it for every own device (#962),
+ * merged into the one open here, and this one kept there when it says more.
+ * The owner's only; not awaited where it is started, and never a reason for
+ * anything else to fail.
+ *
+ * @returns {Promise<void>}
+ */
+function syncVault() {
+	vaultSync = vaultSync
+		.then(async () => {
+			const open = session;
+			if (!open?.vault || open.member) return;
+			const [{ readSharedVault, shareVault }, { adoptSyncedVault }] = await Promise.all([
+				import('./keys/vault-share.js'),
+				import('./books-vault.js')
+			]);
+			const incoming = await readSharedVault(
+				/** @type {any} */ (open.store.databases()).settings,
+				String(open.booksDid)
+			);
+			if (session !== open || !open.vault) return;
+			const merged = adoptSyncedVault(open.vault, incoming, globalThis.localStorage);
+			if (merged !== open.vault) {
+				open.vault = merged;
+				await showVault();
+			}
+			await shareVault(open.store.settings, open.vault.record);
+		})
+		.catch((e) => console.warn('the vault for the own devices:', e));
+	return vaultSync;
 }
 
 /** See `app.vault.lost`: for the books open now. @type {string[]} */

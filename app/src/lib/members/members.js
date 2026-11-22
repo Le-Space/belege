@@ -59,6 +59,7 @@ export const OWNER_SETTINGS = Object.freeze([
 	'lan-relay',
 	'vault/index',
 	'books/successor',
+	'books/vault',
 	'ucepInvoiceApp'
 ]);
 
