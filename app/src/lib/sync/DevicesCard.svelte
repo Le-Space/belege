@@ -17,7 +17,7 @@
 	} from '$lib/session.svelte.js';
 	import { whose } from '$lib/members/whose.js';
 	import { consent } from '$lib/consent.js';
-	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { t } from '$lib/i18n/index.js';
 	import CopyButton from '$lib/CopyButton.svelte';
 	import QrExchange from './QrExchange.svelte';
 	import QrScan from './QrScan.svelte';
@@ -25,6 +25,7 @@
 	import FilesStatus from './FilesStatus.svelte';
 	import NewDeviceScopes from './NewDeviceScopes.svelte';
 	import { deviceCode, deviceSyncOn, parseDeviceCode } from './device-sync.js';
+	import { logTime, logWhat } from './log-text.js';
 	import { bridgeShareOn, setBridgeShare } from './remote-bridge.js';
 
 	let other = $state('');
@@ -86,35 +87,10 @@
 		}
 	}
 
-	/** @param {number} at */
-	const when = (at) =>
-		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'short', timeStyle: 'medium' }).format(
-			new Date(at)
-		);
 	/** @param {string | null} peerId */
 	const deviceName = (peerId) =>
 		(peerId && app.sync.state?.devices.find((d) => d.peerId === peerId)?.label) ||
 		(peerId ? `${peerId.slice(0, 10)}…` : t('devices.log.someDevice'));
-	/** A receipt's file, size and date; a payment's counterparty, amount and day; a setting's key. @param {import('./sync-log.js').SyncLine} line */
-	const whatText = (line) => {
-		const w = line.what ?? {};
-		const parts = [];
-		if (w.fileName) parts.push(w.fileName);
-		if (typeof w.size === 'number')
-			parts.push(
-				`${new Intl.NumberFormat(intlLocale(), { maximumFractionDigits: 0 }).format(w.size / 1024)} kB`
-			);
-		if (w.counterparty) parts.push(w.counterparty);
-		if (typeof w.amountCents === 'number')
-			parts.push(
-				new Intl.NumberFormat(intlLocale(), { style: 'currency', currency: 'EUR' }).format(
-					w.amountCents / 100
-				)
-			);
-		if (w.date) parts.push(w.date);
-		if (w.key) parts.push(w.key);
-		return parts.join(' · ');
-	};
 
 	/** When any device last sent something here (sync/sync-log.js), or 0. */
 	const lastAny = $derived(Math.max(0, ...Object.values(app.sync.lastIn ?? {})));
@@ -211,7 +187,7 @@
 						<span class="block font-mono text-xs break-all text-faint">{d.peerId}</span>
 						<span class="block text-xs text-faint" data-testid="devices-item-last"
 							>{app.sync.lastIn[d.peerId]
-								? t('devices.lastData', { time: when(app.sync.lastIn[d.peerId]) })
+								? t('devices.lastData', { time: logTime(app.sync.lastIn[d.peerId]) })
 								: t('devices.noData')}</span
 						>
 					</span>
@@ -268,7 +244,7 @@
 						data-testid="sync-log-line"
 						data-direction={line.direction}
 					>
-						<span class="text-faint tabular-nums">{when(line.at)}</span>
+						<span class="text-faint tabular-nums">{logTime(line.at)}</span>
 						<span
 							class={line.direction === 'in'
 								? 'text-amber-800 dark:text-data'
@@ -279,7 +255,7 @@
 						>
 						<span class="text-heading">{t(`storage.databases.${line.collection}`)}</span>
 						<span class="text-text">{t(`devices.log.op.${line.op}`)}</span>
-						<span class="min-w-0 break-all text-text">{whatText(line)}</span>
+						<span class="min-w-0 break-all text-text">{logWhat(line)}</span>
 					</li>
 				{/each}
 			</ul>
@@ -326,7 +302,7 @@
 					connected: devices.filter((d) => d.connected).length,
 					count: devices.length
 				})}{#if lastAny}
-					· {t('devices.lastData', { time: when(lastAny) })}{/if}
+					· {t('devices.lastData', { time: logTime(lastAny) })}{/if}
 			{:else}
 				{t('devices.status.none')}
 			{/if}
