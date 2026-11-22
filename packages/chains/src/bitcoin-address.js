@@ -286,9 +286,8 @@ async function ledgerHistory(p) {
 	const wallet = isExtendedKey(p.account);
 	const name = accountOf(p.account);
 	const read = wallet ? await walletHistoryOf(p) : await historyOf(p);
-	const mine = wallet
-		? /** @type {Set<string>} */ (/** @type {{ own: Set<string> }} */ (read).own)
-		: new Set([p.account]);
+	const mine =
+		wallet && 'own' in read ? /** @type {Set<string>} */ (read.own) : new Set([p.account]);
 	const others = new Set((p.own ?? []).filter((a) => !mine.has(a)));
 	return {
 		all: sortEntries(normalizeBitcoin(read.txs, mine, chain).map((e) => toLedger(e, name, others))),
