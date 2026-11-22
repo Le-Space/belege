@@ -425,7 +425,10 @@ export default {
 		bridge: {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
-			unknownDevice: 'The bridge does not know this device (pair again).',
+			unknownDevice:
+				'The bridge on this computer does not know this device: its token is from an earlier pairing. Pairing again with the bridge on this computer helps – a hosted bridge is not affected.',
+			streamTooLarge:
+				'The request is too large for the bridge’s node and was not sent. No need to pair again.',
 			nodeUnreachable:
 				'The bridge’s node cannot be reached over the network right now. No need to pair again: check in the “Network” menu at the top whether a Le Space relay can be reached, and otherwise reload the page.',
 			hostedUnreachable: {

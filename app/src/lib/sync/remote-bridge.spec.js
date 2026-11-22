@@ -9,7 +9,10 @@ import {
 	allowed,
 	askPeer,
 	NODE_UNREACHABLE,
+	STREAM_TOO_LARGE,
+	StreamTooLarge,
 	bridgeFetch,
+	checkRequestSize,
 	commandOf,
 	bridgeNodePeer,
 	grantRefusal,
@@ -524,5 +527,74 @@ describe('a call when the bridge’s node is not connected', () => {
 			remote: () => null
 		});
 		expect((await f('http://127.0.0.1:8765/health')).status).toBe(401);
+	});
+});
+
+describe('a call too large for the bridge’s node (#969)', () => {
+	const tooBig = () => async () => {
+		throw new StreamTooLarge('llm.booking', 70_000);
+	};
+
+	it('says so, and goes neither to HTTP on this machine nor to another device', async () => {
+		/** @type {string[]} */
+		const asked = [];
+		const f = bridgeFetch({
+			local: async () => {
+				asked.push('local');
+				return json({ error: 'unauthorized' }, 401);
+			},
+			stream: tooBig,
+			remote: () => async () => {
+				asked.push('device');
+				return json({});
+			},
+			waitMs: 0
+		});
+		const res = await f('http://127.0.0.1:8765/booking/assist', {
+			method: 'POST',
+			headers: { Authorization: 'Bearer token-of-another-pairing' }
+		});
+		expect(res.status).toBe(413);
+		expect((await res.json()).code).toBe(STREAM_TOO_LARGE);
+		expect(asked).toEqual([]);
+	});
+
+	it('through an own device, the same answer', async () => {
+		const f = bridgeFetch({
+			local: async () => {
+				throw new TypeError('Failed to fetch');
+			},
+			stream: () => null,
+			remote: () => tooBig(),
+			waitMs: 0
+		});
+		const res = await f('http://127.0.0.1:8765/booking/assist', { method: 'POST' });
+		expect(res.status).toBe(413);
+	});
+
+	it('another failure of the stream still falls back to HTTP, as before', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		const f = bridgeFetch({
+			local: async () => json({ ok: true }),
+			stream: () => async () => {
+				throw new Error('stream reset');
+			},
+			remote: () => null,
+			onRoute: (r) => routes.push(r),
+			waitMs: 0
+		});
+		const res = await f('http://127.0.0.1:8765/llm/status', {
+			headers: { Authorization: 'Bearer t' }
+		});
+		expect(res.status).toBe(200);
+		expect(routes).toEqual(['local']);
+	});
+
+	it('checkRequestSize: a request of UCEP’s size and more is refused, a small one not', () => {
+		expect(() => checkRequestSize('llm.booking', { x: 'a'.repeat(64 * 1024) })).toThrow(
+			StreamTooLarge
+		);
+		expect(() => checkRequestSize('llm.booking', { x: 'a'.repeat(1000) })).not.toThrow();
 	});
 });

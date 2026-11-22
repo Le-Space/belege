@@ -413,12 +413,18 @@ export function createBridgeClient({
 			if (res.status === 503 && body?.code === 'BRIDGE_NODE_UNREACHABLE') {
 				throw await silent('nodeUnreachable', 503, body);
 			}
+			// Refused before it was sent: too large for the bridge's node (sync/remote-bridge.js).
+			if (res.status === 413 && body?.code === 'BRIDGE_STREAM_TOO_LARGE') {
+				throw failed(t('messages.bridge.streamTooLarge'), 413, body);
+			}
 			// The bridge answers "not found" for a route it does not have: a command the
 			// app's catalogue knows and this bridge not yet – older code than this app.
 			if (res.status === 404 && body?.error === 'not found' && name && specOf(name)) {
 				throw failed(t('messages.bridge.outdated'), 404, { ...body, code: 'BRIDGE_OUTDATED' });
 			}
 			const messages = /** @type {Record<number, string>} */ ({
+				// Only HTTP answers 401 – the stream knows a device by its proof, and says no
+				// with a grant's code: so it is the bridge on this computer, with this token.
 				401: t('messages.bridge.unknownDevice'),
 				403:
 					body?.error === 'origin not allowed'
