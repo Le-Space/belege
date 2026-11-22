@@ -390,30 +390,31 @@
 					>
 					<QrScan onscan={scanned} class={button} />
 				</form>
-				<label class="mt-4 flex items-start gap-2 text-sm">
-					<input
-						type="checkbox"
-						class="mt-0.5"
-						checked={shareOn}
-						onchange={(e) => {
-							shareOn = e.currentTarget.checked;
-							setBridgeShare(shareOn);
-						}}
-						data-testid="devices-bridge-share"
-					/>
-					<span>
-						<span class="text-heading">{t('devices.bridgeShare')}</span>
-						<span class="block text-xs text-faint">{t('devices.bridgeShareText')}</span>
-						{#if app.sync.bridgeServed}
-							<span class="block text-xs text-success" data-testid="devices-bridge-served"
-								>{t('devices.bridgeServed')}</span
-							>
-						{:else if shareOn}
-							<span class="block text-xs text-faint">{t('devices.bridgePending')}</span>
-						{/if}
-					</span>
-				</label>
 			{/if}
+			<!-- In every mode: own devices reach this computer's bridge over their connection, a relay or QR. -->
+			<label class="mt-4 flex items-start gap-2 text-sm">
+				<input
+					type="checkbox"
+					class="mt-0.5"
+					checked={shareOn}
+					onchange={(e) => {
+						shareOn = e.currentTarget.checked;
+						setBridgeShare(shareOn);
+					}}
+					data-testid="devices-bridge-share"
+				/>
+				<span>
+					<span class="text-heading">{t('devices.bridgeShare')}</span>
+					<span class="block text-xs text-faint">{t('devices.bridgeShareText')}</span>
+					{#if app.sync.bridgeServed}
+						<span class="block text-xs text-success" data-testid="devices-bridge-served"
+							>{t('devices.bridgeServed')}</span
+						>
+					{:else if shareOn}
+						<span class="block text-xs text-faint">{t('devices.bridgePending')}</span>
+					{/if}
+				</span>
+			</label>
 			<BridgeAccess />
 			{@render syncLogBlock()}
 		</details>
