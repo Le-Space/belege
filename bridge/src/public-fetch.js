@@ -9,9 +9,51 @@
 //
 // The answer is the same as for a host that is down: the caller learns
 // nothing about what is behind a name.
+//
+// And an answer is read up to a limit (`maxBytes`, 32 MiB by default): a host
+// that sends more – by its Content-Length, or as the bytes arrive – has the
+// read fail, so no named host can fill the bridge's memory.
 import { lookup as dnsLookup } from 'node:dns/promises';
 
 import { isPrivateAddress } from '@le-space/chains/http';
+
+/** What one answer may be at most, unless the caller says otherwise. */
+export const MAX_ANSWER_BYTES = 32 * 1024 * 1024;
+
+/** The error a read over the limit fails with. */
+const tooLarge = () =>
+	Object.assign(new Error('the answer is larger than allowed'), { code: 'ANSWER_TOO_LARGE' });
+
+/**
+ * The same response, its body cut off with an error once it passes `max` bytes.
+ *
+ * @param {Response} res
+ * @param {number} max
+ * @returns {Response}
+ */
+function capped(res, max) {
+	const declared = Number(res.headers.get('content-length'));
+	if (Number.isFinite(declared) && declared > max) {
+		res.body?.cancel().catch(() => {});
+		throw tooLarge();
+	}
+	if (!res.body) return res;
+	let seen = 0;
+	const counted = res.body.pipeThrough(
+		new TransformStream({
+			transform(chunk, controller) {
+				seen += chunk.byteLength;
+				if (seen > max) controller.error(tooLarge());
+				else controller.enqueue(chunk);
+			}
+		})
+	);
+	return new Response(counted, {
+		status: res.status,
+		statusText: res.statusText,
+		headers: res.headers
+	});
+}
 
 /** @param {string} hostname */
 const isAddress = (hostname) =>
@@ -22,9 +64,13 @@ const isAddress = (hostname) =>
  * @param {object} [options]
  * @param {(hostname: string, options: { all: true }) => Promise<{ address: string }[]>} [options.lookup]
  * @param {boolean} [options.allowLoopback] tests: `127.0.0.1` and `localhost` are let through
+ * @param {number} [options.maxBytes] the most one answer may be
  * @returns {typeof fetch}
  */
-export function publicOnlyFetch(f, { lookup = dnsLookup, allowLoopback = false } = {}) {
+export function publicOnlyFetch(
+	f,
+	{ lookup = dnsLookup, allowLoopback = false, maxBytes = MAX_ANSWER_BYTES } = {}
+) {
 	return async function publicFetch(input, init) {
 		const url = new URL(
 			typeof input === 'string' || input instanceof URL ? input : /** @type {Request} */ (input).url
@@ -47,6 +93,6 @@ export function publicOnlyFetch(f, { lookup = dnsLookup, allowLoopback = false }
 				throw Object.assign(new TypeError('fetch failed'), { code: 'NOT_PUBLIC' });
 			}
 		}
-		return f(input, init);
+		return capped(await f(input, init), maxBytes);
 	};
 }

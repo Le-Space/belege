@@ -93,3 +93,57 @@ test('for the tests, this machine by its two plain names – and nothing else pr
 	await assert.rejects(fetchPublic('https://node.example.com/'), /fetch failed/);
 	await assert.rejects(fetchPublic('http://192.168.1.20:9/'), /fetch failed/);
 });
+
+/** A fetch that answers with `size` bytes, saying so in its header or not. */
+function answering(/** @type {number} */ size, { declare = true, chunk = 64 * 1024 } = {}) {
+	return publicOnlyFetch(
+		/** @type {any} */ (
+			async () => {
+				let sent = 0;
+				const body = new ReadableStream({
+					pull(controller) {
+						if (sent >= size) return controller.close();
+						const n = Math.min(chunk, size - sent);
+						sent += n;
+						controller.enqueue(new Uint8Array(n).fill(0x20));
+					}
+				});
+				return new Response(body, {
+					status: 200,
+					headers: declare ? { 'content-length': String(size) } : {}
+				});
+			}
+		),
+		{ lookup: async () => [{ address: '93.184.216.34' }], maxBytes: 1024 * 1024 }
+	);
+}
+
+test('an answer within the limit is read whole, status and headers as they were', async () => {
+	const res = await answering(1024 * 1024)('https://node.example.com/');
+	assert.equal(res.status, 200);
+	assert.equal(res.headers.get('content-length'), String(1024 * 1024));
+	assert.equal((await res.arrayBuffer()).byteLength, 1024 * 1024);
+});
+
+test('an answer that says it is larger than the limit is refused before it is read', async () => {
+	await assert.rejects(answering(1024 * 1024 + 1)('https://node.example.com/'), (e) => {
+		assert.equal(/** @type {any} */ (e).code, 'ANSWER_TOO_LARGE');
+		return true;
+	});
+});
+
+test('an answer that does not say its size is cut off once it passes the limit', async () => {
+	const res = await answering(8 * 1024 * 1024, { declare: false })('https://node.example.com/');
+	await assert.rejects(res.text(), (e) => {
+		assert.equal(/** @type {any} */ (e).code, 'ANSWER_TOO_LARGE');
+		return true;
+	});
+	// … and JSON too, as the chain readers read it.
+	const again = await answering(8 * 1024 * 1024, { declare: false })('https://node.example.com/');
+	await assert.rejects(again.json());
+});
+
+test('the default limit is 32 MiB', async () => {
+	const { MAX_ANSWER_BYTES } = await import('../src/public-fetch.js');
+	assert.equal(MAX_ANSWER_BYTES, 32 * 1024 * 1024);
+});
