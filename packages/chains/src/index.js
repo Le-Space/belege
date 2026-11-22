@@ -10,6 +10,8 @@
 //                         Console indexer, deployments)
 //   evm                   Ethereum, Base, Polygon, … (Blockscout, Alchemy)
 //   bitcoin               Esplora, addresses from a zpub/xpub
+//   bitcoin-address       one Bitcoin address through Esplora, no key;
+//                         `bitcoinAddress` here, or `/bitcoin-address`
 //   filecoin              Filfox; `readFilecoin`/`statementFilecoin` give
 //                         LedgerEntry for the documents
 //   akash                 Akash as LedgerEntry (`akash` here, or `/akash`);
@@ -80,3 +82,4 @@ export {
 export * as near from './near.js';
 export * as aleph from './aleph.js';
 export * as doichain from './doichain.js';
+export * as bitcoinAddress from './bitcoin-address.js';

@@ -28,6 +28,7 @@ import { addressUrl, txUrl } from './explorer.js';
 import { AKASH_CHAIN, NYX_CHAIN } from './cosmos-chains.js';
 import { FILECOIN } from './filecoin-chain.js';
 import { KNOWN_EVM_CONTRACTS } from './evm-contracts.js';
+import { BITCOIN } from './bitcoin-chain.js';
 
 /**
  * @typedef {object} ChainAsset
@@ -206,21 +207,7 @@ export const CHAINS = Object.freeze({
 		explorer: etherscanLike('Polygonscan', 'https://polygonscan.com'),
 		alchemy: { network: 'polygon-mainnet', internal: true }
 	},
-	bitcoin: {
-		id: 'bitcoin',
-		kind: 'bitcoin',
-		name: 'Bitcoin',
-		shortName: 'Bitcoin',
-		caip2: 'bip122:000000000019d6689c085ae165831e93',
-		native: { symbol: 'BTC', decimals: 8 },
-		endpoints: { api: 'https://mempool.space/api' },
-		alternatives: { api: ['https://blockstream.info/api'] },
-		explorer: {
-			name: 'mempool.space',
-			tx: 'https://mempool.space/tx/{tx}',
-			address: 'https://mempool.space/address/{address}'
-		}
-	},
+	bitcoin: BITCOIN,
 	// Read through Filfox, by address; a message CID is the hash
 	// (filecoin-chain.js holds this description).
 	filecoin: FILECOIN,
