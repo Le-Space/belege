@@ -779,7 +779,8 @@ a token). `POST /portals/new` (`src/portals/local.js`):
 - **A node or API address the app names** (an own wallet's endpoints, an Aleph API, the Filecoin
   Pay sources): `https` on the public internet only. An address or a name that means this machine,
   a private or link-local network is refused as it is written, and a name is resolved right before
-  the request and refused when any of its addresses is such a one; no redirect is followed.
+  the request and refused when any of its addresses is such a one; no redirect is followed,
+  and an answer is read up to 32 MiB.
 - **Customer portals**: the browser talks to the portal's own site only (a base URL in
   `bridge.json` is honoured for loopback test servers alone); a download is accepted only as a PDF
   by its bytes. The browser profile with the live session is the new asset here, see

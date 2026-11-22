@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **An answer from a host the app names is read up to 32 MiB.** A chain node, an indexer or an API the app names to the bridge could send an answer of any size; the bridge now stops reading past 32 MiB – at once when the answer says it is larger, or as the bytes arrive – and the request fails as for a host that does not answer properly (`bridge/src/public-fetch.js`).
+
 ## [0.52.0] – 2026-11-22
 
 ### Added
