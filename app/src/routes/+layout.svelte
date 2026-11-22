@@ -15,6 +15,7 @@
 	import WordsOffer from '$lib/keys/WordsOffer.svelte';
 	import OtherBooksOffer from '$lib/keys/OtherBooksOffer.svelte';
 	import SettingsLink from '$lib/SettingsLink.svelte';
+	import HistoryLink from '$lib/HistoryLink.svelte';
 	import UploadPanel from '$lib/receipts/UploadPanel.svelte';
 	import { page } from '$app/state';
 	import PasskeyOnboarding from '$lib/PasskeyOnboarding.svelte';
@@ -171,7 +172,7 @@
 			<div
 				class="col-start-2 row-start-1 flex flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-2"
 			>
-				{#if ready}<SettingsLink />{/if}
+				{#if ready}<HistoryLink /><SettingsLink />{/if}
 				<PageQr />
 				<LanguageSwitch />
 				<ThemeToggle />

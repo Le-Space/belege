@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The Verlauf from every page, and a wallet sync says what it replaced** (#967). The header has a clock beside the gear that opens the Verlauf; Einstellungen has a Verlauf tile that says what it holds, with a link straight to each group (Auslesen, Abgleich, Abruf, Entscheidung). When a wallet's sync takes bookings out because another entry replaced them (#898), its result adds "Ersetzt: n", linked to the Verlauf's Abruf; so does the note of "Alle Wallets synchronisieren", which before looked like a sync that did nothing.
+
 ### Changed
 
 - **The ruble at the Bank of Russia's rate for every day** (Le-Space/eigenbeleg-agent#72; `@le-space/rates` 0.8.0). A rate of RUB in euros, and the leg from the euro into a document in rubles, now come from the Bank of Russia's official rate valid on the day also before 2022-03-01, when the ECB still quoted the ruble: the ruble's own central bank for every day, the ECB for the other official currencies. `ECB_CURRENCIES` no longer lists RUB; `TARGET_CURRENCIES` still does. The source texts in the app and on the consent screen no longer say the Bank of Russia stands in where the ECB has no rate.

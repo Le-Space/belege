@@ -2,6 +2,7 @@
 	// Integrationen → Eigene Wallets: add a wallet by chain and address (read
 	// only, never a key), see which node and explorer are used, synchronise
 	// it (wallet-sync.js), take it off the list again.
+	import { resolve } from '$app/paths';
 	import { btn } from '$lib/ui/styles.js';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import { updateAlerts } from '$lib/integrations/alerts.js';
@@ -281,6 +282,8 @@
 
 	/** @param {NonNullable<typeof walletRun.summary>} s */
 	const summaryText = (s) => walletSummaryText(s);
+	// What a sync took out because another entry replaced it is in the Verlauf (#967).
+	const verlaufAbruf = `${resolve('/verlauf')}?group=abruf`;
 
 	/** "Alle Wallets synchronisieren": the permission for a notification is asked on this click. */
 	async function syncAll() {
@@ -628,6 +631,18 @@
 				{:else if walletRun.summary}
 					<div class="mt-2 text-sm" role="status" data-testid="wallets-sync-summary">
 						<span class="text-heading">{summaryText(walletRun.summary)}</span>
+						{#if walletRun.summary.superseded}
+							<span class="text-heading">·</span>
+							<a
+								class="text-heading underline"
+								href={verlaufAbruf}
+								title={t('integrationen.wallets.supersededTitle')}
+								data-testid="wallets-sync-summary-superseded"
+								>{t('integrationen.wallets.all.summarySuperseded', {
+									count: walletRun.summary.superseded
+								})}</a
+							>
+						{/if}
 						<button
 							type="button"
 							class="ml-2 text-xs text-faint underline hover:text-heading"
@@ -837,7 +852,15 @@
 						{/if}
 						{#if result}
 							<p class="mt-2 text-sm text-heading" role="status" data-testid="wallet-result">
-								{t('integrationen.counts', result.totals)}
+								{t('integrationen.counts', result.totals)}{#if result.superseded}
+									·
+									<a
+										class="underline"
+										href={verlaufAbruf}
+										title={t('integrationen.wallets.supersededTitle')}
+										data-testid="wallet-result-superseded"
+										>{t('integrationen.wallets.superseded', { count: result.superseded })}</a
+									>{/if}
 							</p>
 							{#if result.unpriced.length}
 								<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-unpriced">

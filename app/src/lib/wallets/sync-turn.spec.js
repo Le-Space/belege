@@ -32,6 +32,7 @@ describe('syncInTurn', () => {
 			newEntries: 4,
 			updated: 3,
 			unpriced: 3,
+			superseded: 0,
 			failed: 0,
 			withNew: 2
 		});
@@ -55,6 +56,21 @@ describe('syncInTurn', () => {
 		expect(summary.failed).toBe(1);
 		expect(summary.newEntries).toBe(2);
 		expect(summary.wallets).toBe(3);
+	});
+
+	it('adds up the bookings a sync took out because another entry replaced them', async () => {
+		const summary = await syncInTurn({
+			wallets,
+			syncOne: async (w) => ({
+				new: 0,
+				updated: 0,
+				unpriced: 0,
+				...(w === 'Wallet B' ? {} : { superseded: 2 })
+			}),
+			countsOf: (r) => r
+		});
+		expect(summary.superseded).toBe(4);
+		expect(summary.newEntries).toBe(0);
 	});
 
 	it('stops between wallets when asked to', async () => {

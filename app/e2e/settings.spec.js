@@ -41,12 +41,12 @@ test('an overview of tiles, each with a page of its own, and tables to search an
 			});
 	});
 
-	// The overview: nine tiles, no form.
+	// The overview: eleven tiles, no form.
 	await page.getByTestId('settings-link').click();
 	const overview = page.getByTestId('settings-overview');
 	await expect(
 		overview.locator('[data-testid^="settings-tile-"]:not([data-testid$="-state"])')
-	).toHaveCount(10);
+	).toHaveCount(11);
 	await expect(page.getByTestId('matching-save')).toHaveCount(0);
 	if (REVIEW_DIR)
 		await page.screenshot({ path: `${REVIEW_DIR}/settings-overview.png`, fullPage: true });
@@ -80,6 +80,33 @@ test('an overview of tiles, each with a page of its own, and tables to search an
 
 	await page.getByTestId('settings-back').click();
 	await expect(overview).toBeVisible();
+
+	// The Verlauf (#967): a tile that says what it holds, a link straight to
+	// each group, and the clock in the header from every page.
+	const verlaufTile = page.getByTestId('settings-tile-verlauf');
+	await expect(verlaufTile).toContainText('Verlauf');
+	await expect(verlaufTile).toContainText('was du entschieden hast');
+	const groups = page.getByTestId('settings-verlauf-group');
+	await expect(groups).toHaveCount(4);
+	await groups.filter({ hasText: 'Abruf' }).click();
+	await expect(page).toHaveURL(/\/verlauf\?group=abruf$/);
+	await expect(page.locator('[data-testid="verlauf-filter"][data-group="abruf"]')).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await page.getByTestId('settings-link').click();
+	await verlaufTile.click();
+	await expect(page).toHaveURL(/\/verlauf$/);
+	await expect(page.getByTestId('header-verlauf')).toHaveAttribute('aria-current', 'page');
+	await page.getByTestId('tab-zahlungen').click();
+	await expect(page.getByTestId('header-verlauf')).not.toHaveAttribute('aria-current', 'page');
+	await page.getByTestId('header-verlauf').click();
+	await expect(page).toHaveURL(/\/verlauf$/);
+	await expect(page.locator('[data-testid="verlauf-filter"][data-group="all"]')).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await page.getByTestId('settings-link').click();
 
 	// A link from before the pages (/einstellungen#kontenplan) opens the page.
 	await follow(page, '/einstellungen#kontenplan');

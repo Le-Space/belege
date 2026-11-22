@@ -138,7 +138,8 @@ export async function syncAllWallets(p = {}) {
 			countsOf: (result) => ({
 				new: result.totals.new,
 				updated: result.totals.updated,
-				unpriced: result.unpriced.length
+				unpriced: result.unpriced.length,
+				superseded: result.superseded
 			}),
 			onProgress: ({ done, count, current }) => {
 				walletRun.progress = { done, count, current: current ? labelOf(current) : null };
@@ -173,7 +174,8 @@ export async function syncAllWallets(p = {}) {
 	const learned = wallets.some((w) => walletChain(w.chain)?.kind === 'evm')
 		? await alephPurchases(p)
 		: 0;
-	if ((walletRun.summary?.newEntries ?? 0) + (walletRun.summary?.updated ?? 0) + learned > 0) {
+	const s = walletRun.summary;
+	if ((s?.newEntries ?? 0) + (s?.updated ?? 0) + (s?.superseded ?? 0) + learned > 0) {
 		await runMatchingNow();
 	}
 }
