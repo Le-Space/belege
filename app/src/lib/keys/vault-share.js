@@ -55,15 +55,28 @@ export async function sharedVaultOf(settingsDb, entry, booksId) {
  * Keep this device's record for the others, when it says something the
  * settings do not.
  *
+ * Every record the books wrote is read (`readSharedVaults`), not only the
+ * newest. So a record already in the log is not written again because
+ * another device wrote after it. Two devices with two vaults of the same
+ * books cannot merge (`mergeVaultRecords` takes one vault only). Compared
+ * with the newest record alone, each found the other's there and wrote its
+ * own back, again and again, a few times a second.
+ *
  * @param {import('../store/repository.js').Collection} settings
  * @param {import('../books-vault.js').VaultRecord} record
+ * @param {{ settingsDb?: any, booksId?: string }} [log] the settings database and the
+ *   books' identity, to look through every record the books wrote
  * @returns {Promise<boolean>} whether it was written
  */
-export async function shareVault(settings, record) {
+export async function shareVault(settings, record, { settingsDb, booksId } = {}) {
 	const value = sharedRecordOf(record);
 	const kept = await getSetting(settings, VAULT_RECORD_SETTING);
 	// Read back from the sealed settings, its keys come in the codec's order.
 	if (sameJson(kept, value)) return false;
+	if (settingsDb && booksId) {
+		const written = await readSharedVaults(settingsDb, booksId);
+		if (written.some((v) => sameJson(v, value))) return false;
+	}
 	await setSetting(settings, VAULT_RECORD_SETTING, value);
 	return true;
 }

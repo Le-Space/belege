@@ -78,7 +78,7 @@ import { createGrants, limitsOf, parseDevices, scopesOf, settableOf } from './gr
 import { PROTOCOL_VERSION, command as protocolCommand } from '@le-space/bridge-protocol';
 import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
 import { SEAL_VERSION, handoverSecret, isSealed, openCall } from '@le-space/bridge-protocol/seal';
-import { answerNamed, answerRequest, offered } from './stream.js';
+import { REQUEST_LIMIT, answerNamed, answerRequest, offered } from './stream.js';
 
 /** The UCEP extension the bridge offers: pairing, the device list, and `request` onto commands.js. */
 export const EXTENSION = 'belege-bridge';
@@ -626,6 +626,8 @@ export async function startBridgeNode({
 				scopes: [{ name: PAIR_SCOPE, description: 'Pair this bridge with the books' }]
 			},
 			commands: ucepCommands,
+			// Bigger requests only behind the gate (stream.js REQUEST_LIMIT).
+			...(armed ? { limits: { request: REQUEST_LIMIT } } : {}),
 			pairingModes: ['INVITATION'],
 			store: {
 				grants,

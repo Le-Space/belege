@@ -151,10 +151,10 @@ describe('syncLibp2pConfig', () => {
 		]);
 	});
 
-	it('without a relay ("per QR"): no listen address, and only the QR transport', () => {
+	it('without a relay ("per QR"): no listen address, the QR transport, and a WebSocket to this machine only', () => {
 		const config = syncLibp2pConfig({ privateKey: {}, relays: [], gate, mode: 'qr' });
 		expect(config.addresses?.listen).toEqual([]);
-		expect(config.transports).toHaveLength(1);
+		expect(config.transports).toHaveLength(2);
 		const transport = /** @type {any} */ (config.transports ?? [])[0]({
 			upgrader: {},
 			peerId: {},
@@ -162,6 +162,22 @@ describe('syncLibp2pConfig', () => {
 			logger: { forComponent: () => Object.assign(() => {}, { error() {}, trace() {} }) }
 		});
 		expect(String(transport[Symbol.toStringTag])).toMatch(/qr/i);
+		// The WebSocket reaches the books' bridge's node on 127.0.0.1 (#961), nothing else.
+		const peer = '12D3KooWNmFsNbztWUBmnaGf1xXyxABwMY1KiE41szzspFevFxqG';
+		const deny = (/** @type {string} */ addr) =>
+			config.connectionGater?.denyDialMultiaddr?.(/** @type {any} */ ({ toString: () => addr }));
+		expect(deny(`/webrtc/p2p/${peer}`)).toBe(false);
+		expect(deny(`/ip4/127.0.0.1/tcp/4990/ws/p2p/${peer}`)).toBe(false);
+		expect(deny(`/ip6/::1/tcp/4990/ws/p2p/${peer}`)).toBe(false);
+		for (const addr of [
+			`/dns4/relay.example.com/tcp/443/tls/ws/p2p/${peer}`,
+			`/ip4/203.0.113.7/tcp/443/wss/p2p/${peer}`,
+			`/ip4/192.168.10.23/tcp/4990/ws/p2p/${peer}`,
+			`/ip4/127.0.0.1/tcp/4990/p2p/${peer}`,
+			`/ip4/192.168.10.23/udp/4990/webrtc-direct/p2p/${peer}`,
+			`/dns4/relay.example.com/tcp/443/tls/ws/p2p/${peer}/p2p-circuit/webrtc/p2p/${peer}`
+		])
+			expect(deny(addr), addr).toBe(true);
 		// The gate and the services as on the relay path.
 		expect(Object.keys(config.services ?? {})[0]).toBe('deviceGate');
 	});

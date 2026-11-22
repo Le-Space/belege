@@ -2,7 +2,7 @@
 	"name": "@belege/app",
 	"private": true,
 	"license": "AGPL-3.0-or-later",
-	"version": "0.52.0",
+	"version": "0.53.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -73,7 +73,7 @@
 		"@le-space/orbitdb-storage-bridge": "0.29.0",
 		"@le-space/pdf": "workspace:^",
 		"@le-space/sealed-image": "0.12.8",
-		"@le-space/ucep": "0.2.0-draft.6",
+		"@le-space/ucep": "0.2.0-draft.7",
 		"@libp2p/circuit-relay-v2": "4.2.9",
 		"@libp2p/crypto": "5.1.23",
 		"@libp2p/gossipsub": "16.1.0",

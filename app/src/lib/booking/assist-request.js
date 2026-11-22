@@ -7,12 +7,7 @@
 // terms) before anything goes to a model; nothing here is the redaction.
 import { formatMoney } from '../bank/format.js';
 import { eventCalls } from '../stats/usage.js';
-import {
-	MAX_ASSIST_BYTES,
-	accountsForAssist,
-	jsonBytes,
-	learnedForAssist
-} from './assist-input.js';
+import { accountsForAssist, jsonBytes, learnedForAssist, maxAssistBytes } from './assist-input.js';
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -36,8 +31,19 @@ const plainMoney = (cents) => formatMoney(Math.abs(cents), 'EUR').replace(/\s*EU
  * @param {{ number: string, name: string }[]} p.catalogue the accounts the "Konto" field offers
  * @param {import('./chart.js').StoredChart | null | undefined} p.chart
  * @param {(vendors: string) => string} p.learnedName the name of a learned account outside the catalogue
+ * @param {number} [p.requestLimit] what a request to the bridge may take now (sync/bridge-limit.js);
+ *   UCEP's 64 KiB without it
  */
-export function assistBody({ tx, receipt, own, partners, catalogue, chart, learnedName }) {
+export function assistBody({
+	tx,
+	receipt,
+	own,
+	partners,
+	catalogue,
+	chart,
+	learnedName,
+	requestLimit
+}) {
 	const ex = /** @type {Rec} */ (receipt?.extraction ?? {});
 	const learned = learnedForAssist(partners, [
 		tx.counterparty,
@@ -82,7 +88,7 @@ export function assistBody({ tx, receipt, own, partners, catalogue, chart, learn
 			...(body.receipt?.items ?? [])
 		],
 		income: body.booking.direction === 'in',
-		budget: MAX_ASSIST_BYTES - ASSIST_RESERVE - jsonBytes(body)
+		budget: maxAssistBytes(requestLimit) - ASSIST_RESERVE - jsonBytes(body)
 	});
 	return body;
 }

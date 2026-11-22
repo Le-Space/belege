@@ -47,6 +47,8 @@ describe('what another device may call', () => {
 	it('reading and asking; no pairing, setup, shares, portals or deleting', () => {
 		expect(allowed('GET', '/health')).toBe(true);
 		expect(allowed('POST', '/transfer/assist')).toBe(true);
+		expect(allowed('POST', '/booking/assist')).toBe(true);
+		expect(allowed('POST', '/travel/assist')).toBe(true);
 		expect(allowed('POST', '/ethereum/wallet')).toBe(true);
 		expect(allowed('GET', '/aleph/statement')).toBe(true);
 		for (const [m, p] of [
@@ -57,6 +59,7 @@ describe('what another device may call', () => {
 			['POST', '/mail/trash'],
 			['POST', '/portals/new'],
 			['GET', '/transfer/assist'],
+			['GET', '/booking/assist'],
 			['POST', '/health']
 		])
 			expect(allowed(m, p), `${m} ${p}`).toBe(false);

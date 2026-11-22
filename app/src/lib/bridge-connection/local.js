@@ -5,6 +5,7 @@
 // to the bridge's node and the node on this machine are this module's state.
 import { networkPause } from '$lib/network-pause.js';
 import { keyGenerationOf, readBridgeRecord, writeBridgeRecord } from './record.js';
+import { settleThen } from './settle.js';
 import { t } from '$lib/i18n/index.js';
 
 /**
@@ -30,6 +31,9 @@ export const currentBridgeConsumer = () => bridgeConsumer;
 
 /** @type {Awaited<ReturnType<typeof import('../sync/remote-bridge.js').startBridgeConsumer>> | null} */
 let bridgeConsumer = null;
+
+/** A device list the bridge did not take is told again after this long (#984). */
+const TELL_AGAIN_MS = 5_000;
 
 /** This device's own peer id (node.js `devicePeerKey`): what the bridge lists it as. */
 async function devicePeerId() {
@@ -315,7 +319,11 @@ export async function startBridgeForDevices() {
 	let toldDevices = '';
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let tellTimer;
-	const tellDevices = async () => {
+	/**
+	 * @param {{ force?: boolean }} [o] told again although the list is the one told last
+	 * @returns {Promise<boolean>} whether the bridge holds the list now
+	 */
+	const tellDevices = async ({ force = false } = {}) => {
 		const records = await settings.list({ includeDeleted: true });
 		const { whose } = await import('../members/whose.js');
 		const members = whose(records);
@@ -326,16 +334,36 @@ export async function startBridgeForDevices() {
 			.sort((a, b) => (a.peerId < b.peerId ? -1 : 1))
 			.map((d) => (d.bridgeScopes ? { peerId: d.peerId, initial: d.bridgeScopes } : d.peerId));
 		const key = JSON.stringify(list);
-		if (key === toldDevices) return;
-		if (await consumer.tellDevices(list).catch(() => false)) {
-			toldDevices = key;
-			ctx.app.sync.bridgeDevicesAt = Date.now();
-		}
+		if (key === toldDevices && !force) return true;
+		if (!(await consumer.tellDevices(list).catch(() => false))) return false;
+		toldDevices = key;
+		ctx.app.sync.bridgeDevicesAt = Date.now();
+		return true;
 	};
+	// Not told (the bridge's node not connected or proved yet): again a little
+	// later, while these books are open – else a device added meanwhile stays
+	// unknown to the bridge until the settings change again (#984).
+	const tellSoon = (/** @type {number} */ ms) => {
+		clearTimeout(tellTimer);
+		tellTimer = setTimeout(async () => {
+			if (ctx.session?.libp2p !== libp2p) return;
+			if (!(await tellDevices().catch(() => false))) tellSoon(TELL_AGAIN_MS);
+		}, ms);
+	};
+	// After the changes settle, and at the latest 5 s after the first: settings
+	// that never stop changing must not keep a new device off the bridge.
+	const tell = settleThen(
+		() => {
+			clearTimeout(tellTimer);
+			tellDevices()
+				.then((told) => told || tellSoon(TELL_AGAIN_MS))
+				.catch(() => tellSoon(TELL_AGAIN_MS));
+		},
+		{ quiet: 1500, most: 5000 }
+	);
 	settings.onChange(() => {
 		readNode().catch(() => {});
-		clearTimeout(tellTimer);
-		tellTimer = setTimeout(() => tellDevices().catch(() => {}), 1500);
+		tell.poke();
 	});
 	ctx.app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
@@ -382,6 +410,12 @@ export async function startBridgeForDevices() {
 			let grants = await grantsNow();
 			// A device the kept answer does not know yet (added since): asked again, once.
 			if (grants && !find(grants)) grants = await grantsNow(true);
+			// Still unknown to the bridge: a device just let in, whose list is not told
+			// yet (it goes 1.5 s after the settings change, or failed then). Told now,
+			// then asked again – not refused as if it held no scope (#984).
+			if (grants && !find(grants) && (await tellDevices({ force: true }).catch(() => false))) {
+				grants = await grantsNow(true);
+			}
 			if (!grants) throw new UcepError('UNAVAILABLE', 'the bridge’s node is not connected');
 			const device = find(grants);
 			if (!device || !device.scopes.includes(scope)) throw new UcepError('SCOPE_MISSING', scope);

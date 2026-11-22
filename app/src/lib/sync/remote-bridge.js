@@ -41,17 +41,29 @@
 // with HTTP.
 //
 // UCEP's limits hold: a request up to 64 KiB, an answer up to 1 MiB over a
-// direct connection (64 KiB while relayed), 60 s to answer. A stream answer
-// that is too large falls back to HTTP on this machine, when there is one.
-// A request that is too large is not sent: the node would only reset the
-// stream, which says nothing. It is answered here with STREAM_TOO_LARGE and
-// goes nowhere else – HTTP on this machine may be another bridge, paired
-// with another token (#969).
+// direct connection (64 KiB while relayed), 60 s to answer. The bridge's node
+// states a bigger request in its manifest once armed (bridge/src/stream.js
+// REQUEST_LIMIT, #976): this device reads it and sends up to that, and 64 KiB
+// to a bridge from before, to a desktop that forwards, and over a limited
+// (relayed) connection. A stream answer that is too large falls back to HTTP
+// on this machine, when there is one. A request that is too large is not
+// sent: the node would only reset the stream, which says nothing. It is
+// answered here with STREAM_TOO_LARGE and goes nowhere else – HTTP on this
+// machine may be another bridge, paired with another token (#969).
 
-import { LIMITS, UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
+import {
+	LIMITS,
+	UcepError,
+	createConsumer,
+	createProvider,
+	isLimited,
+	parseInvitation
+} from '@le-space/ucep';
 import { COMMANDS, checkArgs, command as specOf, httpRequest } from '@le-space/bridge-protocol';
 import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
 import { handoverSecret, sealCall } from '@le-space/bridge-protocol/seal';
+
+import { setBridgeRequestLimit } from './bridge-limit.js';
 
 export const EXTENSION = 'belege-bridge';
 export const SHARE_FLAG_KEY = 'belege.bridge-share';
@@ -85,13 +97,20 @@ export class StreamTooLarge extends Error {
 }
 
 /**
- * Throw StreamTooLarge when these arguments, as they go, do not fit a UCEP request.
- *
- * @param {string} command @param {unknown} args
+ * The most this device sends the bridge's node in one request, whatever the
+ * node states: what the bridge states today (bridge/src/stream.js).
  */
-export function checkRequestSize(command, args) {
+export const MAX_STREAM_REQUEST = 1024 * 1024;
+
+/**
+ * Throw StreamTooLarge when these arguments, as they go (sealed, when they
+ * are), do not fit a UCEP request of `limit` bytes.
+ *
+ * @param {string} command @param {unknown} args @param {number} [limit] UCEP's default without it
+ */
+export function checkRequestSize(command, args, limit = LIMITS.request) {
 	const bytes = new TextEncoder().encode(JSON.stringify(args ?? {})).length;
-	if (bytes + REQUEST_ENVELOPE > LIMITS.request) throw new StreamTooLarge(command, bytes);
+	if (bytes + REQUEST_ENVELOPE > limit) throw new StreamTooLarge(command, bytes);
 }
 
 /** @returns {Response} */
@@ -172,6 +191,9 @@ const ALLOWED = /** @type {const} */ ([
 	['POST', /^\/match\/assist$/],
 	['POST', /^\/transfer\/assist$/],
 	['POST', /^\/vendor\/assist$/],
+	['POST', /^\/travel\/assist$/],
+	// "✦ Konto vorschlagen" on a phone, answered by the desktop's model (#961).
+	['POST', /^\/booking\/assist$/],
 	['POST', /^\/extract$/],
 	['GET', /^\/rates(\/range)?$/],
 	['GET', /^\/kraken\/(balances|ledgers)$/],
@@ -494,9 +516,73 @@ export async function startBridgeConsumer({
 	bridgeKey = () => null,
 	label = 'Belege'
 }) {
-	const consumer = createConsumer({ libp2p, label });
+	const consumer = createConsumer({ libp2p, label, limits: { request: MAX_STREAM_REQUEST } });
 	await consumer.start?.();
 	const self = () => libp2p.peerId.toString();
+
+	/**
+	 * The request limit each peer's manifest states, as far as asked
+	 * (`consumer.limitsFor`): the bridge's node states one, a desktop that
+	 * forwards and a bridge from before do not.
+	 *
+	 * @type {Map<string, number>}
+	 */
+	const stated = new Map();
+	/** @type {Map<string, Promise<number>>} */
+	const asking = new Map();
+	/** @type {Map<string, number>} when the manifest was last read again for its limit, per peer */
+	const reread = new Map();
+	/**
+	 * @param {string} peerId
+	 * @param {{ refresh?: boolean }} [options] `refresh`: read the manifest again, not the
+	 *   catalogue's copy – a bridge armed since its pairing states more than it did then
+	 */
+	function askLimit(peerId, { refresh = false } = {}) {
+		let known = refresh ? undefined : asking.get(peerId);
+		if (!known) {
+			known = Promise.resolve()
+				.then(() => consumer.limitsFor(peerId, EXTENSION, { refresh }))
+				.then((/** @type {{ request: number }} */ l) => {
+					stated.set(peerId, l.request);
+					return l.request;
+				})
+				.finally(() => asking.delete(peerId));
+			asking.set(peerId, known);
+		}
+		return known;
+	}
+	/**
+	 * Whether every open connection to the peer is limited: UCEP keeps 64 KiB
+	 * there, whatever the manifest says.
+	 *
+	 * @param {string} peerId
+	 */
+	const limitedOnly = (peerId) => {
+		const open = libp2p
+			.getConnections()
+			.filter((/** @type {any} */ c) => c.remotePeer.toString() === peerId && c.status === 'open');
+		return open.length > 0 && open.every((/** @type {any} */ c) => isLimited(c));
+	};
+	/**
+	 * The request limit for a call to this peer now.
+	 *
+	 * @param {string} peerId
+	 */
+	async function requestLimit(peerId) {
+		if (limitedOnly(peerId)) return LIMITS.request;
+		const known = stated.get(peerId) ?? (await askLimit(peerId).catch(() => LIMITS.request));
+		return limitedOnly(peerId) ? LIMITS.request : known;
+	}
+	// What a caller sizes a long call by (bridge-limit.js): the node's limit
+	// once it is connected and its manifest read, asked as soon as it is.
+	setBridgeRequestLimit(() => {
+		const peerId = streamServer();
+		if (!peerId) return LIMITS.request;
+		const known = stated.get(peerId);
+		// Asked once the node is there, so the next call is sized by it.
+		if (known === undefined) askLimit(peerId).catch(() => {});
+		return known === undefined || limitedOnly(peerId) ? LIMITS.request : known;
+	});
 
 	/**
 	 * Whether a peer seals (its `help` says so): asked once per peer. A peer
@@ -542,13 +628,41 @@ export async function startBridgeConsumer({
 	 */
 	async function callPeer(peerId, name, args, options) {
 		const key = await sealKey(peerId);
-		if (!key) {
-			checkRequestSize(name, args);
-			return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), options);
+		const call = key
+			? await sealCall(key, { consumer: self(), provider: peerId, command: name }, args)
+			: null;
+		const sent = call ? call.sent : args;
+		let limit = await requestLimit(peerId);
+		try {
+			checkRequestSize(name, sent, limit);
+		} catch (error) {
+			// The limit known may be from before the bridge was armed: asked once
+			// more, at most once a minute per peer (a bridge from before stays so).
+			if (!(error instanceof StreamTooLarge) || limit >= MAX_STREAM_REQUEST) throw error;
+			if (Date.now() - (reread.get(peerId) ?? 0) < 60_000) throw error;
+			reread.set(peerId, Date.now());
+			await askLimit(peerId, { refresh: true }).catch(() => {});
+			limit = await requestLimit(peerId);
+			checkRequestSize(name, sent, limit);
 		}
-		const call = await sealCall(key, { consumer: self(), provider: peerId, command: name }, args);
-		checkRequestSize(name, call.sent);
-		return call.open(await consumer.call(peerId, EXTENSION, name, call.sent, options));
+		try {
+			const answer = await consumer.call(
+				peerId,
+				EXTENSION,
+				name,
+				/** @type {any} */ (sent),
+				options
+			);
+			return call ? call.open(answer) : answer;
+		} catch (error) {
+			// UCEP refused the request itself before sending it (a connection that
+			// turned limited meanwhile): the same as the check above.
+			const e = /** @type {any} */ (error);
+			if (e instanceof UcepError && e.code === 'TOO_LARGE' && e.part === 'request') {
+				throw new StreamTooLarge(name, new TextEncoder().encode(JSON.stringify(sent)).length);
+			}
+			throw error;
+		}
 	}
 	// Big answers of the bridge's node as blocks (#578): Bitswap on the
 	// bridge's own protocol, which the device gate lets the bridge reach
@@ -728,8 +842,10 @@ export async function startBridgeConsumer({
 		} else {
 			await consumer.call(inv.providerPeerId, EXTENSION, 'handover', handover);
 		}
-		// Armed, the bridge is the same peer: whether it seals is asked anew.
+		// Armed, the bridge is the same peer: whether it seals, and what it takes, is asked anew.
 		seals.delete(inv.providerPeerId);
+		stated.delete(inv.providerPeerId);
+		reread.delete(inv.providerPeerId);
 		return {
 			peerId: inv.providerPeerId,
 			addrs: inv.addrs.filter((a) => !a.includes('/p2p-circuit'))
@@ -765,6 +881,7 @@ export async function startBridgeConsumer({
 		if (!peerId) return false;
 		await callPeer(peerId, 'unpair', {});
 		seals.delete(peerId);
+		stated.delete(peerId);
 		return true;
 	}
 
@@ -827,6 +944,7 @@ export async function startBridgeConsumer({
 		pairBridge,
 		tellDevices,
 		async stop() {
+			setBridgeRequestLimit(null);
 			await blocks?.stop().catch(() => {});
 			await consumer.stop?.();
 		}

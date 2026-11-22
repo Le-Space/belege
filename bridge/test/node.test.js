@@ -18,6 +18,7 @@ import { createConsumer, parseInvitation } from '@le-space/ucep';
 import { SEALED, handoverSecret, isSealed, sealCall } from '@le-space/bridge-protocol/seal';
 
 import { PAIR_SCOPE, fileStore, parseHandover, startBridgeNode } from '../src/node.js';
+import { REQUEST_LIMIT } from '../src/stream.js';
 import { emptyCommands } from './support/commands.js';
 
 const AUTH_KEY = new Uint8Array(32).fill(7);
@@ -133,6 +134,13 @@ describe('the bridge’s node', () => {
 		const phone = await device(null);
 		try {
 			await phone.consumer.pairWithInvitation(uri);
+			// Unarmed, anyone who reaches the node may try an invitation: UCEP's
+			// default limits, no bigger request stated (#976).
+			const [entry] = (await phone.consumer.catalogue()).filter(
+				(/** @type {any} */ e) => e.peerId === node.peerId
+			);
+			const unarmedManifest = await phone.consumer.fetchManifest(node.peerId, entry.protocol);
+			assert.equal(unarmedManifest.limits, undefined);
 			// Unarmed, the bridge's functions are not offered: no books yet.
 			await assert.rejects(
 				phone.consumer.call(node.peerId, 'belege-bridge', 'request', {
@@ -257,6 +265,38 @@ describe('the bridge’s node', () => {
 			});
 			assert.equal(missing.status, 503);
 			assert.equal(missing.json.code, 'PAPERLESS_NOT_SET_UP');
+
+			// Armed, behind the gate, the node states a bigger request (#976): a
+			// long receipt text goes whole to a consumer that allows it, and stops
+			// at the consumer that keeps UCEP's default, before anything is sent.
+			const [entry] = (await own.consumer.catalogue()).filter(
+				(/** @type {any} */ e) => e.peerId === node.peerId
+			);
+			const manifest = await own.consumer.fetchManifest(node.peerId, entry.protocol);
+			assert.equal(manifest.limits.request, REQUEST_LIMIT);
+			const longText = 'Stromwerk Test AG, Position, 12,34 EUR\n'.repeat(4000);
+			assert.ok(longText.length > 128 * 1024 && longText.length < 200 * 1024);
+			const extract = { method: 'POST', path: '/extract', body: { text: longText } };
+			await assert.rejects(
+				own.consumer.call(node.peerId, 'belege-bridge', 'request', extract),
+				(/** @type {any} */ e) => e.code === 'TOO_LARGE' && e.part === 'request'
+			);
+			const wide = createConsumer({
+				libp2p: own.libp2p,
+				label: 'Belege, test device',
+				limits: { request: REQUEST_LIMIT }
+			});
+			await wide.start();
+			await wide.addProvider(addr);
+			assert.deepEqual(await wide.limitsFor(node.peerId, 'belege-bridge'), {
+				request: REQUEST_LIMIT,
+				response: 1024 * 1024
+			});
+			// Through the stream to the command table: no model set up here, but no size refusal.
+			const read = await wide.call(node.peerId, 'belege-bridge', 'request', extract);
+			assert.equal(read.status, 503);
+			assert.equal(read.json.code, 'LLM_NOT_SET_UP');
+			await wide.stop();
 			// The same by name: arguments checked against the catalogue's schema.
 			const named = await own.consumer.call(node.peerId, 'belege-bridge', 'paperless.documents', {
 				since: '2026-01-01T00:00:00Z'

@@ -4,6 +4,7 @@
 import { expect } from '@playwright/test';
 
 import { acceptConsent } from './consent.js';
+import { openDevicesAdvanced, openIntegration } from './integrations.js';
 
 const AUTHENTICATOR = {
 	protocol: 'ctap2',
@@ -33,11 +34,24 @@ const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
  *   `prf`: this device's own passkey answers so instead of the shared answer –
  *   a device with a passkey of its own (#962)
  */
-export async function device(
-	browser,
+export async function device(browser, options = {}) {
+	const context = await browser.newContext();
+	return equip(context, await context.newPage(), options);
+}
+
+/**
+ * What `device` gives a browser, for a context made elsewhere (a recorded
+ * scene's, e2e-video/): its init scripts take hold at the page's next navigation.
+ *
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {import('@playwright/test').Page} page
+ * @param {Parameters<typeof device>[1]} [options]
+ */
+export async function equip(
+	context,
+	page,
 	{ mode = 'public', lanRelay = '', syncedPrf = false, prf = PRF } = {}
 ) {
-	const context = await browser.newContext();
 	if (syncedPrf) {
 		await context.addInitScript((prf) => {
 			const container = navigator.credentials;
@@ -94,7 +108,6 @@ export async function device(
 		},
 		{ prf, mode, lanRelay, debug }
 	);
-	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);
 	await cdp.send('WebAuthn.enable');
 	const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -141,4 +154,86 @@ export async function samePasskey(mac, phone, did) {
 	await acceptConsent(phone.page);
 	await phone.page.getByTestId('passkey-unlock').click();
 	await expect(phone.page.getByTestId('own-did')).toHaveAttribute('data-did', did);
+}
+
+/** Made up: the PRF answer of a device's own passkey (#962). @param {number} n */
+export const prfOf = (n) => Array.from({ length: 32 }, (_, i) => (i * 29 + n * 53) % 256);
+
+/**
+ * A device with a passkey of its own, meeting the others by QR only.
+ *
+ * @param {import('@playwright/test').Browser} browser @param {number} n
+ */
+export const ownDevice = (browser, n) => device(browser, { mode: 'qr', prf: prfOf(n) });
+
+/**
+ * Every request these browsers send beyond this machine, and every WebSocket:
+ * the specs of the own network expect the list to stay empty.
+ *
+ * @param {Awaited<ReturnType<typeof device>>[]} devices
+ * @param {{ localSockets?: boolean }} [options] `localSockets`: a WebSocket to
+ *   this machine counts as local too – the own bridge's node runs here (#599)
+ */
+export function recordOutside(devices, { localSockets = false } = {}) {
+	/** @type {string[]} */
+	const outside = [];
+	// This machine's own servers (the page, the test bridge) do not count.
+	const local = (/** @type {string} */ url) =>
+		/^(data|blob):/.test(url) || ['localhost', '127.0.0.1'].includes(new URL(url).hostname);
+	for (const d of devices) {
+		d.context.on('request', (r) => {
+			if (!local(r.url())) outside.push(r.url());
+		});
+		d.page.on('websocket', (ws) => {
+			if (!localSockets || !local(ws.url())) outside.push(`websocket ${ws.url()}`);
+		});
+	}
+	return outside;
+}
+
+/**
+ * A new device with its own passkey asks the laptop, by its QR invite; the
+ * laptop answers "Zulassen" (or "Ablehnen") after comparing both devices' ids.
+ *
+ * @param {Awaited<ReturnType<typeof device>>} laptop
+ * @param {Awaited<ReturnType<typeof device>>} fresh
+ * @param {string} label the new passkey's name
+ * @param {boolean} [allow]
+ */
+export async function joinOwn(laptop, fresh, label, allow = true) {
+	await fresh.page.goto('/');
+	await acceptConsent(fresh.page);
+	await fresh.page.getByTestId('own-join-open').locator('summary').click();
+	await fresh.page.getByTestId('own-join-label').fill(label);
+	await fresh.page.getByTestId('own-join-start').click();
+
+	await openIntegration(laptop.page, 'geraete');
+	// With a device known, the invite is under "Erweitert".
+	await openDevicesAdvanced(laptop.page);
+	await laptop.page.getByTestId('devices-qr-invite').click();
+	const invite = laptop.page.getByTestId('devices-qr-code');
+	await expect(invite).toHaveAttribute('data-phase', 'invite', { timeout: 30_000 });
+	await fresh.page
+		.getByTestId('own-join-paste')
+		.fill(String(await invite.getAttribute('data-code')));
+	await fresh.page.getByTestId('own-join-use').click();
+
+	const answer = fresh.page.getByTestId('own-join-code');
+	await expect(answer).toBeVisible({ timeout: 30_000 });
+	await laptop.page
+		.getByTestId('devices-qr-paste')
+		.fill(String(await answer.getAttribute('data-code')));
+	await laptop.page.getByTestId('devices-qr-use').click();
+
+	const dialog = laptop.page.getByTestId('handover-dialog');
+	await expect(dialog).toBeVisible({ timeout: 30_000 });
+	// Both screens name both devices alike.
+	const here = String(await fresh.page.getByTestId('own-join-compare').textContent());
+	for (const id of String(await laptop.page.getByTestId('handover-compare').textContent()).match(
+		/…\S{6}/g
+	) ?? []) {
+		expect(here).toContain(id);
+	}
+	await laptop.page.getByTestId(allow ? 'handover-allow' : 'handover-deny').click();
+	await expect(dialog).toBeHidden();
 }

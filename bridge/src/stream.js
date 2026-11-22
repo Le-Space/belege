@@ -57,6 +57,17 @@ const METHODS = new Set(['GET', 'POST', 'DELETE']);
 const MAX_PATH = 8192;
 /** Room for the answer's envelope (status, content type, request id) under UCEP's limit. */
 const ENVELOPE = 512;
+/**
+ * The largest request the bridge's node takes for `belege-bridge` once armed,
+ * stated in its UCEP manifest (ucep.md §11.1; #976): a receipt's long text or
+ * a whole chart of accounts fits, where UCEP's default of 64 KiB does not.
+ * Armed, only a device that proved the bridge's key at the gate opens the
+ * stream, so no stranger can make the bridge buffer that much; unarmed, when
+ * anyone who reaches the node may try an invitation, the defaults hold. Over
+ * a limited (relayed) connection UCEP keeps 64 KiB whatever this says. The
+ * body limit per command (commands.js `bodyLimit`) still holds within it.
+ */
+export const REQUEST_LIMIT = 1024 * 1024;
 /** Bytes from this size on go as blocks to a device that takes them: base64 below fits even relayed. */
 export const BLOCK_FROM = 32 * 1024;
 /** What a device says beside the arguments when it takes block answers. */

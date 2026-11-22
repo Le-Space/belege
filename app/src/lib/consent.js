@@ -148,7 +148,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 60: a device with a passkey of its own gets the books too, by QR, once a
 //     device with the books allowed it – the one exchange before the device
 //     proof; the vault's record syncs with the books (#962).
-export const CONSENT_VERSION = '60';
+// 61: in "Ohne Relay, per QR" the node also has a WebSocket, which reaches only
+//     the own bridge's node on this computer (127.0.0.1 or ::1), so the bridge
+//     serves the own devices without the internet too (#961).
+export const CONSENT_VERSION = '61';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

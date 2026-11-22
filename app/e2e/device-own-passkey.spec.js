@@ -10,79 +10,11 @@
 import { test, expect } from '@playwright/test';
 
 import { acceptConsent } from './consent.js';
-import { openDevicesAdvanced, openIntegration } from './integrations.js';
 import { openSettings } from './settings.js';
-import { device } from './devices.js';
+import { joinOwn, ownDevice, recordOutside } from './devices.js';
 
 /** @param {import('@playwright/test').Page} page @param {string} name */
 const tab = (page, name) => page.getByRole('link', { name, exact: true }).click();
-/** Made up: each passkey's own PRF answer. @param {number} n */
-const prfOf = (n) => Array.from({ length: 32 }, (_, i) => (i * 29 + n * 53) % 256);
-
-/** @param {import('@playwright/test').Browser} browser @param {number} n */
-const ownDevice = (browser, n) => device(browser, { mode: 'qr', prf: prfOf(n) });
-
-/** @param {Awaited<ReturnType<typeof device>>[]} devices */
-function recordOutside(devices) {
-	/** @type {string[]} */
-	const outside = [];
-	// This machine's own servers (the page, the test bridge) do not count.
-	const local = (/** @type {string} */ url) =>
-		/^(data|blob):/.test(url) || ['localhost', '127.0.0.1'].includes(new URL(url).hostname);
-	for (const d of devices) {
-		d.context.on('request', (r) => {
-			if (!local(r.url())) outside.push(r.url());
-		});
-		d.page.on('websocket', (ws) => outside.push(`websocket ${ws.url()}`));
-	}
-	return outside;
-}
-
-/**
- * A new device with its own passkey asks the laptop; the laptop answers.
- *
- * @param {Awaited<ReturnType<typeof device>>} laptop
- * @param {Awaited<ReturnType<typeof device>>} fresh
- * @param {string} label
- * @param {boolean} allow
- */
-async function join(laptop, fresh, label, allow = true) {
-	await fresh.page.goto('/');
-	await acceptConsent(fresh.page);
-	await fresh.page.getByTestId('own-join-open').locator('summary').click();
-	await fresh.page.getByTestId('own-join-label').fill(label);
-	await fresh.page.getByTestId('own-join-start').click();
-
-	await openIntegration(laptop.page, 'geraete');
-	// With a device known, the invite is under "Erweitert".
-	await openDevicesAdvanced(laptop.page);
-	await laptop.page.getByTestId('devices-qr-invite').click();
-	const invite = laptop.page.getByTestId('devices-qr-code');
-	await expect(invite).toHaveAttribute('data-phase', 'invite', { timeout: 30_000 });
-	await fresh.page
-		.getByTestId('own-join-paste')
-		.fill(String(await invite.getAttribute('data-code')));
-	await fresh.page.getByTestId('own-join-use').click();
-
-	const answer = fresh.page.getByTestId('own-join-code');
-	await expect(answer).toBeVisible({ timeout: 30_000 });
-	await laptop.page
-		.getByTestId('devices-qr-paste')
-		.fill(String(await answer.getAttribute('data-code')));
-	await laptop.page.getByTestId('devices-qr-use').click();
-
-	const dialog = laptop.page.getByTestId('handover-dialog');
-	await expect(dialog).toBeVisible({ timeout: 30_000 });
-	// Both screens name both devices alike.
-	const here = String(await fresh.page.getByTestId('own-join-compare').textContent());
-	for (const id of String(await laptop.page.getByTestId('handover-compare').textContent()).match(
-		/…\S{6}/g
-	) ?? []) {
-		expect(here).toContain(id);
-	}
-	await laptop.page.getByTestId(allow ? 'handover-allow' : 'handover-deny').click();
-	await expect(dialog).toBeHidden();
-}
 
 test('three devices with three passkeys share one vault by QR, without Aleph', async ({
 	browser
@@ -104,13 +36,13 @@ test('three devices with three passkeys share one vault by QR, without Aleph', a
 		await expect(laptop.page.getByTestId('transaction')).toHaveCount(1);
 
 		// The phone, with its own passkey: the vault, its books, the booking.
-		await join(laptop, phone, 'E2E Telefon');
+		await joinOwn(laptop, phone, 'E2E Telefon');
 		await expect(phone.page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 		await tab(phone.page, 'Zahlungen');
 		await expect(phone.page.getByTestId('transaction')).toHaveCount(1, { timeout: 90_000 });
 
 		// The office laptop, with a third passkey.
-		await join(laptop, office, 'E2E Büro-Laptop');
+		await joinOwn(laptop, office, 'E2E Büro-Laptop');
 		await expect(office.page.getByTestId('own-did')).toBeVisible({ timeout: 60_000 });
 		await tab(office.page, 'Zahlungen');
 		await expect(office.page.getByTestId('transaction')).toHaveCount(1, { timeout: 90_000 });
@@ -160,7 +92,7 @@ test('"Ablehnen" hands over nothing', async ({ browser }) => {
 		await laptop.page.getByRole('button', { name: 'Passkey anlegen' }).click();
 		await expect(laptop.page.getByTestId('own-did')).toBeVisible();
 
-		await join(laptop, stranger, 'E2E Fremd', false);
+		await joinOwn(laptop, stranger, 'E2E Fremd', false);
 		await expect(stranger.page.getByTestId('own-join-error')).toBeVisible({ timeout: 30_000 });
 		await expect(stranger.page.getByTestId('own-did')).toHaveCount(0);
 		// No vault and no passkey kept: the screen still offers to make one.

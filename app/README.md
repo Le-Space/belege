@@ -66,7 +66,9 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
   setup, shares, portals or deleting – and only for devices in the book's device list. On another
   device the bridge client tries 127.0.0.1 first and then a connected own device that serves the
   extension (`bridgeFetch`); the token never leaves the desktop. UCEP's limits hold (64 KiB request,
-  1 MiB answer direct, 64 KiB relayed, 60 s).
+  1 MiB answer direct, 64 KiB relayed, 60 s); the bridge's own node states a request of up to
+  1 MiB in its manifest, which the app reads and sizes long calls by (`sync/bridge-limit.js`,
+  #976).
   `e2e/device-sync.spec.js` runs two browsers of one passkey through the test relay; since a
   virtual authenticator does not carry the PRF secret across contexts, E2E builds read a fixed
   PRF answer from `globalThis.__belegeTestPrf`.
