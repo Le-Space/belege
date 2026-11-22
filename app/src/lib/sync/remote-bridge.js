@@ -191,6 +191,9 @@ const ALLOWED = /** @type {const} */ ([
 	['POST', /^\/match\/assist$/],
 	['POST', /^\/transfer\/assist$/],
 	['POST', /^\/vendor\/assist$/],
+	['POST', /^\/travel\/assist$/],
+	// "✦ Konto vorschlagen" on a phone, answered by the desktop's model (#961).
+	['POST', /^\/booking\/assist$/],
 	['POST', /^\/extract$/],
 	['GET', /^\/rates(\/range)?$/],
 	['GET', /^\/kraken\/(balances|ledgers)$/],
