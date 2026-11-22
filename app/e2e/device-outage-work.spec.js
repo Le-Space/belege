@@ -184,7 +184,8 @@ test('through the outage: the phone books an account the laptop’s model sugges
 		await expect(booking.getByTestId('tx-booking-account')).toHaveValue('4964');
 		await booking.getByTestId('tx-booking-confirm').click();
 		await expect(booking).toHaveAttribute('data-confirmed', 'true');
-		expect(phoneBlocked).not.toContain('/booking/assist');
+		// It tried its own 127.0.0.1 first and was refused: the answer came through the laptop.
+		expect(phoneBlocked).toContain('/booking/assist');
 
 		// The laptop: the payment has its account, and left "Ohne Konto".
 		await expect.poll(() => withoutAccount(laptop.page), { timeout: 90_000 }).toBe(before - 1);

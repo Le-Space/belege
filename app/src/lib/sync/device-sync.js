@@ -55,6 +55,8 @@ export const DEVICE_SALT_KEY = 'belege.device-salt';
 /** How often a known device that is not connected is dialled again. */
 export const REDIAL_MS = 30_000;
 /** A WebSocket on this machine: where a bridge's node listens for the browser beside it. */
+/** What the QR transport dials: a peer, no address (@le-space/libp2p-webrtc-qr). */
+const QR_ADDR = /^\/webrtc\/p2p\/[^/]+$/;
 const LOOPBACK_WS = /^\/(ip4\/127\.\d+\.\d+\.\d+|ip6\/::1)\/tcp\/\d+\/ws(\/|$)/;
 /** How long a connected device may stay without a gossipsub stream before it is hung up. */
 export const MUTE_MS = 45_000;
@@ -233,9 +235,10 @@ export function setSyncGateClosed(closed) {
 /**
  * The online node's config: the UCEP transports plus gossipsub for OrbitDB;
  * in the own network's mode WebRTC-Direct to the bridge's relay instead of a
- * WebSocket – or, in the mode "Ohne Relay, per QR" (network-mode.js), only the transport
- * that carries a connection two scanned codes built (qr-link.js): no
- * WebSocket, no relay, nothing it could dial on its own.
+ * WebSocket – or, in the mode "Ohne Relay, per QR" (network-mode.js), the transport
+ * that carries a connection two scanned codes built (qr-link.js), and a
+ * WebSocket the gater lets reach only this machine's 127.0.0.1 – the books'
+ * bridge's own node (#961): no relay, nothing beyond this machine.
  *
  * @param {{ privateKey: any, relays: string[], gate: { service: (components: any) => any, isProved: (peerId: string) => boolean, onProved: (listener: (peerId: string) => void) => () => void }, mode?: import('./network-mode.js').NetworkMode }} params
  * @returns {import('libp2p').Libp2pOptions<any>}
@@ -256,7 +259,9 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 			listen: qr ? [] : [...relays.map((relay) => `${relay}/p2p-circuit`), '/webrtc']
 		},
 		transports: qr
-			? [qrTransport()]
+			? // The codes' connections, and the bridge's own node on this machine
+				// (127.0.0.1): the gater below lets the WebSocket dial nothing else.
+				[qrTransport(), webSockets()]
 			: both
 				? // Everything: codes, the bridge's relay by WebRTC-Direct, the public relays.
 					[
@@ -286,8 +291,12 @@ export function syncLibp2pConfig({ privateKey, relays, gate, mode = 'public' }) 
 			// A relay in the own network (or the test relay) has a private address,
 			// which libp2p refuses to dial by default – and so has the bridge's own
 			// node on this machine (127.0.0.1, remote-bridge.js), in every mode.
-			denyDialMultiaddr:
-				lan || both || relays.some(isLocal)
+			denyDialMultiaddr: qr
+				? // "Ohne Relay, per QR": a code's connection (`/webrtc/p2p/…`, qr-link.js)
+					// and the bridge's node on this machine; no other address at all.
+					(/** @type {any} */ addr) =>
+						gateClosed || !(QR_ADDR.test(addr.toString()) || LOOPBACK_WS.test(addr.toString()))
+				: lan || both || relays.some(isLocal)
 					? () => gateClosed
 					: // libp2p's own rule for a browser (private addresses, insecure
 						// WebSockets), with this machine let through. WebSockets over TLS

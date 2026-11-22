@@ -30,6 +30,7 @@
 	"device-circuit-close": 5,
 	"device-files": 38,
 	"device-lan": 7,
+	"device-outage-work": 40,
 	"device-own-passkey": 120,
 	"device-qr": 28,
 	"device-qr-link": 7,
