@@ -24,11 +24,35 @@ const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
  * and QR detector the test feeds.
  *
  * @param {import('@playwright/test').Browser} browser
- * @param {{ mode?: 'public' | 'qr' | 'lan', lanRelay?: string }} [options] where devices meet
- *   (#148), as this browser keeps it, and the own bridge's relay it knows
+ * @param {{ mode?: 'public' | 'qr' | 'lan', lanRelay?: string, syncedPrf?: boolean }} [options] where devices meet
+ *   (#148), as this browser keeps it, and the own bridge's relay it knows;
+ *   `syncedPrf`: every passkey prompt that asks for PRF gets the same answer
+ *   in this browser as in the other, as a synced passkey gives it – also the
+ *   identity provider's own, which a restore asks and which a credential
+ *   copied into another virtual authenticator cannot answer (#957)
  */
-export async function device(browser, { mode = 'public', lanRelay = '' } = {}) {
+export async function device(browser, { mode = 'public', lanRelay = '', syncedPrf = false } = {}) {
 	const context = await browser.newContext();
+	if (syncedPrf) {
+		await context.addInitScript((prf) => {
+			const container = navigator.credentials;
+			for (const name of /** @type {const} */ (['create', 'get'])) {
+				const ask = container[name].bind(container);
+				container[name] = async (/** @type {any} */ options) => {
+					const credential = /** @type {any} */ (await ask(options));
+					const asked = options?.publicKey?.extensions?.prf;
+					if (!credential || !asked) return credential;
+					const results = credential.getClientExtensionResults.bind(credential);
+					const first = Uint8Array.from(prf).buffer;
+					credential.getClientExtensionResults = () => {
+						const r = results();
+						return { ...r, prf: { ...r.prf, enabled: true, results: { first } } };
+					};
+					return credential;
+				};
+			}
+		}, PRF);
+	}
 	// BENCH_LIBP2P_DEBUG=libp2p:connection-monitor* switches libp2p's own
 	// logging on in the page (its logger reads `localStorage.debug`); the
 	// resilience benchmark keeps what the console then says (bench/).

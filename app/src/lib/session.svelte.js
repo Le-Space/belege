@@ -761,11 +761,18 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
 		// Read in every case, so it never waits for a later unlock.
 		const chosen = takeOtherBooksChoice();
 		const otherVault = flow === 'unlock' && !memberOf && chosen;
-		const lookupVault = flow === 'restore' && !networkPause();
+		// By QR or at the own bridge's relay only, nothing asks Aleph – a restore
+		// neither (#957): the founding passkey's books open from its answer, and
+		// the own devices bring them.
+		const { networkMode } = await import('./sync/network-mode.js');
+		const ownNetwork = ['qr', 'lan'].includes(networkMode());
+		const lookupVault = flow === 'restore' && !networkPause() && !ownNetwork;
+		/** @type {import('./new-books-question.svelte.js').NewBooksWhy} */
+		const why = lookupVault ? 'looked' : networkPause() ? 'paused' : 'own';
 		await unlockWith(credential, progress, passkeyStepsFor(flow), {
 			lookupVault,
 			// A restore that finds no books for this passkey asks first (#555).
-			...(flow === 'restore' ? { confirmNewBooks: () => askNewBooksOrForget(lookupVault) } : {}),
+			...(flow === 'restore' ? { confirmNewBooks: () => askNewBooksOrForget(why) } : {}),
 			...(otherVault && !networkPause() ? { otherVault } : {}),
 			...(opened ? { recovered: opened } : {}),
 			...(memberOf ? { memberOf } : {})
@@ -791,12 +798,12 @@ async function run(getCredential, nothingFound, flow, { recovered } = {}) {
  * passkey this restore stored is forgotten again, so the screen offers the
  * restore once more rather than an unlock that would make the books after all.
  *
- * @param {boolean} looked whether Aleph's index was asked
+ * @param {import('./new-books-question.svelte.js').NewBooksWhy} why whether Aleph's index was asked, and if not, why
  */
-async function askNewBooksOrForget(looked) {
+async function askNewBooksOrForget(why) {
 	const { askNewBooks } = await import('./new-books-question.svelte.js');
 	try {
-		await askNewBooks({ looked });
+		await askNewBooks({ why });
 	} catch (e) {
 		forgetStoredPasskeyCredential();
 		throw e;

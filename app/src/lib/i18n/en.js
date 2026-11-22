@@ -1140,6 +1140,7 @@ export default {
 			looked: 'This browser knows no books for this passkey, and Aleph holds no vault for it.',
 			paused:
 				'This browser knows no books for this passkey. Aleph was not asked, because the network is paused.',
+			own: 'This browser knows no books for this passkey. Aleph was not asked, because this device meets your devices only in the own network.',
 			made: 'If you made books with this passkey, Belege opens them now – empty until an own device syncs them or you restore a backup.',
 			added:
 				'If the passkey was added to books another device made, it would get new, empty books here. Then cancel: keep the vault on Aleph there under Settings → Keys (or resume the network here), and try again.',

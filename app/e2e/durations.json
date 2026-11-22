@@ -32,6 +32,7 @@
 	"device-lan": 7,
 	"device-qr": 28,
 	"device-qr-link": 7,
+	"device-qr-restore": 40,
 	"device-sync": 36,
 	"eigenbeleg": 4,
 	"einvoice": 8,

@@ -1170,6 +1170,7 @@ export default {
 				'Dieser Browser kennt keine Bücher für diesen Passkey, und bei Aleph ist für ihn kein Tresor hinterlegt.',
 			paused:
 				'Dieser Browser kennt keine Bücher für diesen Passkey. Bei Aleph wurde nicht nachgesehen, weil das Netz pausiert ist.',
+			own: 'Dieser Browser kennt keine Bücher für diesen Passkey. Bei Aleph wurde nicht nachgesehen, weil sich dieses Gerät nur im eigenen Netz mit deinen Geräten verbindet.',
 			made: 'Hast du mit diesem Passkey Bücher angelegt, öffnet Belege sie jetzt – leer, bis ein eigenes Gerät sie abgleicht oder du ein Backup wiederherstellst.',
 			added:
 				'Wurde der Passkey zu Büchern hinzugefügt, die ein anderes Gerät angelegt hat, bekäme er hier neue, leere Bücher. Dann brich ab: Hinterlege dort unter Einstellungen → Schlüssel den Tresor bei Aleph (oder setze hier das Netz fort) und versuche es noch einmal.',
