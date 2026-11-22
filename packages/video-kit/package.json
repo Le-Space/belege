@@ -18,6 +18,7 @@
 		"./captions": "./src/captions.js",
 		"./cursor": "./src/cursor.js",
 		"./scene": "./src/scene.js",
+		"./stage": "./src/stage.js",
 		"./voice": "./src/voice.js",
 		"./compose": "./src/compose.js",
 		"./qr": "./src/qr.js",
