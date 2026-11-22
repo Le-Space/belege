@@ -63,6 +63,16 @@ export async function createAdditionalPasskey({ displayName }) {
 }
 
 /**
+ * Keep a passkey made with `createAdditionalPasskey` as this browser's own:
+ * a new device that joined books with it (#962) unlocks with it from now on.
+ *
+ * @param {any} credential
+ */
+export function keepPasskeyCredential(credential) {
+	storeWebAuthnCredential(credential, CREDENTIAL_STORAGE_KEY);
+}
+
+/**
  * What the provider needs, rebuilt from what the authenticator gave back.
  *
  * The constants are the ones `createCredential()` writes for a P-256 passkey

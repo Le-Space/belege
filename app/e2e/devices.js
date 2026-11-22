@@ -24,14 +24,19 @@ const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
  * and QR detector the test feeds.
  *
  * @param {import('@playwright/test').Browser} browser
- * @param {{ mode?: 'public' | 'qr' | 'lan', lanRelay?: string, syncedPrf?: boolean }} [options] where devices meet
+ * @param {{ mode?: 'public' | 'qr' | 'lan', lanRelay?: string, syncedPrf?: boolean, prf?: number[] }} [options] where devices meet
  *   (#148), as this browser keeps it, and the own bridge's relay it knows;
  *   `syncedPrf`: every passkey prompt that asks for PRF gets the same answer
  *   in this browser as in the other, as a synced passkey gives it – also the
  *   identity provider's own, which a restore asks and which a credential
- *   copied into another virtual authenticator cannot answer (#957)
+ *   copied into another virtual authenticator cannot answer (#957);
+ *   `prf`: this device's own passkey answers so instead of the shared answer –
+ *   a device with a passkey of its own (#962)
  */
-export async function device(browser, { mode = 'public', lanRelay = '', syncedPrf = false } = {}) {
+export async function device(
+	browser,
+	{ mode = 'public', lanRelay = '', syncedPrf = false, prf = PRF } = {}
+) {
 	const context = await browser.newContext();
 	if (syncedPrf) {
 		await context.addInitScript((prf) => {
@@ -51,7 +56,7 @@ export async function device(browser, { mode = 'public', lanRelay = '', syncedPr
 					return credential;
 				};
 			}
-		}, PRF);
+		}, prf);
 	}
 	// BENCH_LIBP2P_DEBUG=libp2p:connection-monitor* switches libp2p's own
 	// logging on in the page (its logger reads `localStorage.debug`); the
@@ -87,7 +92,7 @@ export async function device(browser, { mode = 'public', lanRelay = '', syncedPr
 				return canvas.captureStream(5);
 			};
 		},
-		{ prf: PRF, mode, lanRelay, debug }
+		{ prf, mode, lanRelay, debug }
 	);
 	const page = await context.newPage();
 	const cdp = await context.newCDPSession(page);

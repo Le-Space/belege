@@ -63,11 +63,13 @@ const ROOT_BYTES = 32;
 /**
  * @typedef {{ kid: string, label: string, credentialId: string, addedAt: string, kind?: 'words' }} SlotInfo
  *   what this browser says about a slot, beside the sealed vault: public
- * @typedef {{ vault: any, slots: SlotInfo[], removed: string[], aside?: string[], replaces?: string[] }} VaultRecord
+ * @typedef {{ vault: any, slots: SlotInfo[], removed: string[], removedAt?: Record<string, string>, aside?: string[], replaces?: string[] }} VaultRecord
  *   `aside`: the passkeys (slot ids) that open other books in this browser now
  *   (#524): their slot here stays, and is passed over at unlock;
  *   `replaces`: the ids of the vaults this one renewed here (#555) – one of
- *   them published on Aleph is this record's own older self, not another device's
+ *   them published on Aleph is this record's own older self, not another device's;
+ *   `removedAt`: when each passkey was taken out, so a record that comes by
+ *   sync (#962) does not bring a slot back that was removed after it was added
  * @typedef {{ record: VaultRecord, vaultKey: Uint8Array, root: Uint8Array, previous?: Uint8Array[], kid: string, created: boolean, found?: boolean, switched?: boolean }} OpenedVault
  *   `found`: the record came from elsewhere (the index), not this browser;
  *   `switched`: … in place of books this passkey had founded here (#524);
@@ -208,6 +210,9 @@ export function loadVaultRecords(storage) {
 			vault: r.vault,
 			slots: Array.isArray(r.slots) ? r.slots : [],
 			removed: Array.isArray(r.removed) ? r.removed.map(String) : [],
+			...(r.removedAt && typeof r.removedAt === 'object' && Object.keys(r.removedAt).length
+				? { removedAt: removedAtOf(r.removedAt) }
+				: {}),
 			...(Array.isArray(r.aside) && r.aside.length ? { aside: r.aside.map(String) } : {}),
 			...(Array.isArray(r.replaces) && r.replaces.length
 				? { replaces: r.replaces.map(String) }
@@ -216,8 +221,21 @@ export function loadVaultRecords(storage) {
 	});
 }
 
+/** @param {any} value @returns {Record<string, string>} */
+function removedAtOf(value) {
+	/** @type {Record<string, string>} */
+	const out = {};
+	for (const [kid, at] of Object.entries(value ?? {})) {
+		if (typeof at === 'string') out[String(kid)] = at;
+	}
+	return out;
+}
+
 /** What a record keeps when it is written anew. @param {VaultRecord} record */
 const asideOf = (record) => ({
+	...(record.removedAt && Object.keys(record.removedAt).length
+		? { removedAt: record.removedAt }
+		: {}),
 	...(record.aside?.length ? { aside: record.aside } : {}),
 	...(record.replaces?.length ? { replaces: record.replaces } : {})
 });
@@ -461,11 +479,37 @@ export async function addPasskey(opened, passkey, storage, now = () => new Date(
 			}
 		],
 		removed: opened.record.removed.filter((k) => k !== kid),
-		...asideOf(opened.record)
+		...asideOf(withoutRemovedAt(opened.record, [kid]))
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
 }
+
+/**
+ * @param {VaultRecord} record
+ * @param {string[]} kids no longer removed
+ * @returns {VaultRecord}
+ */
+function withoutRemovedAt(record, kids) {
+	if (!record.removedAt) return record;
+	const removedAt = { ...record.removedAt };
+	for (const kid of kids) delete removedAt[kid];
+	return { ...record, removedAt };
+}
+
+/**
+ * @param {VaultRecord} record
+ * @param {string[]} kids taken out now
+ * @param {() => Date} now
+ * @returns {VaultRecord}
+ */
+const withRemovedAt = (record, kids, now) => ({
+	...record,
+	removedAt: {
+		...(record.removedAt ?? {}),
+		...Object.fromEntries(kids.map((kid) => [kid, now().toISOString()]))
+	}
+});
 
 /**
  * Take a passkey's slot out, without renewing the vault key: it opens
@@ -476,7 +520,7 @@ export async function addPasskey(opened, passkey, storage, now = () => new Date(
  * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
  * @returns {OpenedVault}
  */
-export function removePasskey(opened, kid, storage) {
+export function removePasskey(opened, kid, storage, now = () => new Date()) {
 	if (kid === opened.kid)
 		throw new Error('The passkey that opened the books cannot remove itself.');
 	if (!opened.record.vault.slots.some((/** @type {any} */ s) => s.kid === kid)) {
@@ -489,7 +533,7 @@ export function removePasskey(opened, kid, storage) {
 		},
 		slots: opened.record.slots.filter((s) => s.kid !== kid),
 		removed: [...new Set([...opened.record.removed, kid])],
-		...asideOf(opened.record)
+		...asideOf(withRemovedAt(opened.record, [kid], now))
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
@@ -719,7 +763,7 @@ export async function addRecoveryWords(opened, seed, storage, now = () => new Da
 			}
 		],
 		removed: opened.record.removed,
-		...asideOf(opened.record)
+		...asideOf(withoutRemovedAt(opened.record, [kid]))
 	};
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
@@ -733,8 +777,9 @@ export async function addRecoveryWords(opened, seed, storage, now = () => new Da
  * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
  * @returns {Promise<OpenedVault>}
  */
-export async function removeRecoveryWords(opened, storage) {
-	const record = withoutSlot(opened.record, await wordsSlotId());
+export async function removeRecoveryWords(opened, storage, now = () => new Date()) {
+	const kid = await wordsSlotId();
+	const record = withoutSlot(withRemovedAt(opened.record, [kid], now), kid);
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
 }
@@ -967,4 +1012,199 @@ export function replaceVaultRecord(oldId, record, storage) {
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== oldId);
 	records.push(record);
 	storage.setItem(VAULTS_STORAGE_KEY, JSON.stringify(records));
+}
+
+/**
+ * The same JSON, whatever the order of the keys (#962): a record read back
+ * from the sealed settings has its keys in the codec's order, not in the
+ * order they were written, and is the same record all the same.
+ *
+ * @param {unknown} a
+ * @param {unknown} b
+ */
+export const sameJson = (a, b) => canonicalJson(a) === canonicalJson(b);
+
+/** @param {unknown} value */
+export function canonicalJson(value) {
+	return JSON.stringify(value, (_key, v) =>
+		v && typeof v === 'object' && !Array.isArray(v)
+			? Object.fromEntries(
+					Object.keys(v)
+						.sort()
+						.map((k) => [k, v[k]])
+				)
+			: v
+	);
+}
+
+/**
+ * The record as the books keep it for every own device (#962): what is
+ * public about the vault, without what only this browser decides (`aside`).
+ *
+ * @param {VaultRecord} record
+ * @returns {{ vault: any, slots: SlotInfo[], removed: string[], removedAt?: Record<string, string>, replaces?: string[] }}
+ */
+export const sharedRecordOf = (record) => ({
+	vault: record.vault,
+	slots: record.slots,
+	removed: record.removed,
+	...(record.removedAt && Object.keys(record.removedAt).length
+		? { removedAt: record.removedAt }
+		: {}),
+	...(record.replaces?.length ? { replaces: record.replaces } : {})
+});
+
+/**
+ * Two records of the same vault (same id, same payload), merged (#962): what
+ * each device added, what each took out. A slot is in the result when either
+ * has it and it was not taken out after it was added; for a slot both have
+ * (the recovery words, made anew), the later one counts. Slots are sealed
+ * each on its own, bound to the vault's id and their slot id, so slots from
+ * two copies of one vault go together. Pure: nothing is kept.
+ *
+ * @param {VaultRecord} local
+ * @param {{ vault: any, slots?: SlotInfo[], removed?: string[], removedAt?: Record<string, string> }} incoming
+ * @returns {VaultRecord} `local` itself when nothing changes
+ */
+export function mergeVaultRecords(local, incoming) {
+	const vault = incoming?.vault;
+	if (!vault || vault.id !== local.vault.id || !Array.isArray(vault.slots)) return local;
+	if (!sameJson(vault.payload, local.vault.payload)) return local;
+	const theirs = new Map(
+		(Array.isArray(incoming.slots) ? incoming.slots : []).map((s) => [String(s.kid), s])
+	);
+	const mine = new Map(local.slots.map((s) => [s.kid, s]));
+	/** @type {Record<string, string>} */
+	const removedAt = { ...removedAtOf(incoming.removedAt) };
+	for (const [kid, at] of Object.entries(local.removedAt ?? {})) {
+		if (!removedAt[kid] || at > removedAt[kid]) removedAt[kid] = at;
+	}
+	const removedSet = new Set([
+		...local.removed,
+		...(Array.isArray(incoming.removed) ? incoming.removed.map(String) : [])
+	]);
+	/** @param {string} kid */
+	const addedAt = (kid) => {
+		const a = mine.get(kid)?.addedAt ?? '';
+		const b = theirs.get(kid)?.addedAt ?? '';
+		return a > b ? a : b;
+	};
+	/** @param {string} kid */
+	const gone = (kid) => {
+		const at = removedAt[kid];
+		if (at) return !(addedAt(kid) > at);
+		// Taken out before removal times were kept: it stays out.
+		return removedSet.has(kid);
+	};
+	/** @type {Map<string, any>} */
+	const slots = new Map();
+	for (const s of local.vault.slots) slots.set(String(s.kid), s);
+	for (const s of vault.slots) {
+		const kid = String(s.kid);
+		const here = slots.get(kid);
+		const later = (theirs.get(kid)?.addedAt ?? '') > (mine.get(kid)?.addedAt ?? '');
+		if (!here || (later && !sameJson(here, s))) slots.set(kid, s);
+	}
+	const kept = [...slots.values()].filter((s) => !gone(String(s.kid)));
+	const kids = new Set(kept.map((s) => String(s.kid)));
+	/** @type {SlotInfo[]} */
+	const info = [];
+	for (const kid of kids) {
+		const a = mine.get(kid);
+		const b = theirs.get(kid);
+		const newer = b && (!a || (b.addedAt ?? '') > (a.addedAt ?? '')) ? b : a;
+		if (!newer) continue;
+		info.push({ ...newer, label: a?.label || b?.label || '' });
+	}
+	const removed = [...new Set([...removedSet, ...Object.keys(removedAt)])].filter(
+		(kid) => gone(kid) && !kids.has(kid) && removedSet.has(kid)
+	);
+	/** @type {VaultRecord} */
+	const merged = {
+		vault: { ...local.vault, slots: kept },
+		slots: info,
+		removed,
+		...(Object.keys(removedAt).length ? { removedAt } : {}),
+		...(local.aside?.length ? { aside: local.aside } : {}),
+		...(local.replaces?.length ? { replaces: local.replaces } : {})
+	};
+	return sameJson(merged, local) ? local : merged;
+}
+
+/**
+ * A record of the same vault that came by sync, merged into the open one and
+ * kept here (#962). Another vault (renewed, new keys) is not taken here: that
+ * wants this passkey's answer, at the next unlock (`adoptNewerVault`).
+ *
+ * @param {OpenedVault} opened
+ * @param {Parameters<typeof mergeVaultRecords>[1] | null} incoming
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @returns {OpenedVault} `opened` itself when nothing changes
+ */
+export function adoptSyncedVault(opened, incoming, storage) {
+	if (!incoming) return opened;
+	const record = mergeVaultRecords(opened.record, incoming);
+	if (record === opened.record) return opened;
+	saveVaultRecord(storage, record);
+	return { ...opened, record };
+}
+
+/**
+ * The vault another own device handed over (#962, sync/vault-handover.js):
+ * this passkey gets its slot in it, with the vault key that came along, and
+ * the record is kept here – from now on this passkey opens the books here like
+ * any other. Checked before it is kept: the new slot opens the vault, and the
+ * vault holds a root.
+ *
+ * @param {{ record: any, vaultKey: Uint8Array }} handed
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array, credentialId: string, label: string }} passkey
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @param {() => Date} [now]
+ * @returns {Promise<VaultRecord>}
+ */
+export async function joinWithVault(handed, passkey, storage, now = () => new Date()) {
+	const given = handed.record;
+	if (!given?.vault || !Array.isArray(given.vault.slots)) {
+		throw new VaultStorageError('That is no vault.');
+	}
+	const kid = await slotIdFor(passkey.rawCredentialId);
+	const slotKey = await slotKeyOf(passkey.prfOutput);
+	const vault = given.vault.slots.some((/** @type {any} */ s) => s.kid === kid)
+		? given.vault
+		: await addVaultSlot(given.vault, handed.vaultKey, {
+				slotKey,
+				rawCredentialId: passkey.rawCredentialId
+			});
+	const { payload } = await openVault(vault, { slotKey, rawCredentialId: passkey.rawCredentialId });
+	decodeRoots(payload);
+	/** @type {VaultRecord} */
+	const record = {
+		vault,
+		slots: [
+			...(Array.isArray(given.slots) ? given.slots : []).filter(
+				(/** @type {any} */ s) => s?.kid !== kid
+			),
+			{
+				kid,
+				label: passkey.label,
+				credentialId: passkey.credentialId,
+				addedAt: now().toISOString()
+			}
+		],
+		removed: (Array.isArray(given.removed) ? given.removed.map(String) : []).filter(
+			(/** @type {string} */ k) => k !== kid
+		),
+		...(given.removedAt && typeof given.removedAt === 'object'
+			? {
+					removedAt: Object.fromEntries(
+						Object.entries(removedAtOf(given.removedAt)).filter(([k]) => k !== kid)
+					)
+				}
+			: {}),
+		...(Array.isArray(given.replaces) && given.replaces.length
+			? { replaces: given.replaces.map(String) }
+			: {})
+	};
+	saveVaultRecord(storage, record);
+	return record;
 }

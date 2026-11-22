@@ -665,6 +665,44 @@ export async function startSession(
 				});
 			}
 		}
+		// The vault as the books keep it for every own device (#962): what
+		// another device changed in the same vault is merged in (books-vault.js
+		// `adoptSyncedVault`); a vault renewed there is taken with this
+		// passkey's answer, now that it is at hand.
+		if (vault && !membership) {
+			const [{ readSharedVaults }, { adoptSyncedVault, adoptNewerVault }] = await Promise.all([
+				import('./keys/vault-share.js'),
+				import('./books-vault.js')
+			]);
+			try {
+				const shared = await readSharedVaults(
+					/** @type {any} */ (store.databases().settings),
+					booksIdentity.id
+				);
+				for (const value of shared) {
+					if (value.vault.id === vault.record.vault.id) {
+						vault = adoptSyncedVault(vault, value, globalThis.localStorage);
+					}
+				}
+				// A vault renewed on another device: the one that replaces this one.
+				const next = shared.find(
+					(value) =>
+						Array.isArray(value.replaces) && value.replaces.includes(vault?.record.vault.id)
+				);
+				if (next) {
+					vault = await adoptNewerVault(
+						vault,
+						next.vault,
+						{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
+						globalThis.localStorage,
+						Array.isArray(next.slots) ? next.slots : []
+					);
+				}
+			} catch (e) {
+				// Never a reason to keep the books shut: the vault here still opens them.
+				console.warn('the vault for the own devices:', e);
+			}
+		}
 		// The books got new keys on another device, or on this one before a
 		// reload (#627): their successor is in the settings. This passkey takes
 		// the new vault when it has a slot there; the session says so, and the

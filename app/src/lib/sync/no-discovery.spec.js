@@ -31,6 +31,7 @@ import { restoreLibp2pConfig } from '../backup/restore-peers.js';
 import { createDeviceGate } from './device-gate.js';
 import { syncLibp2pConfig } from './device-sync.js';
 import { loopbackConfig } from './loopback-bridge.js';
+import { joinLibp2pConfig } from './join-node.js';
 
 const RELAY = '/dns4/relay.example/tcp/443/wss/p2p/12D3KooWExample';
 const GATED = ['deviceGate', 'identify', 'identifyPush', 'identifyPushDevices'];
@@ -68,6 +69,12 @@ const NODES = [
 		file: 'sync/loopback-bridge.js',
 		config: (privateKey) => loopbackConfig({ privateKey, gate: gate() }),
 		services: GATED
+	},
+	{
+		name: 'a new device joining with its own passkey (#962)',
+		file: 'session/own-join.js',
+		config: (privateKey) => joinLibp2pConfig({ privateKey, getOutboundSession: () => null }),
+		services: []
 	},
 	{
 		name: 'a restore from other nodes',
