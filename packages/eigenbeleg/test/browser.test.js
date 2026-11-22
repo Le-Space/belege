@@ -21,4 +21,5 @@ test('every document is the same file in Chromium and in Node', async (t) => {
 		'verbrauchsauszug-usd.pdf'
 	]);
 	assert.match(r.csv, /^[0-9a-f]{64}$/);
+	assert.deepEqual(r.tokens, ['-1500', '-2', '0.8', null, null]);
 });

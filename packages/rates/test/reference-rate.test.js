@@ -62,6 +62,20 @@ test('an asset with a table never reaches another source, also on a day without 
 	assert.deepEqual(asked, [['USD', '2026-10-13']]);
 });
 
+test('the inner source’s other methods stay: a token by its contract (#93)', async () => {
+	const inner = {
+		rateFor: async () => null,
+		tokenRateFor: async (/** @type {{ contract: string }} */ t, /** @type {string} */ date) => ({
+			rate: '0.02',
+			source: `by ${t.contract}`,
+			date
+		})
+	};
+	const rates = withReferenceRates(inner, { DOI: TABLE });
+	const contract = `0x${'5e'.repeat(20)}`;
+	assert.equal((await rates.tokenRateFor({ contract }, '2026-10-13'))?.source, `by ${contract}`);
+});
+
 test('the rate service itself has no source for DOI', () => {
 	assert.equal(Object.hasOwn(RATE_SOURCES, 'DOI'), false);
 });

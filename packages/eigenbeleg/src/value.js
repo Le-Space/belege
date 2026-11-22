@@ -9,6 +9,11 @@
 // price per credit the reader hands with each entry (`unitPrice`: the last
 // purchase on or before the day, else Aleph's list price) at that day's ECB
 // rate for USD (@le-space/rates/aleph-credits).
+//
+// A token not in the chain's list (EVM, `listed: false`, #93) has no market
+// asset either: it is valued only when the caller hands in `tokenRateFor`,
+// asked by its contract, chain, block and decimals. Its symbol is the token's
+// own claim and is never asked for as a market asset.
 
 import { multiply } from '@le-space/ledger';
 
@@ -22,13 +27,35 @@ import { documentCurrency } from './document.js';
  * @property {string} [currency] what the rate is in; EUR when not given
  */
 
-/** @typedef {{ rateFor: (asset: string, date: string) => Promise<Rate | null> }} Rates */
+/**
+ * @typedef {object} TokenRef a token not in the chain's list, by its contract (#93)
+ * @property {string} asset the symbol it calls itself, its own claim
+ * @property {string} contract 0x + 40 hex, lower case
+ * @property {string} chain e.g. `ethereum`, `base`
+ * @property {number} block the booking's block, for a DEX pool's price at it
+ * @property {number} decimals
+ */
+
+/**
+ * @typedef {object} Rates
+ * @property {(asset: string, date: string) => Promise<Rate | null>} rateFor a listed asset
+ * @property {(token: TokenRef, date: string) => Promise<Rate | null>} [tokenRateFor] a token
+ *   not in the list, by its contract (@le-space/rates: CoinGecko by contract, else a DEX
+ *   pool at the block); without it such a token stays unvalued
+ */
 
 /**
  * @typedef {import('@le-space/ledger').LedgerEntry & { eur: { value: string, rate: string, source: string, currency?: string } | null }} ValuedEntry
  *   `eur`: the value, named so since every document was in euro; in another
  *   currency it carries that `currency`
  */
+
+/**
+ * A token not in the chain's list (#115, #93): booked by its contract, no market asset.
+ * @param {import('@le-space/ledger').LedgerEntry} e
+ */
+const isToken = (e) =>
+	e.listed === false && /^0x[0-9a-fA-F]{40}$/.test(e.contract) && Number.isSafeInteger(e.height);
 
 /**
  * Every entry with its euro value (8 decimals; printed with 4, the total rounded to cents
@@ -45,12 +72,14 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 	// An EUR value stays as it always was; another currency is named on it.
 	const mark = currency === 'EUR' ? {} : { currency };
 	/** A rate in another currency than the document's is the caller's mistake, not a value. @param {string} asset @param {string} date */
-	const rateFor = async (asset, date) => {
-		const r = await rates.rateFor(asset, date);
+	/** @param {Rate | null} r */
+	const checked = (r) => {
 		if (r && (r.currency ?? 'EUR') !== currency)
 			throw new Error(`a rate in ${r.currency ?? 'EUR'} for a document in ${currency}`);
 		return r;
 	};
+	const rateFor = async (/** @type {string} */ asset, /** @type {string} */ date) =>
+		checked(await rates.rateFor(asset, date));
 	const out = [];
 	for (const e of entries) {
 		const unit =
@@ -86,7 +115,24 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 			});
 			continue;
 		}
-		const r = e.priceAs && e.success ? await rateFor(e.priceAs, e.date) : null;
+		const r = !e.success
+			? null
+			: e.priceAs
+				? await rateFor(e.priceAs, e.date)
+				: isToken(e) && rates.tokenRateFor
+					? await checked(
+							await rates.tokenRateFor(
+								{
+									asset: e.asset,
+									contract: e.contract.toLowerCase(),
+									chain: e.chain,
+									block: e.height,
+									decimals: e.decimals
+								},
+								e.date
+							)
+						)
+					: null;
 		out.push({
 			...e,
 			eur: r
@@ -100,7 +146,8 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 /**
  * Fixed rates, for tests and offline demos.
  *
- * @param {Record<string, string>} table `NEAR:2026-10-05` → `3.8796`
+ * @param {Record<string, string>} table `NEAR:2026-10-05` → `3.8796`; a token not in the list by
+ *   its contract (lower case): `0x…:2026-10-05` or `0x…`
  * @param {string} [currency] what the table's rates are in; EUR when not given
  * @returns {Rates}
  */
@@ -110,6 +157,12 @@ export function fixedRates(table, currency) {
 		async rateFor(asset, date) {
 			const rate = table[`${asset}:${date}`] ?? table[asset];
 			return rate ? { rate, source: `fester Testkurs (${asset})`, date, ...mark } : null;
+		},
+		async tokenRateFor({ contract }, date) {
+			const rate = table[`${contract}:${date}`] ?? table[contract];
+			return rate
+				? { rate, source: `fester Testkurs (Token-Vertrag ${contract})`, date, ...mark }
+				: null;
 		}
 	};
 }
