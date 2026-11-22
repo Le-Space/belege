@@ -5,8 +5,8 @@
 // the page itself stays light (and a service worker can keep them for
 // offline use).
 
-import condensed from 'dejavu-fonts-ttf/ttf/DejaVuSansCondensed.ttf?url';
-import condensedBold from 'dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf?url';
+import plex from '@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf?url';
+import plexSemiBold from '@expo-google-fonts/ibm-plex-sans/600SemiBold/IBMPlexSans_600SemiBold.ttf?url';
 import mono from 'dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf?url';
 import arabic from '@expo-google-fonts/noto-sans-arabic/400Regular/NotoSansArabic_400Regular.ttf?url';
 import icc from '../assets/sRGB-v2-micro.icc?url';
@@ -17,8 +17,8 @@ import alephPng from '../assets/logos/aleph.png?url';
 
 /** @type {Record<string, string>} */
 const URLS = {
-	'DejaVuSansCondensed.ttf': condensed,
-	'DejaVuSansCondensed-Bold.ttf': condensedBold,
+	'IBMPlexSans-Regular.ttf': plex,
+	'IBMPlexSans-SemiBold.ttf': plexSemiBold,
 	'DejaVuSansMono.ttf': mono,
 	'NotoSansArabic-Regular.ttf': arabic,
 	'sRGB-v2-micro.icc': icc,

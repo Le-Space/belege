@@ -12,8 +12,8 @@ import { loadAsset as platformLoad } from '#load-asset';
 
 /** The assets by name: the fonts in the order they are embedded, the profile, then the chains' marks. */
 export const ASSETS = /** @type {const} */ ([
-	'DejaVuSansCondensed.ttf',
-	'DejaVuSansCondensed-Bold.ttf',
+	'IBMPlexSans-Regular.ttf',
+	'IBMPlexSans-SemiBold.ttf',
 	'DejaVuSansMono.ttf',
 	'NotoSansArabic-Regular.ttf',
 	'sRGB-v2-micro.icc',

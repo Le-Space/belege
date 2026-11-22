@@ -2,7 +2,8 @@
 
 Fonts, from npm, embedded as subsets when a PDF is drawn:
 
-- DejaVu Sans Condensed (regular, bold) and DejaVu Sans Mono – `dejavu-fonts-ttf`, Bitstream Vera / DejaVu licence.
+- IBM Plex Sans (regular, semibold) – `@expo-google-fonts/ibm-plex-sans`, SIL Open Font License 1.1 (© IBM Corp., Reserved Font Name "Plex"; embedded unchanged, as subsets).
+- DejaVu Sans Mono – `dejavu-fonts-ttf`, Bitstream Vera / DejaVu licence.
 - Noto Sans Arabic – `@expo-google-fonts/noto-sans-arabic`, SIL Open Font License 1.1.
 
 ## Chain marks (`logos/`)

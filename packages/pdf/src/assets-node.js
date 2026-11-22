@@ -11,9 +11,10 @@ const require = createRequire(import.meta.url);
 
 /** @type {Record<string, () => string>} */
 const PATHS = {
-	'DejaVuSansCondensed.ttf': () => require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansCondensed.ttf'),
-	'DejaVuSansCondensed-Bold.ttf': () =>
-		require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansCondensed-Bold.ttf'),
+	'IBMPlexSans-Regular.ttf': () =>
+		require.resolve('@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf'),
+	'IBMPlexSans-SemiBold.ttf': () =>
+		require.resolve('@expo-google-fonts/ibm-plex-sans/600SemiBold/IBMPlexSans_600SemiBold.ttf'),
 	'DejaVuSansMono.ttf': () => require.resolve('dejavu-fonts-ttf/ttf/DejaVuSansMono.ttf'),
 	'NotoSansArabic-Regular.ttf': () =>
 		require.resolve('@expo-google-fonts/noto-sans-arabic/400Regular/NotoSansArabic_400Regular.ttf'),
