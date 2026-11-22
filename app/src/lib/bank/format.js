@@ -15,7 +15,7 @@ const formats = new Map();
  * @param {Intl.DateTimeFormatOptions & Intl.NumberFormatOptions} options
  * @returns {K extends 'date' ? Intl.DateTimeFormat : Intl.NumberFormat}
  */
-function formatter(kind, locale, options) {
+export function formatter(kind, locale, options) {
 	const id = `${kind}|${locale}|${JSON.stringify(options)}`;
 	let f = formats.get(id);
 	if (!f) {

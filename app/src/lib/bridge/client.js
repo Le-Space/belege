@@ -697,11 +697,6 @@ export function createBridgeClient({
 		 */
 		rateRange: (asset, from, to) => command('rates.range', { asset, from, to }),
 		/**
-		 * Kraken's non-zero balances (bridge/src/kraken.js).
-		 *
-		 * @returns {Promise<{ balances: KrakenBalance[] }>}
-		 */
-		/**
 		 * Enable Banking (issue #224): the banks of a country.
 		 *
 		 * @param {string} country two letters
@@ -747,6 +742,11 @@ export function createBridgeClient({
 		async enableBankingUnlink(id) {
 			await command('enablebanking.unlink', { id });
 		},
+		/**
+		 * Kraken's non-zero balances (bridge/src/kraken.js).
+		 *
+		 * @returns {Promise<{ balances: KrakenBalance[] }>}
+		 */
 		krakenBalances: () => command('kraken.balances'),
 		/**
 		 * Kraken's ledger from the start of `since` (UTC), oldest first.
