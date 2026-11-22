@@ -109,7 +109,7 @@ export function conversionText(currency) {
 	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
 	if (documentCurrency(currency) === 'EUR') return '';
 	if (DOCUMENT_CURRENCIES[currency].via === 'cbr')
-		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag (bis 01.03.2022 ${ecb})`;
+		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag`;
 	return `über den Euro in ${currency} umgerechnet ${ecb}`;
 }
 
@@ -130,14 +130,20 @@ export function checkValued(entries, currency) {
 
 /**
  * A rate's name without its day (`… vom 2026-08-10`), each leg of it: the day
- * is each position's.
+ * is each position's. A reference value (`Referenzwert von …, Stand
+ * 2026-01-01 (kein Börsenkurs)`, @le-space/rates referenceRate) keeps what it
+ * is and loses only its `Stand`.
  *
  * @param {string} source
  */
 export const sourceName = (source) =>
 	source
 		.split(' × ')
-		.map((leg) => leg.replace(/ \d{4}-\d{2}-\d{2}.*$/, '').replace(/ vom$/, ''))
+		.map((leg) =>
+			leg.startsWith('Referenzwert')
+				? leg.replace(/, Stand \d{4}-\d{2}-\d{2}/, '')
+				: leg.replace(/ \d{4}-\d{2}-\d{2}.*$/, '').replace(/ vom$/, '')
+		)
 		.join(' × ');
 
 /** Kinds that go on the Eigenbeleg unless the payer chooses otherwise. */

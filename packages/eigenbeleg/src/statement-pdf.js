@@ -22,6 +22,24 @@ import { BLACK, GREY, INK, MARK_SIZE, TYPE, WARN, pageLayout } from './layout.js
 // The same frame as every other document of the package (layout.js).
 const M = 48;
 
+const MARKET_RATE = 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)';
+
+/**
+ * What a section's values are at, for its note: the market rate of the day, a
+ * reference value by its name, or both – as the EUR text (`zum …`) and the
+ * rate's name for another currency.
+ *
+ * @param {{ marketRate?: boolean, referenceValues?: string[] }} s
+ * @returns {[string, string]}
+ */
+function marketOrReference({ marketRate = true, referenceValues = [] }) {
+	const names = [
+		...(marketRate || !referenceValues.length ? [MARKET_RATE] : []),
+		...referenceValues
+	];
+	return [names.map((n) => `zum ${n}`).join(' und '), names.join(' und ')];
+}
+
 /** The table of bookings; its last column names the statement's currency. @param {string} currency */
 const columns = (currency) => [
 	{ title: 'Buchungstag', width: 52 },
@@ -287,7 +305,7 @@ export async function statementPdf(
 								? 'Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages'
 								: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
 						}.`
-					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued('zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)', 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)')}.`,
+					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued(...marketOrReference(s))}.`,
 			{ size: TYPE.small, color: GREY }
 		);
 		l.y -= 20;

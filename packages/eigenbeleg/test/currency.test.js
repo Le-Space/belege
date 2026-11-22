@@ -56,7 +56,11 @@ test('USD like every currency but the ruble: through the euro at the ECB referen
 		usageNote('filecoin-pay', 'USD'),
 		/über den Euro in USD umgerechnet zum Euro-Referenzkurs der EZB/
 	);
-	assert.match(conversionText('RUB'), /Bank von Russland/);
+	assert.equal(
+		conversionText('RUB'),
+		'über den Euro in RUB umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag'
+	);
+	assert.doesNotMatch(conversionText('RUB'), /EZB|2022/);
 });
 
 test('the list of currencies: the euro, ECB currencies, the ruble; another code is refused by name', async () => {
