@@ -9,12 +9,29 @@
 //   and it comes before the rest so the bridge's 600-account cap keeps it.
 // - Personal accounts of a read-in chart (customers, vendors – longer numbers
 //   than its ledger accounts, often with an address) are not offered.
+// - The whole request must fit UCEP's 64 KiB once sealed, when it goes to the
+//   bridge's own node (#969): 600 accounts of a read-in chart with names of
+//   DATEV length do not. So the accounts go by what this payment makes likely
+//   – those whose name shares a word with the payment, then the kind of its
+//   direction (costs for money out, revenue for money in), then neither
+//   (transit, private, taxes), then the other kind – as many as the budget in
+//   bytes holds.
 
-import { ledgerLength } from './chart.js';
+import { chartKind, ledgerLength } from './chart.js';
 import { catalogueAccount, isAccountNumber } from './skr03.js';
 
 export const MAX_LEARNED = 80;
 export const MAX_ACCOUNTS = 600;
+/**
+ * The JSON of the whole `booking.assist` call, before sealing, at most. Sealed
+ * it grows by a third (base64) and a few dozen bytes, and UCEP takes a request
+ * of 64 KiB: 44 KiB of JSON leaves room for the envelope.
+ */
+export const MAX_ASSIST_BYTES = 44 * 1024;
+
+const encoder = new TextEncoder();
+/** The bytes a value takes as JSON. @param {unknown} v */
+export const jsonBytes = (v) => encoder.encode(JSON.stringify(v)).length;
 
 /** @param {unknown} s */
 const words = (s) =>
@@ -39,16 +56,29 @@ export function learnedForAssist(partners, hints) {
 }
 
 /**
- * @param {{ number: string, name: string }[]} catalogue the accounts the "Konto" field offers
+ * @param {{ number: string, name: string, kind?: string }[]} catalogue the accounts the "Konto" field offers
  * @param {{ vendor: string, account: string }[]} learned from learnedForAssist
  * @param {import('./chart.js').StoredChart | null | undefined} chart
  * @param {(vendors: string) => string} learnedName the name of a learned account outside the catalogue
+ * @param {{ hints?: unknown[], income?: boolean, budget?: number }} [options]
+ *   `hints`: texts of this payment; `income`: money in (else out, when given);
+ *   `budget`: bytes of JSON the list may take
  * @returns {{ number: string, name: string }[]}
  */
-export function accountsForAssist(catalogue, learned, chart, learnedName) {
+export function accountsForAssist(catalogue, learned, chart, learnedName, options = {}) {
+	const { hints = [], income, budget = Infinity } = options;
 	const maxLength = chart ? ledgerLength(chart.accounts) : Infinity;
 	/** @type {Map<string, string>} */
 	const out = new Map();
+	// `[]` and a comma per entry.
+	let used = 2;
+	/** @param {string} number @param {string} name */
+	const add = (number, name) => {
+		const size = jsonBytes({ number, name }) + 1;
+		if (out.size >= MAX_ACCOUNTS || used + size > budget) return;
+		out.set(number, name);
+		used += size;
+	};
 	for (const l of learned) {
 		if (out.has(l.account)) continue;
 		const known = catalogueAccount(l.account, chart);
@@ -57,12 +87,24 @@ export function accountsForAssist(catalogue, learned, chart, learnedName) {
 			.map((x) => x.vendor)
 			.slice(0, 3)
 			.join(', ');
-		out.set(l.account, (known?.name ?? learnedName(vendors)).slice(0, 120));
+		add(l.account, (known?.name ?? learnedName(vendors)).slice(0, 120));
 	}
-	for (const a of catalogue) {
+	const hintWords = new Set(hints.flatMap(words));
+	const want = income === undefined ? null : income ? 'income' : 'expense';
+	/** @param {{ number: string, name: string, kind?: string }} a */
+	const rank = (a) => {
+		if (hintWords.size && words(a.name).some((w) => hintWords.has(w))) return 0;
+		if (!want) return 1;
+		const kind = a.kind ?? chartKind(a.number);
+		return kind === want ? 1 : kind === 'income' || kind === 'expense' ? 3 : 2;
+	};
+	const ranked = catalogue
+		.filter((a) => a.number.length <= maxLength)
+		.map((a, i) => ({ a, r: rank(a), i }))
+		.sort((x, y) => x.r - y.r || x.i - y.i);
+	for (const { a } of ranked) {
 		if (out.size >= MAX_ACCOUNTS) break;
-		if (out.has(a.number) || a.number.length > maxLength) continue;
-		out.set(a.number, a.name.slice(0, 120));
+		if (!out.has(a.number)) add(a.number, a.name.slice(0, 120));
 	}
-	return [...out.entries()].slice(0, MAX_ACCOUNTS).map(([number, name]) => ({ number, name }));
+	return [...out.entries()].map(([number, name]) => ({ number, name }));
 }

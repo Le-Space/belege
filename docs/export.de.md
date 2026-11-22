@@ -156,6 +156,7 @@ Eine **Wallet** ist ein Konto auf einer Blockchain (kurz: Chain). Für jede Tran
 - Das gilt auch für jede Gebühr, die eine spätere Synchronisierung bringt.
 - _Regel aufheben_ nimmt das Konto bei diesen Gebühren wieder weg. Eine Gebühr, die du von Hand übernommen hast, behält ihr Konto.
 - Bank- und Börsengebühren gehören nicht dazu.
+- Ein **NEAR-Storage-Deposit für einen Tausch** (#968) gehört zum Tausch: Die Wallet hat es höchstens fünf Minuten vorher an einen Vertrag geschickt, den der Tausch berührt. Es ist dann eine Gebühr wie das Gas des Tauschs, bekommt dessen Konto, steht im Stapel als eigene Gebührenzeile, und der Beleg des Tauschs deckt es mit. Zurückholen ließe es sich, wenn man sich beim Vertrag wieder abmeldet; solche kleinen Beträge mit den Kosten des Tauschs zu buchen, ist aber üblich.
 
 Code: `app/src/lib/booking/fee-rule.js`.
 
@@ -210,7 +211,7 @@ Dieser Teil ist für alle, die den Buchungsstapel prüfen oder anpassen wollen.
 - Leere Felder bleiben ganz leer.
 - Text, den eine Tabellenkalkulation als Formel lesen würde, bekommt vorn ein Apostroph. Das gilt auch für die Übersicht.
 - Die Datei ist in Windows-1252 (ANSI) geschrieben. Ein Zeichen, das es dort nicht gibt, verliert seinen Akzent. Kyrillisch und Griechisch werden in lateinischen Buchstaben geschrieben (`Москва` → `Moskva`). Was dann noch fehlt, etwa Arabisch oder Chinesisch, wird `?`.
-- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften DejaVu Sans und Noto Sans Arabic als Teilmengen eingebettet (`packages/pdf`, `@le-space/pdf`). Die Eigenbelege sind PDF/A-2b.
+- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften IBM Plex Sans, DejaVu Sans Mono und Noto Sans Arabic als Teilmengen eingebettet (`packages/pdf`, `@le-space/pdf`). Die Eigenbelege sind PDF/A-2b.
 
 ### Betrag und Soll/Haben
 

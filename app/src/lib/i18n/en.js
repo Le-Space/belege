@@ -23,6 +23,7 @@ export default {
 		readerBooks: 'The books of “{books}” – you read along',
 		did: 'Your DID (the public key of your passkey)',
 		localOnly: 'This device only',
+		verlauf: 'History: what the app did and what you decided',
 		localOnlyTitle: 'Network off: no peer-to-peer, no relay, no server. More …',
 		network: {
 			both: 'Online: devices + invoice app',
@@ -425,7 +426,10 @@ export default {
 		bridge: {
 			unreachable:
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
-			unknownDevice: 'The bridge does not know this device (pair again).',
+			unknownDevice:
+				'The bridge on this computer does not know this device: its token is from an earlier pairing. Pairing again with the bridge on this computer helps – a hosted bridge is not affected.',
+			streamTooLarge:
+				'The request is too large for the bridge’s node and was not sent. No need to pair again.',
 			nodeUnreachable:
 				'The bridge’s node cannot be reached over the network right now. No need to pair again: check in the “Network” menu at the top whether a Le Space relay can be reached, and otherwise reload the page.',
 			hostedUnreachable: {
@@ -1798,6 +1802,7 @@ export default {
 	walletBooks: {
 		fee: 'Network fee',
 		feeFailed: 'Network fee (failed transaction)',
+		storageDeposit: 'Storage deposit',
 		burned: 'Burned by the project',
 		byOther: 'Moved by a third party',
 		stakingReward: 'Staking reward',
@@ -2691,7 +2696,9 @@ export default {
 				travellers: 'Who travels, and on which account',
 				keys: 'Passkeys, recovery words, new keys',
 				storage: 'What the books take up, and resetting',
-				privacy: 'Where your data is and what leaves this computer'
+				privacy: 'Where your data is and what leaves this computer',
+				verlauf:
+					'What the app did on its own – fetching, extraction, matching – and what you decided'
 			}
 		},
 		nav: {
@@ -2704,8 +2711,10 @@ export default {
 			chart: 'Chart of accounts',
 			travellers: 'Travellers',
 			keys: 'Keys',
-			privacy: 'Privacy & technical'
+			privacy: 'Privacy & technical',
+			verlauf: 'History'
 		},
+		verlaufGroups: 'Straight to',
 		keys: {
 			title: 'Keys',
 			words: {
@@ -5615,6 +5624,7 @@ export default {
 				summaryUpdated: 'updated: {count}',
 				summaryUnpriced: 'without a rate: {count}',
 				summaryFailed: 'could not be fetched: {count} wallets',
+				summarySuperseded: 'Replaced: {count}',
 				close: 'Close',
 				tab: 'Syncing wallets: {percent} %',
 				notifyTitle: 'Belege: wallets synced',
@@ -5700,6 +5710,8 @@ export default {
 			add: 'Add',
 			addressLink: 'Address in the block explorer',
 			lastSync: 'last synced {date}',
+			superseded: 'Replaced: {count}',
+			supersededTitle: 'See in History which bookings were replaced',
 			sync: 'Sync',
 			syncing: 'Syncing …',
 			remove: 'Remove (bookings stay)',

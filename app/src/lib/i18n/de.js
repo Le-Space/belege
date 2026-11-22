@@ -27,6 +27,7 @@ export default {
 		readerBooks: 'Bücher von „{books}“ – du liest mit',
 		did: 'Deine DID (der öffentliche Schlüssel deines Passkeys)',
 		localOnly: 'Nur dieses Gerät',
+		verlauf: 'Verlauf: was die App getan hat und was du entschieden hast',
 		localOnlyTitle: 'Netzwerk aus: kein Peer-to-Peer, kein Relay, kein Server. Mehr dazu …',
 		network: {
 			both: 'Im Netz: Geräte + Rechnungs-App',
@@ -443,7 +444,10 @@ export default {
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
-			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			unknownDevice:
+				'Die Bridge auf diesem Computer kennt dieses Gerät nicht: Ihr Token stammt von einer früheren Kopplung. Neu koppeln mit der Bridge auf diesem Computer hilft – eine gehostete Bridge betrifft das nicht.',
+			streamTooLarge:
+				'Die Anfrage ist zu groß für den Knoten der Bridge und wurde nicht gesendet. Neu koppeln ist nicht nötig.',
 			nodeUnreachable:
 				'Der Knoten der Bridge ist über das Netz gerade nicht erreichbar. Neu koppeln ist nicht nötig: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist, und lade sonst die Seite neu.',
 			hostedUnreachable: {
@@ -1831,6 +1835,7 @@ export default {
 	walletBooks: {
 		fee: 'Netzwerkgebühr',
 		feeFailed: 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
+		storageDeposit: 'Storage-Deposit',
 		burned: 'Vom Projekt verbrannt',
 		byOther: 'Von Dritten bewegt',
 		stakingReward: 'Staking-Ertrag',
@@ -2732,7 +2737,9 @@ export default {
 				travellers: 'Wer reist, und auf welches Konto',
 				keys: 'Passkeys, Wiederherstellungswörter, neue Schlüssel',
 				storage: 'Was die Bücher belegen, und Zurücksetzen',
-				privacy: 'Wo deine Daten liegen und was den Rechner verlässt'
+				privacy: 'Wo deine Daten liegen und was den Rechner verlässt',
+				verlauf:
+					'Was die App von selbst getan hat – Abrufe, Auslesen, Abgleich – und was du entschieden hast'
 			}
 		},
 		nav: {
@@ -2745,8 +2752,10 @@ export default {
 			chart: 'Kontenplan',
 			travellers: 'Reisende',
 			keys: 'Schlüssel',
-			privacy: 'Datenschutz & Technik'
+			privacy: 'Datenschutz & Technik',
+			verlauf: 'Verlauf'
 		},
+		verlaufGroups: 'Direkt zu',
 		keys: {
 			title: 'Schlüssel',
 			words: {
@@ -5684,6 +5693,7 @@ export default {
 				summaryUpdated: 'aktualisiert: {count}',
 				summaryUnpriced: 'ohne Kurs: {count}',
 				summaryFailed: 'nicht abrufbar: {count} Wallets',
+				summarySuperseded: 'Ersetzt: {count}',
 				close: 'Schließen',
 				tab: 'Wallets werden synchronisiert: {percent} %',
 				notifyTitle: 'Belege: Wallets synchronisiert',
@@ -5770,6 +5780,8 @@ export default {
 			add: 'Hinzufügen',
 			addressLink: 'Adresse im Block-Explorer',
 			lastSync: 'zuletzt synchronisiert {date}',
+			superseded: 'Ersetzt: {count}',
+			supersededTitle: 'Im Verlauf ansehen, welche Buchungen ersetzt wurden',
 			sync: 'Synchronisieren',
 			syncing: 'Synchronisiere …',
 			remove: 'Entfernen (Buchungen bleiben)',

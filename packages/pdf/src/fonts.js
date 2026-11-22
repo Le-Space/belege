@@ -4,13 +4,18 @@
 // Russian station, a Turkish vendor, a Greek name, an Arabic hotel – instead
 // of the "?" pdf-lib's built-in Helvetica (Windows-1252 only) left of it.
 //
-//   DejaVu Sans Condensed  Latin, Cyrillic, Greek (regular and bold): about as
-//                      wide as Helvetica, so the tables keep their columns
+//   IBM Plex Sans      Latin, Cyrillic, Greek (regular, and semibold as the
+//                      bold): a document face, as wide as the DejaVu Sans
+//                      Condensed it replaced, so the tables keep their columns
 //   Noto Sans Arabic   Arabic, shaped and right to left (fontkit's layout)
 //   DejaVu Sans Mono   hashes, addresses, IBANs: fixed width
 //
-// DejaVu rather than Noto Sans for the first: pdf-lib's subsetting lost most
-// letters of the Noto Sans build that npm has, and DejaVu's come through.
+// Why these (#951): pdf-lib cannot switch an OpenType feature on, so a face
+// must have figures of one width as it comes, or amounts do not stand under
+// each other (Inter and Fira Sans have them only as a feature). And it must
+// survive pdf-lib's subsetting: Source Sans 3 and the Noto Sans build that npm
+// has lose most of their letters in it; Plex and DejaVu come through. IBM Plex
+// Mono and JetBrains Mono make fontkit 1.1.1 throw, so the mono stays DejaVu's.
 //
 // Every font is embedded, as a subset of the letters used, so a PDF grows by
 // a few kilobytes, not by the fonts – and stays PDF/A (pdfa.js): no standard
@@ -83,8 +88,8 @@ export const pdfText = (text) =>
 export async function pdfFonts(pdf) {
 	pdf.registerFontkit(fontkit);
 	const [regular, bold, mono, arabic] = await Promise.all([
-		load('DejaVuSansCondensed.ttf'),
-		load('DejaVuSansCondensed-Bold.ttf'),
+		load('IBMPlexSans-Regular.ttf'),
+		load('IBMPlexSans-SemiBold.ttf'),
 		load('DejaVuSansMono.ttf'),
 		load('NotoSansArabic-Regular.ttf')
 	]);

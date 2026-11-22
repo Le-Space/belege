@@ -11,7 +11,8 @@ import { scopeLabel } from './scopes.js';
 // fetch ignores it. No path is built here.
 
 /**
- * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} SwapSides
+ * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string }, storage?: { asset: string, amount: string } }} SwapSides
+ *   `storage`: NEAR, what the storage deposits made for the swap kept
  */
 
 /**
@@ -182,6 +183,7 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {'sent' | 'received' | 'fee'} type
  * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap' | 'mining'} kind `mining`: a mined block (Monero export)
  * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
+ * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction, or that transaction's gas (type `fee`): the swap's hash (#968)
  * @property {string} asset symbol
  * @property {string} amount signed decimal
  * @property {number} decimals
@@ -413,12 +415,18 @@ export function createBridgeClient({
 			if (res.status === 503 && body?.code === 'BRIDGE_NODE_UNREACHABLE') {
 				throw await silent('nodeUnreachable', 503, body);
 			}
+			// Refused before it was sent: too large for the bridge's node (sync/remote-bridge.js).
+			if (res.status === 413 && body?.code === 'BRIDGE_STREAM_TOO_LARGE') {
+				throw failed(t('messages.bridge.streamTooLarge'), 413, body);
+			}
 			// The bridge answers "not found" for a route it does not have: a command the
 			// app's catalogue knows and this bridge not yet – older code than this app.
 			if (res.status === 404 && body?.error === 'not found' && name && specOf(name)) {
 				throw failed(t('messages.bridge.outdated'), 404, { ...body, code: 'BRIDGE_OUTDATED' });
 			}
 			const messages = /** @type {Record<number, string>} */ ({
+				// Only HTTP answers 401 – the stream knows a device by its proof, and says no
+				// with a grant's code: so it is the bridge on this computer, with this token.
 				401: t('messages.bridge.unknownDevice'),
 				403:
 					body?.error === 'origin not allowed'

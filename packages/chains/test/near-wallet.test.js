@@ -216,3 +216,185 @@ test('unwrapping gives no entry but its gas', async () => {
 		[['fee', 'NEAR', '-0.000446365125']]
 	);
 });
+
+// Before a swap the wallet registers the account at the contracts the swap
+// touches, each in a transaction of its own (#968). Made-up contracts and
+// hashes; the swap gives 2 NEAR as wNEAR to the DEX and gets USDC.
+const SWAP_DEX = 'dex.example.near';
+const OTHER = 'token-a.example.near';
+const SWAP_AT = 1_795_000_600_000n; // ms
+const at = (/** @type {bigint} */ ms) => (ms * 1_000_000n).toString();
+/** A transaction the account signed, `ms` before (negative: after) the swap. */
+const registration = (
+	/** @type {string} */ hash,
+	/** @type {string} */ contract,
+	/** @type {bigint} */ before,
+	method = 'storage_deposit',
+	deposit = yocto('0.00125')
+) =>
+	signed({
+		transaction_hash: hash,
+		block_timestamp: at(SWAP_AT - before),
+		receiver_account_id: contract,
+		actions: [{ action: 'FUNCTION_CALL', method }],
+		actions_agg: { deposit }
+	});
+const hashOf = (/** @type {string} */ n) => `${n}${'1'.repeat(43 - n.length)}`;
+
+function swapWithRegistrations(/** @type {any[]} */ registrations) {
+	return fakeNear({
+		txns: [
+			signed({
+				transaction_hash: SWAP,
+				block_timestamp: at(SWAP_AT),
+				block: { block_height: '301' },
+				actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer_call' }],
+				actions_agg: { deposit: '1' }
+			}),
+			...registrations
+		],
+		ftTxns: [
+			moved({
+				transaction_hash: SWAP,
+				block_timestamp: at(SWAP_AT),
+				involved_account_id: SWAP_DEX,
+				contract_account_id: NEAR.usdc,
+				delta_amount: '5670000',
+				receipt_id: 's2'
+			}),
+			moved({
+				transaction_hash: SWAP,
+				block_timestamp: at(SWAP_AT),
+				involved_account_id: SWAP_DEX,
+				delta_amount: `-${yocto('2')}`,
+				receipt_id: 's1'
+			})
+		],
+		account: { amount: yocto('7'), locked: '0' },
+		usdc: '5670000'
+	});
+}
+
+test('a storage deposit made shortly before a swap, at a contract it involves, is a cost of that swap', async () => {
+	const tied = {
+		usdc: hashOf('Usdc'), // at the token got, a minute before
+		wrap: hashOf('Wrap'), // at wNEAR for the NEAR given, exactly five minutes before
+		dex: hashOf('Dex') // at the DEX, for several tokens at once
+	};
+	const left = {
+		early: hashOf('Early'), // five minutes and a millisecond before
+		other: hashOf('Other'), // at a contract the swap does not touch
+		after: hashOf('After'), // after the swap
+		unregister: hashOf('Unreg') // a refund asked for: never part of a swap
+	};
+	const { fetch } = swapWithRegistrations([
+		registration(tied.usdc, NEAR.usdc, 60_000n),
+		registration(tied.wrap, 'wrap.near', 300_000n),
+		registration(tied.dex, SWAP_DEX, 120_000n, 'tokens_storage_deposit'),
+		registration(left.early, NEAR.usdc, 300_001n),
+		registration(left.other, OTHER, 30_000n),
+		registration(left.after, NEAR.usdc, -30_000n),
+		registration(left.unregister, NEAR.usdc, 10_000n, 'storage_unregister', '1')
+	]);
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	const byId = new Map(result.entries.map((e) => [e.id, e]));
+
+	const sides = {
+		gave: [{ asset: 'NEAR', amount: '2', listed: true }],
+		got: [{ asset: 'USDC', amount: '5.67', listed: true }],
+		via: SWAP_DEX,
+		fee: { asset: 'NEAR', amount: '0.000446365125' },
+		storage: { asset: 'NEAR', amount: '0.00375' }
+	};
+	for (const [hash, contract] of [
+		[tied.usdc, NEAR.usdc],
+		[tied.wrap, 'wrap.near'],
+		[tied.dex, SWAP_DEX]
+	]) {
+		const e = byId.get(`${hash}:deposit`);
+		assert.deepEqual(
+			[e?.type, e?.kind, e?.amount, e?.counterparty, e?.partOf, e?.hash],
+			['fee', 'fee', '-0.00125', contract, SWAP, hash],
+			hash
+		);
+		assert.deepEqual(e?.swap, sides);
+		// Its transaction's gas goes with it.
+		assert.equal(byId.get(`${hash}:fee`)?.partOf, SWAP);
+	}
+	// The swap's legs and gas name what the deposits kept.
+	for (const id of [`${SWAP}:ft:s1:0`, `${SWAP}:ft:s2:0`, `${SWAP}:fee`]) {
+		assert.deepEqual(byId.get(id)?.swap, sides, id);
+		assert.equal(byId.get(id)?.partOf, undefined);
+	}
+	for (const hash of Object.values(left)) {
+		const e = byId.get(`${hash}:deposit`);
+		assert.equal(e?.type, 'sent', hash);
+		assert.equal(e?.partOf, undefined, hash);
+		assert.equal(e?.swap, undefined, hash);
+		assert.equal(byId.get(`${hash}:fee`)?.partOf, undefined, hash);
+	}
+	assert.deepEqual(result.superseded, []);
+});
+
+test('a storage deposit with no swap after it stays a payment of its own', async () => {
+	const hash = hashOf('Alone');
+	const { fetch } = fakeNear({
+		txns: [registration(hash, NEAR.usdc, 0n)],
+		ftTxns: [],
+		account: { amount: yocto('7'), locked: '0' }
+	});
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	assert.deepEqual(
+		result.entries.map((e) => [e.id, e.type, e.amount, e.counterparty, e.partOf]),
+		[
+			[`${hash}:deposit`, 'sent', '-0.00125', NEAR.usdc, undefined],
+			[`${hash}:fee`, 'fee', '-0.000446365125', '', undefined]
+		]
+	);
+});
+
+test('of two swaps a deposit belongs to the first one after it', async () => {
+	const later = hashOf('Later');
+	const dep = hashOf('Dep');
+	const { fetch } = fakeNear({
+		txns: [
+			signed({
+				transaction_hash: later,
+				block_timestamp: at(SWAP_AT + 60_000n),
+				actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer_call' }],
+				actions_agg: { deposit: '1' }
+			}),
+			signed({
+				transaction_hash: SWAP,
+				block_timestamp: at(SWAP_AT),
+				actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer_call' }],
+				actions_agg: { deposit: '1' }
+			}),
+			registration(dep, SWAP_DEX, 30_000n, 'tokens_storage_deposit')
+		],
+		ftTxns: [SWAP, later].flatMap((hash, i) => [
+			moved({
+				transaction_hash: hash,
+				block_timestamp: at(SWAP_AT + BigInt(i) * 60_000n),
+				involved_account_id: SWAP_DEX,
+				contract_account_id: NEAR.usdc,
+				delta_amount: '1000000',
+				receipt_id: `g${i}`
+			}),
+			moved({
+				transaction_hash: hash,
+				block_timestamp: at(SWAP_AT + BigInt(i) * 60_000n),
+				involved_account_id: SWAP_DEX,
+				delta_amount: `-${yocto('0.5')}`,
+				receipt_id: `p${i}`
+			})
+		]),
+		account: { amount: yocto('7'), locked: '0' },
+		usdc: '2000000'
+	});
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	const byId = new Map(result.entries.map((e) => [e.id, e]));
+	assert.equal(byId.get(`${dep}:deposit`)?.partOf, SWAP);
+	assert.equal(byId.get(`${SWAP}:ft:g0:0`)?.swap?.storage?.amount, '0.00125');
+	assert.equal(byId.get(`${later}:ft:g1:0`)?.swap?.storage, undefined);
+});

@@ -38,7 +38,17 @@ describe('the bridge’s node not connected', () => {
 		const error = await createBridgeClient({ token: 'old' })
 			.llmStatus()
 			.catch((/** @type {any} */ e) => e);
-		expect(error.message).toBe('Die Bridge kennt dieses Gerät nicht (neu koppeln).');
+		expect(error.message).toMatch(/^Die Bridge auf diesem Computer kennt dieses Gerät nicht/);
+	});
+
+	it('a call too large for the bridge’s node says so – not “pair again”', async () => {
+		answer(413, { error: 'too large', code: 'BRIDGE_STREAM_TOO_LARGE' });
+		const error = await createBridgeClient()
+			.bookingAssist(/** @type {any} */ ({ booking: {}, accounts: [] }))
+			.catch((/** @type {any} */ e) => e);
+		expect(error.code).toBe('BRIDGE_STREAM_TOO_LARGE');
+		expect(error.message).toContain('zu groß für den Knoten der Bridge');
+		expect(error.message).not.toMatch(/kennt dieses Gerät nicht/);
 	});
 });
 

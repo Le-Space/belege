@@ -136,7 +136,14 @@ export function describeWalletEntry(e) {
 	}
 	if (e.type === 'fee') {
 		return {
-			label: t(e.success ? 'walletBooks.fee' : 'walletBooks.feeFailed'),
+			// A NEAR storage deposit made for a swap (#968) is one of its costs, as its gas.
+			label: t(
+				e.partOf && !e.id.endsWith(':fee')
+					? 'walletBooks.storageDeposit'
+					: e.success
+						? 'walletBooks.fee'
+						: 'walletBooks.feeFailed'
+			),
 			movement: /** @type {const} */ ('fee')
 		};
 	}
@@ -193,7 +200,10 @@ export function swapText(swap) {
 			.join(' + ');
 	const via = swap.via ? ` ${t('walletBooks.via', { via: swap.via })}` : '';
 	const gas = swap.fee ? ` · Gas ${deDecimal(swap.fee.amount)} ${swap.fee.asset}` : '';
-	return `${t('walletBooks.swap')}: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}`;
+	const storage = swap.storage
+		? ` · ${t('walletBooks.storageDeposit')} ${deDecimal(swap.storage.amount)} ${swap.storage.asset}`
+		: '';
+	return `${t('walletBooks.swap')}: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}${storage}`;
 }
 
 /** `AB12…9F3C`: a hash short enough for a purpose. @param {string} hash */
@@ -387,6 +397,10 @@ export async function walletTransactions(entries, getRate) {
 				txRef: e.hash,
 				explorerUrl: safeExplorerUrl(e.explorerUrl) ?? '',
 				...(e.swap ? { swap: e.swap } : {}),
+				// A NEAR storage deposit made for a swap: the swap's transaction (#968).
+				...(e.type === 'fee' && typeof e.partOf === 'string' && /^\S{1,128}$/.test(e.partOf)
+					? { partOf: e.partOf }
+					: {}),
 				...(e.byOther ? { movedByOther: { by: e.txFrom ?? '' } } : {}),
 				...(value.rateMissing ? { rateMissing: value.rateMissing } : {}),
 				// A swap to another chain, planned in the IBC memo (issue #170).

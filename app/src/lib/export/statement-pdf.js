@@ -87,17 +87,17 @@ export async function statementPdf(statement, { created }) {
 	const columns = crypto
 		? [
 				{ key: 'date', title: 'Datum', width: 50, align: 'left' },
-				{ key: 'text', title: 'Buchung', width: 170, align: 'left' },
+				{ key: 'text', title: 'Buchung', width: 164, align: 'left' },
 				{ key: 'quantity', title: `Menge ${asset}`, width: 88, align: 'right' },
 				{ key: 'rate', title: 'Kurs EUR', width: 76, align: 'right' },
 				{ key: 'amount', title: 'Betrag EUR', width: 66, align: 'right' },
-				{ key: 'receipt', title: 'Beleg', width: 61, align: 'left', pad: 10 }
+				{ key: 'receipt', title: 'Beleg', width: 67, align: 'left', pad: 10 }
 			]
 		: [
 				{ key: 'date', title: 'Datum', width: 50, align: 'left' },
-				{ key: 'text', title: 'Buchung', width: 330, align: 'left' },
+				{ key: 'text', title: 'Buchung', width: 324, align: 'left' },
 				{ key: 'amount', title: 'Betrag EUR', width: 70, align: 'right' },
-				{ key: 'receipt', title: 'Beleg', width: 61, align: 'left', pad: 10 }
+				{ key: 'receipt', title: 'Beleg', width: 67, align: 'left', pad: 10 }
 			];
 
 	/** @type {import('pdf-lib').PDFPage} */
