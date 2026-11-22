@@ -103,6 +103,50 @@ describe('output VAT (#195)', () => {
 		expect(outputVat({ ...late, year: 2027, basis: 'ist' }).year.r19).toBe(3800);
 	});
 
+	it('Ist: a share paid in another fiscal year is neither open nor counted here (#539)', () => {
+		// 2,380 € with 380 € VAT, issued in November: half paid in December, half in January.
+		const split = {
+			receipts: [invoice('S', '2026-11-20', 2380, [{ rate: 19, amount: 380 }])],
+			transactions: [pay('P1', '2026-12-10', 119000), pay('P2', '2027-01-15', 119000)],
+			matches: [link('S', 'P1'), link('S', 'P2')],
+			basis: /** @type {const} */ ('ist')
+		};
+		const y2026 = outputVat({ ...split, year: 2026 });
+		expect(y2026.year.r19).toBe(19000);
+		expect(y2026.open).toEqual({ cents: 0, invoices: 0 });
+		expect(y2026.elsewhere).toEqual({ cents: 19000, invoices: 1 });
+		const y2027 = outputVat({ ...split, year: 2027 });
+		expect(y2027.year.r19).toBe(19000);
+		expect(y2027.open).toEqual({ cents: 0, invoices: 0 });
+		expect(y2027.elsewhere).toEqual({ cents: 19000, invoices: 1 });
+		// Paid only in part, the rest in the next year: the rest of the rest is open.
+		const part = outputVat({
+			...split,
+			year: 2026,
+			transactions: [pay('P1', '2026-12-10', 119000), pay('P2', '2027-01-15', 59500)]
+		});
+		expect(part.open).toEqual({ cents: 9500, invoices: 1 });
+		expect(part.elsewhere).toEqual({ cents: 9500, invoices: 1 });
+		// Soll: on the invoice date, nothing elsewhere.
+		expect(outputVat({ ...split, year: 2026, basis: 'soll' }).elsewhere.invoices).toBe(0);
+	});
+
+	it('VAT missing: the gross without the share paid in another fiscal year (#539)', () => {
+		const split = {
+			receipts: [invoice('M', '2026-11-20', 2000, undefined)],
+			transactions: [pay('P1', '2026-12-10', 50000), pay('P2', '2027-01-15', 100000)],
+			matches: [link('M', 'P1'), link('M', 'P2')],
+			year: 2026
+		};
+		// Paid in 2026: 500; in 2027: 1,000; open: 500 – the year names 1,000 of the 2,000.
+		expect(outputVat({ ...split, basis: 'ist' }).missing).toEqual({ cents: 100000, invoices: 1 });
+		expect(outputVat({ ...split, year: 2027, basis: 'ist' }).missing).toEqual({
+			cents: 100000 + 50000,
+			invoices: 1
+		});
+		expect(outputVat({ ...split, basis: 'soll' }).missing).toEqual({ cents: 200000, invoices: 1 });
+	});
+
 	it('turnover is net, for the small-business limit; the limits by year', () => {
 		const v = outputVat({ ...base, basis: 'soll' });
 		// 1,000 + 100 + 200 net, 500 (VAT unknown, counted as given) and 300 without VAT.

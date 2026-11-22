@@ -11,6 +11,8 @@
 //   ist   (default) when the money comes in: each payment linked to the
 //         invoice carries its share of the invoice's VAT to the payment's
 //         month; what is not paid yet is not due yet, and is shown apart
+//         (open), as is a share paid in another fiscal year, which counts
+//         there (elsewhere, #539)
 //   soll  on the invoice date, paid or not
 //
 // A small business (§19 UStG) charges no VAT: then the year's turnover is
@@ -38,6 +40,9 @@ export const SMALL_BUSINESS_LIMITS = Object.freeze([
 /** @param {number} year */
 export const smallBusinessLimits = (year) =>
 	[...SMALL_BUSINESS_LIMITS].reverse().find((l) => year >= l.from) ?? SMALL_BUSINESS_LIMITS[0];
+
+/** Below this a share left over is the sum's rounding, not money. */
+const SHARE_EPSILON = 1e-9;
 
 /** @param {unknown} amount in euros */
 const cents = (amount) =>
@@ -98,6 +103,7 @@ export function invoiceVat(r) {
  *   missing: { cents: number, invoices: number },
  *   none: { cents: number, invoices: number },
  *   open: { cents: number, invoices: number },
+ *   elsewhere: { cents: number, invoices: number },
  *   undated: { cents: number, invoices: number },
  *   foreign: { invoices: number, currencies: string[] },
  *   invoices: number
@@ -134,6 +140,8 @@ export function outputVat({
 		missing: { cents: 0, invoices: 0 },
 		none: { cents: 0, invoices: 0 },
 		open: { cents: 0, invoices: 0 },
+		// Ist: the VAT of shares paid in another fiscal year – counted there, not open.
+		elsewhere: { cents: 0, invoices: 0 },
 		// Soll: an invoice without a date counts in no month – shown, not lost.
 		undated: { cents: 0, invoices: 0 },
 		// Another currency with no euros known yet (Soll: no rate; Ist: not paid in euros).
@@ -253,10 +261,17 @@ export function outputVat({
 		if (!countsHere) continue;
 		out.invoices++;
 		const share = here.reduce((s, w) => s + w.share, 0);
+		// Paid at all, and of it paid in another fiscal year (Ist; Soll: none).
+		const paid = Math.min(
+			1,
+			when.reduce((s, w) => s + w.share, 0)
+		);
+		const elsewhere = Math.max(0, paid - share);
 		out.turnover += Math.round(vat.gross * share);
 		if (vat.kind !== 'vat') {
 			if (vat.kind === 'missing') {
-				out.missing.cents += vat.gross;
+				// What this year has to do with: paid in it, or not paid yet (#539).
+				out.missing.cents += Math.round(vat.gross * (1 - elsewhere));
 				out.missing.invoices++;
 			} else {
 				out.none.cents += Math.round(vat.gross * share);
@@ -265,10 +280,16 @@ export function outputVat({
 			continue;
 		}
 		addAll(when, vat.byRate);
-		if (basis === 'ist' && share < 1) {
+		if (basis === 'ist') {
 			const total = Object.values(vat.byRate).reduce((s, n) => s + n, 0);
-			out.open.cents += Math.round(total * (1 - share));
-			out.open.invoices++;
+			if (1 - paid > SHARE_EPSILON) {
+				out.open.cents += Math.round(total * (1 - paid));
+				out.open.invoices++;
+			}
+			if (elsewhere > SHARE_EPSILON) {
+				out.elsewhere.cents += Math.round(total * elsewhere);
+				out.elsewhere.invoices++;
+			}
 		}
 	}
 	// Turnover is net of VAT: the VAT counted is taken off again.
