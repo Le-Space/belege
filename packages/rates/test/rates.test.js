@@ -227,7 +227,7 @@ describe('rate service', () => {
 		`<Valute ID="R01239"><NumCode>978</NumCode><CharCode>EUR</CharCode><Nominal>${nominal}</Nominal><Name>x</Name><Value>${value}</Value><VunitRate>x</VunitRate></Valute>` +
 		'</ValCurs>';
 
-	test('RUB without an ECB rate: the Bank of Russia rate valid on the day, inverted', async () => {
+	test('RUB: the Bank of Russia rate valid on the day, inverted, the ECB not asked', async () => {
 		const { fetch, calls } = fakeFetch({
 			'https://data-api.ecb.europa.eu/': { dataSets: [{ series: {} }], structure: {} },
 			'https://www.cbr.ru/scripts/XML_daily.asp': cbrDaily('29.08.2026', '1', '100,0000')
@@ -239,6 +239,7 @@ describe('rate service', () => {
 		assert.equal(rate.at, '2026-08-29T00:00:00Z');
 		assert.equal(rate.usdRate, null);
 		assert.ok(calls.some((u) => u.endsWith('XML_daily.asp?date_req=31/08/2026')));
+		assert.ok(!calls.some((u) => u.includes('ecb.europa.eu')));
 	});
 
 	test('RUB: per nominal, and a rate set for a later day is not taken', async () => {
@@ -336,17 +337,27 @@ describe('rate service', () => {
 		);
 	});
 
-	test('RUB before March 2022: the ECB rate still', async () => {
+	test('RUB before March 2022 too: the Bank of Russia, not the ECB', async () => {
 		const { fetch, calls } = fakeFetch({
 			'https://data-api.ecb.europa.eu/': {
 				dataSets: [{ series: { '0:0:0:0:0': { observations: { 0: [80] } } } }],
 				structure: { dimensions: { observation: [{ values: [{ id: '2021-06-01' }] }] } }
-			}
+			},
+			'https://www.cbr.ru/scripts/XML_daily.asp': cbrDaily('01.06.2021', '1', '80,0000')
 		});
-		const rate = await createRateService({ fetch, now: NOW }).rate('RUB', '2021-06-01');
+		const rates = createRateService({ fetch, now: NOW });
+		const rate = await rates.rate('RUB', '2021-06-01');
 		assert.equal(rate.rate, '0.0125');
-		assert.equal(rate.source, 'ecb');
-		assert.equal(calls.length, 1);
+		assert.equal(rate.source, 'cbr');
+		assert.equal(rate.at, '2021-06-01T00:00:00Z');
+		// Into rubles, too: the second leg is Moscow's.
+		const fx = await rates.perEuro('RUB', '2021-06-01');
+		assert.equal(fx.source, 'cbr');
+		assert.equal(Number(fx.perEur), 80);
+		assert.ok(!calls.some((u) => u.includes('ecb.europa.eu')));
+		// With prefer kraken the ruble stays a currency, not a trading pair.
+		await rates.rate('RUB', '2021-06-01', { prefer: 'kraken' });
+		assert.ok(!calls.some((u) => u.includes('kraken.com')));
 	});
 
 	test('prefer kraken: Kraken first, CoinGecko only as the fallback', async () => {

@@ -787,7 +787,7 @@ export default {
 			coingecko: 'CoinGecko (rates)',
 			'kraken-rates': 'Kraken (rates)',
 			ecb: 'European Central Bank (currency reference rates)',
-			cbr: 'Bank of Russia (the ruble rate where the ECB has none; cross rates through the ruble)',
+			cbr: 'Bank of Russia (the ruble rate; cross rates through the ruble)',
 			nbk: 'National Bank of Kazakhstan (the tenge rate)'
 		},
 		features: {
@@ -3108,7 +3108,7 @@ export default {
 			rateTurnToEuro: 'enter as {currency} per 1 EUR',
 			asking: 'Asking for the reference rate …',
 			ecb: 'ECB reference rate of {date}',
-			cbr: 'Bank of Russia reference rate of {date} (the ECB no longer publishes a ruble rate). A rate from the card statement or an exchange receipt comes first if you have one.',
+			cbr: "Bank of Russia reference rate of {date} (the ruble at its own central bank's rate). A rate from the card statement or an exchange receipt comes first if you have one.",
 			nbk: 'National Bank of Kazakhstan reference rate of {date} (the ECB publishes no tenge rate). A rate from the card statement or an exchange receipt comes first if you have one.',
 			'cbr-cross':
 				'Cross rate through the ruble, from the Bank of Russia rates of {date} – not an official euro rate. A rate from the card statement or an exchange receipt comes first if you have one.',

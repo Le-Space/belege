@@ -15,8 +15,8 @@
 // A receipt in another currency keeps its amount as `original` and is booked
 // in euros at a rate: the ECB's of the day where the bridge has one, else one
 // entered by hand from a document (the card statement, an exchange receipt) –
-// the ECB publishes no ruble rate since 2022-03-01; for RUB the bridge then
-// offers the Bank of Russia's official rate (`cbr`), for KZT the National
+// for RUB the bridge offers the Bank of Russia's official rate (`cbr`, for
+// every day, also before 2022-03-01), for KZT the National
 // Bank of Kazakhstan's (`nbk`), and for a currency only the Bank of Russia
 // lists a cross rate through the ruble (`cbr-cross`, #325). The rate's source stays
 // on the booking (`outlay.rateSource`).
