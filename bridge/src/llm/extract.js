@@ -377,7 +377,24 @@ export function userMessage(text, hints = {}) {
 	if (hints.subject) lines.push(`Betreff der E-Mail: ${hints.subject}`);
 	if (hints.fileName) lines.push(`Dateiname: ${hints.fileName}`);
 	if (hints.receivedAt) lines.push(`Eingegangen am: ${hints.receivedAt}`);
-	return `${lines.length ? `${lines.join('\n')}\n---\n` : ''}${String(text).slice(0, MAX_TEXT)}`;
+	return `${lines.length ? `${lines.join('\n')}\n---\n` : ''}${capText(String(text))}`;
+}
+
+/** Where text was left out (the app's receipts/text-budget.js says the same). */
+export const OMITTED = '\n[…]\n';
+
+/**
+ * At most MAX_TEXT characters of the text: a longer one keeps its head (two
+ * thirds) and its tail, with OMITTED between – the vendor and the number sit
+ * at the top, the totals at the bottom (#975).
+ *
+ * @param {string} text
+ */
+export function capText(text) {
+	if (text.length <= MAX_TEXT) return text;
+	const keep = MAX_TEXT - OMITTED.length;
+	const head = Math.floor((keep * 2) / 3);
+	return `${text.slice(0, head)}${OMITTED}${text.slice(text.length - (keep - head))}`;
 }
 
 /**

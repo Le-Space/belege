@@ -3472,6 +3472,8 @@ export default {
 			line: 'Ausgelesen mit {model} · {seconds} s · {tokens} Tokens · {redactions} Stellen geschwärzt',
 			lineOld: 'Ausgelesen mit {model}',
 			fallback: 'zweiter Versuch mit {model}, weil {reason}',
+			shortened:
+				'Der Text war zu lang: gesendet wurden {sent} von {chars} Zeichen, Anfang und Ende, die Mitte ausgelassen ([…]).',
 			sent: 'An die KI gesendet (geschwärzt)',
 			sentHint:
 				'Genau dieser Text ging von der Bridge an das Sprachmodell. Geschwärzte Stellen stehen in eckigen Klammern, etwa [NAME] oder [IBAN …1234]. Lies ihn: Was hier noch steht, hat das Modell gesehen – ein Name ohne Etikett, der auf keiner Liste steht, bleibt stehen.',

@@ -1415,6 +1415,9 @@
 								{#if how.fallback}
 									<p data-testid="extract-how-fallback">{how.fallback}</p>
 								{/if}
+								{#if how.shortened}
+									<p data-testid="extract-how-shortened">{how.shortened}</p>
+								{/if}
 								<p class="mt-1 text-faint">{t('belege.how.notAi')}</p>
 								{#if selected.extractionSent}
 									<details class="mt-2" data-testid="extract-sent">

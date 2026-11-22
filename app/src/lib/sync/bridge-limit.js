@@ -30,3 +30,23 @@ export const bridgeRequestLimit = () => {
 export function setBridgeRequestLimit(source) {
 	current = source ?? (() => DEFAULT_REQUEST_LIMIT);
 }
+
+/**
+ * What the bridge takes as the JSON body of a command that carries text for
+ * the model (`llm.extract`, `llm.booking`, …), over HTTP and the stream alike
+ * (bridge/src/commands.js MAX_EXTRACT_BODY).
+ */
+export const BRIDGE_BODY_LIMIT = 256 * 1024;
+
+/**
+ * The JSON a call may carry, before sealing, for a request limit: 44 KiB for
+ * UCEP's 64 KiB (#972); for a bigger limit the bridge's node states (#976),
+ * the same share of it (11/16, room for the seal's third and the envelope),
+ * and never more than the bridge's body limit with a little room.
+ *
+ * @param {number} [requestLimit] bridgeRequestLimit()
+ */
+export function jsonBudget(requestLimit = DEFAULT_REQUEST_LIMIT) {
+	if (!(requestLimit > DEFAULT_REQUEST_LIMIT)) return 44 * 1024;
+	return Math.min(BRIDGE_BODY_LIMIT - 4096, Math.floor((requestLimit * 11) / 16));
+}

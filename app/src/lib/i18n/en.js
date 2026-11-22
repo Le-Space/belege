@@ -3420,6 +3420,8 @@ export default {
 			line: 'Extracted with {model} · {seconds} s · {tokens} tokens · {redactions} spots redacted',
 			lineOld: 'Extracted with {model}',
 			fallback: 'second attempt with {model}, because {reason}',
+			shortened:
+				'The text was too long: {sent} of {chars} characters were sent, the start and the end, the middle left out ([…]).',
 			sent: 'Sent to the AI (redacted)',
 			sentHint:
 				'Exactly this text went from the bridge to the language model. Redacted spots are in square brackets, such as [NAME] or [IBAN …1234]. Read it: whatever still stands here, the model has seen – a name without a label that is on no list stays.',

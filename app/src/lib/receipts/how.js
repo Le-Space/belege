@@ -39,7 +39,7 @@ export function attemptReasonText(reason) {
 
 /**
  * @param {Record<string, any>} record a receipts record
- * @returns {{ line: string, fallback: string | null, redactions: string | null, tokens: string | null, attempts: string | null } | null}
+ * @returns {{ line: string, fallback: string | null, shortened: string | null, redactions: string | null, tokens: string | null, attempts: string | null } | null}
  *   null when the receipt was not read
  */
 export function extractionHow(record) {
@@ -50,6 +50,7 @@ export function extractionHow(record) {
 		return {
 			line: t('belege.how.lineOld', { model }),
 			fallback: null,
+			shortened: null,
 			redactions: null,
 			tokens: null,
 			attempts: null
@@ -69,6 +70,13 @@ export function extractionHow(record) {
 		}),
 		fallback: info.fallback
 			? t('belege.how.fallback', { model, reason: attemptReasonText(info.fallbackReason) })
+			: null,
+		// A text too long went as its head and tail (#975).
+		shortened: info.shortened
+			? t('belege.how.shortened', {
+					sent: integer(info.shortened.sent ?? 0),
+					chars: integer(info.shortened.chars ?? 0)
+				})
 			: null,
 		redactions: r
 			? t('belege.how.redactions', {
