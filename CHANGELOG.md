@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **What one device gets from another goes on to the third** (#979). OrbitDB publishes only a device's own writes; what a device receives when it meets another and the two exchange their heads stayed with it. With the devices connected in a row – a phone and an office laptop each joined by QR to the laptop, and not to each other – what the office laptop wrote before it was connected reached the laptop and never the phone. So the office laptop's passkey was missing from the vault on the phone (Einstellungen → Schlüssel showed two of three), and that passkey would not have opened the books there. After each exchange of heads a device now publishes its heads once on the database's topic, when they changed since it last did; the others take what they lack. Nothing new is dialled. The unit spec `store/pass-on-heads` runs three nodes in a row.
+
 ## [0.52.0] – 2026-11-22
 
 ### Added
