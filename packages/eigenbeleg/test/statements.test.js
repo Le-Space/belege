@@ -349,3 +349,45 @@ test('Filecoin Pay: a Verbrauchsauszug of the balance in the contract, each sett
 	assert.equal(doc.positions.length, 0);
 	assert.match(eigenbelegCsv(doc), /Verbrauch aus Guthaben: steht im Verbrauchsauszug/);
 });
+
+test('Bitcoin and Doichain statements name their chain and data source; a caller may name its own', async () => {
+	const base = {
+		payer,
+		account: 'bc1qexampleexampleexampleexampleexample0',
+		network: 'mainnet',
+		period: { from: '2026-08-01', to: '2026-08-31' },
+		entries: [],
+		method: /** @type {const} */ ('derived'),
+		issuedAt: '2026-09-01T08:00:00.000Z'
+	};
+	const btc = buildStatement({
+		...base,
+		chain: 'bitcoin',
+		opening: { BTC: '0.001' },
+		closing: { BTC: '0.001' }
+	});
+	assert.equal(btc.chainName, 'Bitcoin');
+	assert.equal(btc.dataSource, 'Esplora-API von mempool.space');
+	const text = (await pages(await statementPdf(btc))).join('\n').replace(/\s+/g, ' ');
+	assert.match(text, /Bitcoin \(mainnet\)/);
+	assert.match(text, /Daten: Esplora-API von mempool\.space/);
+	assert.doesNotMatch(text, /bitcoin \(mainnet\)|Daten: bitcoin/);
+
+	const own = buildStatement({
+		...base,
+		chain: 'bitcoin',
+		opening: { BTC: '0' },
+		closing: { BTC: '0' },
+		dataSource: 'Esplora-API von esplora.example.com'
+	});
+	assert.equal(own.dataSource, 'Esplora-API von esplora.example.com');
+
+	const doi = buildStatement({
+		...base,
+		chain: 'doichain',
+		opening: { DOI: '1' },
+		closing: { DOI: '1' }
+	});
+	assert.equal(doi.chainName, 'Doichain');
+	assert.equal(doi.dataSource, 'ElectrumX-Server des Doichain-Netzes');
+});

@@ -6,13 +6,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { HDKey } from '@scure/bip32';
+
 import {
 	BITCOIN,
+	accountOf,
+	isExtendedKey,
 	isBitcoinAddress,
 	probe,
 	readBitcoin,
 	statementBitcoin
 } from '../src/bitcoin-address.js';
+import { deriveAddress, keyFingerprint, parseExtendedKey } from '../src/bitcoin.js';
 import { isDoichainAddress } from '../src/doichain.js';
 import { CHAINS } from '../src/registry.js';
 import { blockTime, btcTx, fakeBitcoinAddress, fakeEsplora } from './support/fake-esplora.js';
@@ -125,6 +130,74 @@ test('more than one page of transactions is read to the end', async () => {
 	assert.equal(api.calls.filter((c) => c.includes('/txs/chain')).length, 3);
 });
 
+test('a period reads back to its start only, not the whole history', async () => {
+	const many = Array.from({ length: 100 }, (_, i) =>
+		btcTx(`old gift ${i}`, 100 + i * 200, [[FRIEND, 2_000]], [[OURS, 1_000]])
+	);
+	const api = fakeEsplora({ txs: many });
+	// the newest 30 gifts: heights 14 100 … 19 900
+	const entries = await readBitcoin({
+		account: OURS,
+		from: day(14_100),
+		to: day(20_000),
+		...env(api)
+	});
+	assert.ok(entries.length >= 30);
+	assert.equal(api.calls.filter((c) => c.includes('/txs/chain')).length, 2);
+
+	const s = await statementBitcoin({
+		account: OURS,
+		from: day(14_100),
+		to: day(20_000),
+		...env(api)
+	});
+	assert.equal(s.closing.BTC, '0.001');
+});
+
+for (const as of /** @type {const} */ (['network', 503, 429])) {
+	test(`an API that limits requests (${as}) is waited for, and read to the end`, async () => {
+		const many = Array.from({ length: 60 }, (_, i) =>
+			btcTx(`gift ${i}`, 100 + i * 200, [[FRIEND, 2_000]], [[OURS, 1_000]])
+		);
+		/** @type {number[]} */
+		const waits = [];
+		const api = fakeEsplora({ txs: many, throttle: { after: 2, times: 4, as, retryAfter: '7' } });
+		const entries = await readBitcoin({
+			account: OURS,
+			from: day(0),
+			to: day(20_000),
+			...env(api),
+			sleep: async (ms) => void waits.push(ms)
+		});
+		assert.equal(entries.length, 60);
+		assert.ok(
+			waits.some((ms) => ms >= 15_000),
+			'a long pause after the refusals'
+		);
+		if (as !== 'network') assert.ok(waits.includes(7_000), 'Retry-After is honoured');
+	});
+}
+
+test('an API that keeps refusing says it limits requests, not that it is not reachable', async () => {
+	const many = Array.from({ length: 60 }, (_, i) =>
+		btcTx(`gift ${i}`, 100 + i * 200, [[FRIEND, 2_000]], [[OURS, 1_000]])
+	);
+	const api = fakeEsplora({ txs: many, throttle: { after: 2, times: 1_000, as: 'network' } });
+	await assert.rejects(
+		readBitcoin({
+			account: OURS,
+			from: day(0),
+			to: day(20_000),
+			...env(api),
+			sleep: async () => {}
+		}),
+		(/** @type {any} */ e) =>
+			e.code === 'WALLET_RATE_LIMIT' &&
+			/limits requests: try again in a few minutes/.test(e.message) &&
+			!e.message.includes(OURS)
+	);
+});
+
 test('an address it does not take, or an API that is down, says so without the address', async () => {
 	await assert.rejects(
 		readBitcoin({
@@ -143,6 +216,81 @@ test('an address it does not take, or an API that is down, says so without the a
 			...env(fakeEsplora({ txs, down: true }))
 		}),
 		(/** @type {Error} */ e) => !e.message.includes(OURS) && /not reachable/.test(e.message)
+	);
+});
+
+// A wallet from a made-up seed: its zpub, and its receive and change addresses.
+const ZPUB = HDKey.fromMasterSeed(
+	Uint8Array.from({ length: 64 }, (_, i) => 255 - i),
+	{
+		private: 0x04b2430c,
+		public: 0x04b24746
+	}
+).derive("m/84'/0'/0'").publicExtendedKey;
+const wallet = parseExtendedKey(ZPUB);
+const receive = (/** @type {number} */ i) => deriveAddress(wallet.account, wallet.type, 0, i);
+const change = (/** @type {number} */ i) => deriveAddress(wallet.account, wallet.type, 1, i);
+
+test('a wallet by its zpub: one account, change is no booking, the key never asked', async () => {
+	const walletTxs = [
+		// a customer pays to receive 0 and, later, to receive 3 (a gap below 20)
+		btcTx('pays receive 0', 300, [[FRIEND, 200_000]], [[receive(0), 100_000]]),
+		btcTx('pays receive 3', 500, [[FRIEND, 200_000]], [[receive(3), 50_000]]),
+		// the wallet pays a shop from both, the change to change 0, fee 1 000
+		btcTx(
+			'wallet pays the shop',
+			700,
+			[
+				[receive(0), 100_000],
+				[receive(3), 50_000]
+			],
+			[
+				[SHOP, 120_000],
+				[change(0), 29_000]
+			]
+		)
+	];
+	const api = fakeEsplora({ txs: walletTxs });
+	const s = await statementBitcoin({
+		account: ZPUB,
+		from: day(0),
+		to: day(20_000),
+		...env(api)
+	});
+	assert.equal(s.closing.BTC, '0.00029');
+	const account = keyFingerprint(ZPUB);
+	assert.ok(s.entries.every((e) => e.account === account));
+	// two receipts, the payment to the shop and its fee; nothing for the change
+	assert.equal(s.entries.length, 4);
+	assert.ok(!s.entries.some((e) => e.counterparty === change(0)));
+	assert.ok(s.entries.some((e) => e.counterparty === SHOP));
+	// 20 unused after receive 3, 20 unused after change 0
+	const asked = api.calls.filter((c) => /\/address\/[^/]+$/.test(c));
+	assert.equal(asked.length, 24 + 21);
+	assert.ok(api.calls.every((c) => !c.includes(ZPUB)));
+	assert.equal(accountOf(ZPUB), account);
+	assert.equal(accountOf(OURS), OURS);
+});
+
+test('extended keys are told apart from addresses; a private key is refused', async () => {
+	assert.ok(isExtendedKey(ZPUB));
+	assert.ok(!isExtendedKey(OURS));
+	assert.ok(!isBitcoinAddress(ZPUB));
+	const xprv = HDKey.fromMasterSeed(Uint8Array.from({ length: 64 }, (_, i) => i)).derive(
+		"m/84'/0'/0'"
+	).privateExtendedKey;
+	await assert.rejects(
+		readBitcoin({ account: xprv, from: day(0), to: day(1), ...env(fakeEsplora({ txs })) }),
+		/not a valid Bitcoin address/
+	);
+	await assert.rejects(
+		readBitcoin({
+			account: ZPUB.slice(0, -1) + (ZPUB.endsWith('a') ? 'b' : 'a'),
+			from: day(0),
+			to: day(1),
+			...env(fakeEsplora({ txs }))
+		}),
+		/checksum or length/
 	);
 });
 

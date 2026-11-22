@@ -284,7 +284,18 @@ test("the chain's mark beside the title, only with logo: true", async () => {
 test('every chain Eigenbeleg serves has its name and data source on the documents', async () => {
 	const { CHAIN_NAMES, DATA_SOURCES } = await import('../src/index.js');
 	const { CHAINS } = await import('@le-space/chains/registry');
-	const served = ['near', 'akash', 'filecoin', 'filecoin-pay', 'aleph', 'ethereum', 'base'];
+	const served = [
+		'near',
+		'akash',
+		'filecoin',
+		'filecoin-pay',
+		'aleph',
+		'ethereum',
+		'base',
+		'bitcoin',
+		'doichain'
+	];
+	assert.equal(CHAIN_NAMES.bitcoin, CHAINS.bitcoin.name);
 	assert.deepEqual(Object.keys(CHAIN_NAMES).sort(), [...served].sort());
 	assert.deepEqual(Object.keys(DATA_SOURCES).sort(), [...served].sort());
 	// The EVM chains by the registry's names, their data from Alchemy.
