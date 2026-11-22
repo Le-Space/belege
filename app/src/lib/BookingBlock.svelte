@@ -14,6 +14,7 @@
 	import { cleanPrivateShare, splitCents } from './booking/private-share.js';
 	import { offeredTaxKeys, taxKeyLabel, taxKeyName } from './booking/tax-key-names.js';
 	import { assistBody, assistEventData } from './booking/assist-request.js';
+	import { bridgeRequestLimit } from './sync/bridge-limit.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import {
 		accountLabel,
@@ -146,7 +147,8 @@
 					partners: app.partners ?? [],
 					catalogue,
 					chart,
-					learnedName: (vendors) => t('booking.aiLearnedAccount', { vendors })
+					learnedName: (vendors) => t('booking.aiLearnedAccount', { vendors }),
+					requestLimit: bridgeRequestLimit()
 				})
 			);
 			aiResult = { picks: r.picks ?? [], sent: r.llm?.sent ?? [] };

@@ -7,7 +7,13 @@ import { LIMITS } from '@le-space/ucep';
 import { describe, expect, it } from 'vitest';
 
 import { checkRequestSize } from '../sync/remote-bridge.js';
-import { MAX_ACCOUNTS, MAX_ASSIST_BYTES, accountsForAssist, jsonBytes } from './assist-input.js';
+import {
+	BRIDGE_BODY_LIMIT,
+	MAX_ACCOUNTS,
+	MAX_ASSIST_BYTES,
+	accountsForAssist,
+	jsonBytes
+} from './assist-input.js';
 import { assistBody } from './assist-request.js';
 import { searchAccounts } from './skr03.js';
 
@@ -38,9 +44,10 @@ const partners = Array.from({ length: 80 }, (_, i) => ({
 }));
 const learnedName = (/** @type {string} */ v) => `gebucht für ${v}`;
 
-/** @param {Record<string, any>} tx @param {any} chart */
-function body(tx, chart) {
+/** @param {Record<string, any>} tx @param {any} chart @param {number} [requestLimit] */
+function body(tx, chart, requestLimit) {
 	return assistBody({
+		requestLimit,
 		tx,
 		receipt: null,
 		own: { name: 'Konto A' },
@@ -86,6 +93,24 @@ describe('the booking.assist request for a large chart', () => {
 			{ consumer: '12D3KooWa', provider: '12D3KooWb', command: 'llm.booking' },
 			{ ...body(out, chart), accounts: all }
 		);
+		expect(() => checkRequestSize('llm.booking', call.sent)).toThrow(/too large/);
+	});
+
+	it('a bridge that states 1 MiB gets all 600 accounts, sealed within its limit and its body limit (#976)', async () => {
+		const args = {
+			...body(out, chart, 1024 * 1024),
+			redactTerms: Array.from({ length: 20 }, (_, i) => `Musterbegriff ${i}`.padEnd(200, 'x')),
+			$accept: ['blocks']
+		};
+		expect(args.accounts).toHaveLength(MAX_ACCOUNTS);
+		expect(jsonBytes(args)).toBeLessThanOrEqual(BRIDGE_BODY_LIMIT);
+		const key = crypto.getRandomValues(new Uint8Array(32));
+		const call = await sealCall(
+			key,
+			{ consumer: '12D3KooWa', provider: '12D3KooWb', command: 'llm.booking' },
+			args
+		);
+		expect(() => checkRequestSize('llm.booking', call.sent, 1024 * 1024)).not.toThrow();
 		expect(() => checkRequestSize('llm.booking', call.sent)).toThrow(/too large/);
 	});
 

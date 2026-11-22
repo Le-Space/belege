@@ -293,7 +293,12 @@ no books.
   `/unpair` and `/share…` (HTTP's own), and `POST /backup/aleph` (bytes in: a block in M2). Bytes
   out (a mail attachment, a raw mail, a Paperless original) go base64 while they fit UCEP's limit
   – 1 MiB on a direct connection or through a relay that grants at least 32 MiB, 64 KiB through
-  one that grants less. **Bigger ones as blocks (#578):** a device that sends `$accept: ["blocks"]`
+  one that grants less. **Requests up to 1 MiB (#976):** armed, the node states
+  `limits: { request: 1 MiB }` in its UCEP manifest (`REQUEST_LIMIT` in `src/stream.js`), so a
+  long receipt text or a whole chart of accounts goes in one call; only a device that proved the
+  bridge's key at the gate opens the stream. Unarmed, and over a relay that grants less than
+  32 MiB, UCEP's 64 KiB hold; the body limit per command still holds within it.
+  **Bigger ones as blocks (#578):** a device that sends `$accept: ["blocks"]`
   beside the arguments gets bytes from 32 KiB on as `block: { cid, size, key }`. The bridge seals
   them with AES-256-GCM under a key made for this one answer, cuts them into blocks of at most
   1 MiB with a dag-cbor root (the layout of receipt files between devices), and offers them on
