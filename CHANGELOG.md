@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two devices with two vaults of the same books no longer write the vault's record back and forth** (#962). A device that opened the books with the same passkey before it had the others' vault made a vault of its own. The two records cannot be merged, and each device compared its own with the newest record in the settings only: each found the other's there and wrote its own back, a few times a second, for as long as both were connected. A record already in the settings log is no longer written again (`keys/vault-share.js`). That stream of changes kept the books' device list from reaching the bridge's node, which waited for a quiet moment before telling it: a device added meanwhile – a phone using the bridge through the desktop – was refused there ("Dieses Gerät darf an der Bridge nicht: KI-Modell"). The list now goes out at the latest 5 s after the first change (`bridge-connection/settle.js`). The browser spec `device-bridge`, whose two devices make two vaults this way, failed on main for this most of the time.
+
 ## [0.53.0] – 2026-11-22
 
 ### Changed

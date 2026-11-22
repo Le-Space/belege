@@ -5,6 +5,7 @@
 // to the bridge's node and the node on this machine are this module's state.
 import { networkPause } from '$lib/network-pause.js';
 import { keyGenerationOf, readBridgeRecord, writeBridgeRecord } from './record.js';
+import { settleThen } from './settle.js';
 import { t } from '$lib/i18n/index.js';
 
 /**
@@ -313,8 +314,6 @@ export async function startBridgeForDevices() {
 	// The books' device list to the bridge's node whenever it changes, from any
 	// device that is connected to it: a device removed here is refused there.
 	let toldDevices = '';
-	/** @type {ReturnType<typeof setTimeout> | undefined} */
-	let tellTimer;
 	const tellDevices = async () => {
 		const records = await settings.list({ includeDeleted: true });
 		const { whose } = await import('../members/whose.js');
@@ -332,10 +331,12 @@ export async function startBridgeForDevices() {
 			ctx.app.sync.bridgeDevicesAt = Date.now();
 		}
 	};
+	// After the changes settle, and at the latest 5 s after the first: settings
+	// that never stop changing must not keep a new device off the bridge.
+	const tell = settleThen(() => tellDevices().catch(() => {}), { quiet: 1500, most: 5000 });
 	settings.onChange(() => {
 		readNode().catch(() => {});
-		clearTimeout(tellTimer);
-		tellTimer = setTimeout(() => tellDevices().catch(() => {}), 1500);
+		tell.poke();
 	});
 	ctx.app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;

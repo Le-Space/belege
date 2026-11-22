@@ -909,7 +909,10 @@ function syncVault(values) {
 				open.vault = merged;
 				await showVault();
 			}
-			await shareVault(open.store.settings, open.vault.record);
+			await shareVault(open.store.settings, open.vault.record, {
+				settingsDb: /** @type {any} */ (open.store.databases()).settings,
+				booksId: String(open.booksDid)
+			});
 			// A passkey that joined by QR (#962): its own index on Aleph, once the
 			// books keep their vault there and this device may ask Aleph at all.
 			const { OWN_INDEX_PENDING_KEY } = await import('./session/own-join.js');
