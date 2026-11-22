@@ -89,8 +89,8 @@ importers:
         specifier: 0.12.8
         version: 0.12.8(typescript@5.9.2)
       '@le-space/ucep':
-        specifier: 0.2.0-draft.6
-        version: 0.2.0-draft.6
+        specifier: 0.2.0-draft.7
+        version: 0.2.0-draft.7
       '@libp2p/circuit-relay-v2':
         specifier: 4.2.9
         version: 4.2.9(patch_hash=efb10977ee55666811fc9755eed0596eee921647672fd32abbeac849a4e58122)
@@ -279,8 +279,8 @@ importers:
         specifier: workspace:^
         version: link:../packages/rates
       '@le-space/ucep':
-        specifier: 0.2.0-draft.6
-        version: 0.2.0-draft.6
+        specifier: 0.2.0-draft.7
+        version: 0.2.0-draft.7
       '@libertai/confidential-inference':
         specifier: 0.1.0
         version: 0.1.0
@@ -1183,8 +1183,8 @@ packages:
   '@le-space/ucanto-principal@9.1.2':
     resolution: {integrity: sha512-vWRXFPLKQwfC7CXhgrl3p11cOgEWHcgQyosR4EztgKfHmKAbYOn2y7VQpr4pEtJHw/iB92EJSyJBGYecTmF/2g==}
 
-  '@le-space/ucep@0.2.0-draft.6':
-    resolution: {integrity: sha512-NkzMTe+nuG/t8oUvKBc7K0EpcyaoVlSmAdAOn32budSUgiFcvHPRfzl+Pmxpvlk8yctDy7cEBQPHlw4zqRpqiQ==}
+  '@le-space/ucep@0.2.0-draft.7':
+    resolution: {integrity: sha512-NXTMeSJ259BW4D0J0nwSjVNUCypw9/m9OB7RvTVNF4tvr9uHbs+70acsrFhKn23Tx7uzuutRxEg9K43qgV+CdQ==}
     engines: {node: '>=22'}
 
   '@leichtgewicht/ip-codec@2.0.5':
@@ -6308,7 +6308,7 @@ snapshots:
       multiformats: 13.4.2
       one-webcrypto: 1.0.3
 
-  '@le-space/ucep@0.2.0-draft.6':
+  '@le-space/ucep@0.2.0-draft.7':
     dependencies:
       '@libp2p/interface': 3.3.0
       '@libp2p/peer-id': 6.0.15

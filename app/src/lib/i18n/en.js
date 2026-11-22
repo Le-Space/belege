@@ -5558,6 +5558,7 @@ export default {
 				'Kept for the hosted bridge: LibertAI, confidential – {model}, pin {item}. Goes along at the hosted bridge’s next start.',
 			attestedDetail: '{model} · last checked {time}',
 			unreachable: 'The bridge says nothing about receipt reading (older version?): {error}',
+			retry: 'Check status',
 			provider: 'Provider (host)',
 			models: 'Models',
 			modelsValue: '{primary}, on the second attempt {fallback}',

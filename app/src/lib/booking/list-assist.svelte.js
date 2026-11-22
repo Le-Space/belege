@@ -11,6 +11,7 @@
 // suggestion nobody took is nothing to keep.
 import { recordEvent } from '../activity/events.js';
 import { matchesOfTx } from '../matching/view.js';
+import { bridgeRequestLimit } from '../sync/bridge-limit.js';
 import { clearingAccountOf, travelSetOf } from '../travel/accounts.js';
 import { assistBody, assistEventData } from './assist-request.js';
 import { cleanDatevSettings, privateAccounts } from './settings.js';
@@ -108,7 +109,8 @@ export async function askForList({ txs, app, client, store, learnedName }) {
 					partners: app.partners ?? [],
 					catalogue: searchAccounts('', { income, chart: app.chart }),
 					chart: app.chart,
-					learnedName
+					learnedName,
+					requestLimit: bridgeRequestLimit()
 				})
 			);
 			const first = (r.picks ?? [])[0];
