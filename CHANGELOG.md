@@ -10,6 +10,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **The ruble at the Bank of Russia's rate for every day** (Le-Space/eigenbeleg-agent#72; `@le-space/rates` 0.8.0). A rate of RUB in euros, and the leg from the euro into a document in rubles, now come from the Bank of Russia's official rate valid on the day also before 2022-03-01, when the ECB still quoted the ruble: the ruble's own central bank for every day, the ECB for the other official currencies. `ECB_CURRENCIES` no longer lists RUB; `TARGET_CURRENCIES` still does. The source texts in the app and on the consent screen no longer say the Bank of Russia stands in where the ECB has no rate.
 
+### Fixed
+
+- **A reference value is named as one on the Eigenbeleg and the Kontoauszug** (`@le-space/eigenbeleg` 0.6.1; Le-Space/eigenbeleg-agent#72). The rate's source of an asset valued at its issuer's reference value (`@le-space/rates` `referenceRate`, "Referenzwert von …, Stand <day> (kein Börsenkurs)") was cut at its day and read "Referenzwert von …, Stand", with a second leg "… , Stand × EZB-Referenzkurs EUR/CHF". It now reads "Referenzwert von … (kein Börsenkurs)", in EUR and in another currency. The Kontoauszug's note said "zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)" also where the positions were valued at a reference value; it now names the reference value, and both where a statement has both. A statement's section says so too (`marketRate`, `referenceValues`; each row's `rateSource`).
+
 ## [0.51.0] – 2026-11-22
 
 ### Added

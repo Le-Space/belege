@@ -25,7 +25,8 @@ import {
 	checkValued,
 	conversionText,
 	documentCurrency,
-	kindText
+	kindText,
+	sourceName
 } from './document.js';
 
 /** Smaller than the twelve decimals the documents print (and not zero). @param {string} difference */
@@ -79,6 +80,21 @@ export function usageNote(chain, currency) {
 	return `${head}Wert in ${currency}: USDFC ist an den US-Dollar gebunden und wird zum Tageskurs von USDC bewertet, ${conversionText(currency)}.`;
 }
 
+/**
+ * How a section's values came about: at a market rate of the day, at a
+ * reference value (a rate whose first leg is a `Referenzwert`, by its name), or both.
+ *
+ * @param {StatementRow[]} rows
+ * @returns {{ marketRate: boolean, referenceValues: string[] }}
+ */
+function valuedBy(rows) {
+	const legs = rows.filter((r) => r.eur).map((r) => sourceName(r.rateSource).split(' × ')[0]);
+	return {
+		marketRate: legs.some((l) => !l.startsWith('Referenzwert')),
+		referenceValues: [...new Set(legs.filter((l) => l.startsWith('Referenzwert')))]
+	};
+}
+
 export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
@@ -95,6 +111,7 @@ export const STATEMENT_NOTE =
  * @property {string} credit amount in, positive, or ''
  * @property {string} balance running balance after it
  * @property {string} eur signed value at the day's rate, in the statement's currency (EUR unless another), or ''
+ * @property {string} rateSource where that value's rate came from (`eur.source`), or ''
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
  * @property {boolean} usage consumption billed from the balance (Aleph credits, a Filecoin Pay settlement)
@@ -220,6 +237,7 @@ export function buildStatement({
 				credit: out ? '' : e.amount,
 				balance,
 				eur: e.eur?.value ?? '',
+				rateSource: e.eur?.value ? e.eur.source : '',
 				beleg: belege.get(e.hash) ?? '',
 				fee: e.type === 'fee',
 				usage: e.kind === 'usage',
@@ -249,7 +267,8 @@ export function buildStatement({
 			eurIn: sum(rows.filter((r) => r.credit && r.eur).map((r) => r.eur)),
 			eurFees: sum(rows.filter((r) => r.fee && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurUsage: sum(rows.filter((r) => r.usage && r.eur).map((r) => r.eur.replace(/^-/, ''))),
-			unvalued: rows.filter((r) => !r.eur).length
+			unvalued: rows.filter((r) => !r.eur).length,
+			...valuedBy(rows)
 		};
 	});
 	// Aleph credits, Filecoin Pay: a monthly usage statement, laid out as the Kontoauszug.
