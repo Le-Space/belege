@@ -139,6 +139,21 @@ export function checkEndpoint(value, { allowLoopback = false } = {}) {
 }
 
 /**
+ * A Retry-After header in milliseconds: seconds, or an HTTP date.
+ *
+ * @param {string | null | undefined} value
+ * @param {number} [now]
+ * @returns {number | null}
+ */
+export function retryAfterMs(value, now = Date.now()) {
+	if (!value) return null;
+	const text = value.trim();
+	if (/^\d+$/.test(text)) return Number(text) * 1000;
+	const at = Date.parse(text);
+	return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
+/**
  * @param {object} options
  * @param {typeof fetch} options.fetch
  * @param {number} [options.timeoutMs]
@@ -187,6 +202,10 @@ export function createJsonFetcher({
 				throw error;
 			}
 			if (res.status === 429 || res.status >= 500 || body === undefined) {
+				// A refusal that says when to come back: wait that long (a minute at
+				// most) before the next try, on top of the usual pause.
+				const after = retryAfterMs(res.headers?.get?.('retry-after'));
+				if (after !== null && attempt < retries) await sleep(Math.min(after, 60_000));
 				last = new WalletError(
 					res.status === 429
 						? `${host} limits requests (HTTP 429)`
@@ -194,6 +213,7 @@ export function createJsonFetcher({
 					res.status === 429 ? 'WALLET_RATE_LIMIT' : 'WALLET_NODE',
 					res.status === 429 ? 429 : 502
 				);
+				last.httpStatus = res.status;
 				continue;
 			}
 			if (retryIf?.(body)) {

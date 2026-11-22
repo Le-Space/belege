@@ -181,7 +181,9 @@ export const CHAIN_NAMES = {
 	aleph: 'Aleph Cloud (Credits)',
 	'filecoin-pay': 'Filecoin Pay',
 	ethereum: 'Ethereum',
-	base: 'Base'
+	base: 'Base',
+	bitcoin: 'Bitcoin',
+	doichain: 'Doichain'
 };
 
 /**
@@ -196,8 +198,21 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
 	aleph: 'Aleph-API (api2.aleph.im)',
 	'filecoin-pay': 'Index von Filecoin Pay (Goldsky), Blockscout, Filfox',
 	ethereum: 'Alchemy APIs (Ethereum Mainnet)',
-	base: 'Alchemy APIs (Base Mainnet)'
+	base: 'Alchemy APIs (Base Mainnet)',
+	bitcoin: 'Esplora-API von mempool.space',
+	doichain: 'ElectrumX-Server des Doichain-Netzes'
 });
+
+/**
+ * The data source a document names: the one the caller read from when it
+ * says so (an own Esplora, say), else the chain's usual one.
+ *
+ * @param {string} chain
+ * @param {string} chainName
+ * @param {string} [given]
+ */
+export const dataSourceOf = (chain, chainName, given) =>
+	given?.trim() || DATA_SOURCES[chain] || chainName;
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg
@@ -246,6 +261,7 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
  * @param {string[]} [p.includeKinds]
  * @param {string} [p.issuedAt] ISO; now when not given
  * @param {'collective' | 'single'} [p.layout]
+ * @param {string} [p.dataSource] where the entries were read from, when not the chain's usual source
  * @param {string} [p.currency] the document's currency (DOCUMENT_CURRENCIES), EUR when not
  *   given; the entries are valued in it. The fields named `eur…` hold the values in this
  *   currency: they keep the name they had when every document was in euro.
@@ -260,6 +276,7 @@ export function buildDocument({
 	includeKinds = DEFAULT_KINDS,
 	issuedAt,
 	layout = 'collective',
+	dataSource,
 	currency: asked
 }) {
 	if (layout !== 'collective' && layout !== 'single')
@@ -365,6 +382,7 @@ export function buildDocument({
 		},
 		chain,
 		chainName,
+		dataSource: dataSourceOf(chain, chainName, dataSource),
 		network,
 		testnet: network !== 'mainnet',
 		period,

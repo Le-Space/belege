@@ -13,6 +13,7 @@ test('addresses, transactions, a NEAR read, an Aleph and a Bitcoin statement are
 	assert.match(r.f410f, /^f410f[a-z2-7]+$/);
 	assert.match(r.btc[1], /^bc1q/);
 	assert.deepEqual(r.bitcoin, { closing: '0.0001', entries: 1 });
+	assert.deepEqual(r.btcWallet, { closing: '0.0001', entries: 1, account: true });
 	assert.ok(r.near.count > 0 && r.near.explorer);
 	assert.equal(r.near.first.schema, 'le-space.ledger/1');
 	assert.equal(r.aleph.statement.difference, 0);

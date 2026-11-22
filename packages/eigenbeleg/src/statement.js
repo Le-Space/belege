@@ -22,6 +22,7 @@
 import { normalize, sum } from '@le-space/ledger';
 import {
 	CHAIN_NAMES,
+	dataSourceOf,
 	checkValued,
 	conversionText,
 	documentCurrency,
@@ -186,6 +187,7 @@ export function monthly(rows) {
  * @param {Map<string, string>} [p.belege] hash → Eigenbeleg number
  * @param {string} [p.number]
  * @param {string} [p.issuedAt]
+ * @param {string} [p.dataSource] where the entries were read from, when not the chain's usual source
  * @param {string} [p.currency] the statement's currency (DOCUMENT_CURRENCIES), EUR when not
  *   given; the entries are valued in it, and the fields named `eur…` hold values in it
  */
@@ -203,6 +205,7 @@ export function buildStatement({
 	belege = new Map(),
 	number,
 	issuedAt,
+	dataSource,
 	currency: asked
 }) {
 	const currency = documentCurrency(asked);
@@ -282,6 +285,11 @@ export function buildStatement({
 		account,
 		chain,
 		chainName: CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain,
+		dataSource: dataSourceOf(
+			chain,
+			CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain,
+			dataSource
+		),
 		network,
 		testnet: network !== 'mainnet',
 		period,
