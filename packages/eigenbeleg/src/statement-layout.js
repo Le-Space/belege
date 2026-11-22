@@ -12,7 +12,7 @@
 import { createPdfA, savePdfA } from '@le-space/pdf';
 
 import { deDate } from './document.js';
-import { A4, BLACK, GREY, embedIssuerLogo, pageLayout } from './layout.js';
+import { GREY, TYPE, embedIssuerLogo, pageLayout } from './layout.js';
 
 /** The label column of a field: wide enough for "Übernachtungspauschalen". */
 const LABEL = 120;
@@ -47,7 +47,7 @@ export async function statementLayout({
 	const l = pageLayout(pdf, fonts, {
 		margin: M,
 		enterPage: (p) => {
-			p.at(continuation, M, 8, regular, GREY);
+			p.at(continuation, M, TYPE.label, regular, GREY);
 			p.y -= 20;
 		}
 	});
@@ -67,19 +67,15 @@ export async function statementLayout({
 		issuer = by;
 		// The issuer's logo as a letterhead, the title below it.
 		l.letterhead(own);
-		l.text(heading, { face: bold, size: 20 });
-		l.text(`Nr. ${no}`, { face: bold, size: 12 });
-		l.gap(2);
-		l.text(subtitle, { size: 10 });
-		l.gap(10);
+		l.head(heading, { number: no, subtitle });
 		const top = l.y;
 		const half = width / 2 - 10;
-		l.text('Aussteller', { face: bold, size: 8.5, color: GREY, max: half });
-		l.text(by || '—', { face: bold, size: 10, max: half });
+		l.label('Aussteller', { max: half });
+		l.text(by || '—', { face: bold, size: TYPE.lead, max: half });
 		const leftEnd = l.y;
 		l.y = top;
 		const rx = M + width / 2 + 10;
-		l.text('Erstellt am', { x: rx, face: bold, size: 8.5, color: GREY });
+		l.label('Erstellt am', { x: rx });
 		l.text(`${deDate(created.toISOString())}, ${created.toISOString().slice(11, 16)} UTC`, {
 			x: rx
 		});
@@ -92,7 +88,7 @@ export async function statementLayout({
 	function field(label, value, style = false) {
 		l.field(label, value, {
 			face: style === 'mono' ? mono : style ? bold : regular,
-			size: style === 'mono' ? 7.5 : 8.5,
+			size: style === 'mono' ? TYPE.small : TYPE.body,
 			labelWidth: LABEL
 		});
 		l.gap(3);
@@ -108,8 +104,8 @@ export async function statementLayout({
 	/** @param {string} t */
 	function heading(t) {
 		l.ensure(40);
-		l.text(t, { face: bold, size: 10 });
-		l.gap(3);
+		l.text(t, { face: bold, size: TYPE.lead });
+		l.gap(4);
 	}
 
 	/**
@@ -119,44 +115,24 @@ export async function statementLayout({
 	 * @param {string[][]} rows
 	 */
 	function table(columns, rows) {
-		const header = () =>
-			l.row(
-				columns.map((c) => ({ ...c, mono: false })),
-				columns.map((c) => c.title),
-				{ face: bold, color: GREY }
-			);
+		const header = () => l.tableHead(columns);
 		l.ensure(30);
 		header();
 		for (const row of rows) l.row(columns, row, { header });
-		l.gap(8);
+		l.gap(1);
+		l.rule();
+		l.gap(10);
 	}
 
 	function signature() {
-		l.gap(24);
-		l.ensure(40);
-		l.page.drawLine({
-			start: { x: M, y: l.y },
-			end: { x: M + 230, y: l.y },
-			thickness: 0.6,
-			color: BLACK
-		});
-		l.y -= 4;
-		l.text('Ort, Datum, Unterschrift', { size: 8, color: GREY });
+		l.signature('Ort, Datum, Unterschrift');
 	}
 
 	async function save() {
 		const n = l.pages.length;
-		l.pages.forEach((p, i) => {
-			const foot = `${number ? `${number} · ` : ''}Seite ${i + 1} von ${n}`;
-			regular.draw(p, foot, { x: M, y: M / 2, size: 7, color: GREY });
-			const made = `Erstellt mit ${creator}`;
-			regular.draw(p, made, {
-				x: A4[0] - M - regular.width(made, 7),
-				y: M / 2,
-				size: 7,
-				color: GREY
-			});
-		});
+		l.pages.forEach((p, i) =>
+			l.foot(p, `${number ? `${number} · ` : ''}Seite ${i + 1} von ${n}`, `Erstellt mit ${creator}`)
+		);
 		return savePdfA(pdf, {
 			title,
 			author: issuer,

@@ -9,7 +9,6 @@
 // bookings a small diagram (#889, statement-chart.js): the balance over the
 // period, or what was consumed per day.
 
-import { rgb } from 'pdf-lib';
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
@@ -18,15 +17,15 @@ import { CREATOR, PRODUCER } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
 import { drawScene, sceneMeasure } from './chart-pdf.js';
 import { statementChart } from './statement-chart.js';
-import { A4, BAND, BLACK, GREY, MARK_SIZE, OK, RULE, WARN, pageLayout } from './layout.js';
+import { BLACK, GREY, INK, MARK_SIZE, TYPE, WARN, pageLayout } from './layout.js';
 
-const M = 44;
-const DARK = { thickness: 0.8, color: rgb(0.2, 0.2, 0.2) };
+// The same frame as every other document of the package (layout.js).
+const M = 48;
 
 /** The table of bookings; its last column names the statement's currency. @param {string} currency */
 const columns = (currency) => [
 	{ title: 'Buchungstag', width: 52 },
-	{ title: 'Vorgang', width: 175 },
+	{ title: 'Vorgang', width: 167 },
 	{ title: 'Soll', width: 72, right: true },
 	{ title: 'Haben', width: 72, right: true },
 	{ title: 'Saldo', width: 80, right: true },
@@ -73,32 +72,40 @@ export async function statementPdf(
 		margin: M,
 		bottom: 16,
 		enterPage: (p) => {
-			p.at(`${st.title} ${st.number} · ${st.account}`, M, 8, regular, GREY);
+			p.at(`${st.title} ${st.number} · ${st.account}`, M, TYPE.label, regular, GREY);
 			p.y -= 18;
 		}
 	});
-	const { text } = l;
+	const { text, label } = l;
 	const width = l.width;
-	/** @param {number} y @param {{ thickness: number, color: import('pdf-lib').Color }} [o] */
-	const line = (y, o = DARK) =>
-		l.page.drawLine({ start: { x: M, y }, end: { x: A4[0] - M, y }, ...o });
+	/** Where each column ends, from the left margin: sums and balances stand under their columns. */
+	const ends = COLS.reduce(
+		(a, c) => [...a, (a[a.length - 1] ?? 0) + c.width],
+		/** @type {number[]} */ ([])
+	);
+	/** The right edge of the figures in column `i`. @param {number} i */
+	const edge = (i) => M + ends[i] - 4;
+	const [DEBIT, CREDIT, BALANCE, VALUE] = [2, 3, 4, 5];
 
-	// ---- head: like a bank's, with the holder's address window on the left
+	// ---- head: the title first, as on every document; below the rule the holder and the facts
 	if (st.testnet) {
 		text('TESTNET – keine echten Werte. Kurse des Mainnet-Assets nur zur Veranschaulichung.', {
 			face: bold,
-			size: 8.5,
+			size: TYPE.table,
 			color: WARN
 		});
-		l.y -= 4;
+		l.y -= 6;
 	}
+	// The chain's mark, larger: a statement shows what the network's account did. The issuer's logo is
+	// not on it: a statement is not the issuer's own receipt.
+	l.head(st.title, { image: mark, mark: MARK_SIZE.large });
 	const top = l.y;
-	text('Kontoinhaber', { face: bold, size: 7.5, color: GREY, max: 250 });
-	text(st.holder.name, { face: bold, size: 10, max: 250 });
-	text(st.holder.address, { size: 9.5, max: 250 });
+	label('Kontoinhaber', { max: 250 });
+	text(st.holder.name, { face: bold, size: TYPE.lead, max: 250 });
+	text(st.holder.address, { max: 250 });
 	const leftEnd = l.y;
 	l.y = top;
-	const rx = M + 300;
+	const rx = M + width / 2 + 10;
 	const facts = [
 		// The label column is 72 pt wide: »Verbrauchsauszug« does not fit.
 		[st.title === 'Kontoauszug' ? 'Kontoauszug' : 'Auszug-Nr.', st.number],
@@ -107,26 +114,25 @@ export async function statementPdf(
 		['Erstellt am', `${deDate(st.issuedAt)}, ${st.issuedAt.slice(11, 16)} UTC`]
 	];
 	for (const [k, v] of facts) {
-		bold.draw(l.page, k, { x: rx, y: l.y - 8.5, size: 8, color: GREY });
-		regular.draw(l.page, v, { x: rx + 72, y: l.y - 8.5, size: 8.5 });
-		l.y -= 12;
+		regular.draw(l.page, k, { x: rx, y: l.y - TYPE.body, size: TYPE.small, color: GREY });
+		regular.draw(l.page, v, { x: rx + 72, y: l.y - TYPE.body, size: TYPE.body, color: INK });
+		l.y -= 13;
 	}
-	l.y = Math.min(l.y, leftEnd) - 14;
-	// The chain's mark, larger: a statement shows what the network's account did. The issuer's logo is
-	// not on it: a statement is not the issuer's own receipt.
-	l.title(st.title, { face: bold, size: 18 }, mark, MARK_SIZE.large);
-	text('Konto', { face: bold, size: 7.5, color: GREY });
-	text(st.account, { face: mono, size: 9 });
-	l.y -= 6;
-	text(st.note, { size: 8, color: GREY });
+	l.y = Math.min(l.y, leftEnd) - 8;
+	label('Konto');
+	text(st.account, { face: mono, size: TYPE.body });
 	l.y -= 10;
+	l.note(st.note, TYPE.table);
+	l.y -= 18;
 
 	// ---- one section per asset
 	for (const s of st.sections) {
 		l.ensure(90);
-		l.page.drawRectangle({ x: M, y: l.y - 18, width, height: 18, color: BAND });
-		bold.draw(l.page, `${s.asset} · ${st.account}`, { x: M + 6, y: l.y - 12.5, size: 9.5 });
-		l.y -= 24;
+		// A section: its head on a hairline. No band, no fill.
+		text(`${s.asset} · ${st.account}`, { face: bold, size: TYPE.lead });
+		l.y -= 3;
+		l.rule();
+		l.y -= 10;
 		// The month in sums, first (#24): what the books take as one booking each; the rows below are the proof.
 		if (aleph || pay) {
 			const m = s.monthly;
@@ -135,19 +141,29 @@ export async function statementPdf(
 				.filter((x) => x !== null);
 			if (lines.length) {
 				l.ensure(14 + lines.length * 11 + 8);
-				l.at('Monatsübersicht', M, 8, bold, GREY);
-				l.right(pay ? s.asset : 'Credits', M + 371 - 4, 7.5, bold, GREY);
-				l.right(`Wert ${cur}`, M + 507 - 4, 7.5, bold, GREY);
-				l.y -= 12;
+				l.at('Monatsübersicht', M, TYPE.label, regular, GREY);
+				l.right(pay ? s.asset : 'Credits', edge(CREDIT), TYPE.label, regular, GREY);
+				l.right(`Wert ${cur}`, edge(VALUE), TYPE.label, regular, GREY);
+				l.y -= 11;
+				l.strong();
+				l.y -= 4;
 				for (const ml of lines) {
 					const total = ml === m.usageTotal;
 					const f = total ? bold : regular;
-					l.at(ml.label, M + (total ? 0 : 8), 8, f);
-					l.right(qty(ml.amount), M + 371 - 4, 8, f);
-					l.right(ml.eur ? deFixed(ml.eur, 4) : '—', M + 507 - 4, 8, f, ml.eur ? BLACK : GREY);
-					l.y -= 11;
+					l.at(ml.label, M, TYPE.table, f);
+					l.right(qty(ml.amount), edge(CREDIT), TYPE.table, f);
+					l.right(
+						ml.eur ? deFixed(ml.eur, 4) : '—',
+						edge(VALUE),
+						TYPE.table,
+						f,
+						ml.eur ? BLACK : GREY
+					);
+					l.y -= 12;
 				}
-				l.y -= 8;
+				l.y -= 1;
+				l.rule();
+				l.y -= 14;
 			}
 		}
 		// The diagram, above the list of bookings (#889); every figure in it is in the tables.
@@ -155,24 +171,26 @@ export async function statementPdf(
 		if (drawn) {
 			l.ensure(drawn.scene.height + 40);
 			drawScene(l.page, drawn.scene, { x: M, top: l.y, fonts });
-			l.y -= drawn.scene.height + 12;
+			l.y -= drawn.scene.height + 14;
 		}
 		const head = () => {
 			let x = M;
 			for (const c of COLS) {
-				if (c.right) l.right(c.title, x + c.width - 4, 7.5, bold, GREY);
-				else l.at(c.title, x, 7.5, bold, GREY);
+				if (c.right) l.right(c.title, x + c.width - 4, TYPE.label, regular, GREY);
+				else l.at(c.title, x, TYPE.label, regular, GREY);
 				x += c.width;
 			}
 			l.y -= 11;
-			line(l.y);
-			l.y -= 3;
+			l.strong();
+			l.y -= 4;
 		};
 		head();
 		// opening balance
 		l.at(`Kontostand am ${deDate(st.period.from)} (Beginn)`, M + COLS[0].width, 8, bold);
-		l.right(qty(s.opening), M + 451 - 4, 8, bold);
+		l.right(qty(s.opening), edge(BALANCE), 8, bold);
 		l.y -= 13;
+		l.rule();
+		l.y -= 2;
 		for (const r of s.rows) {
 			const detail = [
 				r.counterparty && `${r.debit ? 'an' : 'von'} ${r.counterparty}`,
@@ -183,13 +201,13 @@ export async function statementPdf(
 				.join(' · ');
 			const lines = wrapText(r.text, regular, 8, COLS[1].width - 6);
 			const sub = wrapText(detail, regular, 6.5, COLS[1].width - 6);
-			const h = lines.length * 10 + sub.length * 8.5 + 4;
+			const h = lines.length * 10 + sub.length * 8.5 + 6;
 			if (l.ensure(h)) head();
 			const y = l.y;
-			regular.draw(l.page, deDate(r.date), { x: M, y: y - 8, size: 8 });
+			regular.draw(l.page, deDate(r.date), { x: M, y: y - 8, size: 8, color: INK });
 			regular.draw(l.page, r.time, { x: M, y: y - 16.5, size: 6.5, color: GREY });
 			lines.forEach((t, i) =>
-				regular.draw(l.page, t, { x: M + COLS[0].width, y: y - 8 - i * 10, size: 8 })
+				regular.draw(l.page, t, { x: M + COLS[0].width, y: y - 8 - i * 10, size: 8, color: INK })
 			);
 			sub.forEach((t, i) =>
 				regular.draw(l.page, t, {
@@ -214,23 +232,29 @@ export async function statementPdf(
 				r.eur ? BLACK : GREY
 			);
 			l.y -= h;
-			line(l.y + 1, { thickness: 0.25, color: RULE });
+			l.y += 1;
+			l.rule();
+			l.y -= 1;
 		}
 		if (s.rows.length === 0) {
 			l.at('Keine Buchungen in diesem Zeitraum.', M + COLS[0].width, 8, regular, GREY);
 			l.y -= 13;
 		}
 		// sums and closing balance
-		l.ensure(60);
-		line(l.y);
-		l.y -= 3;
-		l.at('Summe', M + COLS[0].width, 8, bold);
-		l.right(qty(s.debit), M + 299 - 4, 8, bold);
-		l.right(qty(s.credit), M + 371 - 4, 8, bold);
-		l.y -= 13;
-		l.at(`Kontostand am ${deDate(st.period.to)} (Ende)`, M + COLS[0].width, 9, bold);
-		l.right(`${qty(s.closing)} ${s.asset}`, M + 451 - 4, 9, bold);
-		l.y -= 15;
+		// Between two strong rules, like the amount of an Eigenbeleg: the sums, then the balance to carry on.
+		l.ensure(70);
+		l.y += 1;
+		l.strong();
+		l.y -= 5;
+		l.at('Summe', M + COLS[0].width, 8, regular);
+		l.right(qty(s.debit), edge(DEBIT), 8, regular);
+		l.right(qty(s.credit), edge(CREDIT), 8, regular);
+		l.y -= 14;
+		l.at(`Kontostand am ${deDate(st.period.to)} (Ende)`, M + COLS[0].width, TYPE.lead, bold);
+		l.right(`${qty(s.closing)} ${s.asset}`, edge(BALANCE), TYPE.lead, bold);
+		l.y -= 17;
+		l.strong();
+		l.y -= 8;
 		// the check
 		if (st.method === 'archive' && s.reported !== null) {
 			const ok = reconciled(s.difference) === true;
@@ -244,12 +268,13 @@ export async function statementPdf(
 					: ok
 						? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset} und stimmt mit Anfangsstand plus Buchungen überein.`
 						: `Nicht abgestimmt: Der Kontostand laut Chain${when} ist ${qty(s.reported)} ${s.asset}; Differenz ${deNumber(difference)} ${s.asset} (Bewegungen, die der Leser nicht sieht, etwa Auszahlungen eines Staking-Pools).`,
-				{ size: 7.5, color: ok ? OK : WARN }
+				// Reconciled is the normal case and reads as text; only a difference is a warning.
+				{ size: TYPE.small, color: ok ? INK : WARN }
 			);
 		} else {
 			text(
 				`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : pay ? 'der Zahlungsvertrag nennt nur den heutigen Stand' : 'die Chain hält keine alten Kontostände vor'}).`,
-				{ size: 7.5, color: GREY }
+				{ size: TYPE.small, color: GREY }
 			);
 		}
 		l.y -= 4;
@@ -263,32 +288,19 @@ export async function statementPdf(
 								: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
 						}.`
 					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued('zum Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)', 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)')}.`,
-			{ size: 7.5, color: GREY }
+			{ size: TYPE.small, color: GREY }
 		);
-		l.y -= 12;
+		l.y -= 20;
 	}
 	if (st.unlisted)
 		text(
 			`${st.unlisted} Bewegung(en) in Token ohne verlässlichen Kurs (oft Spam) sind nur in der CSV-Datei aufgeführt.`,
-			{ size: 7.5, color: GREY }
+			{ size: TYPE.small, color: GREY }
 		);
 
 	// page numbers and footer on every page
 	const data = `Daten: ${DATA_SOURCES[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
-	l.pages.forEach((p, i) => {
-		regular.draw(p, `${st.number} · Seite ${i + 1} von ${l.pages.length}`, {
-			x: M,
-			y: M / 2,
-			size: 7,
-			color: GREY
-		});
-		regular.draw(p, data, {
-			x: A4[0] - M - regular.width(data, 7),
-			y: M / 2,
-			size: 7,
-			color: GREY
-		});
-	});
+	l.pages.forEach((p, i) => l.foot(p, `${st.number} · Seite ${i + 1} von ${l.pages.length}`, data));
 
 	return savePdfA(pdf, {
 		title,
