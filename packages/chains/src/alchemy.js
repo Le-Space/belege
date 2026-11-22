@@ -26,8 +26,9 @@
 //                               every one of them; where the count rises in
 //                               a block no known transaction explains, that
 //                               block is fetched and its transaction found.
-//   eth_getBalance,             the balance, native and of the listed tokens
-//   alchemy_getTokenBalances
+//   eth_getBalance,             the balance, native, of the listed tokens and
+//   alchemy_getTokenBalances    of the unlisted ones this address sent itself
+//                               (100 contracts a call)
 // Several calls go as one batch (a JSON array, at most 50).
 //
 // Alchemy counts compute units (CU) per call – in a batch each call its own
@@ -55,6 +56,7 @@ import { createJsonFetcher, WalletError } from './http.js';
 const PAGE = '0x3e8'; // 1000, Alchemy's most
 const BATCH = 50; // Alchemy: "aim for batches under 50"
 const SPLIT = 16; // a block range with an unexplained nonce is cut into this many parts
+const TOKEN_BALANCES = 100; // contracts per alchemy_getTokenBalances
 
 /** Compute units per call (Alchemy's table); a method not named costs 20. */
 const COMPUTE_UNITS = /** @type {Record<string, number>} */ ({
@@ -284,8 +286,10 @@ export function createAlchemyReader({
 	 * @param {string} params.baseUrl without the key, e.g. https://eth-mainnet.g.alchemy.com/v2
 	 * @param {() => Promise<any[]>} [params.blockscoutInternal] internal transactions where
 	 *   Alchemy has none (Arbitrum, Optimism)
+	 * @param {string[]} [params.tokens] unlisted token contracts (lower case) whose balance is
+	 *   wanted although this address never sent them
 	 */
-	async function read({ chain, address, key, baseUrl, blockscoutInternal }) {
+	async function read({ chain, address, key, baseUrl, blockscoutInternal, tokens: wanted = [] }) {
 		if (!isAlchemyKey(key)) {
 			throw new WalletError(
 				'the stored Alchemy key has an unexpected form: run `pnpm setup:alchemy` again',
@@ -509,14 +513,28 @@ export function createAlchemyReader({
 		}
 		if (!network.internal && blockscoutInternal) internal.push(...(await blockscoutInternal()));
 
-		const contracts = Object.keys(chain.tokens);
-		const [native, tokenBalances] = await batch(url, key, [
-			{ method: 'eth_getBalance', params: [address, 'latest'] },
-			{ method: 'alchemy_getTokenBalances', params: [address, contracts] }
-		]);
+		// The balance of every listed token, and of every unlisted one this address
+		// moved itself or the caller names (#93): evm.js books those in an account
+		// of their own, and a statement derives their opening and closing from it.
+		const contracts = [
+			...new Set([
+				...Object.keys(chain.tokens),
+				...tokens.filter((t) => t.from === address).map((t) => t.contractAddress),
+				...wanted
+			])
+		].filter((c) => /^0x[0-9a-f]{40}$/.test(c));
+		/** @type {{ method: string, params: unknown[] }[]} */
+		const balanceCalls = [{ method: 'eth_getBalance', params: [address, 'latest'] }];
+		for (let i = 0; i < contracts.length; i += TOKEN_BALANCES) {
+			balanceCalls.push({
+				method: 'alchemy_getTokenBalances',
+				params: [address, contracts.slice(i, i + TOKEN_BALANCES)]
+			});
+		}
+		const [native, ...tokenBalances] = await batch(url, key, balanceCalls);
 		/** @type {Map<string, bigint>} contract (lower case) or `native` → units */
 		const balances = new Map([['native', big(native)]]);
-		for (const b of tokenBalances?.tokenBalances ?? []) {
+		for (const b of tokenBalances.flatMap((r) => r?.tokenBalances ?? [])) {
 			const contract = lowerAddress(b?.contractAddress);
 			if (
 				contracts.includes(contract) &&

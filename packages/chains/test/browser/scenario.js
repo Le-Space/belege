@@ -24,6 +24,9 @@ import { statementBitcoin } from '../../src/bitcoin-address.js';
 import { btcTx, fakeBitcoinAddress, fakeEsplora } from '../support/fake-esplora.js';
 import { ACCOUNT, VM, flatUsd, sampleBalance, sampleRows } from '../support/aleph-sample.js';
 import day from '../fixtures/relay-aurora-2026-11-01.json' with { type: 'json' };
+import { evmReader } from '../../src/evm.js';
+import { CHAINS } from '../../src/registry.js';
+import { TOKENS_WALLET, fakeAlchemyFetch } from '../support/fake-alchemy-fetch.js';
 
 /** A fetch that answers NearBlocks' two lists from the fixture, one page each. */
 /** @type {typeof fetch} */
@@ -99,7 +102,19 @@ export default async function scenario() {
 		endpoints: { api: walletEsplora.url },
 		sleep: async () => {}
 	});
+	// Ethereum through a fake Alchemy: an unlisted token the wallet sent on gets its section (#93).
+	const evm = await evmReader(
+		/** @type {import('../../src/registry.js').EvmChain} */ (CHAINS.ethereum),
+		{ baseUrl: () => 'https://alchemy.example/v2' }
+	).statement({
+		account: TOKENS_WALLET,
+		from: '2026-10-01',
+		to: '2026-10-31',
+		alchemyKey: 'fakeAlchemyKey_0123456789abcdef',
+		fetch: fakeAlchemyFetch().fetch
+	});
 	return {
+		evm: { closing: evm.closing, entries: evm.entries.length },
 		aleph: { statement: aleph, entries: alephEntries(aleph) },
 		btcWallet: {
 			closing: btcWallet.closing.BTC,

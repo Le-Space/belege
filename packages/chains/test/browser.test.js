@@ -17,5 +17,6 @@ test('addresses, transactions, a NEAR read, an Aleph and a Bitcoin statement are
 	assert.ok(r.near.count > 0 && r.near.explorer);
 	assert.equal(r.near.first.schema, 'le-space.ledger/1');
 	assert.equal(r.aleph.statement.difference, 0);
+	assert.deepEqual(r.evm.closing, { ETH: '0.49988', USDC: '0', ALEPH: '0', XYZ: '200' });
 	assert.ok(r.aleph.entries.some((/** @type {any} */ e) => e.kind === 'usage'));
 });
