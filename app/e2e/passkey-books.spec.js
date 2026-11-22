@@ -226,6 +226,12 @@ test('a passkey opens sealed books that survive a reload', async ({ page, contex
 });
 
 test('a restored passkey derives the same books secret and keeps none', async ({ page }) => {
+	// Aleph's indexes hold no books for this new passkey. Answered here, not by
+	// the live API: when that is out of reach from CI, the restore fails before
+	// it asks, and the test with it.
+	await page.route('**/api/v0/aggregates/**', (route) =>
+		route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+	);
 	await addVirtualAuthenticator(page);
 	await recordCeremonies(page);
 
