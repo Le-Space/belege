@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The hosted bridge on Aleph boots the bridge of v0.52.0, and the books' own image is built from it** (#968, #966). The shared image (STORE `db43f996…`) and the plain image an own image is sealed from (`e3e2cd56…`, published for the attested builder in NiKrause/relay-button) were built from the tag v0.52.0; before, both held the bridge of v0.50.0, without the NEAR storage deposits tied to their swap and without the Bitcoin reading by extended key. An own image built before says so on the card: "Neu bauen", then start a new VM – a running VM keeps the image it started with.
+
 ### Fixed
 
 - **What one device gets from another goes on to the third** (#979). OrbitDB publishes only a device's own writes; what a device receives when it meets another and the two exchange their heads stayed with it. With the devices connected in a row – a phone and an office laptop each joined by QR to the laptop, and not to each other – what the office laptop wrote before it was connected reached the laptop and never the phone. So the office laptop's passkey was missing from the vault on the phone (Einstellungen → Schlüssel showed two of three), and that passkey would not have opened the books there. After each exchange of heads a device now publishes its heads once on the database's topic, when they changed since it last did; the others take what they lack. Nothing new is dialled. The unit spec `store/pass-on-heads` runs three nodes in a row.

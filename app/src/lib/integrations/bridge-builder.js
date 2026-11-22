@@ -6,20 +6,21 @@
  * The builder for the bridge's plain image: one publication per plain image
  * (NiKrause/relay-button#225), recorded in relay-button as
  * packages/sealed-image/builder/publications/belege-bridge.json (#244).
- * Published 2026-11-21 on the node below, attested and deleted again; each
+ * Published 2026-11-22 on the node below, attested and deleted again; each
  * build starts a V-PROGRAM with exactly this content, and the hardware must
  * show one of these measurements before the passphrase goes out. A new plain
  * image needs a new publication and a new entry here.
  *
- * The plain image is the bridge at the tag v0.50.0 (commit below): with the
- * NEAR swap reader and the bookings it replaced (#898, #923). The publication
- * before (2026-11-19, V-PROGRAM c622b325…, plain image c594b999… of commit
- * d0a1e73) sealed a bridge without them; an image built with that one has to
- * be built again to have them.
+ * The plain image is the bridge at the tag v0.52.0 (commit below): with the
+ * NEAR storage deposits tied to their swap (#968) and the Bitcoin reading by
+ * extended key (#966). The publication before (2026-11-21, V-PROGRAM
+ * 8a56e085…, plain image 444782e9… of commit 508293c, the tag v0.50.0)
+ * sealed a bridge without them; an image built with that one has to be built
+ * again to have them.
  */
 export const BRIDGE_BUILDER = Object.freeze({
 	claim: 'sealed image build',
-	vprogram: '8a56e0858f2150a0a1f751597a3d5331893014df7187f32fbb77c2ad6767cece',
+	vprogram: '8c3d652fad0654c1f6e8d7a423ea726abab8de69ee9b7adf32900ed8ad762167',
 	program: {
 		allow_amend: false,
 		environment: { internet: true },
@@ -40,7 +41,7 @@ export const BRIDGE_BUILDER = Object.freeze({
 					platform: 'sev_snp',
 					registers: {
 						launch:
-							'bc34a86cfa9c680835158ef4f25f64b22223b9e2b5b01993b4a99cbd0ded43aaea77b23cfa3f51adb8b4a87a9b7d5eb6'
+							'1393421dbe12c3ed0ffbbd457724714555ba2c24396baf2710601f639bf11c844b368169bc32bcef327725699d96d4d1'
 					},
 					vcpu_type: 'EPYC-Genoa'
 				},
@@ -48,7 +49,7 @@ export const BRIDGE_BUILDER = Object.freeze({
 					platform: 'sev_snp',
 					registers: {
 						launch:
-							'11a1c15239f9ab9e82991e09c1b6997b8bdd90539e9c367aca698387621116a36b628b905cfb6a18ecfe38fe8af5f7f8'
+							'f81502bfdf09b9762f805a21d3a3c75d05e3a197e384484d43d9aa638e8f6c991d072da272cfb7d41d3af66c4b618185'
 					},
 					vcpu_type: 'EPYC-v4'
 				}
@@ -58,26 +59,26 @@ export const BRIDGE_BUILDER = Object.freeze({
 		volumes: [
 			{
 				comment: '',
-				hash_tree: '40d0616c06e18f27b7c1827a37a53802ebae76ae6f0da86444329ab69d9ca435',
-				ref: 'b4bdbba564d6a0e8ca252161ca358be9c4b7fe91c3198d62fe3b1bafa7493c32',
-				roothash: 'ab5020cad218febe53b5bc5720dd2b28d5a29ac64450da04c9b859fece32640c'
+				hash_tree: '41e761e95d5d9cb563e2b9edafaeaba479fbf34c4fbac722824972fc2c0d1b6b',
+				ref: 'f7bb9f7b747ff544c2b70be4b2c050c5b59f45cfea19d38d55445201f55bebe3',
+				roothash: '504fd3cb5515e0db8e474f52191f571b1d5dcb9f04fa454e508120128dfe2692'
 			}
 		],
 		workload: {
-			hash_tree: 'a90bbcea7155d5b1ba69d096af6d1fd89feb5a7fcbf51f88dce1febba45b0fd1',
-			ref: 'd3764c0e00d153c5903f63ddbcd14da13436b69c3856a063448129a6c0213435',
-			roothash: 'a7b351655e01660d401a9de1eab84098c0d4d66c9a1de9ba1abb7c52bee11887'
+			hash_tree: '6b51719cdfe8e7a4b4afa3c71d7fd773c7ce5167cb2aaabf8d6c4fbc721e7e3a',
+			ref: '8f5e722b6ac734b1c0fd287217339a14247be2952aa0960f03256a2a285ae68b',
+			roothash: 'ff955d0f8ed3a3890d02a85fdbb2e29a7ac191e06cb267f14c077d98ae122df8'
 		}
 	},
 	crn: '01a3143b384ca43a3af338031b03ae86c0a4e139a24b848475d3ddb9bfbce8fa',
 	measurements: [
-		'bc34a86cfa9c680835158ef4f25f64b22223b9e2b5b01993b4a99cbd0ded43aaea77b23cfa3f51adb8b4a87a9b7d5eb6',
-		'11a1c15239f9ab9e82991e09c1b6997b8bdd90539e9c367aca698387621116a36b628b905cfb6a18ecfe38fe8af5f7f8'
+		'1393421dbe12c3ed0ffbbd457724714555ba2c24396baf2710601f639bf11c844b368169bc32bcef327725699d96d4d1',
+		'f81502bfdf09b9762f805a21d3a3c75d05e3a197e384484d43d9aa638e8f6c991d072da272cfb7d41d3af66c4b618185'
 	],
 	policy: 196608,
 	plain: {
-		sha256: '444782e9b2dcd85853dfc4e38ea99b69129679608a50018eb421532737ee82ae',
-		store: '4c9bceb86b2620c5866698eed2ad64f637ca493f94b8989081459d11a8ef63c8',
-		commit: '508293ca3ad43c57ca9aa63c7207f4ca8a4bb80f'
+		sha256: 'e3e2cd565300f9a1e55651c8f3b80a6084a935e07fec05204b99052be84f82fb',
+		store: '6f9e0fbe06367698e5f72de8dfc1efbab558ea2361d7a94942b1fed19740c4be',
+		commit: '3935d93f453a7c0ecd03b79ebda53b2fc58661f7'
 	}
 });
