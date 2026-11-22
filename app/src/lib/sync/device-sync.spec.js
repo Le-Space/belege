@@ -19,6 +19,7 @@ import {
 	startDeviceSync,
 	MUTE_MS,
 	HANGUP_EVERY_MS,
+	PULSE_REPORT_MS,
 	REGOSSIP_SETTLE_MS,
 	REGOSSIP_TRIES,
 	RESYNC_STAGGER_MS,
@@ -453,7 +454,19 @@ describe('a device that is connected while gossipsub stays silent', () => {
 				// What a fresh circuit buys: a connection gossipsub actually uses.
 				node.connect(String(String(addr).split('/p2p/').pop()));
 			},
-			addEventListener: () => {}
+			/** @type {Record<string, ((e: any) => void)[]>} */
+			listeners: {},
+			/** @param {string} type @param {(e: any) => void} listener */
+			addEventListener(type, listener) {
+				(node.listeners[type] ??= []).push(listener);
+			},
+			/** The device goes away: every connection closes, as libp2p tells it. @param {string} peerId */
+			async drop(peerId) {
+				for (const c of connections.filter((x) => x.remotePeer.toString() === peerId)) {
+					await c.close();
+					for (const l of node.listeners['connection:close'] ?? []) l({ detail: c });
+				}
+			}
 		};
 		return node;
 	}
@@ -515,6 +528,107 @@ describe('a device that is connected while gossipsub stays silent', () => {
 		await look();
 		expect(node.dialled).toHaveLength(2);
 
+		await sync.stop();
+	});
+
+	it('is not hung up where it cannot be dialled again (QR mode); gossipsub is put back on it instead', async () => {
+		let ms = Date.parse('2026-03-01T10:00:00.000Z');
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const node = /** @type {any} */ (nodeWith(mac));
+		/** @type {string[]} */
+		const told = [];
+		node.services = { pubsub: { protocols: [MESHSUB] } };
+		node.components = {
+			registrar: {
+				getTopologies: () => [{ onConnect: (/** @type {any} */ p) => told.push(String(p)) }]
+			}
+		};
+		// The mode "Ohne Relay, per QR": no relays, and the connection two codes built.
+		const sync = await startDeviceSync({
+			store: { settings, resync: async () => {} },
+			relays: [],
+			libp2p: node,
+			label: 'Mac',
+			now: () => new Date(ms).toISOString()
+		});
+		node.connect(phone, ['/ipfs/id/1.0.0']);
+		const look = () => sync.addDevice(phone, 'Android');
+		await look();
+		ms += MUTE_MS + 1000;
+		await look();
+		ms += HANGUP_EVERY_MS + MUTE_MS;
+		await look();
+		// Still there: hanging it up would lose the device until the codes are scanned again.
+		expect(node.connections).toHaveLength(1);
+		expect(node.dialled).toEqual([]);
+		expect(told).toContain(phone);
+		await sync.stop();
+	});
+
+	it('that went away and comes back later gets the settling time a new connection gets', async () => {
+		let ms = Date.parse('2026-03-01T10:00:00.000Z');
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const node = nodeWith(mac);
+		const sync = await startDeviceSync({
+			store: { settings, resync: async () => {} },
+			relays: [RELAY],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac',
+			now: () => new Date(ms).toISOString()
+		});
+		const look = () => sync.addDevice(phone, 'Android');
+		// Mute, seen once: the clock runs …
+		node.connect(phone, ['/ipfs/id/1.0.0']);
+		await look();
+		// … then it is gone, and minutes later back, its streams not open yet.
+		await node.drop(phone);
+		ms += 10 * 60_000;
+		node.connect(phone, ['/ipfs/id/1.0.0']);
+		await look();
+		expect(node.dialled).toEqual([]);
+		expect(node.connections).toHaveLength(1);
+		await sync.stop();
+	});
+
+	it('tells every ping as a pulse, but the state once for the pings that came together', async () => {
+		let tick = 0;
+		const settings = memorySettings(
+			() => new Date(Date.parse('2026-03-01T09:00:00.000Z') + tick++)
+		);
+		const mac = await peerOf(SALT_A);
+		const phone = await peerOf(SALT_B);
+		const node = nodeWith(mac);
+		let states = 0;
+		/** @type {any[]} */
+		const pulses = [];
+		const sync = await startDeviceSync({
+			store: { settings, resync: async () => {} },
+			relays: [RELAY],
+			libp2p: /** @type {any} */ (node),
+			label: 'Mac',
+			onState: () => states++,
+			onPulse: (p) => pulses.push(p)
+		});
+		node.connect(phone, [MESHSUB]);
+		await sync.addDevice(phone, 'Android');
+		await new Promise((r) => setTimeout(r, 20));
+		const before = states;
+		// The connection monitor writes each ping's round trip to `conn.rtt`.
+		for (const rtt of [12, 14, 11, 13, 12]) node.connections[0].rtt = rtt;
+		expect(pulses.map((p) => p.rtt)).toEqual([12, 14, 11, 13, 12]);
+		expect(states).toBe(before);
+		await new Promise((r) => setTimeout(r, PULSE_REPORT_MS + 100));
+		expect(states).toBe(before + 1);
 		await sync.stop();
 	});
 });

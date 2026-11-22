@@ -77,6 +77,12 @@ export const REGOSSIP_SETTLE_MS = 250;
  * after the other, either restart alone brings both up to date.
  */
 export const RESYNC_STAGGER_MS = 3000;
+/**
+ * Pings report the devices' state no more often than this: each one is a
+ * pulse at once, but the state a pulse changes (a link's round trip) is told
+ * once for all the pings that came in meanwhile, not once per ping.
+ */
+export const PULSE_REPORT_MS = 1000;
 /** How often gossipsub is told of the connection that is left, a second apart, before the redial round takes over. */
 export const REGOSSIP_TRIES = 5;
 /** A settings record per device: one record each, so two devices never overwrite each other. */
@@ -675,6 +681,17 @@ export async function startDeviceSync({
 		onRemoved();
 	}
 
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let pulseReport;
+	/** The state, once for every ping in the next PULSE_REPORT_MS. */
+	function reportSoon() {
+		if (pulseReport !== undefined) return;
+		pulseReport = setTimeout(() => {
+			pulseReport = undefined;
+			if (!stopped) report();
+		}, PULSE_REPORT_MS);
+	}
+
 	/** @type {WeakSet<object>} connections whose pings are watched */
 	const watched = new WeakSet();
 	/**
@@ -703,7 +720,7 @@ export async function startDeviceSync({
 						addr: conn.remoteAddr.toString(),
 						at: Date.now()
 					});
-					report();
+					reportSoon();
 				}
 			});
 		} catch {
@@ -751,9 +768,22 @@ export async function startDeviceSync({
 	/** The bridge's node holds no books: gossipsub stays silent to it by design. @param {string} peerId */
 	const isBridge = (peerId) => Boolean(records.get(peerId)?.bridge);
 
+	/**
+	 * Where a device is dialled: through the relays; the bridge's node also where
+	 * it listens itself (on this machine). Empty in the mode "Ohne Relay, per QR":
+	 * a connection two scanned codes built cannot be dialled again.
+	 *
+	 * @param {string} peerId
+	 */
+	const dialAddrs = (peerId) => [
+		...relays.map((relay) => `${relay}/p2p-circuit/p2p/${peerId}`),
+		...(records.get(peerId)?.addrs ?? [])
+	];
+
 	/** @param {string} peerId */
 	async function dial(peerId) {
 		if (stopped) return;
+		const addrs = dialAddrs(peerId);
 		if (open(peerId)) {
 			// Connected, but not proved yet (the first exchange failed): again.
 			await gate.proveTo?.(peerId);
@@ -766,14 +796,16 @@ export async function startDeviceSync({
 			// is just being set up has no streams yet either.
 			if (muteSince.has(peerId) && !regossiping.has(peerId) && !gossiping(peerId))
 				putGossipBack(peerId);
+			// Nowhere to dial it again (QR mode): the connection is all there is,
+			// so it stays, and gossipsub is put back on it round after round.
+			if (!addrs.length) {
+				if (gossiping(peerId)) muteSince.delete(peerId);
+				else if (!muteSince.has(peerId)) muteSince.set(peerId, Date.parse(now()));
+				return;
+			}
 			if (!(await hangUpIfMute(peerId))) return;
 		}
 		const { multiaddr } = await import('@multiformats/multiaddr');
-		// Through the relays; the bridge's node also where it listens itself (on this machine).
-		const addrs = [
-			...relays.map((relay) => `${relay}/p2p-circuit/p2p/${peerId}`),
-			...(records.get(peerId)?.addrs ?? [])
-		];
 		for (const addr of addrs) {
 			try {
 				await libp2p.dial(multiaddr(addr), { signal: AbortSignal.timeout(15_000) });
@@ -843,6 +875,9 @@ export async function startDeviceSync({
 	libp2p.addEventListener('connection:close', (/** @type {any} */ e) => {
 		const peerId = e.detail.remotePeer.toString();
 		if (!connected(peerId)) resynced.delete(peerId);
+		// Gone altogether: its silence is over. Back later, it gets the time
+		// any new connection gets before it counts as mute.
+		if (!open(peerId)) muteSince.delete(peerId);
 		report();
 		// The connection gossipsub's streams were on may be the one that went
 		// (#393): looked at once its close has settled.
@@ -869,6 +904,7 @@ export async function startDeviceSync({
 		stopped = true;
 		clearInterval(timer);
 		clearTimeout(resyncTimer);
+		clearTimeout(pulseReport);
 		for (const pending of regossiping.values()) clearTimeout(pending);
 		regossiping.clear();
 		unsubscribe();
