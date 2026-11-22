@@ -132,8 +132,88 @@ export async function qrScanned(text) {
 		if (peer) qrPeers.delete(peer);
 		throw error;
 	}
+	// A new device with its own passkey asks for the vault (#962); any other
+	// goes on to the device proof.
+	if (await handOverIfAsked(peerId)) return { connected: peerId };
 	await addWhenProved(peerId);
 	return { connected: peerId };
+}
+
+/** @param {string} peerId */
+export const shortPeer = (peerId) => `…${String(peerId).slice(-6)}`;
+
+/**
+ * The device that answered this one's invite is a new device with its own
+ * passkey that wants the vault (#962, sync/vault-handover.js): the person is
+ * asked, and on "Zulassen" it gets the vault, then the connection of its own
+ * books' node, over the same stream. Settles as soon as it is clear whether
+ * the other device asks; the rest runs on, and what breaks it is said in the
+ * sync's error line.
+ *
+ * @param {string} peerId
+ * @returns {Promise<boolean>} whether it asked
+ */
+async function handOverIfAsked(peerId) {
+	const open = ctx.session;
+	const connection = open?.libp2p
+		?.getConnections()
+		.find((/** @type {any} */ c) => c.remotePeer.toString() === peerId && c.status === 'open');
+	if (!open || !connection) return false;
+	const [{ giveVault }, { sharedRecordOf }, qrLink] = await Promise.all([
+		import('../sync/vault-handover.js'),
+		import('../books-vault.js'),
+		import('../sync/qr-link.js')
+	]);
+	/** @type {(asked: boolean) => void} */
+	let settle = () => {};
+	const asked = new Promise((resolve) => (settle = resolve));
+	const giving = giveVault(connection, {
+		allow: (peer) => {
+			settle(true);
+			// The owner's alone (#612): a member's device hands over nothing.
+			if (open.member || !open.vault) return Promise.resolve(false);
+			return new Promise((resolve) => {
+				ctx.app.sync.handover = {
+					peer: shortPeer(peer),
+					self: shortPeer(open.libp2p.peerId.toString()),
+					answer: (yes) => {
+						ctx.app.sync.handover = null;
+						resolve(yes);
+					}
+				};
+			});
+		},
+		vault: () => {
+			const vault = /** @type {NonNullable<typeof open.vault>} */ (open.vault);
+			return { record: sharedRecordOf(vault.record), vaultKey: vault.vaultKey };
+		},
+		answerOffer: async (offer) => {
+			const qr = qrLink.qrSession();
+			if (!qr) throw new Error(t('messages.sync.noQrSession'));
+			// The new device's books' node: met through the one met in the room.
+			const next = await qrLink.payloadPeer(offer);
+			if (next) qrLink.qrPeers.add(next);
+			return qr.acceptOffer(offer.trim());
+		}
+	});
+	giving
+		.then(
+			(given) => {
+				settle(false);
+				// The connection of the first step has done its part.
+				if (given) connection.close().catch(() => {});
+			},
+			(error) => {
+				settle(true);
+				ctx.app.sync.handover = null;
+				connection.close().catch(() => {});
+				if (error?.code !== 'refused') {
+					ctx.app.sync.error = error instanceof Error ? error.message : String(error);
+				}
+			}
+		)
+		.finally(() => qrLink.qrPeers.delete(peerId));
+	return asked;
 }
 
 /** @type {Awaited<ReturnType<typeof import('../sync/device-sync.js').startDeviceSync>> | null} */

@@ -1125,3 +1125,63 @@ export function adoptSyncedVault(opened, incoming, storage) {
 	saveVaultRecord(storage, record);
 	return { ...opened, record };
 }
+
+/**
+ * The vault another own device handed over (#962, sync/vault-handover.js):
+ * this passkey gets its slot in it, with the vault key that came along, and
+ * the record is kept here – from now on this passkey opens the books here like
+ * any other. Checked before it is kept: the new slot opens the vault, and the
+ * vault holds a root.
+ *
+ * @param {{ record: any, vaultKey: Uint8Array }} handed
+ * @param {{ prfOutput: Uint8Array, rawCredentialId: Uint8Array, credentialId: string, label: string }} passkey
+ * @param {Pick<Storage, 'getItem' | 'setItem'>} storage
+ * @param {() => Date} [now]
+ * @returns {Promise<VaultRecord>}
+ */
+export async function joinWithVault(handed, passkey, storage, now = () => new Date()) {
+	const given = handed.record;
+	if (!given?.vault || !Array.isArray(given.vault.slots)) {
+		throw new VaultStorageError('That is no vault.');
+	}
+	const kid = await slotIdFor(passkey.rawCredentialId);
+	const slotKey = await slotKeyOf(passkey.prfOutput);
+	const vault = given.vault.slots.some((/** @type {any} */ s) => s.kid === kid)
+		? given.vault
+		: await addVaultSlot(given.vault, handed.vaultKey, {
+				slotKey,
+				rawCredentialId: passkey.rawCredentialId
+			});
+	const { payload } = await openVault(vault, { slotKey, rawCredentialId: passkey.rawCredentialId });
+	decodeRoots(payload);
+	/** @type {VaultRecord} */
+	const record = {
+		vault,
+		slots: [
+			...(Array.isArray(given.slots) ? given.slots : []).filter(
+				(/** @type {any} */ s) => s?.kid !== kid
+			),
+			{
+				kid,
+				label: passkey.label,
+				credentialId: passkey.credentialId,
+				addedAt: now().toISOString()
+			}
+		],
+		removed: (Array.isArray(given.removed) ? given.removed.map(String) : []).filter(
+			(/** @type {string} */ k) => k !== kid
+		),
+		...(given.removedAt && typeof given.removedAt === 'object'
+			? {
+					removedAt: Object.fromEntries(
+						Object.entries(removedAtOf(given.removedAt)).filter(([k]) => k !== kid)
+					)
+				}
+			: {}),
+		...(Array.isArray(given.replaces) && given.replaces.length
+			? { replaces: given.replaces.map(String) }
+			: {})
+	};
+	saveVaultRecord(storage, record);
+	return record;
+}

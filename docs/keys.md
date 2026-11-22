@@ -38,7 +38,11 @@ The vault is a record of `@le-space/orbitdb-identity-provider-webauthn-did` (`cr
 
 ## Where an empty device finds the vault
 
-In this browser the vault record is in `localStorage`. On an empty device, a passkey finds it on Aleph, if it was kept there (_Einstellungen → Schlüssel_, and after each backup from then on):
+In this browser the vault record is in `localStorage`, and the same record is in the books' sealed settings (`books/vault`), synced between own devices ([#962](https://github.com/Le-Space/belege/issues/962)). Every device merges what the others wrote into its own: a passkey added on one device counts on all, and one taken out after it was added stays out (the record notes when). A vault renewed on another device is taken at the next unlock. Only entries the books wrote count, never a member's.
+
+**An empty device with a passkey of its own** gets the vault from a device with the books, by QR, after "Zulassen" there – no server involved ([device-proof.md](device-proof.md#a-device-with-a-passkey-of-its-own-962)). If the books keep their vault on Aleph, that device later publishes its passkey's own index there too, since only it has that passkey's answer.
+
+On an empty device, a passkey finds it on Aleph, if it was kept there (_Einstellungen → Schlüssel_, and after each backup from then on):
 
 - **at its own index** – an address derived from that passkey's PRF output, where the vault was put when the passkey got its slot;
 - **at the words' index** – an address derived from the recovery words' seed, likewise;
@@ -72,18 +76,18 @@ One key reveals nothing about another.
 
 ## What is stored where
 
-| What                                | Where                                                                    | In what form                                                                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| PRF output, R and every derived key | memory, while the books are open                                         | plain, gone when the tab closes                                                                                                                 |
-| the vault                           | `localStorage` of this site; on Aleph if chosen                          | sealed; with the passkeys' names only in this browser                                                                                           |
-| the books                           | IndexedDB of this site                                                   | sealed per record and per entry                                                                                                                 |
-| receipt files                       | IndexedDB of this site                                                   | sealed                                                                                                                                          |
-| passkey details, flags              | `localStorage` of this site                                              | public: credential id, public key, DID, PRF input                                                                                               |
-| backups                             | Aleph Cloud                                                              | sealed with the backup key ([backup.md](backup.md))                                                                                             |
-| the books' Aleph key                | the sealed settings of the books                                         | sealed; signs backup orders and, when switched on, Le Space Credits requests – its address is the Credits account, the same on every own device |
-| the passkey's private key           | the authenticator                                                        | never leaves it                                                                                                                                 |
-| the bridge's key                    | the bridge's keychain (`bridge-auth`)                                    | only if the bridge was paired by invitation                                                                                                     |
-| a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup | sealed under the member's passkey                                                                                                               |
+| What                                | Where                                                                       | In what form                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRF output, R and every derived key | memory, while the books are open                                            | plain, gone when the tab closes                                                                                                                 |
+| the vault                           | `localStorage` of this site; the books' sealed settings; on Aleph if chosen | sealed; the passkeys' names in this browser and in the sealed settings, never on Aleph                                                          |
+| the books                           | IndexedDB of this site                                                      | sealed per record and per entry                                                                                                                 |
+| receipt files                       | IndexedDB of this site                                                      | sealed                                                                                                                                          |
+| passkey details, flags              | `localStorage` of this site                                                 | public: credential id, public key, DID, PRF input                                                                                               |
+| backups                             | Aleph Cloud                                                                 | sealed with the backup key ([backup.md](backup.md))                                                                                             |
+| the books' Aleph key                | the sealed settings of the books                                            | sealed; signs backup orders and, when switched on, Le Space Credits requests – its address is the Credits account, the same on every own device |
+| the passkey's private key           | the authenticator                                                           | never leaves it                                                                                                                                 |
+| the bridge's key                    | the bridge's keychain (`bridge-auth`)                                       | only if the bridge was paired by invitation                                                                                                     |
+| a member vault                      | `localStorage` of the member's browser; on Aleph after a member's backup    | sealed under the member's passkey                                                                                                               |
 
 **How this is checked.** After a session with a passkey, a bank statement and a reload, a test reads everything this site keeps – IndexedDB, `localStorage`, `sessionStorage` and the service worker's cache – and looks for every key of the session, in each way bytes can be written down, and for lines of the statement. It runs in CI against the build that is published (`app/e2e-production`), which has no test hook to ask for its keys: the test listens where keys pass through the browser's cryptography instead. The published files themselves are read for test hooks before each deploy (`scripts/check-production-build.mjs`).
 

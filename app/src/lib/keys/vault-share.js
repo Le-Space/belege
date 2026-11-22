@@ -8,20 +8,47 @@
 // (as `books/successor`, move/rekey.js).
 
 import { getSetting, setSetting } from '../store/settings.js';
-import { successorWrittenBy } from '../move/rekey.js';
 import { sharedRecordOf } from '../books-vault.js';
 
 export const VAULT_RECORD_SETTING = 'books/vault';
 
+/** @param {unknown} value */
+const isRecord = (value) =>
+	Boolean(value && typeof value === 'object' && /** @type {any} */ (value).vault);
+
 /**
- * The record the books keep, as the books wrote it; null when there is none.
+ * Every record the books wrote, oldest or newest alike: two devices may write
+ * before either has the other's, and the log's order says nothing about which
+ * knows more. Merging is the same in any order (books-vault.js
+ * `mergeVaultRecords`), so all are taken. Never a member's entry.
  *
  * @param {any} settingsDb the settings database (`store.databases().settings`)
  * @param {string} booksId the books' identity
+ * @returns {Promise<any[]>}
  */
-export async function readSharedVault(settingsDb, booksId) {
-	const value = await successorWrittenBy(settingsDb, VAULT_RECORD_SETTING, booksId);
-	return value && typeof value === 'object' && value.vault ? value : null;
+export async function readSharedVaults(settingsDb, booksId) {
+	/** @type {Map<string, any>} */
+	const found = new Map();
+	for await (const entry of settingsDb.log.iterator()) {
+		const value = await sharedVaultOf(settingsDb, entry, booksId);
+		if (value) found.set(JSON.stringify(value), value);
+	}
+	return [...found.values()];
+}
+
+/**
+ * The record in one entry of the settings, when the books wrote it; else null.
+ *
+ * @param {any} settingsDb
+ * @param {any} entry a log entry, as read or as it came by sync
+ * @param {string} booksId
+ */
+export async function sharedVaultOf(settingsDb, entry, booksId) {
+	const record = entry?.payload?.value;
+	if (entry?.payload?.op !== 'PUT' || record?.key !== VAULT_RECORD_SETTING) return null;
+	if (record.deleted || !isRecord(record.value)) return null;
+	if ((await settingsDb.access.writerOf(entry)) !== booksId) return null;
+	return record.value;
 }
 
 /**

@@ -23,6 +23,8 @@ import {
 	currentDeviceSync,
 	currentFilePrefetch,
 	deviceLabel,
+	qrInvite as devicesQrInvite,
+	qrScanned as devicesQrScanned,
 	startDeviceSyncIfOn,
 	stopFilePrefetch,
 	watchQrConnections,
@@ -165,7 +167,18 @@ export const app = $state({
 		 */
 		bridgeRoute: 'local',
 		/** When the bridge's node last took the books' device list (#579): its grants are read again. */
-		bridgeDevicesAt: 0
+		bridgeDevicesAt: 0,
+		/**
+		 * A new device with its own passkey asks for the vault (#962): the short
+		 * peer ids on both screens, and the answer; null when none asks.
+		 * @type {{ peer: string, self: string, answer: (yes: boolean) => void } | null}
+		 */
+		handover: null,
+		/**
+		 * This device joins books with its own passkey (#962), step by step.
+		 * @type {{ phase: 'scan' | 'answer' | 'waiting' | 'opening' | 'connecting' | 'done' | 'error', code: string, peer: string, self: string, error: string } | null}
+		 */
+		ownJoin: null
 	},
 	/** @type {StoredRecord[]} */
 	transactions: [],
@@ -649,8 +662,18 @@ async function unlockWith(
 	}
 	session.store.settings.onChange(() => {
 		applyStoredMode().catch(() => {});
-		syncVault();
 	});
+	// The vault as another own device wrote it (#962): read again a moment
+	// after the settings change – an entry that came by sync is sealed in the
+	// event, and read as written only from the log.
+	{
+		/** @type {ReturnType<typeof setTimeout> | undefined} */
+		let soon;
+		session.store.settings.onChange(() => {
+			clearTimeout(soon);
+			soon = setTimeout(() => syncVault(), 500);
+		});
+	}
 	await watchSync();
 	await applyStoredMode();
 	await syncVault();
@@ -848,7 +871,7 @@ async function showVault() {
 		lost: lostSlots
 	};
 	// What changed here goes to the other own devices (#962).
-	syncVault();
+	syncVault([]);
 }
 
 /** One merge at a time (#962). */
@@ -860,28 +883,45 @@ let vaultSync = Promise.resolve();
  * The owner's only; not awaited where it is started, and never a reason for
  * anything else to fail.
  *
+ * @param {any[]} [values] records that just came; none given: every one the books wrote
  * @returns {Promise<void>}
  */
-function syncVault() {
+function syncVault(values) {
 	vaultSync = vaultSync
 		.then(async () => {
 			const open = session;
 			if (!open?.vault || open.member) return;
-			const [{ readSharedVault, shareVault }, { adoptSyncedVault }] = await Promise.all([
+			const [{ readSharedVaults, shareVault }, { adoptSyncedVault }] = await Promise.all([
 				import('./keys/vault-share.js'),
 				import('./books-vault.js')
 			]);
-			const incoming = await readSharedVault(
-				/** @type {any} */ (open.store.databases()).settings,
-				String(open.booksDid)
-			);
+			const incoming =
+				values ??
+				(await readSharedVaults(
+					/** @type {any} */ (open.store.databases()).settings,
+					String(open.booksDid)
+				));
 			if (session !== open || !open.vault) return;
-			const merged = adoptSyncedVault(open.vault, incoming, globalThis.localStorage);
+			let merged = open.vault;
+			for (const value of incoming)
+				merged = adoptSyncedVault(merged, value, globalThis.localStorage);
 			if (merged !== open.vault) {
 				open.vault = merged;
 				await showVault();
 			}
 			await shareVault(open.store.settings, open.vault.record);
+			// A passkey that joined by QR (#962): its own index on Aleph, once the
+			// books keep their vault there and this device may ask Aleph at all.
+			const { OWN_INDEX_PENDING_KEY } = await import('./session/own-join.js');
+			if (
+				globalThis.localStorage?.getItem(OWN_INDEX_PENDING_KEY) &&
+				app.vault.indexOn &&
+				!networkPause() &&
+				(open.mode === 'public' || open.mode === 'both')
+			) {
+				await publishBooksVault();
+				globalThis.localStorage.removeItem(OWN_INDEX_PENDING_KEY);
+			}
 		})
 		.catch((e) => console.warn('the vault for the own devices:', e));
 	return vaultSync;
@@ -1408,6 +1448,46 @@ export function restorePasskey() {
 
 export function unlockStoredPasskey() {
 	return run(async () => loadStoredPasskeyCredential(), t('messages.passkey.notStored'), 'unlock');
+}
+
+/** What joining with an own passkey reads from the session (#962, session/own-join.js). */
+const joinContext = () => ({
+	app,
+	unlock: unlockStoredPasskey,
+	session: () => session,
+	deviceSync: currentDeviceSync,
+	invite: devicesQrInvite,
+	scanned: devicesQrScanned
+});
+
+/**
+ * "Mit eigenem Passkey zu bestehenden Büchern" (#962): this device's own
+ * passkey, and what answers the other device's invite.
+ *
+ * @param {string} label the passkey's name
+ */
+export async function startOwnJoin(label) {
+	app.sync.ownJoin = null;
+	const { startOwnJoin: start } = await import('./session/own-join.js');
+	try {
+		await start(joinContext(), label);
+	} catch (error) {
+		app.sync.ownJoin = null;
+		throw error;
+	}
+}
+
+/** The other device's invite, scanned or pasted (#962). @param {string} text */
+export async function ownJoinScanned(text) {
+	const { ownJoinScanned: scanned } = await import('./session/own-join.js');
+	await scanned(joinContext(), text);
+}
+
+/** Joining with an own passkey, given up (#962). */
+export async function cancelOwnJoin() {
+	const { stopOwnJoin } = await import('./session/own-join.js');
+	await stopOwnJoin();
+	app.sync.ownJoin = null;
 }
 
 /**

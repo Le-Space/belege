@@ -145,7 +145,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 //     nodes the wallet cards suggest, AMD's revocation list; the readable copy
 //     of the own network's relay address; what the invoicing link's node
 //     tells a relay.
-export const CONSENT_VERSION = '59';
+// 60: a device with a passkey of its own gets the books too, by QR, once a
+//     device with the books allowed it – the one exchange before the device
+//     proof; the vault's record syncs with the books (#962).
+export const CONSENT_VERSION = '60';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

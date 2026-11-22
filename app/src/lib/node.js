@@ -670,28 +670,32 @@ export async function startSession(
 		// `adoptSyncedVault`); a vault renewed there is taken with this
 		// passkey's answer, now that it is at hand.
 		if (vault && !membership) {
-			const [{ readSharedVault }, { adoptSyncedVault, adoptNewerVault }] = await Promise.all([
+			const [{ readSharedVaults }, { adoptSyncedVault, adoptNewerVault }] = await Promise.all([
 				import('./keys/vault-share.js'),
 				import('./books-vault.js')
 			]);
 			try {
-				const shared = await readSharedVault(
+				const shared = await readSharedVaults(
 					/** @type {any} */ (store.databases().settings),
 					booksIdentity.id
 				);
-				if (shared?.vault?.id === vault.record.vault.id) {
-					vault = adoptSyncedVault(vault, shared, globalThis.localStorage);
-				} else if (
-					shared?.vault &&
-					Array.isArray(shared.replaces) &&
-					shared.replaces.includes(vault.record.vault.id)
-				) {
+				for (const value of shared) {
+					if (value.vault.id === vault.record.vault.id) {
+						vault = adoptSyncedVault(vault, value, globalThis.localStorage);
+					}
+				}
+				// A vault renewed on another device: the one that replaces this one.
+				const next = shared.find(
+					(value) =>
+						Array.isArray(value.replaces) && value.replaces.includes(vault?.record.vault.id)
+				);
+				if (next) {
 					vault = await adoptNewerVault(
 						vault,
-						shared.vault,
+						next.vault,
 						{ prfOutput: passkeyPrf, rawCredentialId: credential.rawCredentialId },
 						globalThis.localStorage,
-						Array.isArray(shared.slots) ? shared.slots : []
+						Array.isArray(next.slots) ? next.slots : []
 					);
 				}
 			} catch (e) {

@@ -17,6 +17,7 @@
 	import ResetDialog from './storage/ResetDialog.svelte';
 	import PasskeyStepDialog from './PasskeyStepDialog.svelte';
 	import NewBooksDialog from './NewBooksDialog.svelte';
+	import OwnJoin from './sync/OwnJoin.svelte';
 	import { sharedOrigin } from './shared-origin.js';
 	import { stallAfterOf } from './unlock-progress.js';
 	import { otherWindowOpen } from './other-windows.js';
@@ -237,6 +238,12 @@
 						{t('onboarding.words.go')}
 					</button>
 				</div>
+			</details>
+			<details class="text-sm" data-testid="own-join-open">
+				<summary class="cursor-pointer text-text underline hover:text-heading"
+					>{t('onboarding.ownJoin.open')}</summary
+				>
+				<OwnJoin />
 			</details>
 		</div>
 	{/if}
