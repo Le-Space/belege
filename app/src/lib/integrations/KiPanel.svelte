@@ -88,10 +88,13 @@
 
 	/** The bridge was asked again after a failed status: once, until a status comes. */
 	let rechecked = false;
+	/** A status asked for and not answered yet. */
+	let asking = $state(false);
 	async function loadLlmStatus() {
-		llmError = null;
+		asking = true;
 		try {
 			llmStatus = await bridgeClient().llmStatus();
+			llmError = null;
 			rechecked = false;
 			// The AI hints elsewhere follow what the bridge says here (ai-text.js).
 			app.llmRedaction = redactionFromStatus(llmStatus);
@@ -105,6 +108,8 @@
 				rechecked = true;
 				checkBridge();
 			}
+		} finally {
+			asking = false;
 		}
 	}
 	$effect(() => {
@@ -155,6 +160,14 @@
 			{t('integrationen.ki.unreachable', { error: llmError })}
 		</p>
 		<WayOut message={llmError} />
+		<!-- Asked once when the bridge came online: a refusal or a lost answer may not last (#984). -->
+		<button
+			type="button"
+			class="mt-3 min-h-11 rounded-md border border-border px-4 text-sm font-medium text-heading hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+			disabled={asking}
+			onclick={loadLlmStatus}
+			data-testid="ki-retry">{t('integrationen.ki.retry')}</button
+		>
 	{:else if llmStatus}
 		{#if hostedNoModel}
 			<!-- No defaults of a bridge on a computer here: a hosted one takes only the enclave (#754). -->

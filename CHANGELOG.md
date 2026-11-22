@@ -10,6 +10,11 @@ All notable changes to Le Space Belege. The format follows
 
 - **The bridge's node takes requests of up to 1 MiB, and the app reads that instead of cutting at 64 KiB** (#976; Le-Space/ucep-spec#7, Le-Space/ucep-js#13). Armed, the bridge's own node states `limits: { request: 1 MiB }` in its UCEP manifest, an optional field the UCEP spec now defines; only a device that proved the bridge's key at the gate reaches the stream, so no stranger can make the bridge buffer that much. The app reads the stated limit and checks a call against it, with the seal's third counted, instead of a fixed 64 KiB. "✦ Konto vorschlagen" sizes its account list by it: with such a bridge a read-in chart goes with all 600 accounts (up to the bridge's body limit of 256 KiB), with a bridge from before as cut down as by #972. A bridge from before (a hosted VM on an older image) states nothing and keeps 64 KiB; so does a connection through a relay that grants less than 32 MiB. A call too large for the node is still answered 413 `BRIDGE_STREAM_TOO_LARGE` and never handed to HTTP on this machine or to another device. A limit read during pairing, before the bridge was armed, is read again before a call is refused. No new host is contacted.
 
+### Fixed
+
+- **A phone just let in may use the desktop's bridge at once** (#984). A desktop that serves its bridge to the books' other devices asks the bridge what each may call (#579). The bridge knows a device only once the desktop has told it the books' device list, 1.5 s after the settings change; when the bridge's node was not connected at that moment, the list was not told again until the settings changed once more. Meanwhile the desktop refused the phone's calls as if it held no scope ("Dieses Gerät darf an der Bridge nicht: KI-Modell"). A device the bridge does not list yet is now told to it before its call is decided, and a list the bridge did not take is told again every 5 s while the books are open.
+- **The KI card asks again** (#984). It asks the bridge for its status once, when the bridge comes online; after an error it now offers "Status prüfen" instead of staying on the error.
+
 ## [0.53.0] – 2026-11-22
 
 ### Changed
