@@ -43,8 +43,12 @@
 // UCEP's limits hold: a request up to 64 KiB, an answer up to 1 MiB over a
 // direct connection (64 KiB while relayed), 60 s to answer. A stream answer
 // that is too large falls back to HTTP on this machine, when there is one.
+// A request that is too large is not sent: the node would only reset the
+// stream, which says nothing. It is answered here with STREAM_TOO_LARGE and
+// goes nowhere else – HTTP on this machine may be another bridge, paired
+// with another token (#969).
 
-import { UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
+import { LIMITS, UcepError, createConsumer, createProvider, parseInvitation } from '@le-space/ucep';
 import { COMMANDS, checkArgs, command as specOf, httpRequest } from '@le-space/bridge-protocol';
 import { createBlockExchange } from '@le-space/bridge-protocol/exchange';
 import { handoverSecret, sealCall } from '@le-space/bridge-protocol/seal';
@@ -59,6 +63,46 @@ const HTTP_ONLY_PATH = /^\/(pair|unpair)$/;
  * the bridge would answer 401, which is not "unknown device" here.
  */
 export const NODE_UNREACHABLE = 'BRIDGE_NODE_UNREACHABLE';
+
+/** What a call says when its request is larger than the stream takes. */
+export const STREAM_TOO_LARGE = 'BRIDGE_STREAM_TOO_LARGE';
+
+/**
+ * Room for UCEP's own fields around the arguments (request id, extension,
+ * command, timestamp, the framing): the arguments' JSON may take the rest.
+ */
+const REQUEST_ENVELOPE = 512;
+
+/** A request too large for the stream, refused before it is sent. */
+export class StreamTooLarge extends Error {
+	/** @param {string} command @param {number} bytes */
+	constructor(command, bytes) {
+		super(`the call ${command} is too large for the stream (${bytes} bytes)`);
+		this.name = 'StreamTooLarge';
+		this.code = STREAM_TOO_LARGE;
+		this.bytes = bytes;
+	}
+}
+
+/**
+ * Throw StreamTooLarge when these arguments, as they go, do not fit a UCEP request.
+ *
+ * @param {string} command @param {unknown} args
+ */
+export function checkRequestSize(command, args) {
+	const bytes = new TextEncoder().encode(JSON.stringify(args ?? {})).length;
+	if (bytes + REQUEST_ENVELOPE > LIMITS.request) throw new StreamTooLarge(command, bytes);
+}
+
+/** @returns {Response} */
+const tooLarge = () =>
+	new Response(
+		JSON.stringify({
+			error: 'the call is too large for the bridge’s node',
+			code: STREAM_TOO_LARGE
+		}),
+		{ status: 413, headers: { 'content-type': 'application/json' } }
+	);
 
 /** The stream had no connection to the bridge's node (streamFetch), not some other failure. @param {unknown} error */
 const notConnected = (error) =>
@@ -498,8 +542,12 @@ export async function startBridgeConsumer({
 	 */
 	async function callPeer(peerId, name, args, options) {
 		const key = await sealKey(peerId);
-		if (!key) return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), options);
+		if (!key) {
+			checkRequestSize(name, args);
+			return consumer.call(peerId, EXTENSION, name, /** @type {any} */ (args), options);
+		}
 		const call = await sealCall(key, { consumer: self(), provider: peerId, command: name }, args);
+		checkRequestSize(name, call.sent);
 		return call.open(await consumer.call(peerId, EXTENSION, name, call.sent, options));
 	}
 	// Big answers of the bridge's node as blocks (#578): Bitswap on the
@@ -831,6 +879,11 @@ export function grantRefusal(error) {
  * A call without a token (a device paired by invitation only) waits a while
  * for the node: HTTP would only answer 401.
  *
+ * A call too large for the stream is answered 413 with STREAM_TOO_LARGE and
+ * not handed on: the bridge on this machine may be another one than the
+ * books' (a hosted bridge, a local one paired again since), with a token of
+ * another pairing, and its 401 would send the person to pair for nothing.
+ *
  * @param {{ local?: typeof fetch, stream?: () => ((input: any, init?: RequestInit, options?: { waitMs?: number }) => Promise<Response>) | null, remote: () => ((input: any, init?: RequestInit) => Promise<Response>) | null, onRoute?: (route: 'stream' | 'local' | 'device') => void, waitMs?: number }} p
  * @returns {typeof fetch}
  */
@@ -858,6 +911,7 @@ export function bridgeFetch({
 					onRoute('stream');
 					return res;
 				} catch (error) {
+					if (error instanceof StreamTooLarge) return tooLarge();
 					// Not connected, or the answer too big for the stream: HTTP, when there is one.
 					nodeMissing = !hasToken && notConnected(error);
 				}
@@ -884,9 +938,14 @@ export function bridgeFetch({
 				onRoute('local');
 				return /** @type {Response} */ (gone);
 			}
-			const res = await through(input, { ...init, headers });
-			onRoute('device');
-			return res;
+			try {
+				const res = await through(input, { ...init, headers });
+				onRoute('device');
+				return res;
+			} catch (error) {
+				if (error instanceof StreamTooLarge) return tooLarge();
+				throw error;
+			}
 		}
 	);
 }

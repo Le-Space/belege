@@ -444,7 +444,10 @@ export default {
 		bridge: {
 			unreachable:
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
-			unknownDevice: 'Die Bridge kennt dieses Gerät nicht (neu koppeln).',
+			unknownDevice:
+				'Die Bridge auf diesem Computer kennt dieses Gerät nicht: Ihr Token stammt von einer früheren Kopplung. Neu koppeln mit der Bridge auf diesem Computer hilft – eine gehostete Bridge betrifft das nicht.',
+			streamTooLarge:
+				'Die Anfrage ist zu groß für den Knoten der Bridge und wurde nicht gesendet. Neu koppeln ist nicht nötig.',
 			nodeUnreachable:
 				'Der Knoten der Bridge ist über das Netz gerade nicht erreichbar. Neu koppeln ist nicht nötig: Sieh im Menü „Netzwerk“ oben nach, ob ein Le-Space-Relay erreichbar ist, und lade sonst die Seite neu.',
 			hostedUnreachable: {

@@ -7,9 +7,20 @@
 // terms) before anything goes to a model; nothing here is the redaction.
 import { formatMoney } from '../bank/format.js';
 import { eventCalls } from '../stats/usage.js';
-import { accountsForAssist, learnedForAssist } from './assist-input.js';
+import {
+	MAX_ASSIST_BYTES,
+	accountsForAssist,
+	jsonBytes,
+	learnedForAssist
+} from './assist-input.js';
 
 /** @typedef {Record<string, any>} Rec */
+
+/**
+ * What the bridge client adds to the call (client.js `withTerms`, up to 20
+ * terms of up to 200 characters) and the stream (`$accept`), kept free.
+ */
+export const ASSIST_RESERVE = 20 * 203 + 64;
 
 /** @param {number} cents */
 const plainMoney = (cents) => formatMoney(Math.abs(cents), 'EUR').replace(/\s*EUR$/, '');
@@ -33,7 +44,7 @@ export function assistBody({ tx, receipt, own, partners, catalogue, chart, learn
 		tx.purpose,
 		receipt?.vendor ?? ex.vendor
 	]);
-	return {
+	const body = {
 		booking: {
 			direction: (tx.amountCents ?? 0) > 0 ? 'in' : 'out',
 			amount: plainMoney(tx.amountCents ?? 0),
@@ -60,8 +71,20 @@ export function assistBody({ tx, receipt, own, partners, catalogue, chart, learn
 				}
 			: null,
 		learned,
-		accounts: accountsForAssist(catalogue, learned, chart, learnedName)
+		/** @type {{ number: string, name: string }[]} */
+		accounts: []
 	};
+	body.accounts = accountsForAssist(catalogue, learned, chart, learnedName, {
+		hints: [
+			body.booking.counterparty,
+			body.booking.purpose,
+			body.receipt?.vendor,
+			...(body.receipt?.items ?? [])
+		],
+		income: body.booking.direction === 'in',
+		budget: MAX_ASSIST_BYTES - ASSIST_RESERVE - jsonBytes(body)
+	});
+	return body;
 }
 
 /**
