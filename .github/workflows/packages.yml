@@ -63,6 +63,20 @@ jobs:
             echo "Chromium download try $try did not finish; trying again"
           done
           exit 1
+      # @le-space/video-kit composes recordings with ffmpeg; its stage test
+      # builds clips with it. Installed only when the kit is in this run.
+      - name: ffmpeg for the video kit
+        timeout-minutes: 5
+        env:
+          FILTER: ${{ steps.which.outputs.filter }}
+        run: |
+          if ! pnpm --filter "$FILTER" ls --depth -1 --json | grep -q '"name": "@le-space/video-kit"'; then
+            echo "@le-space/video-kit is not in this run: no ffmpeg needed"
+            exit 0
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
       # Only the packages: the root, the bridge (with its launcher) and the app
       # have workflows of their own, and the dependents' filter would pick them too.
       - name: Format
