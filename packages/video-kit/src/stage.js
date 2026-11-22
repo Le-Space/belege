@@ -189,6 +189,8 @@ export async function startStage(
 	const cues = [];
 	/** @type {number | null} */
 	let start = null;
+	/** Stretches compose.js leaves out (cue clock, ms). @type {{ from: number, to: number }[]} */
+	const cuts = [];
 	const painted = (/** @type {import('@playwright/test').Page} */ page) =>
 		page.evaluate(
 			() =>
@@ -267,6 +269,22 @@ export async function startStage(
 				el.classList.toggle('on', text != null);
 			}, text);
 		},
+		/**
+		 * Run `act` and leave its time out of the film: a wait the viewer need
+		 * not sit through (an answer that takes a while). Nothing should be said
+		 * meanwhile – a line in a cut is cut with it.
+		 * @template T @param {() => Promise<T>} act @returns {Promise<T>}
+		 */
+		async cutWhile(act) {
+			const from = Date.now() - t0;
+			try {
+				return await act();
+			} finally {
+				// A moment of the result stays in: the cut ends just before it shows.
+				const to = Date.now() - t0 - 300;
+				if (to > from) cuts.push({ from, to });
+			}
+		},
 		/** Silence for a moment. */
 		beat: (ms = 1200) => stagePage.waitForTimeout(ms),
 		/** The picture is ready from here: compose.js cuts what comes before. */
@@ -314,6 +332,7 @@ export async function startStage(
 						stage: { video: stageVideo, ...viewport, devices: placed },
 						marker: markers.stage,
 						start,
+						cuts,
 						cues
 					},
 					null,

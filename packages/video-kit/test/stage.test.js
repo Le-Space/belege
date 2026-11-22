@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { composeStage } from '../src/compose.js';
+import { composeStage, cutCues } from '../src/compose.js';
 import { stageHtml } from '../src/stage.js';
 
 test('the stage page frames each device at its place, scaled, its name escaped', () => {
@@ -139,6 +139,64 @@ test('the devices are laid onto the stage, each on the cues’ clock', () => {
 			);
 			assert.ok(Number(/YAVG=([\d.]+)/.exec(y_)?.[1]) < 60, `the device at ${x},${y} is dark`);
 		}
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('a cut stretch drops its cues and moves the later ones up', () => {
+	const cues = [{ t: 500 }, { t: 2500 }, { t: 6000 }];
+	assert.deepEqual(cutCues(cues, [{ from: 2000, to: 5000 }]), [{ t: 500 }, { t: 3000 }]);
+});
+
+test('a stage with a cut is shorter by it, picture and voice alike', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'video-kit-cut-'));
+	try {
+		clip(join(dir, 'stage.webm'), { width: 320, height: 180, white: 0.4, dark: 6 });
+		clip(join(dir, 'a.webm'), { width: 120, height: 80, white: 0.4, dark: 6 });
+		execFileSync('ffmpeg', [
+			'-nostdin',
+			'-v',
+			'error',
+			'-y',
+			'-f',
+			'lavfi',
+			'-i',
+			'sine=d=0.5',
+			join(dir, 'line.mp3')
+		]);
+		composeStage(
+			{
+				name: 'cut.en',
+				marker: 0,
+				start: 0,
+				cuts: [{ from: 1000, to: 3500 }],
+				stage: {
+					video: join(dir, 'stage.webm'),
+					width: 320,
+					height: 180,
+					devices: [
+						{
+							name: 'a',
+							video: join(dir, 'a.webm'),
+							marker: 0,
+							x: 10,
+							y: 20,
+							width: 120,
+							height: 80
+						}
+					]
+				},
+				cues: [
+					{ t: 500, text: 'Before.', durationMs: 400, file: join(dir, 'line.mp3') },
+					{ t: 4000, text: 'After.', durationMs: 400, file: join(dir, 'line.mp3') }
+				]
+			},
+			dir
+		);
+		const seconds = Number(probe(join(dir, 'cut.en.mp4'), 'format=duration'));
+		assert.ok(seconds > 3 && seconds < 4.1, `${seconds} s: about 6 s less the 2.5 s cut`);
+		assert.match(readFileSync(join(dir, 'cut.en.srt'), 'utf8'), /00:00:01,500 --> [^\n]*\nAfter\./);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
