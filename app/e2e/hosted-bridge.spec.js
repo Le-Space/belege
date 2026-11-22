@@ -40,7 +40,7 @@ import { device } from './devices.js';
 import { stopBridge } from './bridge.js';
 
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
-const IMAGE = '4a55c51cc24d19e15bea436371cb0d8bbac307e16a910f065633d7eea08b8d30';
+const IMAGE = 'db43f996e5d9b21b7f1f368dac23a12b339957a5f4ee5cb7c949da20d073ad9a';
 const VM = 'a'.repeat(64);
 const CRN = 'e'.repeat(64);
 const PUBLISHED = '11'.repeat(48);
@@ -913,7 +913,7 @@ test('a VM from the books’ own image (#777): no passphrase typed, the derived 
 	test.setTimeout(180_000);
 	const OWN = 'b'.repeat(64);
 	// The plain image the pinned builder seals (integrations/hosted-image.js BRIDGE_BUILDER).
-	const PLAIN = '444782e9b2dcd85853dfc4e38ea99b69129679608a50018eb421532737ee82ae';
+	const PLAIN = 'e3e2cd565300f9a1e55651c8f3b80a6084a935e07fec05204b99052be84f82fb';
 	const mac = await device(browser);
 	await mac.page.addInitScript(
 		(url) => localStorage.setItem('belege.e2e.alephUrl', url),

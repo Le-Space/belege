@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The hosted bridge on Aleph boots the bridge of v0.52.0, and the books' own image is built from it** (#968, #966). The shared image (STORE `db43f996…`) and the plain image an own image is sealed from (`e3e2cd56…`, published for the attested builder in NiKrause/relay-button) were built from the tag v0.52.0; before, both held the bridge of v0.50.0, without the NEAR storage deposits tied to their swap and without the Bitcoin reading by extended key. An own image built before says so on the card: "Neu bauen", then start a new VM – a running VM keeps the image it started with.
+
 ## [0.52.0] – 2026-11-22
 
 ### Added

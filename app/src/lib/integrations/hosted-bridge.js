@@ -30,7 +30,7 @@ import { pinsOf, unlockInstance } from '@le-space/attest-wasm/instance';
  * workflow's release (bridge-image.json), encrypted, published on Aleph. A new
  * image is a new release of the app, with this hash changed.
  */
-export const HOSTED_IMAGE = '4a55c51cc24d19e15bea436371cb0d8bbac307e16a910f065633d7eea08b8d30';
+export const HOSTED_IMAGE = 'db43f996e5d9b21b7f1f368dac23a12b339957a5f4ee5cb7c949da20d073ad9a';
 
 /** The sealed settings record: which VM, its name, the bridge's own peer key, when it was attested. */
 export { HOSTED_SETTING } from '$lib/bridge-connection/record.js';
