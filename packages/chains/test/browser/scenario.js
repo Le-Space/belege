@@ -20,6 +20,8 @@ import {
 import { fetchRaw, mapRaw } from '../../src/near.js';
 import { alephEntries, createAlephClient } from '../../src/aleph.js';
 import { alephFetch } from '../support/aleph-fetch.js';
+import { statementBitcoin } from '../../src/bitcoin-address.js';
+import { btcTx, fakeBitcoinAddress, fakeEsplora } from '../support/fake-esplora.js';
 import { ACCOUNT, VM, flatUsd, sampleBalance, sampleRows } from '../support/aleph-sample.js';
 import day from '../fixtures/relay-aurora-2026-11-01.json' with { type: 'json' };
 
@@ -66,8 +68,21 @@ export default async function scenario() {
 		rates: flatUsd,
 		now: () => new Date('2026-09-10T00:00:00Z')
 	}).statement({ address: ACCOUNT, month: '2026-08' });
+	const own = fakeBitcoinAddress('own address');
+	const esplora = fakeEsplora({
+		txs: [btcTx('paid', 300, [[fakeBitcoinAddress('a customer'), 20_000]], [[own, 10_000]])]
+	});
+	const bitcoin = await statementBitcoin({
+		account: own,
+		from: '2026-01-01',
+		to: '2027-12-31',
+		fetch: esplora.fetch,
+		endpoints: { api: esplora.url },
+		sleep: async () => {}
+	});
 	return {
 		aleph: { statement: aleph, entries: alephEntries(aleph) },
+		bitcoin: { closing: bitcoin.closing.BTC, entries: bitcoin.entries.length },
 		feeCollector: moduleAddress('akash', 'fee_collector'),
 		isCosmos: isCosmosAddress(moduleAddress('n', 'distribution'), 'n'),
 		tx: decodeTx(tx),

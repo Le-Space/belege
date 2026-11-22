@@ -32,24 +32,18 @@
 // only the fee is spent – the entry names the operation and the name. A name
 // that goes to another address takes its 0.01 DOI along, as a transfer.
 
-import { bech32, bech32m, createBase58check } from '@scure/base';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { fromHex, toHex } from '@le-space/ledger/bytes';
 import { unitsToDecimal } from '@le-space/ledger/decimal';
 import { derivedStatement, fromWalletEntry, sortEntries } from '@le-space/ledger';
 
+import { scriptOf as scriptOfAddress } from './address-script.js';
 import { normalizeBitcoin } from './bitcoin.js';
 import { DOICHAIN } from './doichain-chain.js';
 import { connectElectrum } from './electrum.js';
 import { WalletError } from './http.js';
 
 export { DOICHAIN };
-
-const base58check = createBase58check(sha256);
-/** Requests in flight at once on the one connection. */
-const PARALLEL = 8;
-/** A name on a document: long enough for an e-mail name, not a whole value. */
-const NAME_LENGTH = 80;
 
 /**
  * The output script of an address, or null where it is none of this chain.
@@ -58,48 +52,12 @@ const NAME_LENGTH = 80;
  * @param {import('./doichain-chain.js').DoichainChain} [chain]
  * @returns {Uint8Array | null}
  */
-export function scriptOf(address, chain = DOICHAIN) {
-	if (typeof address !== 'string' || address.length < 26 || address.length > 90) return null;
-	const { bech32: prefix, pubKeyHash, scriptHash } = chain.address;
-	if (address.toLowerCase().startsWith(`${prefix}1`)) {
-		for (const coder of [bech32, bech32m]) {
-			try {
-				const { prefix: found, words } = coder.decode(
-					/** @type {`${string}1${string}`} */ (address),
-					90
-				);
-				if (found !== prefix || words.length < 1) return null;
-				const version = words[0];
-				const program = coder.fromWords(words.slice(1));
-				// Version 0 is bech32 with a 20 or 32 byte program; 1 to 16 are bech32m (BIP350).
-				if (version === 0 && coder === bech32 && (program.length === 20 || program.length === 32))
-					return Uint8Array.of(0x00, program.length, ...program);
-				if (
-					version >= 1 &&
-					version <= 16 &&
-					coder === bech32m &&
-					program.length >= 2 &&
-					program.length <= 40
-				)
-					return Uint8Array.of(0x50 + version, program.length, ...program);
-				return null;
-			} catch {
-				// the other checksum, or no address
-			}
-		}
-		return null;
-	}
-	try {
-		const payload = base58check.decode(address);
-		if (payload.length !== 21) return null;
-		const hash = payload.subarray(1);
-		if (payload[0] === pubKeyHash) return Uint8Array.of(0x76, 0xa9, 0x14, ...hash, 0x88, 0xac);
-		if (payload[0] === scriptHash) return Uint8Array.of(0xa9, 0x14, ...hash, 0x87);
-	} catch {
-		// no base58check
-	}
-	return null;
-}
+export const scriptOf = (address, chain = DOICHAIN) => scriptOfAddress(address, chain);
+
+/** Requests in flight at once on the one connection. */
+const PARALLEL = 8;
+/** A name on a document: long enough for an e-mail name, not a whole value. */
+const NAME_LENGTH = 80;
 
 /** @param {string} address @param {import('./doichain-chain.js').DoichainChain} [chain] */
 export const isDoichainAddress = (address, chain = DOICHAIN) => scriptOf(address, chain) !== null;

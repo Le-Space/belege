@@ -51,3 +51,14 @@ test('@le-space/chains/doichain bundles for a browser without the registry or a 
 	assert.match(code, /doi\.works/);
 	assert.doesNotMatch(code, /alchemy\.com|blockscout|filfox|xmrchain|coingecko|coinpaprika/i);
 });
+
+test('@le-space/chains/bitcoin-address bundles for a browser without the registry, Doichain or a price feed', async () => {
+	const code = await bundleForBrowser([import.meta.resolve('@le-space/chains/bitcoin-address')], {
+		treeshake: false
+	});
+	assert.match(code, /mempool\.space\/api/);
+	assert.doesNotMatch(
+		code,
+		/doi\.works|alchemy\.com|blockscout|filfox|xmrchain|coingecko|coinpaprika/i
+	);
+});
