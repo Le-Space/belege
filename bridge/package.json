@@ -57,7 +57,7 @@
 		"@le-space/chains": "workspace:^",
 		"@le-space/orbitdb-storage-bridge": "0.29.0",
 		"@le-space/rates": "workspace:^",
-		"@le-space/ucep": "0.2.0-draft.5",
+		"@le-space/ucep": "0.2.0-draft.6",
 		"@libertai/confidential-inference": "0.1.0",
 		"@libp2p/circuit-relay-v2": "4.2.9",
 		"@libp2p/crypto": "5.1.23",
