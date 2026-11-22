@@ -109,7 +109,7 @@ export function conversionText(currency) {
 	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
 	if (documentCurrency(currency) === 'EUR') return '';
 	if (DOCUMENT_CURRENCIES[currency].via === 'cbr')
-		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag (bis 01.03.2022 ${ecb})`;
+		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag`;
 	return `über den Euro in ${currency} umgerechnet ${ecb}`;
 }
 
