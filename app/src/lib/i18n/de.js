@@ -27,6 +27,7 @@ export default {
 		readerBooks: 'Bücher von „{books}“ – du liest mit',
 		did: 'Deine DID (der öffentliche Schlüssel deines Passkeys)',
 		localOnly: 'Nur dieses Gerät',
+		verlauf: 'Verlauf: was die App getan hat und was du entschieden hast',
 		localOnlyTitle: 'Netzwerk aus: kein Peer-to-Peer, kein Relay, kein Server. Mehr dazu …',
 		network: {
 			both: 'Im Netz: Geräte + Rechnungs-App',
@@ -2707,7 +2708,9 @@ export default {
 				travellers: 'Wer reist, und auf welches Konto',
 				keys: 'Passkeys, Wiederherstellungswörter, neue Schlüssel',
 				storage: 'Was die Bücher belegen, und Zurücksetzen',
-				privacy: 'Wo deine Daten liegen und was den Rechner verlässt'
+				privacy: 'Wo deine Daten liegen und was den Rechner verlässt',
+				verlauf:
+					'Was die App von selbst getan hat – Abrufe, Auslesen, Abgleich – und was du entschieden hast'
 			}
 		},
 		nav: {
@@ -2720,8 +2723,10 @@ export default {
 			chart: 'Kontenplan',
 			travellers: 'Reisende',
 			keys: 'Schlüssel',
-			privacy: 'Datenschutz & Technik'
+			privacy: 'Datenschutz & Technik',
+			verlauf: 'Verlauf'
 		},
+		verlaufGroups: 'Direkt zu',
 		keys: {
 			title: 'Schlüssel',
 			words: {
@@ -5659,6 +5664,7 @@ export default {
 				summaryUpdated: 'aktualisiert: {count}',
 				summaryUnpriced: 'ohne Kurs: {count}',
 				summaryFailed: 'nicht abrufbar: {count} Wallets',
+				summarySuperseded: 'Ersetzt: {count}',
 				close: 'Schließen',
 				tab: 'Wallets werden synchronisiert: {percent} %',
 				notifyTitle: 'Belege: Wallets synchronisiert',
@@ -5745,6 +5751,8 @@ export default {
 			add: 'Hinzufügen',
 			addressLink: 'Adresse im Block-Explorer',
 			lastSync: 'zuletzt synchronisiert {date}',
+			superseded: 'Ersetzt: {count}',
+			supersededTitle: 'Im Verlauf ansehen, welche Buchungen ersetzt wurden',
 			sync: 'Synchronisieren',
 			syncing: 'Synchronisiere …',
 			remove: 'Entfernen (Buchungen bleiben)',

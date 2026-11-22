@@ -12,6 +12,7 @@
 	import { consent } from '$lib/consent.js';
 	import { t } from '$lib/i18n/index.js';
 	import { SETTINGS_SECTIONS, sectionOfAnchor, tileStates } from '$lib/settings/sections.js';
+	import { GROUPS } from '$lib/activity/events.js';
 
 	// Also when the overview is already open and only the anchor changes.
 	$effect(() => {
@@ -78,5 +79,29 @@
 				<span class="block text-sm text-text">{t('settings.tile.about.privacy')}</span>
 			</span>
 		</button>
+	</li>
+	<!-- The Verlauf (#967): what the app did on its own, and a way straight to each group. -->
+	<li>
+		<a href={resolve('/verlauf')} class={tile} data-testid="settings-tile-verlauf">
+			<span
+				class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-sm font-bold text-heading"
+				aria-hidden="true">Ve</span
+			>
+			<span class="min-w-0 flex-1">
+				<span class="block font-semibold text-heading">{t('settings.nav.verlauf')}</span>
+				<span class="block text-sm text-text">{t('settings.tile.about.verlauf')}</span>
+			</span>
+			<span aria-hidden="true" class="text-lg text-faint">›</span>
+		</a>
+		<p class="mt-1 px-1 text-xs text-text" data-testid="settings-verlauf-groups">
+			{t('settings.verlaufGroups')}:
+			{#each GROUPS as g, i (g)}{#if i},
+				{/if}<a
+					class="underline hover:text-heading"
+					href={`${resolve('/verlauf')}?group=${g}`}
+					data-testid="settings-verlauf-group"
+					data-group={g}>{t(`verlauf.groupName.${g}`)}</a
+				>{/each}
+		</p>
 	</li>
 </ul>

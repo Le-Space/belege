@@ -8,6 +8,7 @@
  * @property {number} newEntries bookings new to the books
  * @property {number} updated bookings changed
  * @property {number} unpriced bookings without a rate
+ * @property {number} superseded bookings taken out because another entry replaced them
  * @property {number} failed wallets that could not be read
  * @property {number} withNew wallets that brought new bookings
  */
@@ -17,7 +18,7 @@
  * @param {object} p
  * @param {W[]} p.wallets in the order to ask them
  * @param {(wallet: W) => Promise<R>} p.syncOne one wallet's sync; throws on failure
- * @param {(result: R) => { new: number, updated: number, unpriced: number }} p.countsOf
+ * @param {(result: R) => { new: number, updated: number, unpriced: number, superseded?: number }} p.countsOf
  * @param {(progress: { done: number, count: number, current: W | null }) => void} [p.onProgress]
  * @param {() => boolean} [p.stopped] asked before each wallet
  * @returns {Promise<TurnSummary>}
@@ -30,7 +31,15 @@ export async function syncInTurn({
 	stopped = () => false
 }) {
 	/** @type {TurnSummary} */
-	const summary = { wallets: 0, newEntries: 0, updated: 0, unpriced: 0, failed: 0, withNew: 0 };
+	const summary = {
+		wallets: 0,
+		newEntries: 0,
+		updated: 0,
+		unpriced: 0,
+		superseded: 0,
+		failed: 0,
+		withNew: 0
+	};
 	const count = wallets.length;
 	for (const [done, wallet] of wallets.entries()) {
 		if (stopped()) break;
@@ -41,6 +50,7 @@ export async function syncInTurn({
 			summary.newEntries += counts.new;
 			summary.updated += counts.updated;
 			summary.unpriced += counts.unpriced;
+			summary.superseded += counts.superseded ?? 0;
 			if (counts.new > 0) summary.withNew += 1;
 		} catch {
 			summary.failed += 1;

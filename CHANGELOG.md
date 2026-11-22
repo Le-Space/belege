@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The Verlauf from every page, and a wallet sync says what it replaced** (#967). The header has a clock beside the gear that opens the Verlauf; Einstellungen has a Verlauf tile that says what it holds, with a link straight to each group (Auslesen, Abgleich, Abruf, Entscheidung). When a wallet's sync takes bookings out because another entry replaced them (#898), its result adds "Ersetzt: n", linked to the Verlauf's Abruf; so does the note of "Alle Wallets synchronisieren", which before looked like a sync that did nothing.
+
 ### Changed
 
 - **A NEAR storage deposit made for a swap is part of the swap** (#968; `@le-space/chains` 0.8.0, `@le-space/ledger` 0.3.1). Before a swap the wallet or the DEX registers the account at the contracts it touches (`storage_deposit`, `tokens_storage_deposit`), each in a transaction of its own; each was a booking of its own in Zahlungen, "ohne Konto". Now a deposit the account sent at most five minutes before a swap, to a contract the swap involves – a token given or got (wNEAR counts as NEAR) or the DEX that took it – is a cost of that swap, as its gas: the reader gives it as a fee naming the swap's transaction (`partOf`), and so the gas of its own transaction; the swap's sides name what the deposits kept (`storage`), so its legs, its gas and its Eigenbeleg say so. In the app it is a network fee shown with the swap, needs no receipt of its own, takes the account the swap's gas is booked on (`booking.via: 'swap'`, before the network fee rule) and goes into the DATEV export as its own fee line on that account. A refund (`storage_withdraw`, `storage_unregister`) is never tied; a deposit that matches no swap stays as it is. A booking an earlier sync made of such a deposit is changed in place on the next sync, not booked twice. It needs a bridge of this version and one more "Synchronisieren".
