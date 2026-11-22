@@ -19,7 +19,8 @@ other Le Space apps for their own films.
   1920×1080 and scaled with the viewport), and one more page for the stage:
   the night, a frame and a name per device, the caption bar, `note` ("Internet:
   off"), `overlay` (a panel of text) and `focus` (a ring around the devices to
-  look at). `say`, `sayWhile`, `click(page, locator)`, `type`, `beat`,
+  look at). `cutWhile(act)` leaves an action's time out of the film (a wait
+  for an answer). `say`, `sayWhile`, `click(page, locator)`, `type`, `beat`,
   `markStart` as in a scene; `finish({ name })` closes every context and
   writes the stage's `cues.json`. `composeResults` lays each device's video
   onto the stage's, every one on the cues' clock by its own dark frame, and the
