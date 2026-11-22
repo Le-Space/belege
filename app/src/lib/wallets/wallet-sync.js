@@ -785,7 +785,7 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 	/** @type {Map<string, { decimals: number, balance: string | null, contract?: string }>} */
 	const wanted = new Map();
 	for (const e of result.entries) {
-		// A token not in the list (#115): its balance is not read, so none is claimed.
+		// A token not in the list (#115): no balance claimed unless the reader read one (#93).
 		if (!wanted.has(e.asset)) {
 			wanted.set(e.asset, {
 				decimals: e.decimals,
@@ -796,7 +796,13 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 	}
 	for (const b of result.balances) {
 		if (wanted.has(b.asset) || !/^0(\.0*)?$/.test(b.amount)) {
-			wanted.set(b.asset, { decimals: b.decimals, balance: b.amount });
+			// An unlisted token keeps the contract it is priced by.
+			const contract = wanted.get(b.asset)?.contract ?? /** @type {any} */ (b).contract;
+			wanted.set(b.asset, {
+				decimals: b.decimals,
+				balance: b.amount,
+				...(contract ? { contract } : {})
+			});
 		}
 	}
 

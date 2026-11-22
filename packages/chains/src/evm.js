@@ -24,10 +24,13 @@
 //   - a failed transaction (isError 1 or txreceipt_status 0) moved nothing
 //     but its gas.
 //   - value out or in: an entry sent or received; to itself: none.
-//   - ERC-20: only the contracts listed for the chain, with the symbol and
+//   - ERC-20: the contracts listed for the chain, with the symbol and
 //     decimals from the list, never from the token (anyone can deploy a
-//     contract called "USDC"). Others are counted and left out as bookings,
-//     but a swap names them (below).
+//     contract called "USDC"). An unlisted token is booked by its contract,
+//     its symbol marked as its own claim, once this address sent it itself
+//     or the caller names it (#115, #93), and its balance is read with the
+//     others; never under a lookalike symbol. The rest – an airdrop never
+//     touched, spam – is counted and left out, but a swap names it (below).
 //   - a swap (issue #115): in one transaction the wallet gives one asset and
 //     gets another – a token to a router and ETH back as an internal
 //     transfer, say. Its booked legs become kind `swap` and carry what went
@@ -94,9 +97,14 @@ function isoOf(seconds) {
  * @param {object} context
  * @param {string} context.address lower case
  * @param {import('./registry.js').EvmChain} context.chain
- * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownTokens: string[] }}
+ * @param {string[]} [context.tokens] unlisted token contracts (lower case) to book although this
+ *   address only received them (#93); a lookalike symbol stays out all the same
+ * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownTokens: string[], unlistedTokens: { contract: string, symbol: string, decimals: number }[] }}
  */
-export function normalizeEvm({ normal, internal, tokens, senders = {} }, { address, chain }) {
+export function normalizeEvm(
+	{ normal, internal, tokens, senders = {} },
+	{ address, chain, tokens: wanted = [] }
+) {
 	// The transactions this address sent itself; a token that left in any other
 	// was moved by someone else – a burn by the token's project (issue #162).
 	/** @type {Set<string>} */
@@ -236,8 +244,10 @@ export function normalizeEvm({ normal, internal, tokens, senders = {} }, { addre
 
 	// Tokens not in the list (issue #115): booked in an account of their own
 	// once the wallet has sent them itself – an airdrop it never touched is
-	// not booked. Never under a symbol that is a listed asset's or another
-	// token's already (a contract can call itself anything): those stay out.
+	// not booked, unless the caller names its contract (#93). Never under a
+	// symbol that is a listed asset's or another token's already (a contract
+	// can call itself anything): those stay out.
+	const named = new Set(wanted.map((c) => String(c).toLowerCase()));
 	const reserved = new Set([
 		native.symbol,
 		...Object.values(chain.tokens).map((t) => t.symbol),
@@ -250,7 +260,7 @@ export function normalizeEvm({ normal, internal, tokens, senders = {} }, { addre
 	for (const raw of tokens) {
 		const contract = String(raw.contractAddress ?? '').toLowerCase();
 		if (Object.hasOwn(chain.tokens, contract) || used.has(contract)) continue;
-		if (String(raw.from ?? '').toLowerCase() !== address) continue;
+		if (String(raw.from ?? '').toLowerCase() !== address && !named.has(contract)) continue;
 		const symbol = String(raw.tokenSymbol ?? '').toUpperCase();
 		const decimals = Number(raw.tokenDecimal);
 		if (
@@ -344,7 +354,59 @@ export function normalizeEvm({ normal, internal, tokens, senders = {} }, { addre
 
 	entries.sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0));
 	const result = entries.map(({ order: _order, ...e }) => e);
-	return { entries: result, unknownTokens: [...unknownTokens] };
+	return {
+		entries: result,
+		unknownTokens: [...unknownTokens],
+		// Booked although not in the list, by contract: their balances belong to the statement.
+		unlistedTokens: [...used]
+			.map(([contract, t]) => ({ contract, ...t }))
+			.sort((a, b) => (a.contract < b.contract ? -1 : a.contract > b.contract ? 1 : 0))
+	};
+}
+
+/**
+ * The balances a reader read → the balances of a result: the native coin, the
+ * listed tokens in the list's order, then the unlisted tokens booked, by
+ * contract, each marked as such. An unlisted token read but not booked is left
+ * out, as its entries are.
+ *
+ * @param {import('./registry.js').EvmChain} chain
+ * @param {Map<string, bigint>} read contract (lower case) or `native` → units
+ * @param {{ contract: string, symbol: string, decimals: number }[]} unlistedTokens
+ * @returns {{ asset: string, amount: string, decimals: number, contract?: string, listed?: false }[]}
+ */
+function balancesOf(chain, read, unlistedTokens) {
+	/** @type {{ asset: string, amount: string, decimals: number, contract?: string, listed?: false }[]} */
+	const out = [];
+	const native = read.get('native');
+	if (native !== undefined) {
+		out.push({
+			asset: chain.native.symbol,
+			amount: unitsToDecimal(native, chain.native.decimals),
+			decimals: chain.native.decimals
+		});
+	}
+	for (const [contract, token] of Object.entries(chain.tokens)) {
+		const units = read.get(contract);
+		if (units === undefined) continue;
+		out.push({
+			asset: token.symbol,
+			amount: unitsToDecimal(units, token.decimals),
+			decimals: token.decimals
+		});
+	}
+	for (const t of unlistedTokens) {
+		const units = read.get(t.contract);
+		if (units === undefined) continue;
+		out.push({
+			asset: t.symbol,
+			amount: unitsToDecimal(units, t.decimals),
+			decimals: t.decimals,
+			contract: t.contract,
+			listed: false
+		});
+	}
+	return out;
 }
 
 /**
@@ -544,8 +606,10 @@ export function createEvmClient({
 		 * @param {{ api: string }} params.endpoints already checked
 		 * @param {boolean} [params.ownEndpoint] the wallet names its own API: that one is asked,
 		 *   never Alchemy
+		 * @param {string[]} [params.tokens] unlisted token contracts to book although only
+		 *   received (#93)
 		 */
-		async history({ chain, address, endpoints, ownEndpoint = false }) {
+		async history({ chain, address, endpoints, ownEndpoint = false, tokens: named = [] }) {
 			if (!isEvmAddress(address)) {
 				throw new WalletError(
 					'not an EVM address (0x and 40 hex digits; mixed case must match its EIP-55 checksum)',
@@ -554,6 +618,13 @@ export function createEvmClient({
 				);
 			}
 			const lower = address.toLowerCase();
+			const wanted = [
+				...new Set(
+					(Array.isArray(named) ? named : [])
+						.map((c) => String(c).toLowerCase())
+						.filter((c) => /^0x[0-9a-f]{40}$/.test(c) && !Object.hasOwn(chain.tokens, c))
+				)
+			];
 			const key = chain.alchemy && !ownEndpoint && alchemy ? await alchemy.key() : null;
 			if (key) {
 				const network = /** @type {import('./registry.js').AlchemyNetwork} */ (chain.alchemy);
@@ -568,19 +639,15 @@ export function createEvmClient({
 						: async () => {
 								await checkChain(endpoints.api, chain);
 								return list(endpoints.api, 'txlistinternal', lower, internalKey);
-							}
+							},
+					tokens: wanted
 				});
-				const { entries, unknownTokens } = normalizeEvm(read, { address: lower, chain });
-				/** @type {{ asset: string, amount: string, decimals: number }[]} */
-				const balances = [];
-				for (const [what, units] of read.balances) {
-					const asset = what === 'native' ? chain.native : chain.tokens[what];
-					balances.push({
-						asset: asset.symbol,
-						amount: unitsToDecimal(units, asset.decimals),
-						decimals: asset.decimals
-					});
-				}
+				const { entries, unknownTokens, unlistedTokens } = normalizeEvm(read, {
+					address: lower,
+					chain,
+					tokens: wanted
+				});
+				const balances = balancesOf(chain, read.balances, unlistedTokens);
 				return {
 					source: /** @type {const} */ ('alchemy'),
 					internalSource: network.internal ? 'alchemy' : 'blockscout',
@@ -610,24 +677,22 @@ export function createEvmClient({
 				occurrences.set(base, n + 1);
 				return `${base}:${n}`;
 			});
-			const { entries, unknownTokens } = normalizeEvm(
+			const { entries, unknownTokens, unlistedTokens } = normalizeEvm(
 				{ normal, internal, tokens },
-				{ address: lower, chain }
+				{ address: lower, chain, tokens: wanted }
 			);
 
+			/** @type {Map<string, bigint>} */
+			const read = new Map();
 			const nativeBalance = bigintOf(
 				await call(endpoints.api, { module: 'account', action: 'balance', address: lower })
 			);
-			/** @type {{ asset: string, amount: string, decimals: number }[]} */
-			const balances = [];
-			if (nativeBalance !== null) {
-				balances.push({
-					asset: chain.native.symbol,
-					amount: unitsToDecimal(nativeBalance, chain.native.decimals),
-					decimals: chain.native.decimals
-				});
-			}
-			for (const [contract, token] of Object.entries(chain.tokens)) {
+			if (nativeBalance !== null) read.set('native', nativeBalance);
+			// The listed tokens, and the unlisted ones booked (#93): one request each.
+			for (const contract of [
+				...Object.keys(chain.tokens),
+				...unlistedTokens.map((t) => t.contract)
+			]) {
 				const amount = bigintOf(
 					await call(endpoints.api, {
 						module: 'account',
@@ -636,14 +701,9 @@ export function createEvmClient({
 						address: lower
 					})
 				);
-				if (amount !== null) {
-					balances.push({
-						asset: token.symbol,
-						amount: unitsToDecimal(amount, token.decimals),
-						decimals: token.decimals
-					});
-				}
+				if (amount !== null) read.set(contract, amount);
 			}
+			const balances = balancesOf(chain, read, unlistedTokens);
 			const history = await coinBalanceHistory(endpoints.api, lower);
 			return {
 				source: /** @type {const} */ ('blockscout'),
@@ -724,8 +784,8 @@ export function evmReader(chain, { baseUrl } = {}) {
 		);
 	};
 
-	/** @param {{ account: string, fetch?: typeof fetch, alchemyKey?: string }} p */
-	const history = async ({ account, fetch: f = globalThis.fetch, alchemyKey }) => {
+	/** @param {{ account: string, fetch?: typeof fetch, alchemyKey?: string, tokens?: string[] }} p */
+	const history = async ({ account, fetch: f = globalThis.fetch, alchemyKey, tokens }) => {
 		if (!isEvmAddress(account))
 			throw new Error(`not an ${chain.name} address (0x and 40 hex digits)`);
 		const key = needKey(alchemyKey);
@@ -733,16 +793,30 @@ export function evmReader(chain, { baseUrl } = {}) {
 			fetch: f,
 			alchemy: { key: async () => key, ...(baseUrl ? { baseUrl } : {}) }
 		});
-		const r = await client.history({ chain, address: account, endpoints: chain.endpoints });
+		const r = await client.history({
+			chain,
+			address: account,
+			endpoints: chain.endpoints,
+			...(tokens ? { tokens } : {})
+		});
 		return { all: sortEntries(r.entries.map((e) => toLedger(e, account))), balances: r.balances };
 	};
 
 	return {
 		chain,
 		toLedger,
-		/** Ledger entries for an account and period. @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string }} p */
+		/**
+		 * Ledger entries for an account and period. `tokens`: unlisted contracts to book although
+		 * only received (#93).
+		 * @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string, tokens?: string[] }} p
+		 */
 		read: async (p) => (await history(p)).all.filter((e) => e.date >= p.from && e.date <= p.to),
-		/** For a Kontoauszug: balances derived from today's balance less the movements since, as for Akash. @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string }} p */
+		/**
+		 * For a Kontoauszug: balances derived from today's balance less the movements since, as for
+		 * Akash; one per asset – the native coin, the listed tokens, then each unlisted token
+		 * booked, by its own balance (#93).
+		 * @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string, tokens?: string[] }} p
+		 */
 		statement: async (p) => {
 			const { all, balances } = await history(p);
 			return derivedStatement(all, balances, p.from, p.to);
