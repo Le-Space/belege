@@ -8,6 +8,7 @@ import { extractText, getDocumentProxy } from 'unpdf';
 
 import { buildDocument, buildStatement, statementPdf } from '../src/index.js';
 import { sourceName } from '../src/document.js';
+import { valuedBy } from '../src/statement.js';
 import { nearEntries, payer } from './support/samples.js';
 
 /** @param {Uint8Array} bytes */
@@ -109,6 +110,10 @@ test('a Kontoauszug with both names both; one with market rates only is as befor
 		await textOf(await statementPdf(mixed)),
 		/Euro-Werte zum Tageskurs \(Kurs 00:00 UTC: CoinGecko, sonst Kraken\) und zum Referenzwert von Wolkenfabrik Hosting GmbH \(kein Börsenkurs\)\./
 	);
+	// Rows built elsewhere (the app's) may carry no source: a market rate, as before.
+	const { rateSource, ...without } = mixed.sections[0].rows[0];
+	assert.equal(typeof rateSource, 'string');
+	assert.deepEqual(valuedBy([without]), { marketRate: true, referenceValues: [] });
 	const market = statement(await nearEntries());
 	assert.deepEqual(market.sections[0].referenceValues, []);
 	assert.match(

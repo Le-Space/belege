@@ -87,8 +87,8 @@ export function usageNote(chain, currency) {
  * @param {StatementRow[]} rows
  * @returns {{ marketRate: boolean, referenceValues: string[] }}
  */
-function valuedBy(rows) {
-	const legs = rows.filter((r) => r.eur).map((r) => sourceName(r.rateSource).split(' × ')[0]);
+export function valuedBy(rows) {
+	const legs = rows.filter((r) => r.eur).map((r) => sourceName(r.rateSource ?? '').split(' × ')[0]);
 	return {
 		marketRate: legs.some((l) => !l.startsWith('Referenzwert')),
 		referenceValues: [...new Set(legs.filter((l) => l.startsWith('Referenzwert')))]
@@ -111,7 +111,7 @@ export const STATEMENT_NOTE =
  * @property {string} credit amount in, positive, or ''
  * @property {string} balance running balance after it
  * @property {string} eur signed value at the day's rate, in the statement's currency (EUR unless another), or ''
- * @property {string} rateSource where that value's rate came from (`eur.source`), or ''
+ * @property {string} [rateSource] where that value's rate came from (`eur.source`), '' or absent when unknown
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
  * @property {boolean} usage consumption billed from the balance (Aleph credits, a Filecoin Pay settlement)
