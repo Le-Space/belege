@@ -62,17 +62,21 @@ export function referenceRate(table) {
 /**
  * A rate source in which the listed assets are valued by their tables and by
  * nothing else: an asset with a table never reaches `inner`, also on a day its
- * table has no line for. Everything else is `inner`'s.
+ * table has no line for. Everything else is `inner`'s, its other methods too
+ * (`tokenRateFor`, a token by its contract, #93).
  *
- * @param {{ rateFor: (asset: string, date: string) => Promise<Rate | null> }} inner
+ * @template {{ rateFor: (asset: string, date: string) => Promise<Rate | null> }} T
+ * @param {T} inner
  * @param {Record<string, ReferenceLine[]>} tables by asset symbol: `{ DOI: [...] }`
- * @returns {{ rateFor: (asset: string, date: string) => Promise<Rate | null> }}
+ * @returns {T}
  */
 export function withReferenceRates(inner, tables) {
 	const byAsset = new Map(
 		Object.entries(tables).map(([asset, table]) => [asset, referenceRate(table)])
 	);
 	return {
+		...inner,
+		/** @param {string} asset @param {string} date */
 		async rateFor(asset, date) {
 			const reference = byAsset.get(asset);
 			return reference ? reference(date) : inner.rateFor(asset, date);
