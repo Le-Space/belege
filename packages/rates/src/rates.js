@@ -36,9 +36,10 @@
 //     goes to Kraken as above; a day neither has stays without a rate.
 //   - a currency: the ECB reference rate of that day, or the last one before
 //     it (weekends, holidays), inverted: EUR per unit
-//   - RUB: the ECB publishes none since 2022-03-01; then the Bank of Russia's
-//     official rate valid on that day (RUB per EUR, set on the working day
-//     before), inverted
+//   - RUB: the Bank of Russia's official rate valid on that day (RUB per EUR,
+//     set on the working day before), inverted – for every day, also before
+//     2022-03-01, when the ECB still published one: the ruble's own central
+//     bank, not the ECB
 //   - KZT: the National Bank of Kazakhstan's official rate of the day (KZT per
 //     EUR), inverted (#325)
 //   - a currency neither publishes against the euro, but the Bank of Russia
@@ -50,8 +51,8 @@
 // A rate into another currency than the euro (`currency`, for a document kept
 // in CHF, USD, RUB …; Le-Space/eigenbeleg-agent#72) is that euro rate times
 // the currency's units per euro of the day: the ECB reference rate, or the
-// last one before it; for RUB since 2022-03-01 the Bank of Russia's official
-// rate valid on the day. The answer carries both legs (`eurRate`, `fx`). USD
+// last one before it; for RUB the Bank of Russia's official rate valid on the
+// day. The answer carries both legs (`eurRate`, `fx`). USD
 // too: the euro is converted with the ECB's reference rate for every currency
 // but the ruble, also where CoinGecko has a USD price of its own.
 
@@ -75,11 +76,12 @@ import { multiplyRates } from './dex-rate.js';
  */
 
 /**
- * The currencies with an ECB reference rate (BGN until the end of 2025, RUB
- * until 2022-03-01; a day without one falls through to the next source).
+ * The currencies priced by the ECB reference rate (BGN until the end of 2025;
+ * a day without one falls through to the next source). Not RUB, which the ECB
+ * quoted until 2022-03-01: the ruble is the Bank of Russia's, for every day.
  */
 export const ECB_CURRENCIES = Object.freeze(
-	'USD JPY BGN CZK DKK GBP HUF PLN RON SEK CHF ISK NOK TRY AUD BRL CAD CNY HKD IDR ILS INR KRW MXN MYR NZD PHP SGD THB ZAR RUB'.split(
+	'USD JPY BGN CZK DKK GBP HUF PLN RON SEK CHF ISK NOK TRY AUD BRL CAD CNY HKD IDR ILS INR KRW MXN MYR NZD PHP SGD THB ZAR'.split(
 		' '
 	)
 );
@@ -89,7 +91,7 @@ export const ECB_CURRENCIES = Object.freeze(
  * the euro, and every currency with an official rate against it from the ECB
  * or, for RUB, the Bank of Russia. A cross rate through the ruble is none.
  */
-export const TARGET_CURRENCIES = Object.freeze(['EUR', ...ECB_CURRENCIES]);
+export const TARGET_CURRENCIES = Object.freeze(['EUR', ...ECB_CURRENCIES, 'RUB']);
 
 /**
  * The currencies the Bank of Russia rates daily and the ECB does not: priced
@@ -117,7 +119,7 @@ export const RATE_SOURCES = /** @type {Readonly<Record<string, AssetSources>>} *
 		// No EUR pair on Kraken; a swap's other side prices it where CoinGecko has no rate (#163).
 		USDFC: { coingecko: 'usdfc' },
 		...Object.fromEntries(ECB_CURRENCIES.map((c) => [c, { ecb: true }])),
-		RUB: { ecb: true, cbr: true },
+		RUB: { cbr: true },
 		...Object.fromEntries(CBR_CROSS_CURRENCIES.map((c) => [c, { cbrCross: true }])),
 		// The country's central bank first; the cross rate when it has no answer.
 		KZT: { nbk: true, cbrCross: true }
@@ -697,7 +699,7 @@ export function createRateService({
 
 	/**
 	 * How many units of a currency one euro is on the day: the ECB reference
-	 * rate, else (RUB) the Bank of Russia's official rate valid on the day.
+	 * rate; for RUB the Bank of Russia's official rate valid on the day.
 	 * Null where neither has one.
 	 *
 	 * @param {string} currency
@@ -843,7 +845,7 @@ export function createRateService({
 					? {
 							...listed,
 							kraken:
-								listed?.ecb || listed?.cbrCross || listed?.nbk
+								listed?.ecb || listed?.cbr || listed?.cbrCross || listed?.nbk
 									? undefined
 									: (listed?.kraken ?? `${asset}EUR`)
 						}

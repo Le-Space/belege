@@ -814,7 +814,7 @@ export default {
 			coingecko: 'CoinGecko (Kurse)',
 			'kraken-rates': 'Kraken (Kurse)',
 			ecb: 'Europäische Zentralbank (Referenzkurse von Währungen)',
-			cbr: 'Bank of Russia (Rubelkurs, wo die EZB keinen hat; Kreuzkurse über den Rubel)',
+			cbr: 'Bank of Russia (Rubelkurs; Kreuzkurse über den Rubel)',
 			nbk: 'Nationalbank Kasachstans (Tengekurs)'
 		},
 		// What Belege can do, by category (docs/features.de.md says the same in more words).
@@ -3154,7 +3154,7 @@ export default {
 			rateTurnToEuro: 'in {currency} je 1 EUR eingeben',
 			asking: 'Frage den Referenzkurs ab …',
 			ecb: 'EZB-Referenzkurs vom {date}',
-			cbr: 'Referenzkurs der Bank of Russia vom {date} (die EZB veröffentlicht keinen Rubelkurs mehr). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
+			cbr: 'Referenzkurs der Bank of Russia vom {date} (der Rubel nach dem Kurs seiner eigenen Zentralbank). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
 			nbk: 'Referenzkurs der Nationalbank Kasachstans vom {date} (die EZB veröffentlicht keinen Tengekurs). Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
 			'cbr-cross':
 				'Kreuzkurs über den Rubel, aus den Kursen der Bank of Russia vom {date} – kein amtlicher Euro-Kurs. Ein Kurs aus Kartenabrechnung oder Wechselbeleg geht vor, wenn du einen hast.',
