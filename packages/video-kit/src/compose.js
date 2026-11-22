@@ -107,6 +107,12 @@ export function composeResults({ results, out }) {
 	if (!existsSync(results)) return;
 	for (const dir of readdirSync(results, { withFileTypes: true }).filter((d) => d.isDirectory())) {
 		const folder = join(results, dir.name);
+		// A stage (stage.js): several recordings, laid into one frame.
+		const stageCues = join(folder, 'stage', 'cues.json');
+		if (existsSync(stageCues)) {
+			composeStage(JSON.parse(readFileSync(stageCues, 'utf8')), out);
+			continue;
+		}
 		const videos = readdirSync(folder).filter((f) => f.endsWith('.webm'));
 		if (videos.length !== 1) continue;
 		const video = join(folder, videos[0]);
@@ -179,6 +185,72 @@ export function composeResults({ results, out }) {
 			`${name}: ${target}, ${cues.length} cues, ${spoken.length} spoken, clock +${offset} ms → ${basename(target)} + .srt`
 		);
 	}
+}
+
+/**
+ * One stage (stage.js) → <out>/<name>.mp4 and .srt: every device's video laid
+ * onto the stage's at its place, all on the cues' clock, the voice under it.
+ * @param {{ name: string, marker: number, start: number | null,
+ *   stage: { video: string, width: number, height: number,
+ *     devices: { name: string, video: string, marker: number, x: number, y: number }[] },
+ *   cues: { t: number, text: string, durationMs: number, file: string | null }[] }} meta
+ * @param {string} out
+ */
+export function composeStage(meta, out) {
+	const { name, stage } = meta;
+	const target = join(out, `${name}.mp4`);
+	/** How far a video's clock is ahead of the cues'. @param {string} video @param {number} marker */
+	const offsetOf = (video, marker) => {
+		const dark = firstDarkMs(video);
+		if (dark == null)
+			console.warn(`${name}: no dark frame in ${basename(video)}, the cues may be off`);
+		return dark == null ? 0 : dark - marker;
+	};
+	const trim = meta.start != null ? meta.start : Math.max(0, (meta.cues[0]?.t ?? 0) - 800);
+	const cues = meta.cues.map((c) => ({ ...c, t: c.t - trim }));
+	writeFileSync(join(out, `${name}.srt`), cuesToSrt(cues));
+
+	const videos = [{ video: stage.video, marker: meta.marker }, ...stage.devices];
+	const inputs = [];
+	for (const v of videos) {
+		const at = Math.max(0, trim + offsetOf(v.video, v.marker));
+		inputs.push('-ss', (at / 1000).toFixed(3), '-i', v.video);
+	}
+	const chains = [];
+	let last = '0:v';
+	stage.devices.forEach((d, i) => {
+		const next = i === stage.devices.length - 1 ? 'picture' : `p${i}`;
+		chains.push(`[${last}][${i + 1}:v]overlay=x=${d.x}:y=${d.y}:eof_action=repeat[${next}]`);
+		last = next;
+	});
+	if (!stage.devices.length) chains.push('[0:v]null[picture]');
+	const spoken = cues.filter((c) => c.file);
+	const audio = [];
+	spoken.forEach((c, i) => {
+		inputs.push('-i', /** @type {string} */ (c.file));
+		audio.push(`[${videos.length + i}:a]adelay=${c.t}|${c.t}[v${i}]`);
+	});
+	// Padded with silence: the picture, not the last line, sets the length.
+	if (spoken.length)
+		audio.push(
+			`${spoken.map((_, i) => `[v${i}]`).join('')}amix=inputs=${spoken.length}:normalize=0:dropout_transition=0,apad[voice]`
+		);
+	ffmpeg([
+		...inputs,
+		'-filter_complex',
+		[...chains, ...audio].join(';'),
+		'-map',
+		'[picture]',
+		...(spoken.length ? ['-map', '[voice]', ...AUDIO] : []),
+		...VIDEO,
+		'-shortest',
+		'-movflags',
+		'+faststart',
+		target
+	]);
+	console.log(
+		`${name}: ${target}, ${stage.devices.length} devices on one stage, ${cues.length} cues, ${spoken.length} spoken → ${basename(target)} + .srt`
+	);
 }
 
 /**

@@ -12,6 +12,18 @@ other Le Space apps for their own films.
   `finish(testInfo, { name, dir })` writes `cues.json` beside the video
   (`dir` for a second browser in the same test, which records into a folder
   of its own).
+- **Stages** (`/stage`): two or three browsers in one frame, with one
+  narrator. `startStage(browser, testInfo, LINES, { devices, voice, night, lang })`
+  makes a browser context per device, each recording its own video at its
+  place in the frame (`{ label, x, y, width, height, zoom }`, laid out for
+  1920×1080 and scaled with the viewport), and one more page for the stage:
+  the night, a frame and a name per device, the caption bar, `note` ("Internet:
+  off"), `overlay` (a panel of text) and `focus` (a ring around the devices to
+  look at). `say`, `sayWhile`, `click(page, locator)`, `type`, `beat`,
+  `markStart` as in a scene; `finish({ name })` closes every context and
+  writes the stage's `cues.json`. `composeResults` lays each device's video
+  onto the stage's, every one on the cues' clock by its own dark frame, and the
+  voice under all of it.
 - **Captions and pointer** (`/captions`, `/cursor`): a caption bar baked into
   the frame (`DEMO_CAPTIONS=0` turns it off; the `.srt` is written either
   way), and a pointer the viewer can see, gliding to each target and sinking
