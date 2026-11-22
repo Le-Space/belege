@@ -7,7 +7,9 @@
 // bookkeeper needs. German, for German bookkeeping. Aleph Cloud credits get
 // the same layout titled »Verbrauchsauszug« (`st.title`). Above each list of
 // bookings a small diagram (#889, statement-chart.js): the balance over the
-// period, or what was consumed per day.
+// period, or what was consumed per day. A token not in the chain's list (#93)
+// is named by its contract, its symbol the contract's own claim; a section
+// that does not fit on the rest of the page starts on a new one.
 
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
@@ -143,14 +145,60 @@ export async function statementPdf(
 	l.note(st.note, TYPE.table);
 	l.y -= 18;
 
+	/** A booking's two lines of text, and the height of its row. @param {import('./statement.js').StatementRow} r */
+	const rowText = (r) => {
+		const detail = [
+			r.counterparty && `${r.debit ? 'an' : 'von'} ${r.counterparty}`,
+			r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
+			r.beleg && `Eigenbeleg ${r.beleg}`
+		]
+			.filter(Boolean)
+			.join(' · ');
+		const lines = wrapText(r.text, regular, 8, COLS[1].width - 6);
+		const sub = wrapText(detail, regular, 6.5, COLS[1].width - 6);
+		return { lines, sub, h: lines.length * 10 + sub.length * 8.5 + 6 };
+	};
+	/** What a page holds below its running head, above the footer. */
+	const pageRoom = l.page.getHeight() - 2 * M - 18 - 16;
+
 	// ---- one section per asset
-	for (const s of st.sections) {
-		l.ensure(90);
-		// A section: its head on a hairline. No band, no fill.
-		text(`${s.asset} · ${st.account}`, { face: bold, size: TYPE.lead });
+	for (const [i, s] of st.sections.entries()) {
+		// The diagram, above the list of bookings (#889); every figure in it is in the tables.
+		const drawn = chart ? statementChart(st, s, { width, measure: sceneMeasure(fonts) }) : null;
+		const monthLines =
+			aleph || pay
+				? [s.monthly.usage, s.monthly.usageTotal, s.monthly.purchases, s.monthly.transfersIn]
+						.concat([s.monthly.transfersOut])
+						.flat()
+						.filter((x) => x !== null).length
+				: 0;
+		// A section that does not fit on the rest of the page starts on a new one (#93: a wallet with
+		// many tokens): its head never stands apart from its bookings. The first follows the head.
+		const tall =
+			(s.contract ? 70 : 40) +
+			(monthLines ? 14 + monthLines * 12 + 15 : 0) +
+			(drawn ? drawn.scene.height + 14 : 0) +
+			30 +
+			(s.rows.length ? s.rows.reduce((h, r) => h + rowText(r).h, 0) : 13) +
+			110;
+		if (i > 0 && l.y - (M + 16) < Math.min(tall, pageRoom)) l.newPage();
+		else l.ensure(90);
+		// A section: its head on a hairline. No band, no fill. A token not in the list is named by its
+		// contract; what it calls itself is the contract's own claim.
+		if (s.contract) {
+			text(`${s.asset} (laut Token-Vertrag)`, { face: bold, size: TYPE.lead });
+			text(s.contract, { face: mono, size: TYPE.body });
+		} else text(`${s.asset} · ${st.account}`, { face: bold, size: TYPE.lead });
 		l.y -= 3;
 		l.rule();
 		l.y -= 10;
+		if (s.contract) {
+			text(
+				`Token außerhalb der Liste geprüfter Token dieser Chain: Name »${s.asset}« und Nachkommastellen nennt der Vertrag selbst; maßgeblich ist seine Adresse oben.`,
+				{ size: TYPE.small, color: GREY }
+			);
+			l.y -= 6;
+		}
 		// The month in sums, first (#24): what the books take as one booking each; the rows below are the proof.
 		if (aleph || pay) {
 			const m = s.monthly;
@@ -184,8 +232,6 @@ export async function statementPdf(
 				l.y -= 14;
 			}
 		}
-		// The diagram, above the list of bookings (#889); every figure in it is in the tables.
-		const drawn = chart ? statementChart(st, s, { width, measure: sceneMeasure(fonts) }) : null;
 		if (drawn) {
 			l.ensure(drawn.scene.height + 40);
 			drawScene(l.page, drawn.scene, { x: M, top: l.y, fonts });
@@ -210,16 +256,7 @@ export async function statementPdf(
 		l.rule();
 		l.y -= 2;
 		for (const r of s.rows) {
-			const detail = [
-				r.counterparty && `${r.debit ? 'an' : 'von'} ${r.counterparty}`,
-				r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
-				r.beleg && `Eigenbeleg ${r.beleg}`
-			]
-				.filter(Boolean)
-				.join(' · ');
-			const lines = wrapText(r.text, regular, 8, COLS[1].width - 6);
-			const sub = wrapText(detail, regular, 6.5, COLS[1].width - 6);
-			const h = lines.length * 10 + sub.length * 8.5 + 6;
+			const { lines, sub, h } = rowText(r);
 			if (l.ensure(h)) head();
 			const y = l.y;
 			regular.draw(l.page, deDate(r.date), { x: M, y: y - 8, size: 8, color: INK });
@@ -305,7 +342,16 @@ export async function statementPdf(
 								? 'Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages'
 								: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
 						}.`
-					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued(...marketOrReference(s))}.`,
+					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
+							!s.contract
+								? valued(...marketOrReference(s))
+								: s.sources?.length
+									? valued(
+											`zum Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`,
+											`Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`
+										)
+									: 'für diesen Token nennt keine Kursquelle einen Kurs'
+						}.`,
 			{ size: TYPE.small, color: GREY }
 		);
 		l.y -= 20;

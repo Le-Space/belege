@@ -3,7 +3,9 @@
 // The Kontoauszug: every booking of one own blockchain account in a period,
 // laid out the way a bank lays out an account statement – opening balance,
 // each booking with debit (Soll) or credit (Haben) and the running balance,
-// closing balance, sums. One section per asset the account holds.
+// closing balance, sums. One section per asset the account holds. A token
+// not in the chain's list (EVM, #93) has one too, named by its contract: the
+// symbol and decimals are what the contract says of itself.
 //
 // It is built from public chain data by the account holder. It is no
 // document of a bank or of anyone else, and says so.
@@ -95,6 +97,17 @@ export function valuedBy(rows) {
 		referenceValues: [...new Set(legs.filter((l) => l.startsWith('Referenzwert')))]
 	};
 }
+
+/**
+ * The contract of a token not in the chain's list (EVM, #93): lower case, '' for
+ * the native coin, a listed token and anything else.
+ *
+ * @param {{ listed?: boolean, contract?: string }} e
+ */
+const unlistedContract = (e) =>
+	e.listed === false && /^0x[0-9a-fA-F]{40}$/.test(e.contract ?? '')
+		? /** @type {string} */ (e.contract).toLowerCase()
+		: '';
 
 export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
@@ -190,6 +203,9 @@ export function monthly(rows) {
  * @param {string} [p.dataSource] where the entries were read from, when not the chain's usual source
  * @param {string} [p.currency] the statement's currency (DOCUMENT_CURRENCIES), EUR when not
  *   given; the entries are valued in it, and the fields named `eur…` hold values in it
+ * @param {Record<string, string>} [p.contracts] asset → contract of a token not in the
+ *   chain's list whose balance is in `opening`/`closing` (the reader's balances, #93);
+ *   for one that moved in the period its entries name it already
  */
 export function buildStatement({
 	payer,
@@ -206,7 +222,8 @@ export function buildStatement({
 	number,
 	issuedAt,
 	dataSource,
-	currency: asked
+	currency: asked,
+	contracts = {}
 }) {
 	const currency = documentCurrency(asked);
 	checkValued(entries, currency);
@@ -216,10 +233,17 @@ export function buildStatement({
 		(e) => e.account === account && !(e.chain === 'aleph' && e.kind === 'swap')
 	);
 	const own = mine.filter((e) => e.success !== false);
+	// A token not in the list (#93) has no priceAs, but its contract: it gets a section too.
 	const assets = [
-		...new Set([...Object.keys(opening), ...own.filter((e) => e.priceAs).map((e) => e.asset)])
+		...new Set([
+			...Object.keys(opening),
+			...own.filter((e) => e.priceAs || unlistedContract(e)).map((e) => e.asset)
+		])
 	];
 	const sections = assets.map((asset) => {
+		const contract =
+			unlistedContract(own.find((e) => e.asset === asset && unlistedContract(e)) ?? {}) ||
+			unlistedContract({ listed: false, contract: contracts[asset] });
 		let balance = normalize(opening[asset] ?? '0');
 		/** @type {StatementRow[]} */
 		const rows = [];
@@ -255,6 +279,8 @@ export function buildStatement({
 		const reported = closing[asset];
 		return {
 			asset,
+			// A token not in the list: its contract, which names it; the symbol is the token's own claim.
+			contract,
 			opening: normalize(opening[asset] ?? '0'),
 			closing: balance,
 			reported: reported === undefined ? null : normalize(reported),
@@ -271,7 +297,16 @@ export function buildStatement({
 			eurFees: sum(rows.filter((r) => r.fee && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurUsage: sum(rows.filter((r) => r.usage && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			unvalued: rows.filter((r) => !r.eur).length,
-			...valuedBy(rows)
+			...valuedBy(rows),
+			// A token not in the list: each source of its values by name, without its day – no
+			// market rate of the usual feeds (CoinGecko by contract, a DEX pool, a reference value).
+			...(contract
+				? {
+						sources: [
+							...new Set(rows.filter((r) => r.eur).map((r) => sourceName(r.rateSource ?? '')))
+						]
+					}
+				: {})
 		};
 	});
 	// Aleph credits, Filecoin Pay: a monthly usage statement, laid out as the Kontoauszug.
