@@ -18,7 +18,7 @@
 //   money out, revenue for money in), then neither (transit, private, taxes),
 //   then the other kind – as many as the budget in bytes holds.
 
-import { DEFAULT_REQUEST_LIMIT } from '../sync/bridge-limit.js';
+import { BRIDGE_BODY_LIMIT, DEFAULT_REQUEST_LIMIT, jsonBudget } from '../sync/bridge-limit.js';
 import { chartKind, ledgerLength } from './chart.js';
 import { catalogueAccount, isAccountNumber } from './skr03.js';
 
@@ -30,25 +30,17 @@ export const MAX_ACCOUNTS = 600;
  * of 64 KiB: 44 KiB of JSON leaves room for the envelope.
  */
 export const MAX_ASSIST_BYTES = 44 * 1024;
-/**
- * What the bridge takes as the body of `llm.booking`, over HTTP and the
- * stream alike (bridge/src/commands.js MAX_EXTRACT_BODY).
- */
-export const BRIDGE_BODY_LIMIT = 256 * 1024;
+/** The bridge's body limit (sync/bridge-limit.js). */
+export { BRIDGE_BODY_LIMIT };
 
 /**
  * The JSON of the whole `booking.assist` call at most, for the request limit
- * the call goes with (sync/bridge-limit.js): MAX_ASSIST_BYTES for UCEP's
- * 64 KiB; for a bigger limit the bridge's node states, the same share of it
- * (44/64, room for the seal's third and the envelope), and never more than
- * the bridge's body limit with a little room.
+ * the call goes with: MAX_ASSIST_BYTES for UCEP's 64 KiB, the same share of a
+ * bigger one up to the bridge's body limit (sync/bridge-limit.js jsonBudget).
  *
  * @param {number} [requestLimit]
  */
-export function maxAssistBytes(requestLimit = DEFAULT_REQUEST_LIMIT) {
-	if (!(requestLimit > DEFAULT_REQUEST_LIMIT)) return MAX_ASSIST_BYTES;
-	return Math.min(BRIDGE_BODY_LIMIT - 4096, Math.floor((requestLimit * 11) / 16));
-}
+export const maxAssistBytes = (requestLimit = DEFAULT_REQUEST_LIMIT) => jsonBudget(requestLimit);
 
 const encoder = new TextEncoder();
 /** The bytes a value takes as JSON. @param {unknown} v */

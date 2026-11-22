@@ -1,11 +1,15 @@
 // "Auslesen" against a stand-in bridge: what is sent, and what comes back onto the record.
-import { describe, expect, it } from 'vitest';
+import { sealCall } from '@le-space/bridge-protocol/seal';
+import { afterEach, describe, expect, it } from 'vitest';
 import { MemoryBlockstore } from 'blockstore-core/memory';
 
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from './blob-store.js';
 import { importFile } from './import.js';
 import { NeedsConfirmationError, extractReceipt, extractable, summaryFields } from './extract.js';
+import { setBridgeRequestLimit } from '../sync/bridge-limit.js';
+import { checkRequestSize } from '../sync/remote-bridge.js';
+import { MAX_TEXT, OMITTED } from './text-budget.js';
 
 const ANSWER = {
 	vendor: 'Wolkenfabrik Hosting GmbH',
@@ -304,5 +308,89 @@ describe('extractReceipt', () => {
 			documentDate: null,
 			currency: 'EUR'
 		});
+	});
+});
+
+describe('a long text (#975)', () => {
+	afterEach(() => setBridgeRequestLimit(null));
+
+	/** Many pages of made-up line items: the vendor and number on the first, the total on the last. */
+	const pages = (/** @type {string} */ item) =>
+		[
+			'Wolkenfabrik Hosting GmbH\nRechnungsnummer WF-2026-0815\nRechnungsdatum 15.08.2026',
+			...Array.from({ length: 120 }, (_, p) =>
+				Array.from({ length: 30 }, (_, i) => `Seite ${p + 2}, ${item} ${i + 1}: 12,34 EUR`).join(
+					'\n'
+				)
+			),
+			'Summe netto 100,00 EUR\nUSt 19 % 19,00 EUR\nGesamtbetrag 119,00 EUR'
+		].join('\f\n');
+
+	/** @param {string} text */
+	async function read(text) {
+		const { receipts, blobs, client, sent } = await setup();
+		const { record: imported } = await importFile({
+			receipts,
+			blobs,
+			bytes: pdfBytes,
+			fileName: 'lang.pdf',
+			source: 'upload',
+			sourceRef: `long#${Math.random()}`,
+			fields: {}
+		});
+		const record = /** @type {NonNullable<typeof imported>} */ (imported);
+		const updated = await extractReceipt({
+			client,
+			receipts,
+			blobs,
+			record,
+			pdfText: async () => ({ text })
+		});
+		return { body: sent[0], updated };
+	}
+
+	it('to a bridge from before (64 KiB): head and tail, sealed within the limit, the record says so', async () => {
+		const text = pages('Leistungszeitraum mit Überstunden für Größenänderung');
+		expect(text.length).toBeGreaterThan(MAX_TEXT * 2);
+		const { body, updated } = await read(text);
+		expect(body.text).toContain('Rechnungsnummer WF-2026-0815');
+		expect(body.text).toContain('Gesamtbetrag 119,00 EUR');
+		expect(body.text).toContain(OMITTED);
+		expect(body.text.length).toBeLessThanOrEqual(MAX_TEXT);
+		// As the client sends it (20 terms) and the stream seals it: within UCEP's 64 KiB.
+		const args = {
+			...body,
+			redactTerms: Array.from({ length: 20 }, (_, i) => `Musterbegriff ${i}`.padEnd(200, 'x'))
+		};
+		const call = await sealCall(
+			crypto.getRandomValues(new Uint8Array(32)),
+			{ consumer: '12D3KooWa', provider: '12D3KooWb', command: 'llm.extract' },
+			args
+		);
+		expect(() => checkRequestSize('llm.extract', call.sent)).not.toThrow();
+		expect(updated.extractionInfo.shortened).toEqual({
+			chars: text.length,
+			sent: body.text.length
+		});
+	});
+
+	it('a text of many umlauts: cut for 64 KiB, whole for a bridge that states 1 MiB', async () => {
+		const text = `Wolkenfabrik Hosting GmbH ${'äöüßÄÖÜ '.repeat(3500)} Gesamtbetrag 119,00 EUR`;
+		expect(text.length).toBeLessThan(MAX_TEXT);
+		expect(new TextEncoder().encode(text).length).toBeGreaterThan(44 * 1024);
+		const small = await read(text);
+		expect(small.body.text).not.toBe(text);
+		expect(small.body.text).toContain('Gesamtbetrag 119,00 EUR');
+
+		setBridgeRequestLimit(() => 1024 * 1024);
+		const big = await read(text);
+		expect(big.body.text).toBe(text);
+		expect(big.updated.extractionInfo.shortened).toBeNull();
+	});
+
+	it('a short text goes whole, and the record says nothing was left out', async () => {
+		const { body, updated } = await read('Wolkenfabrik Hosting GmbH\nGesamtbetrag 119,00 EUR');
+		expect(body.text).toBe('Wolkenfabrik Hosting GmbH\nGesamtbetrag 119,00 EUR');
+		expect(updated.extractionInfo.shortened).toBeNull();
 	});
 });

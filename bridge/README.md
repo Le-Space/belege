@@ -773,7 +773,7 @@ a token). `POST /portals/new` (`src/portals/local.js`):
     (`tls: none` is refused for anything but a server on this machine);
   - with Ollama (the default) nothing: the text goes to 127.0.0.1. To a provider on the internet
     chosen on purpose (for example DeepSeek: servers in China): per "Auslesen", the redacted text layer of
-    one PDF (up to 30 000 characters) or a mail's text excerpt, with the redacted subject, sender
+    one PDF (up to 30 000 characters; a longer one as its start and its end, the middle left out, #975) or a mail's text excerpt, with the redacted subject, sender
     address and file name, and the API key. Never the file itself, never a mail that was not
     asked for. Redaction is pattern-based: a name not in the terms list, or an address in an
     unusual layout, can get through. The provider sees the vendor, amounts, invoice numbers.

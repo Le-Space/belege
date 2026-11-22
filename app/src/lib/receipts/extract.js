@@ -6,6 +6,11 @@
 // checks the answer (bridge/src/llm/). The file itself never leaves the
 // browser. A mail without a file sends its text excerpt. Images have no text
 // layer and no OCR yet: they are marked, not sent.
+//
+// A text too long for one request to the bridge (sync/bridge-limit.js: 64 KiB
+// to a bridge from before, more to one that states it, never above the
+// bridge's body limit) or for the model (MAX_TEXT characters) goes as its
+// head and tail (text-budget.js, #975), and the record says so.
 
 import { eventCalls } from '../stats/usage.js';
 import { recordEvent, tokenCount } from '../activity/events.js';
@@ -13,9 +18,17 @@ import { isRateLimit, isRefusal } from '../jobs/queue.js';
 import { needsConfirmation } from './import.js';
 import { eInvoiceFields, pdfEInvoice } from './einvoice.js';
 import { t } from '../i18n/index.js';
+import { bridgeRequestLimit, jsonBudget } from '../sync/bridge-limit.js';
+import { fitText } from './text-budget.js';
 
 /** Fewer characters than this: a scan without a text layer. */
 const MIN_TEXT = 20;
+/**
+ * What the bridge client adds to the call (client.js `withTerms`, up to 20
+ * terms of up to 200 characters) and the stream (`$accept`, the envelope of
+ * the call), kept free of the text's budget.
+ */
+export const EXTRACT_RESERVE = 20 * 203 + 512;
 
 export class NeedsConfirmationError extends Error {
 	constructor() {
@@ -203,14 +216,22 @@ export async function extractReceipt({
 	if (record.fileName) hints.fileName = record.fileName;
 	if (record.receivedAt) hints.receivedAt = String(record.receivedAt).slice(0, 10);
 
+	const fields = {
+		hints,
+		...(record.source === 'mail' && record.mailId ? { source: { mailId: record.mailId } } : {}),
+		...(record.confirmedByUser === true ? { confirmedByUser: true } : {})
+	};
+	const budget =
+		jsonBudget(bridgeRequestLimit()) -
+		EXTRACT_RESERVE -
+		new TextEncoder().encode(JSON.stringify({ ...fields, text: '' })).length;
+	const fitted = fitText(text, { maxBytes: budget });
+	// What was left out, for the record: null when the text went whole (dag-cbor has no undefined).
+	const shortened = fitted.shortened ? { chars: text.length, sent: fitted.text.length } : null;
+
 	let result;
 	try {
-		result = await client.extract({
-			text,
-			hints,
-			...(record.source === 'mail' && record.mailId ? { source: { mailId: record.mailId } } : {}),
-			...(record.confirmedByUser === true ? { confirmedByUser: true } : {})
-		});
+		result = await client.extract({ text: fitted.text, ...fields });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		// Refused by the provider or the bridge (#417), or rate-limited: this receipt
@@ -220,7 +241,7 @@ export async function extractReceipt({
 		await recordEvent(events, 'extract', { receiptId: record.id, ok: false, error: message });
 		throw error;
 	}
-	const info = extractionInfo(result);
+	const info = { ...extractionInfo(result), shortened };
 	const updated = await writeOnLatest((latest) => ({
 		...summaryFields(result.extraction),
 		extraction: result.extraction,

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { redact } from '../src/llm/redact.js';
-import { checkExtraction, userMessage, MAX_TEXT } from '../src/llm/extract.js';
+import { checkExtraction, userMessage, MAX_TEXT, OMITTED, capText } from '../src/llm/extract.js';
 
 test('redact: terms, IBANs (last four kept), own e-mail, postcode, streets', () => {
 	const input = [
@@ -96,6 +96,16 @@ test('userMessage: hints before the text, the text capped', () => {
 		'Absender der E-Mail: a@b.example\nBetreff der E-Mail: Rechnung\n---\n'.length + MAX_TEXT
 	);
 	assert.equal(userMessage('nur Text'), 'nur Text');
+});
+
+test('capText: a long text keeps its head and its tail, MAX_TEXT characters in all (#975)', () => {
+	const text = `Wolkenfabrik Hosting GmbH ${'Position 12,34 EUR '.repeat(5000)} Gesamtbetrag 119,00 EUR`;
+	const out = capText(text);
+	assert.equal(out.length, MAX_TEXT);
+	assert.ok(out.startsWith('Wolkenfabrik Hosting GmbH'));
+	assert.ok(out.endsWith('Gesamtbetrag 119,00 EUR'));
+	assert.ok(out.includes(OMITTED));
+	assert.equal(capText('kurz'), 'kurz');
 });
 
 test('checkExtraction: "none" (no receipt at all) needs no amount', () => {
