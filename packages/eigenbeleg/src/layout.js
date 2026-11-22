@@ -273,8 +273,9 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		 * @param {string} caption
 		 */
 		signature(caption) {
-			l.ensure(70);
-			l.gap(40);
+			// What it takes and no more: a line to sign alone on a new page helps nobody.
+			l.ensure(54);
+			l.gap(36);
 			l.page.drawLine({
 				start: { x: margin, y: l.y },
 				end: { x: margin + 230, y: l.y },

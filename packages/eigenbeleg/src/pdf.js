@@ -112,11 +112,13 @@ export async function eigenbelegPdf(
 	}
 
 	const columns = [
-		{ title: 'Bewegung', width: 150 },
-		{ title: 'Menge', width: 112, right: true },
-		// Six significant digits (deRate): the smallest rate, Aleph's credits, still fits on one line.
-		{ title: `Kurs ${cur}`, width: 58, right: true },
-		{ title: `Wert ${cur}`, width: 66, right: true },
+		// Measured in the document's face, whose figures are wider than its letters: a rate of six
+		// significant digits below a millionth (deRate; Aleph's credits) and a value of four digits
+		// before the comma with a currency's code each stand on one line.
+		{ title: 'Bewegung', width: 143 },
+		{ title: 'Menge', width: 106, right: true },
+		{ title: `Kurs ${cur}`, width: 67, right: true },
+		{ title: `Wert ${cur}`, width: 70, right: true },
 		{ title: 'Auf dem Beleg', width: width - 386 }
 	];
 

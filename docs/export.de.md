@@ -210,7 +210,7 @@ Dieser Teil ist für alle, die den Buchungsstapel prüfen oder anpassen wollen.
 - Leere Felder bleiben ganz leer.
 - Text, den eine Tabellenkalkulation als Formel lesen würde, bekommt vorn ein Apostroph. Das gilt auch für die Übersicht.
 - Die Datei ist in Windows-1252 (ANSI) geschrieben. Ein Zeichen, das es dort nicht gibt, verliert seinen Akzent. Kyrillisch und Griechisch werden in lateinischen Buchstaben geschrieben (`Москва` → `Moskva`). Was dann noch fehlt, etwa Arabisch oder Chinesisch, wird `?`.
-- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften DejaVu Sans und Noto Sans Arabic als Teilmengen eingebettet (`packages/pdf`, `@le-space/pdf`). Die Eigenbelege sind PDF/A-2b.
+- Die PDFs im ZIP können mehr. Das sind die aus einer Mail gemachten Belege, die Kontoauszüge und die Eigenbelege. Sie zeigen Text in Latein, Kyrillisch, Griechisch und Arabisch. Dafür sind die Schriften IBM Plex Sans, DejaVu Sans Mono und Noto Sans Arabic als Teilmengen eingebettet (`packages/pdf`, `@le-space/pdf`). Die Eigenbelege sind PDF/A-2b.
 
 ### Betrag und Soll/Haben
 
