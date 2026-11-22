@@ -65,8 +65,13 @@ export function btcTx(seed, height, inputs, outputs) {
  * @param {ReturnType<typeof btcTx>[]} o.txs
  * @param {number} [o.tip] the tip's height
  * @param {boolean} [o.down] every request fails as a network error
+ * @param {{ after: number, times: number, as: 'network' | 429 | 503, retryAfter?: string }} [o.throttle]
+ *   after `after` answers, refuse the next `times` requests, as a public API
+ *   does that limits requests ('network': as a browser sees a refusal without CORS headers)
  */
-export function fakeEsplora({ txs, tip = 950_000, down = false }) {
+export function fakeEsplora({ txs, tip = 950_000, down = false, throttle }) {
+	let answers = 0;
+	let refusals = 0;
 	const url = 'https://esplora.example.com/api';
 	/** @type {string[]} */
 	const calls = [];
@@ -97,6 +102,15 @@ export function fakeEsplora({ txs, tip = 950_000, down = false }) {
 		const href = String(input);
 		calls.push(href);
 		if (down) throw new TypeError('fetch failed');
+		if (throttle && answers >= throttle.after && refusals < throttle.times) {
+			refusals++;
+			if (throttle.as === 'network') throw new TypeError('Failed to fetch');
+			return new Response('Too many requests', {
+				status: throttle.as,
+				headers: throttle.retryAfter ? { 'retry-after': throttle.retryAfter } : {}
+			});
+		}
+		answers++;
 		if (!href.startsWith(`${url}/`)) return json({ error: 'unknown host' }, 404);
 		const path = href.slice(url.length);
 		if (path === '/blocks/tip/height') return new Response(String(tip));

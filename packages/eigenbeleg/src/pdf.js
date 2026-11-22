@@ -61,7 +61,7 @@ export async function eigenbelegPdf(
 			: `unter ${money(places ? `0.${'1'.padStart(places, '0')}` : '1')}`;
 	let pageNo = 1;
 	let current = doc.number;
-	const footerRight = `Daten: ${DATA_SOURCES[doc.chain] ?? doc.chainName} · Kurse: siehe Kursquelle`;
+	const footerRight = `Daten: ${doc.dataSource ?? DATA_SOURCES[doc.chain] ?? doc.chainName} · Kurse: siehe Kursquelle`;
 
 	const footer = (/** @type {import('./layout.js').Layout} */ l) =>
 		l.foot(l.page, `${current} · Seite ${pageNo}`, footerRight);

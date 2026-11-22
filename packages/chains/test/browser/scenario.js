@@ -80,8 +80,32 @@ export default async function scenario() {
 		endpoints: { api: esplora.url },
 		sleep: async () => {}
 	});
+	// The same wallet by its zpub: the addresses derived in the browser.
+	const walletEsplora = fakeEsplora({
+		txs: [
+			btcTx(
+				'paid the wallet',
+				300,
+				[[fakeBitcoinAddress('a customer'), 20_000]],
+				[[deriveAddress(z.account, z.type, 0, 2), 10_000]]
+			)
+		]
+	});
+	const btcWallet = await statementBitcoin({
+		account: zpub,
+		from: '2026-01-01',
+		to: '2027-12-31',
+		fetch: walletEsplora.fetch,
+		endpoints: { api: walletEsplora.url },
+		sleep: async () => {}
+	});
 	return {
 		aleph: { statement: aleph, entries: alephEntries(aleph) },
+		btcWallet: {
+			closing: btcWallet.closing.BTC,
+			entries: btcWallet.entries.length,
+			account: btcWallet.entries[0]?.account === keyFingerprint(zpub)
+		},
 		bitcoin: { closing: bitcoin.closing.BTC, entries: bitcoin.entries.length },
 		feeCollector: moduleAddress('akash', 'fee_collector'),
 		isCosmos: isCosmosAddress(moduleAddress('n', 'distribution'), 'n'),

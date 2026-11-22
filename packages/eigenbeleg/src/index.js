@@ -13,6 +13,7 @@ export {
 	ALEPH_NOTE,
 	noInvoice,
 	CHAIN_NAMES,
+	dataSourceOf,
 	DATA_SOURCES,
 	deNumber,
 	deRate,

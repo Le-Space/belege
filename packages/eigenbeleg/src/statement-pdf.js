@@ -317,7 +317,7 @@ export async function statementPdf(
 		);
 
 	// page numbers and footer on every page
-	const data = `Daten: ${DATA_SOURCES[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
+	const data = `Daten: ${st.dataSource ?? DATA_SOURCES[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
 	l.pages.forEach((p, i) => l.foot(p, `${st.number} · Seite ${i + 1} von ${l.pages.length}`, data));
 
 	return savePdfA(pdf, {
