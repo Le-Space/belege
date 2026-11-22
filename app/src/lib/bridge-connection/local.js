@@ -5,6 +5,7 @@
 // to the bridge's node and the node on this machine are this module's state.
 import { networkPause } from '$lib/network-pause.js';
 import { keyGenerationOf, readBridgeRecord, writeBridgeRecord } from './record.js';
+import { settleThen } from './settle.js';
 import { t } from '$lib/i18n/index.js';
 
 /**
@@ -349,9 +350,20 @@ export async function startBridgeForDevices() {
 			if (!(await tellDevices().catch(() => false))) tellSoon(TELL_AGAIN_MS);
 		}, ms);
 	};
+	// After the changes settle, and at the latest 5 s after the first: settings
+	// that never stop changing must not keep a new device off the bridge.
+	const tell = settleThen(
+		() => {
+			clearTimeout(tellTimer);
+			tellDevices()
+				.then((told) => told || tellSoon(TELL_AGAIN_MS))
+				.catch(() => tellSoon(TELL_AGAIN_MS));
+		},
+		{ quiet: 1500, most: 5000 }
+	);
 	settings.onChange(() => {
 		readNode().catch(() => {});
-		tellSoon(1500);
+		tell.poke();
 	});
 	ctx.app.sync.bridgeServed = false;
 	if (!bridgeShareOn()) return;
