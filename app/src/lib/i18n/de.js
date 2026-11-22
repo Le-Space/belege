@@ -5627,6 +5627,7 @@ export default {
 				'Für die gehostete Bridge gehalten: LibertAI, vertraulich – {model}, Pin {item}. Geht beim nächsten Start der gehosteten Bridge mit.',
 			attestedDetail: '{model} · zuletzt geprüft {time}',
 			unreachable: 'Die Bridge sagt nichts über das Auslesen (ältere Version?): {error}',
+			retry: 'Status prüfen',
 			provider: 'Anbieter (Host)',
 			models: 'Modelle',
 			modelsValue: '{primary}, beim zweiten Versuch {fallback}',
