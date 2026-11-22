@@ -12,6 +12,7 @@ import {
 	mergeVaultRecords,
 	openBooksVault,
 	removePasskey,
+	sameJson,
 	sharedRecordOf,
 	wordsSlotId
 } from './books-vault.js';
@@ -144,6 +145,26 @@ describe('the vault for every own device (#962)', () => {
 		expect(mergeVaultRecords(opened.record, forged)).toBe(opened.record);
 		expect(mergeVaultRecords(opened.record, sharedRecordOf(opened.record))).toBe(opened.record);
 		expect(adoptSyncedVault(opened, null, memoryStorage())).toBe(opened);
+	});
+
+	it('takes the same record with its keys in another order as the same', async () => {
+		const { opened } = await twoDevices();
+		/** The keys sorted at every level, as the sealed settings give a record back. @param {any} v @returns {any} */
+		const reordered = (v) =>
+			Array.isArray(v)
+				? v.map(reordered)
+				: v && typeof v === 'object'
+					? Object.fromEntries(
+							Object.keys(v)
+								.reverse()
+								.map((k) => [k, reordered(v[k])])
+						)
+					: v;
+		const shared = sharedRecordOf(opened.record);
+		expect(JSON.stringify(reordered(shared))).not.toBe(JSON.stringify(shared));
+		expect(sameJson(reordered(shared), shared)).toBe(true);
+		expect(mergeVaultRecords(opened.record, reordered(shared))).toBe(opened.record);
+		expect(sameJson(shared, { ...shared, removed: ['x'] })).toBe(false);
 	});
 
 	it('keeps what this browser alone decides', async () => {

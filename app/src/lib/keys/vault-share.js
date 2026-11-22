@@ -8,7 +8,7 @@
 // (as `books/successor`, move/rekey.js).
 
 import { getSetting, setSetting } from '../store/settings.js';
-import { sharedRecordOf } from '../books-vault.js';
+import { canonicalJson, sameJson, sharedRecordOf } from '../books-vault.js';
 
 export const VAULT_RECORD_SETTING = 'books/vault';
 
@@ -31,7 +31,7 @@ export async function readSharedVaults(settingsDb, booksId) {
 	const found = new Map();
 	for await (const entry of settingsDb.log.iterator()) {
 		const value = await sharedVaultOf(settingsDb, entry, booksId);
-		if (value) found.set(JSON.stringify(value), value);
+		if (value) found.set(canonicalJson(value), value);
 	}
 	return [...found.values()];
 }
@@ -62,7 +62,8 @@ export async function sharedVaultOf(settingsDb, entry, booksId) {
 export async function shareVault(settings, record) {
 	const value = sharedRecordOf(record);
 	const kept = await getSetting(settings, VAULT_RECORD_SETTING);
-	if (JSON.stringify(kept) === JSON.stringify(value)) return false;
+	// Read back from the sealed settings, its keys come in the codec's order.
+	if (sameJson(kept, value)) return false;
 	await setSetting(settings, VAULT_RECORD_SETTING, value);
 	return true;
 }

@@ -1015,6 +1015,29 @@ export function replaceVaultRecord(oldId, record, storage) {
 }
 
 /**
+ * The same JSON, whatever the order of the keys (#962): a record read back
+ * from the sealed settings has its keys in the codec's order, not in the
+ * order they were written, and is the same record all the same.
+ *
+ * @param {unknown} a
+ * @param {unknown} b
+ */
+export const sameJson = (a, b) => canonicalJson(a) === canonicalJson(b);
+
+/** @param {unknown} value */
+export function canonicalJson(value) {
+	return JSON.stringify(value, (_key, v) =>
+		v && typeof v === 'object' && !Array.isArray(v)
+			? Object.fromEntries(
+					Object.keys(v)
+						.sort()
+						.map((k) => [k, v[k]])
+				)
+			: v
+	);
+}
+
+/**
  * The record as the books keep it for every own device (#962): what is
  * public about the vault, without what only this browser decides (`aside`).
  *
@@ -1046,7 +1069,7 @@ export const sharedRecordOf = (record) => ({
 export function mergeVaultRecords(local, incoming) {
 	const vault = incoming?.vault;
 	if (!vault || vault.id !== local.vault.id || !Array.isArray(vault.slots)) return local;
-	if (JSON.stringify(vault.payload) !== JSON.stringify(local.vault.payload)) return local;
+	if (!sameJson(vault.payload, local.vault.payload)) return local;
 	const theirs = new Map(
 		(Array.isArray(incoming.slots) ? incoming.slots : []).map((s) => [String(s.kid), s])
 	);
@@ -1080,7 +1103,7 @@ export function mergeVaultRecords(local, incoming) {
 		const kid = String(s.kid);
 		const here = slots.get(kid);
 		const later = (theirs.get(kid)?.addedAt ?? '') > (mine.get(kid)?.addedAt ?? '');
-		if (!here || (later && JSON.stringify(here) !== JSON.stringify(s))) slots.set(kid, s);
+		if (!here || (later && !sameJson(here, s))) slots.set(kid, s);
 	}
 	const kept = [...slots.values()].filter((s) => !gone(String(s.kid)));
 	const kids = new Set(kept.map((s) => String(s.kid)));
@@ -1105,7 +1128,7 @@ export function mergeVaultRecords(local, incoming) {
 		...(local.aside?.length ? { aside: local.aside } : {}),
 		...(local.replaces?.length ? { replaces: local.replaces } : {})
 	};
-	return JSON.stringify(merged) === JSON.stringify(local) ? local : merged;
+	return sameJson(merged, local) ? local : merged;
 }
 
 /**
