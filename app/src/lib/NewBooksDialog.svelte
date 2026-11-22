@@ -32,7 +32,7 @@
 			{t('onboarding.newBooks.title')}
 		</h2>
 		<p class="mt-2 text-sm leading-relaxed" data-testid="new-books-why">
-			{question.looked ? t('onboarding.newBooks.looked') : t('onboarding.newBooks.paused')}
+			{t(`onboarding.newBooks.${question.why}`)}
 		</p>
 		<p class="mt-2 text-sm leading-relaxed">{t('onboarding.newBooks.made')}</p>
 		<p class="mt-2 text-sm leading-relaxed text-faint">{t('onboarding.newBooks.added')}</p>
