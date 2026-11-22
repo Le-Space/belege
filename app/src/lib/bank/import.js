@@ -53,6 +53,8 @@ const FIELDS = /** @type {const} */ ([
 	'explorerUrl',
 	// a swap on a wallet: what went each way (wallets/wallet-sync.js)
 	'swap',
+	// a NEAR storage deposit made for a swap: the swap's transaction hash (#968)
+	'partOf',
 	// a swap to another chain, from an IBC transfer's memo (wallets/cross-swap.js)
 	'crossSwap',
 	// moved out in someone else's transaction, and a booking without a rate (#162)
@@ -92,6 +94,8 @@ const FIELDS = /** @type {const} */ ([
  * @property {string} [counterpartyAddress] an own wallet's booking: the other side's address on the chain
  * @property {string} [explorerUrl] an own wallet's booking: the transaction in the block explorer (https)
  * @property {import('../bridge/client.js').SwapSides} [swap] a wallet's swap: what went each way
+ * @property {string} [partOf] a cost of a wallet's swap made in a transaction of its own (a NEAR
+ *   storage deposit, #968): the swap's hash, as its legs' `txRef`
  * @property {import('../wallets/cross-swap.js').CrossSwap} [crossSwap] a swap to another chain (IBC memo)
  * @property {{ by: string }} [movedByOther] moved out in someone else's transaction (#162)
  * @property {{ reason: string } | null} [rateMissing] no rate found: kept with its quantity, amount open (#162)
@@ -244,6 +248,7 @@ export async function importTransactions({
 			...(tx.counterpartyAddress ? { counterpartyAddress: tx.counterpartyAddress } : {}),
 			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),
 			...(tx.swap ? { swap: tx.swap } : {}),
+			...(tx.partOf ? { partOf: tx.partOf } : {}),
 			...(tx.crossSwap ? { crossSwap: tx.crossSwap } : {}),
 			...(tx.movedByOther ? { movedByOther: tx.movedByOther } : {}),
 			...(tx.crypto ? { rateMissing: tx.rateMissing ?? null } : {}),

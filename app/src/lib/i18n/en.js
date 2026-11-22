@@ -1780,6 +1780,7 @@ export default {
 	walletBooks: {
 		fee: 'Network fee',
 		feeFailed: 'Network fee (failed transaction)',
+		storageDeposit: 'Storage deposit',
 		burned: 'Burned by the project',
 		byOther: 'Moved by a third party',
 		stakingReward: 'Staking reward',

@@ -85,6 +85,17 @@ export function relatedIndex(transactions, classifications = {}) {
 			add(other, { kind, via, other: t });
 		}
 
+		// A cost of a swap made in a transaction of its own (a NEAR storage deposit, #968).
+		if (t.movement === 'fee' && typeof t.partOf === 'string') {
+			for (const ref of txRefsOf({ txRef: t.partOf })) {
+				for (const o of byRef.get(ref) ?? []) {
+					if (o.id === t.id || o.movement === 'fee' || o.source !== t.source) continue;
+					add(t, { kind: 'fee-of', via: 'hash', other: o });
+					add(o, { kind: 'fee', via: 'hash', other: t });
+				}
+			}
+		}
+
 		for (const ref of txRefsOf(t)) {
 			for (const o of byRef.get(ref) ?? []) {
 				if (o.id === t.id) continue;

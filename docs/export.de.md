@@ -156,6 +156,7 @@ Eine **Wallet** ist ein Konto auf einer Blockchain (kurz: Chain). Für jede Tran
 - Das gilt auch für jede Gebühr, die eine spätere Synchronisierung bringt.
 - _Regel aufheben_ nimmt das Konto bei diesen Gebühren wieder weg. Eine Gebühr, die du von Hand übernommen hast, behält ihr Konto.
 - Bank- und Börsengebühren gehören nicht dazu.
+- Ein **NEAR-Storage-Deposit für einen Tausch** (#968) gehört zum Tausch: Die Wallet hat es höchstens fünf Minuten vorher an einen Vertrag geschickt, den der Tausch berührt. Es ist dann eine Gebühr wie das Gas des Tauschs, bekommt dessen Konto, steht im Stapel als eigene Gebührenzeile, und der Beleg des Tauschs deckt es mit. Zurückholen ließe es sich, wenn man sich beim Vertrag wieder abmeldet; solche kleinen Beträge mit den Kosten des Tauschs zu buchen, ist aber üblich.
 
 Code: `app/src/lib/booking/fee-rule.js`.
 

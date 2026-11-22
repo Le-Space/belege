@@ -5,11 +5,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { createWalletService } from '@le-space/chains';
-import { NEAR, fakeNear } from '@le-space/chains/testing/near';
+import { NEAR, fakeNear, storageBeforeSwap } from '@le-space/chains/testing/near';
 import { memoryCollection } from '../bank/test-support.js';
 import { chainOfHash } from '../assets/hash-chain.js';
 import { assetOf } from '../assets/registry.js';
 import { txRefsOf } from '../matching/context.js';
+import { classifyTransaction } from '../matching/classify.js';
+import { relatedIndex } from '../matching/related.js';
+import { applyFeeRule } from '../booking/fee-rule.js';
 import {
 	WALLET_CHAINS,
 	addressExplorerUrl,
@@ -269,5 +272,95 @@ describe('a NEAR account as a wallet', () => {
 		const third = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
 		expect(third.superseded).toBe(0);
 		expect(third.totals.new).toBe(0);
+	});
+
+	it('a storage deposit booked alone before becomes a cost of its swap on the next sync (#968)', async () => {
+		const s = store();
+		const wallet = await addWallet(s.settings, { chain: 'near', address: NEAR.wallet });
+		const now = new Date('2026-11-21T08:00:00Z');
+		const { fetch, dex, hashes } = storageBeforeSwap();
+		const service = createWalletService({ fetch });
+		const c = client();
+		const after = await service.sync({ chain: 'near', address: NEAR.wallet });
+		// As a reader before #968 gave it: each deposit a payment of its own, the swap without them.
+		const before = {
+			...after,
+			entries: after.entries.map((/** @type {any} */ e) => {
+				const { partOf, ...rest } = e;
+				const swap = rest.swap && { ...rest.swap };
+				if (swap) delete swap.storage;
+				if (partOf && rest.id.endsWith(':deposit'))
+					return { ...rest, type: 'sent', kind: 'transfer', swap: undefined };
+				return partOf ? { ...rest, swap: undefined } : { ...rest, ...(swap ? { swap } : {}) };
+			})
+		};
+		const first = await bookWalletHistory({ client: c, store: s, wallet, result: before, now });
+		const ids = (await s.transactions.list()).map((t) => t.id).sort();
+		const deposit = `${hashes.atToken}:deposit`;
+		const of = async (/** @type {string} */ sourceId) =>
+			(await s.transactions.list()).find((t) => t.sourceId === sourceId);
+		expect(await of(deposit)).toMatchObject({ movement: 'transfer' });
+
+		const second = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(second.totals.new).toBe(0);
+		expect(second.totals.updated).toBeGreaterThan(0);
+		// The same bookings, none twice.
+		expect((await s.transactions.list()).map((t) => t.id).sort()).toEqual(ids);
+		expect(first.totals.new).toBe(ids.length);
+
+		const booked = /** @type {Record<string, any>} */ (await of(deposit));
+		expect(booked).toMatchObject({
+			movement: 'fee',
+			partOf: hashes.swap,
+			txRef: hashes.atToken,
+			counterpartyAddress: NEAR.usdc,
+			quantity: '-1250000000000000000000'
+		});
+		expect(booked.purpose).toMatch(/^Storage-Deposit für Tausch: 2 NEAR → 5,67 USDC über /);
+		expect(booked.purpose).toContain('Storage-Deposit 0,0025 NEAR');
+		// The swap's legs name it too: what the swap's receipt shows.
+		const leg = /** @type {Record<string, any>} */ (await of(`${hashes.swap}:ft:s1:0`));
+		expect(leg.swap.storage).toEqual({ asset: 'NEAR', amount: '0.0025' });
+		expect(leg.swap.via).toBe(dex);
+
+		// A network fee: it needs no receipt of its own.
+		expect(classifyTransaction(booked, /** @type {any} */ ({ rules: [] }))).toMatchObject({
+			kind: 'bank-fee',
+			via: 'network-fee'
+		});
+		// Shown with the swap, like its gas.
+		const related = relatedIndex(await s.transactions.list());
+		expect(
+			(related.get(String(leg.id)) ?? [])
+				.filter((r) => r.kind === 'fee')
+				.map((r) => r.other.sourceId)
+				.sort()
+		).toEqual(
+			[
+				`${hashes.atDex}:deposit`,
+				`${hashes.atDex}:fee`,
+				deposit,
+				`${hashes.atToken}:fee`,
+				`${hashes.swap}:fee`
+			].sort()
+		);
+		expect((related.get(String(booked.id)) ?? []).map((r) => r.kind)).toContain('fee-of');
+
+		// It takes the account the swap's gas is booked on.
+		const gas = /** @type {Record<string, any>} */ (await of(`${hashes.swap}:fee`));
+		await s.transactions.put({
+			...gas,
+			booking: { account: '4970', taxKey: '', confirmedAt: '2026-11-21T09:00:00Z' }
+		});
+		await applyFeeRule(/** @type {any} */ (s));
+		expect((await of(deposit))?.booking).toMatchObject({ account: '4970', via: 'swap' });
+		expect((await of(`${hashes.atDex}:fee`))?.booking).toMatchObject({ account: '4970' });
+		await s.transactions.put({ ...gas, booking: null });
+		await applyFeeRule(/** @type {any} */ (s));
+		expect((await of(deposit))?.booking).toBeNull();
+
+		// Once more: nothing changes.
+		const third = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(third.totals).toMatchObject({ new: 0, updated: 0 });
 	});
 });

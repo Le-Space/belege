@@ -19,7 +19,8 @@
  * @property {string} date YYYY-MM-DD (UTC)
  * @property {'sent' | 'received' | 'fee'} type
  * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
- * @property {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} [swap] EVM: what the wallet gave and got in a swap, and its gas (evm.js markSwaps)
+ * @property {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string }, storage?: { asset: string, amount: string } }} [swap] EVM: what the wallet gave and got in a swap, and its gas (evm.js markSwaps); NEAR: also what the storage deposits made for it kept
+ * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction (and that transaction's gas), type `fee`: the swap's hash
  * @property {string} asset symbol
  * @property {string} amount signed decimal: negative when it left the wallet
  * @property {number} decimals
