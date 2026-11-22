@@ -11,7 +11,8 @@ import { scopeLabel } from './scopes.js';
 // fetch ignores it. No path is built here.
 
 /**
- * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string } }} SwapSides
+ * @typedef {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string }, storage?: { asset: string, amount: string } }} SwapSides
+ *   `storage`: NEAR, what the storage deposits made for the swap kept
  */
 
 /**
@@ -182,6 +183,7 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {'sent' | 'received' | 'fee'} type
  * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap' | 'mining'} kind `mining`: a mined block (Monero export)
  * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
+ * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction, or that transaction's gas (type `fee`): the swap's hash (#968)
  * @property {string} asset symbol
  * @property {string} amount signed decimal
  * @property {number} decimals

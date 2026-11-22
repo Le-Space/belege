@@ -30,10 +30,21 @@
 // as NEAR, the NEAR handed to the wrap contract was a payment of its own, and
 // books that still hold it would count that NEAR twice beside the swap.
 //
+// Before a swap the wallet or the DEX registers the account at the contracts
+// the swap touches (`storage_deposit`, `tokens_storage_deposit`), each in a
+// transaction of its own. Such a deposit, sent at most STORAGE_BEFORE_SWAP_MS
+// before a swap to a contract that swap involves – a token given or got (wNEAR
+// for NEAR), or the DEX that took it – is a cost of that swap, like its gas:
+// an entry `fee` under its own hash and id (`<hash>:deposit`) that names the
+// swap's transaction (`partOf`) and carries its sides, and so does the gas of
+// its transaction; the swap's sides name what such deposits kept (`storage`).
+// One that matches no swap stays as it is.
+//
 // Error messages name a host at most, never the account: the bridge logs them.
 
 import { balancesNow, fetchRaw, isAccountId, mapRaw, storageKept, TOKENS } from './near.js';
 import { addressUrl, hostOf, unitsToDecimal, WalletError } from './core.js';
+import { fromUnits, toUnits } from '@le-space/ledger';
 
 /** The wrap contract's token: NEAR under another name. @param {string} contract */
 const wrapped = (contract) =>
@@ -43,6 +54,70 @@ const WRAPPED_SYMBOLS = new Set(
 		.filter((t) => t.priceAs === 'NEAR')
 		.map((t) => t.symbol)
 );
+
+/** The wrap contracts: where a swap's NEAR is held as wNEAR. */
+const WRAP_CONTRACTS = Object.keys(TOKENS.mainnet).filter(wrapped);
+
+/**
+ * How long before a swap a storage deposit made for it may come: the wallet
+ * signs the registrations and then the swap, seconds to a minute or two apart.
+ */
+export const STORAGE_BEFORE_SWAP_MS = 5 * 60_000;
+
+/**
+ * The storage deposits made for a swap (see the head of this file): deposit
+ * entry id → the swap's hash, and per swap the NEAR they kept.
+ *
+ * @param {import('@le-space/ledger').LedgerEntry[]} ledger
+ * @param {(e: import('@le-space/ledger').LedgerEntry) => boolean} isSwap a leg of a swap that is no wrapping
+ */
+export function storageForSwaps(ledger, isSwap) {
+	/** @type {Map<string, { at: number, contracts: Set<string> }>} */
+	const swaps = new Map();
+	for (const e of ledger) {
+		if (e.type === 'fee' || !e.swap || !isSwap(e)) continue;
+		if (!swaps.has(e.hash))
+			swaps.set(e.hash, { at: Date.parse(e.time), contracts: new Set([e.swap.via]) });
+	}
+	for (const e of ledger) {
+		const s = swaps.get(e.hash);
+		if (!s || e.type === 'fee') continue;
+		// wNEAR counts as NEAR: a swap's NEAR involves the wrap contract, and its wNEAR plain NEAR.
+		if (e.contract === 'native' || wrapped(e.contract))
+			for (const c of WRAP_CONTRACTS) s.contracts.add(c);
+		else s.contracts.add(e.contract);
+	}
+	/** @type {Map<string, string>} the deposit's id, and its gas's, → swap hash */
+	const partOf = new Map();
+	/** @type {Map<string, bigint>} swap hash → yoctoNEAR kept */
+	const kept = new Map();
+	for (const e of ledger) {
+		// Only a deposit sent; a refund (`storage_withdraw`, `storage_unregister`) is no storage entry.
+		if (e.kind !== 'storage' || e.type !== 'sent' || !e.success || e.contract !== 'native')
+			continue;
+		const at = Date.parse(e.time);
+		let best = /** @type {{ hash: string, gap: number } | null} */ (null);
+		for (const [hash, s] of swaps) {
+			const gap = s.at - at;
+			if (gap < 0 || gap > STORAGE_BEFORE_SWAP_MS || !s.contracts.has(e.counterparty)) continue;
+			if (!best || gap < best.gap || (gap === best.gap && hash < best.hash)) best = { hash, gap };
+		}
+		if (!best) continue;
+		partOf.set(e.id, best.hash);
+		// The registration's own gas goes with it.
+		const gas = ledger.find((g) => g.type === 'fee' && g.hash === e.hash);
+		if (gas && e.hash !== best.hash) partOf.set(gas.id, best.hash);
+		kept.set(best.hash, (kept.get(best.hash) ?? 0n) - toUnits(e.amount, e.decimals));
+	}
+	return {
+		partOf,
+		/** @param {string} hash @returns {{ asset: string, amount: string } | undefined} */
+		storageOf: (hash) => {
+			const units = kept.get(hash);
+			return units ? { asset: 'NEAR', amount: fromUnits(units, 24) } : undefined;
+		}
+	};
+}
 
 /** NearBlocks gives 25 rows a page: 5 000 transactions, and as many token movements. */
 const MAX_PAGES = 200;
@@ -124,6 +199,21 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 			/** @param {{ asset: string, amount: string, listed: boolean }[]} sides */
 			const asNative = (sides) =>
 				sides.map((x) => (WRAPPED_SYMBOLS.has(x.asset) ? { ...x, asset: native } : x));
+			/** @param {NonNullable<import('@le-space/ledger').LedgerEntry['swap']>} s */
+			const sidesOf = (s) => ({ ...s, gave: asNative(s.gave), got: asNative(s.got) });
+			/** NEAR for NEAR: wrapping or unwrapping, a movement inside the wallet. @param {ReturnType<typeof sidesOf>} s */
+			const insideOf = (s) => s.got.every((g) => s.gave.some((x) => x.asset === g.asset));
+			const storage = storageForSwaps(
+				ledger,
+				(e) => !insideOf(sidesOf(/** @type {any} */ (e.swap)))
+			);
+			/** @type {Map<string, any>} swap hash → its sides, with the storage deposits made for it */
+			const swapOf = new Map();
+			for (const e of ledger) {
+				if (!e.swap || swapOf.has(e.hash)) continue;
+				const kept = storage.storageOf(e.hash);
+				swapOf.set(e.hash, { ...sidesOf(e.swap), ...(kept ? { storage: kept } : {}) });
+			}
 			for (const e of ledger) {
 				const wrap = e.contract !== 'native' && wrapped(e.contract);
 				const token = e.contract === 'native' || wrap ? null : chain.tokens[e.contract];
@@ -131,12 +221,11 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					unknown.add(e.contract);
 					continue;
 				}
-				const fee = e.type === 'fee';
-				const swap = e.swap
-					? { ...e.swap, gave: asNative(e.swap.gave), got: asNative(e.swap.got) }
-					: undefined;
-				// NEAR for NEAR: wrapping or unwrapping, a movement inside the wallet.
-				const inside = !!swap && swap.got.every((g) => swap.gave.some((x) => x.asset === g.asset));
+				// A storage deposit made for a swap: a cost of the swap, as its gas.
+				const partOf = storage.partOf.get(e.id);
+				const fee = e.type === 'fee' || !!partOf;
+				const swap = partOf ? swapOf.get(partOf) : e.swap ? swapOf.get(e.hash) : undefined;
+				const inside = !partOf && !!swap && insideOf(swap);
 				if (
 					!fee &&
 					(inside ||
@@ -155,7 +244,7 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					height: e.height,
 					time: e.time,
 					date: e.date,
-					type: /** @type {'sent' | 'received' | 'fee'} */ (e.type),
+					type: fee ? 'fee' : /** @type {'sent' | 'received'} */ (e.type),
 					kind: fee
 						? 'fee'
 						: e.kind === 'stake'
@@ -164,10 +253,13 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 								? 'swap'
 								: 'transfer',
 					...(swapped ? { swap } : {}),
+					// The swap's transaction, for a storage deposit made for it.
+					...(partOf ? { partOf } : {}),
 					asset: token?.symbol ?? native,
 					amount: e.amount,
 					decimals: token?.decimals ?? chain.native.decimals,
-					counterparty: fee ? '' : e.counterparty,
+					// A storage deposit keeps the contract it registered at.
+					counterparty: e.type === 'fee' ? '' : e.counterparty,
 					counterpartyLabel: '',
 					memo: '',
 					success: e.success,

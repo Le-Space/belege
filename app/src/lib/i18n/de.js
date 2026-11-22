@@ -1813,6 +1813,7 @@ export default {
 	walletBooks: {
 		fee: 'Netzwerkgebühr',
 		feeFailed: 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
+		storageDeposit: 'Storage-Deposit',
 		burned: 'Vom Projekt verbrannt',
 		byOther: 'Von Dritten bewegt',
 		stakingReward: 'Staking-Ertrag',

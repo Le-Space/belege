@@ -113,6 +113,8 @@ export function fakeNear({
 			return json({ data: u.pathname.endsWith('/ft-txns') ? ftTxns : txns, meta: {} });
 		}
 		const call = JSON.parse(String(init?.body));
+		// What a storage deposit kept (near.js storageKept): all of it, nothing sent back.
+		if (call.method === 'EXPERIMENTAL_tx_status') return json({ result: { receipts: [] } });
 		if (call.params?.request_type === 'view_account') return json({ result: account });
 		if (call.params?.request_type === 'call_function' && call.params.account_id === NEAR.usdc) {
 			return json({ result: { result: [...new TextEncoder().encode(`"${usdc}"`)] } });
@@ -123,4 +125,60 @@ export function fakeNear({
 		return json({ error: { message: 'unexpected' } });
 	};
 	return { fetch: /** @type {typeof fetch} */ (answer), state };
+}
+
+/**
+ * A swap of 2 NEAR (as wNEAR) for 5.67 USDC at a made-up DEX, and the two
+ * storage deposits the wallet sent a minute before it, at the USDC contract
+ * and at the DEX (#968), each in a transaction of its own.
+ */
+export function storageBeforeSwap() {
+	const dex = 'dex.example.near';
+	const hashes = {
+		swap: 'Swap333333333333333333333333333333333333333',
+		atToken: 'Reg1111111111111111111111111111111111111111',
+		atDex: 'Reg2222222222222222222222222222222222222222'
+	};
+	const swapAt = Date.parse('2026-11-20T14:05:00Z');
+	const signed = (
+		/** @type {string} */ hash,
+		/** @type {string} */ receiver,
+		/** @type {number} */ before,
+		/** @type {string} */ method,
+		/** @type {string} */ deposit
+	) => ({
+		transaction_hash: hash,
+		block_timestamp: (BigInt(swapAt - before) * 1_000_000n).toString(),
+		block: { block_height: String(300 - before / 1000) },
+		signer_account_id: NEAR.wallet,
+		receiver_account_id: receiver,
+		actions: [{ action: 'FUNCTION_CALL', method }],
+		actions_agg: { deposit },
+		outcomes: { status: true },
+		outcomes_agg: { transaction_fee: '446365125000000000000' }
+	});
+	const moved = (/** @type {Record<string, string>} */ over) => ({
+		transaction_hash: hashes.swap,
+		block_timestamp: (BigInt(swapAt) * 1_000_000n).toString(),
+		block: { block_height: '301' },
+		affected_account_id: NEAR.wallet,
+		involved_account_id: dex,
+		cause: 'TRANSFER',
+		event_index: '0',
+		...over
+	});
+	const { fetch } = fakeNear({
+		txns: [
+			signed(hashes.swap, 'wrap.near', 0, 'ft_transfer_call', '1'),
+			signed(hashes.atToken, NEAR.usdc, 60_000, 'storage_deposit', yocto('0.00125')),
+			signed(hashes.atDex, dex, 60_000, 'tokens_storage_deposit', yocto('0.00125'))
+		],
+		ftTxns: [
+			moved({ contract_account_id: NEAR.usdc, delta_amount: '5670000', receipt_id: 's2' }),
+			moved({ contract_account_id: 'wrap.near', delta_amount: `-${yocto('2')}`, receipt_id: 's1' })
+		],
+		account: { amount: yocto('7'), locked: '0' },
+		usdc: '5670000'
+	});
+	return { fetch, dex, hashes };
 }
