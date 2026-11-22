@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.52.0] – 2026-11-22
+
 ### Added
 
 - **A device with its own passkey joins the books by QR, without any server** (#962). On the start screen of a device without books, "Mit eigenem Passkey zu Büchern auf einem anderen Gerät" makes a passkey and scans the invite that a device with the books shows under Integrationen → Eigene Geräte. Once the new device's answer is scanned back, the device with the books asks "Zulassen?", with the short ids of both devices on both screens. Only then does it hand over the vault, sealed to a one-time key that lives in the new device's memory only. The new passkey gets its own slot and the books open with it. The two devices' nodes then connect over the same exchange, so nobody scans a second time. The device with the books never sees the new passkey's answer. "Ablehnen" hands over nothing, and the new device keeps neither a vault nor a passkey. This is the one exception to "nothing before the device proof": the new device takes this one exchange, once, for ten minutes at most, and only on a QR connection (docs/device-proof.md). If the books keep their vault on Aleph, the new device later publishes its passkey's index there itself. The new browser spec `device-own-passkey` runs three browsers with three different passkeys: all three get the same bookings and all three passkeys, and no request goes beyond the machine.
