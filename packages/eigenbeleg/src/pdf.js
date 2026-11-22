@@ -16,6 +16,7 @@ import {
 	deDate,
 	deMoney,
 	deNumber,
+	deRate,
 	noInvoice,
 	sourceName
 } from './document.js';
@@ -128,8 +129,9 @@ export async function eigenbelegPdf(
 
 	const columns = [
 		{ title: 'Bewegung', width: 150 },
-		{ title: 'Menge', width: 118, right: true },
-		{ title: `Kurs ${cur}`, width: 52, right: true },
+		{ title: 'Menge', width: 112, right: true },
+		// Six significant digits (deRate): the smallest rate, Aleph's credits, still fits on one line.
+		{ title: `Kurs ${cur}`, width: 58, right: true },
 		{ title: `Wert ${cur}`, width: 66, right: true },
 		{ title: 'Auf dem Beleg', width: width - 386 }
 	];
@@ -172,7 +174,7 @@ export async function eigenbelegPdf(
 				[
 					`${m.what}${e.type === 'received' ? ' (Eingang)' : ''}`,
 					`${deNumber(e.amount)} ${e.asset}`,
-					e.eur ? deNumber(e.eur.rate) : '—',
+					e.eur ? deRate(e.eur.rate) : '—',
 					e.eur ? money(e.eur.value, 4) : '—',
 					m.onIt ? 'ja' : `nein – ${m.why}`
 				],

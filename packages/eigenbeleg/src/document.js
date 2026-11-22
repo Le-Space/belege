@@ -425,6 +425,23 @@ export function deNumber(amount) {
 	return `${neg ? '−' : ''}${grouped}${frac ? ',' + frac : ''}`;
 }
 
+/**
+ * A rate for the table, rounded to `digits` significant digits: `0.012345678901234567` → `0,0123457`,
+ * `0.00000072500003` → `0,000000725`. Read, not recomputed: the values stay at the full rate,
+ * which the CSV keeps; a rate with every decimal does not fit its column.
+ *
+ * @param {string} rate @param {number} [digits]
+ */
+export function deRate(rate, digits = 6) {
+	const s = normalize(String(rate)).replace(/^-/, '');
+	const [int, frac = ''] = s.split('.');
+	const places =
+		int !== '0'
+			? Math.max(0, digits - int.length)
+			: frac.length - frac.replace(/^0+/, '').length + digits;
+	return deNumber(normalize(round(String(rate), places)));
+}
+
 /** An amount with fixed decimals and no unit: `0.0017` → `0,0017`. @param {string} amount @param {number} places */
 export function deFixed(amount, places = 2) {
 	const r = round(String(amount), places);
