@@ -32,9 +32,6 @@ const MAX_ID = 40;
 const LOOPBACK = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 const PLACEHOLDER_BASE = 'https://loopback.invalid';
 
-/** @param {string} v */
-export const isLocalId = (v) => v.startsWith(LOCAL_PREFIX);
-
 /**
  * @param {string} message
  * @param {'name' | 'url'} reason
