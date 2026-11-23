@@ -216,6 +216,11 @@
 				/>
 				{t('integrationen.cards.invert')}
 			</label>
+			{#if preview.refused}
+				<p class="mt-2 text-sm text-warning" role="alert" data-testid="card-dates-refused">
+					{t(`integrationen.cards.error.${preview.refused}`)}
+				</p>
+			{/if}
 			<ul class="mt-2 divide-y divide-border text-sm" data-testid="card-preview-lines">
 				{#each preview.lines.slice(0, 8) as l, i (i)}
 					<li class="flex flex-wrap justify-between gap-2 py-1" data-testid="card-preview-line">

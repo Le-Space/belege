@@ -77,6 +77,12 @@ describe('suggestOutlays', () => {
 		expect(suggestOutlays(120, open([100, 50, 30]))).toEqual(['O0', 'O1']);
 		expect(suggestOutlays(1000, open([100, 50]))).toEqual(['O0', 'O1']);
 	});
+
+	it('the exact search is capped (#539): past the cap, the oldest until used up', () => {
+		// 13 powers of two reach 8,192 partial sums, more than the cap keeps.
+		const powers = Array.from({ length: 13 }, (_, i) => 2 ** i);
+		expect(suggestOutlays(2 ** 12, open(powers))).toEqual(powers.map((_, i) => `O${i}`));
+	});
 });
 
 describe('linking a payout', () => {

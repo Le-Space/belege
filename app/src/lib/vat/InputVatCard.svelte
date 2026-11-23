@@ -209,6 +209,14 @@
 						{t('home.vat.outputOpen', { amount: money(out.open.cents), count: out.open.invoices })}
 					</li>
 				{/if}
+				{#if out.elsewhere.invoices}
+					<li data-testid="vat-output-elsewhere">
+						{t('home.vat.outputElsewhere', {
+							amount: money(out.elsewhere.cents),
+							count: out.elsewhere.invoices
+						})}
+					</li>
+				{/if}
 				{#if out.missing.invoices}
 					<li data-testid="vat-output-missing">
 						{t('home.vat.outputMissing', {

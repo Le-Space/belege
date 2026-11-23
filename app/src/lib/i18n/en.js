@@ -2197,6 +2197,8 @@ export default {
 			due: 'Payable',
 			outputOpen:
 				'Output VAT on invoices not paid yet: {amount} (invoices: {count}) – under Ist due only when the money comes in.',
+			outputElsewhere:
+				'Output VAT on shares paid in another fiscal year: {amount} (invoices: {count}) – under Ist it counts in the year the money came in.',
 			outputMissing:
 				'Invoices whose VAT the invoice app did not send: {count} ({amount} gross) – not in the output VAT until the app sends the VAT per rate.',
 			outputNone: 'Invoices without VAT: {count} ({amount}).',
@@ -5472,7 +5474,11 @@ export default {
 			error: {
 				name: 'The card needs a name.',
 				last4: 'The last 4 digits of the card, please.',
-				noTable: 'This file has no table with a date and an amount.'
+				noTable: 'This file has no table with a date and an amount.',
+				ambiguousDates:
+					'The dates in this file could be day/month or month/day, and none of them settles it (no day above 12). Nothing is imported: export the statement with ISO dates (2026-01-31) or with a longer period, or ask the card issuer which order it uses.',
+				mixedDates:
+					'The dates in this file are written both day/month and month/day. Nothing is imported: export the statement again from the card issuer.'
 			},
 			adviser:
 				'Enter the card’s ledger account under Settings → Bookkeeping, as for a bank account; which one is for the tax adviser.'

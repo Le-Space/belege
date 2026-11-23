@@ -180,3 +180,44 @@ describe('rates for candidates (#474)', () => {
 		expect(asked.filter((a) => a === 'USD 2026-03-05')).toHaveLength(1);
 	});
 });
+
+describe('fillFx reads one booking by id (#539)', () => {
+	it('re-reads the booking with get, never the whole table, and leaves a deleted one', async () => {
+		const { collection } = memoryCollection('transactions');
+		const kept = await collection.put({
+			bookedOn: '2026-08-03',
+			amountCents: 9_200,
+			currency: 'EUR'
+		});
+		const gone = await collection.put({
+			bookedOn: '2026-08-03',
+			amountCents: 4_600,
+			currency: 'EUR'
+		});
+		await collection.softDelete(gone.id);
+		const transactions = {
+			...collection,
+			get: collection.get,
+			put: collection.put,
+			list: async () => {
+				throw new Error('scanned the whole table');
+			}
+		};
+		const client = {
+			rate: async (/** @type {string} */ asset, /** @type {string} */ date) => ({
+				asset,
+				date,
+				rate: '0.5',
+				source: 'ecb',
+				at: `${date}T00:00:00Z`
+			})
+		};
+		const gaps = [
+			{ tx: kept, currency: 'CHF', day: '2026-08-03' },
+			{ tx: gone, currency: 'CHF', day: '2026-08-03' }
+		];
+		expect(await fillFx({ client, transactions, gaps })).toBe(1);
+		expect((await collection.get(kept.id))?.fx?.CHF?.rate).toBe('0.5');
+		expect((await collection.get(gone.id))?.fx).toBeUndefined();
+	});
+});

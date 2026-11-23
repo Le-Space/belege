@@ -2236,6 +2236,8 @@ export default {
 			due: 'Zahllast',
 			outputOpen:
 				'Umsatzsteuer aus noch nicht bezahlten Rechnungen: {amount} (Rechnungen: {count}) – bei Ist erst fällig, wenn das Geld kommt.',
+			outputElsewhere:
+				'Umsatzsteuer aus Teilen, die in einem anderen Geschäftsjahr bezahlt wurden: {amount} (Rechnungen: {count}) – bei Ist zählt sie im Jahr, in dem das Geld kam.',
 			outputMissing:
 				'Rechnungen ohne Steuerangabe der Rechnungs-App: {count} ({amount} brutto) – nicht in der Umsatzsteuer, bis die App die Steuer je Satz liefert.',
 			outputNone: 'Rechnungen ohne Umsatzsteuer: {count} ({amount}).',
@@ -5540,7 +5542,11 @@ export default {
 			error: {
 				name: 'Die Karte braucht einen Namen.',
 				last4: 'Bitte die letzten 4 Ziffern der Karte.',
-				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.'
+				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.',
+				ambiguousDates:
+					'Die Datumsangaben in dieser Datei können Tag/Monat oder Monat/Tag sein, und keine davon entscheidet es (kein Tag über 12). Nichts wird eingelesen: die Abrechnung mit ISO-Datum (2026-01-31) oder über einen längeren Zeitraum exportieren, oder beim Kartenaussteller nachfragen, in welcher Reihenfolge die Datei das Datum schreibt.',
+				mixedDates:
+					'Die Datumsangaben in dieser Datei stehen teils als Tag/Monat, teils als Monat/Tag. Nichts wird eingelesen: die Abrechnung beim Kartenaussteller neu exportieren.'
 			},
 			adviser:
 				'Das Sachkonto der Karte trägst du unter Einstellungen → Buchhaltung ein, wie bei einem Bankkonto; welches, klärst du mit der Steuerberatung.'

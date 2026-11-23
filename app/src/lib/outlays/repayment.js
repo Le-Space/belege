@@ -16,6 +16,7 @@
 
 import { recordEvent } from '../activity/events.js';
 import { isActive, syncLinks } from '../matching/engine.js';
+import { pickBySum } from '../matching/exact-sum.js';
 import { privateKind } from '../matching/private-kind.js';
 import { isOutlay } from './outlays.js';
 
@@ -118,7 +119,7 @@ export function mayRepayOutlays(tx, matches, classification) {
 }
 
 /**
- * The open outlays a payout most likely clears: the ones whose open amounts
+ * The open outlays a payout most likely clears (matching/exact-sum.js): the ones whose open amounts
  * add up to it exactly, the oldest preferred; else the oldest until it is
  * used up.
  *
@@ -127,27 +128,10 @@ export function mayRepayOutlays(tx, matches, classification) {
  * @returns {string[]} outlay ids
  */
 export function suggestOutlays(payoutCents, open) {
-	// Exact sums over the oldest 24 – enough for a trip's receipts.
-	const pool = open.slice(0, 24);
-	/** @type {Map<number, number[]>} sum → indices, first found = oldest */
-	const reach = new Map([[0, []]]);
-	for (let i = 0; i < pool.length; i++) {
-		for (const [sum, picked] of [...reach]) {
-			const next = sum + pool[i].openCents;
-			if (next <= payoutCents && !reach.has(next)) reach.set(next, [...picked, i]);
-		}
-		const hit = reach.get(payoutCents);
-		if (hit) return hit.map((j) => String(pool[j].tx.id));
-	}
-	/** @type {string[]} */
-	const picked = [];
-	let left = payoutCents;
-	for (const o of open) {
-		if (left <= 0) break;
-		picked.push(String(o.tx.id));
-		left -= o.openCents;
-	}
-	return picked;
+	return pickBySum(
+		payoutCents,
+		open.map((o) => o.openCents)
+	).map((i) => String(open[i].tx.id));
 }
 
 /** @param {any} store @param {string} action @param {Record<string, any>} fields */
