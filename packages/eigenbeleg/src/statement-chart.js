@@ -22,16 +22,25 @@ import {
 } from '@le-space/charts';
 import { round } from '@le-space/ledger';
 
-import { deNumber } from './document.js';
+import { formats } from './document.js';
+import { say } from './language.js';
 
-/** A resource as the Monatsübersicht names it. @param {string} label */
-export const resourceName = (label) =>
-	label.replace(/^Aleph Cloud \((.*)\)$/, '$1').replace(/^storage$/, 'Speicher (storage)');
+/** A resource as the Monatsübersicht names it. @param {string} label @param {import('./language.js').DocumentLanguage} [language] */
+export const resourceName = (label, language = 'de') =>
+	label
+		.replace(/^Aleph Cloud \((.*)\)$/, '$1')
+		.replace(/^storage$/, say(language, 'Speicher (storage)', 'storage'));
 
 /** @param {string} bucket YYYY-MM-DD or YYYY-MM */
 const bucketLabel = (bucket) => {
 	const [y, m, d] = bucket.split('-');
 	return d ? `${d}.${m}.` : `${m}/${y}`;
+};
+
+/** The same in English: `10-05`, `2026-10`. @param {string} bucket YYYY-MM-DD or YYYY-MM */
+const bucketLabelEn = (bucket) => {
+	const [y, m, d] = bucket.split('-');
+	return d ? `${m}-${d}` : `${y}-${m}`;
 };
 
 /**
@@ -49,24 +58,34 @@ export function statementChart(st, s, { width = 507, height = 112, measure } = {
 	const { from, to } = st.period;
 	if (!s.rows.length || !(from < to)) return null;
 	const by = granularity(from, to);
-	const per = by === 'month' ? 'Monat' : 'Tag';
-	const unit = st.chain === 'aleph' ? 'Credits' : s.asset;
-	const common = { width, height, format: deNumber, bucketLabel, ...(measure ? { measure } : {}) };
+	const L = st.language ?? 'de';
+	/** @param {string} de @param {string} en */
+	const t = (de, en) => say(L, de, en);
+	const deNumber = formats(L).number;
+	const per = by === 'month' ? t('Monat', 'month') : t('Tag', 'day');
+	const unit = st.chain === 'aleph' ? t('Credits', 'credits') : s.asset;
+	const common = {
+		width,
+		height,
+		format: deNumber,
+		bucketLabel: L === 'en' ? bucketLabelEn : bucketLabel,
+		...(measure ? { measure } : {})
+	};
 	const used = s.rows.filter((r) => r.usage && r.debit);
-	if (st.title === 'Verbrauchsauszug' && used.length) {
+	if ((st.usage ?? st.title === 'Verbrauchsauszug') && used.length) {
 		const series = sumSeries({
 			items: used.map((r) => ({ date: r.date, amount: r.debit, key: r.label })),
 			from,
 			to,
 			by,
-			others: 'Übrige'
+			others: t('Übrige', 'Others')
 		});
 		const scene = stackedBars({
 			...common,
-			title: `Verbrauch je ${per} (${unit})`,
+			title: `${t('Verbrauch je', 'Usage per')} ${per} (${unit})`,
 			buckets: series.buckets,
 			series: series.series.map((x) => ({
-				label: `${clip(x.others ? x.label : resourceName(x.label), 28)} · ${deNumber(round(x.total, 12))}`,
+				label: `${clip(x.others ? x.label : resourceName(x.label, L), 28)} · ${deNumber(round(x.total, 12))}`,
 				values: x.values.map(Number),
 				...(x.others ? { color: /** @type {const} */ ('other') } : {})
 			}))
@@ -82,7 +101,7 @@ export function statementChart(st, s, { width = 507, height = 112, measure } = {
 	});
 	const scene = lineChart({
 		...common,
-		title: `Kontostand je ${per} (${unit})`,
+		title: `${t('Kontostand je', 'Balance per')} ${per} (${unit})`,
 		buckets: series.points.map((p) => p.bucket),
 		series: [
 			{

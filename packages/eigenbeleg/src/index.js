@@ -24,8 +24,15 @@ export {
 	DOCUMENT_CURRENCIES,
 	documentCurrency,
 	currencyPlaces,
-	conversionText
+	conversionText,
+	formats,
+	NOTE_EN,
+	ALEPH_NOTE_EN,
+	NOT_AN_INVOICE_EN,
+	KIND_TEXT_EN,
+	DATA_SOURCES_EN
 } from './document.js';
+export { DOCUMENT_LANGUAGES, documentLanguage, localizeLabel, localizeSource } from './language.js';
 export { eigenbelegCsv } from './csv.js';
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
 export {
