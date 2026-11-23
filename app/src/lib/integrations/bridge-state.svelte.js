@@ -15,6 +15,7 @@ import {
 	readBridgeRecord,
 	readHostedRecord,
 	readNearHostedRecord,
+	recordAfterCodePairing,
 	recordAfterUnpair,
 	writeBridgeRecord
 } from '$lib/bridge-connection/record.js';
@@ -163,20 +164,31 @@ export async function checkBridge() {
  * Pair with the code the bridge printed; the token goes into the sealed store,
  * never localStorage.
  *
+ * `fromHosted`: the books' bridge is a hosted one, and the person makes the
+ * bridge on this computer theirs instead (BridgePanel). The hosted bridge's
+ * own records and settings stay; unlocking its VM again makes it the books'
+ * bridge again.
+ *
  * @param {string} code
+ * @param {{ fromHosted?: boolean }} [options]
  */
-export async function pairBridge(code) {
+export async function pairBridge(code, { fromHosted = false } = {}) {
 	const store = currentStore();
 	if (!store) return false;
 	bridge.error = null;
 	try {
 		const token = await createBridgeClient({ url: bridge.url }).pair(code.trim());
-		await writeBridgeRecord(store.settings, {
-			url: bridge.url,
-			token,
-			pairedAt: now().toISOString()
-		});
+		const saved = await readBridgeRecord(store.settings);
+		await writeBridgeRecord(
+			store.settings,
+			recordAfterCodePairing(
+				saved,
+				{ url: bridge.url, token, pairedAt: now().toISOString() },
+				{ fromHosted }
+			)
+		);
 		bridge.token = token;
+		if (fromHosted) bridge.peerId = null;
 		// Its node paired too, its calls over the stream from then on (#580). When
 		// that fails the code's pairing stands, but no function answers: said so.
 		/** @type {string | null} */
@@ -184,6 +196,9 @@ export async function pairBridge(code) {
 		await bridgeOnThisMachine().catch((error) => {
 			nodeError = error instanceof Error ? error.message : String(error);
 		});
+		// Its node, when that pairing went through: the books' bridge from now on.
+		const after = await readBridgeRecord(store.settings).catch(() => null);
+		if (after?.peerId) bridge.peerId = after.peerId;
 		await checkBridge();
 		if (nodeError) bridge.error = t('integrationen.bridge.nodeNotPaired', { error: nodeError });
 		// Not awaited: whether the AI hints may say "geschwärzt" (ai-text.js).

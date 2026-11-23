@@ -38,6 +38,7 @@ import { acceptConsent } from './consent.js';
 import { openIntegration } from './integrations.js';
 import { device } from './devices.js';
 import { stopBridge } from './bridge.js';
+import { startBridge } from './bridge-process.js';
 
 const CLI = fileURLToPath(new URL('../../bridge/src/cli.js', import.meta.url));
 const IMAGE = 'db43f996e5d9b21b7f1f368dac23a12b339957a5f4ee5cb7c949da20d073ad9a';
@@ -484,6 +485,38 @@ test('a device starts the hosted bridge on Aleph, short of credits first, fetche
 		await expect(
 			mac.page.getByTestId('devices-item').filter({ hasText: 'Gehostete Bridge' })
 		).toHaveCount(0);
+
+		// The VM stopped, a bridge answering on this computer: the books' bridge is still the
+		// hosted one, and the panel offers to use this computer's instead – by its code.
+		hostedBridge?.kill('SIGTERM');
+		const local = await startBridge({ name: 'beside-hosted' });
+		try {
+			await openIntegration(mac.page, 'bridge');
+			const beside = mac.page.getByTestId('bridge-local-beside-hosted');
+			await expect
+				.poll(
+					async () => {
+						if (!(await beside.isVisible())) await mac.page.getByTestId('bridge-check').click();
+						return beside.isVisible();
+					},
+					{ timeout: 30_000, intervals: [1_000, 2_000] }
+				)
+				.toBe(true);
+			await expect(mac.page.getByTestId('unpair-hosted-stays')).toBeVisible();
+			await expect(mac.page.getByTestId('bridge-status')).toContainText('nicht gekoppelt');
+			await beside.getByTestId('pairing-code').fill(local.code());
+			await beside.getByRole('button', { name: 'Koppeln', exact: true }).click();
+			const status = mac.page.getByTestId('bridge-status');
+			await expect(status).toHaveAttribute('data-paired', 'true', { timeout: 30_000 });
+			// This computer's is the books' bridge now: its pairing is undone here, as without a
+			// hosted one, and the stopped VM's card is as it was.
+			await expect(mac.page.getByTestId('bridge-local-beside-hosted')).toHaveCount(0);
+			await expect(mac.page.getByTestId('unpair-hosted-stays')).toHaveCount(0);
+			await expect(mac.page.getByTestId('unpair')).toHaveText('Kopplung lösen');
+			await expect(mac.page.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt');
+		} finally {
+			await local.stop();
+		}
 		await rm(hostedDir, { recursive: true, force: true });
 	} catch (e) {
 		if (out) console.log(out);

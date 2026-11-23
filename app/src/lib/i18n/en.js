@@ -428,6 +428,8 @@ export default {
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
 			unknownDevice:
 				'The bridge on this computer does not know this device: its token is from an earlier pairing. Pairing again with the bridge on this computer helps – a hosted bridge is not affected.',
+			notPairedHere:
+				'This device is not paired with the bridge on this computer. Pair it with its pairing code under Integrations → Bridge.',
 			streamTooLarge:
 				'The request is too large for the bridge’s node and was not sent. No need to pair again.',
 			nodeUnreachable:
@@ -4937,6 +4939,9 @@ export default {
 			unpairLocal: 'Remove pairing with the bridge on this computer',
 			unpairHostedOnly:
 				'The bridge of these books is the hosted one. It is stopped on its own card, not here; no bridge on this computer is paired.',
+			switchLocal: 'Use the bridge on this computer instead',
+			switchLocalHint:
+				'A bridge answers on this computer. Paired with its pairing code, it becomes the bridge of these books. The hosted bridge, its settings and its VM stay; once the VM is unlocked again, it is the books’ bridge again.',
 			nodeNotPaired:
 				'Paired by code, but the bridge’s network node could not be paired: {error} Without it none of the bridge’s functions answers. “Status prüfen” tries again.',
 			unpairOffline:

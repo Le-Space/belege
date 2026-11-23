@@ -15,6 +15,7 @@
 	} from './bridge-state.svelte.js';
 	import { bridgeViaDevice, bridgeViaStream } from '$lib/bridge-connection/state.svelte.js';
 	import { hostsBridge } from './host.js';
+	import { offersLocalBesideHosted } from './bridge-status.js';
 	import { booksBridgeHosted, loadHostedPeers } from './hosted-status.svelte.js';
 
 	/** @type {{ intro?: boolean }} */
@@ -30,12 +31,23 @@
 	});
 	/** The books' bridge is a hosted one and no bridge on this computer is paired: nothing to unpair here. */
 	const hostedOnly = $derived(Boolean(booksBridgeHosted()) && !bridge.token);
+	/** ...but a bridge answers on this computer: it may become the books' bridge instead. */
+	const localBesideHosted = $derived(
+		offersLocalBesideHosted({
+			hosted: booksBridgeHosted(),
+			token: bridge.token,
+			state: bridge.state,
+			route: app.sync.bridgeRoute,
+			here: hostsBridge()
+		})
+	);
 
 	/** @param {SubmitEvent} event */
 	async function pair(event) {
 		event.preventDefault();
 		pairing = true;
-		if (await pairBridge(code)) code = '';
+		// Beside a hosted bridge, pairing here makes this computer's the books' bridge.
+		if (await pairBridge(code, { fromHosted: localBesideHosted })) code = '';
 		pairing = false;
 	}
 
@@ -51,6 +63,77 @@
 	const secondary =
 		'min-h-11 rounded-md border border-border px-3 text-sm text-text hover:bg-surface-2 hover:text-heading';
 </script>
+
+{#snippet pairForms()}
+	{#if app.sync.online}
+		<!-- The bridge's own node (#573): paired by the invitation it printed, a device of the books from then on. -->
+		<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pairByInvitation}>
+			<label class="flex min-w-0 flex-1 flex-col text-sm">
+				<span class="text-faint">{t('integrationen.bridge.invitation')}</span>
+				<input
+					class="mt-1 min-h-11 w-full rounded-md border px-2 font-mono text-sm"
+					bind:value={invitation}
+					placeholder="web+ucep:pair?…"
+					autocomplete="off"
+					data-testid="bridge-invitation"
+				/>
+			</label>
+			<button
+				type="submit"
+				class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+				disabled={pairing || !invitation.trim().startsWith('web+ucep:pair')}
+				data-testid="bridge-pair-invitation">{t('integrationen.bridge.pairInvitation')}</button
+			>
+		</form>
+		<p class="mt-2 text-xs text-faint">{t('integrationen.bridge.invitationHint')}</p>
+	{/if}
+	<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pair}>
+		<label class="flex flex-col text-sm">
+			<span class="text-faint">{t('integrationen.bridge.url')}</span>
+			<input
+				class="mt-1 min-h-11 w-64 max-w-full rounded-md border px-2 font-mono text-sm"
+				bind:value={bridge.url}
+				data-testid="bridge-url"
+			/>
+		</label>
+		<label class="flex flex-col text-sm">
+			<span class="text-faint">{t('integrationen.bridge.code')}</span>
+			<input
+				class="mt-1 min-h-11 w-40 rounded-md border px-2 font-mono text-sm uppercase"
+				bind:value={code}
+				placeholder="ABCD-EFGH"
+				autocomplete="off"
+				data-testid="pairing-code"
+			/>
+		</label>
+		<button
+			type="submit"
+			class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+			disabled={pairing || !code.trim()}>{t('integrationen.bridge.pair')}</button
+		>
+	</form>
+	<p class="mt-2 text-xs text-faint">
+		{t('integrationen.bridge.codeHint', {
+			when: bridge.paired
+				? t('integrationen.bridge.codeHintPaired')
+				: t('integrationen.bridge.codeHintFirst')
+		})}
+	</p>
+{/snippet}
+
+{#snippet hostedOnlyHint()}
+	<p class="mt-3 text-sm text-text" data-testid="unpair-hosted-stays">
+		{t('integrationen.bridge.unpairHostedOnly')}
+	</p>
+	{#if localBesideHosted}
+		<!-- The hosted VM stopped, a bridge answering here: it may become the books' bridge. -->
+		<div class="mt-4 border-t border-border pt-4" data-testid="bridge-local-beside-hosted">
+			<p class="text-sm font-medium text-heading">{t('integrationen.bridge.switchLocal')}</p>
+			<p class="mt-1 text-sm text-text">{t('integrationen.bridge.switchLocalHint')}</p>
+			{@render pairForms()}
+		</div>
+	{/if}
+{/snippet}
 
 <div data-testid="bridge-panel">
 	<div class="flex flex-wrap items-start justify-between gap-3">
@@ -72,7 +155,7 @@
 						? t('integrationen.bridge.viaStream')
 						: bridgeViaDevice()
 							? t('integrationen.bridge.viaDevice')
-							: bridgePaired()
+							: bridgePaired() && !localBesideHosted
 								? t('integrationen.bridge.paired')
 								: t('integrationen.bridge.unpaired')}
 					{#if !bridge.health.hibiscus}· {t('integrationen.bridge.noHibiscus')}{/if}
@@ -96,68 +179,13 @@
 			{t('integrationen.bridge.viaDeviceHint')}
 		</p>
 	{:else if !bridgePaired()}
-		{#if app.sync.online}
-			<!-- The bridge's own node (#573): paired by the invitation it printed, a device of the books from then on. -->
-			<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pairByInvitation}>
-				<label class="flex min-w-0 flex-1 flex-col text-sm">
-					<span class="text-faint">{t('integrationen.bridge.invitation')}</span>
-					<input
-						class="mt-1 min-h-11 w-full rounded-md border px-2 font-mono text-sm"
-						bind:value={invitation}
-						placeholder="web+ucep:pair?…"
-						autocomplete="off"
-						data-testid="bridge-invitation"
-					/>
-				</label>
-				<button
-					type="submit"
-					class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
-					disabled={pairing || !invitation.trim().startsWith('web+ucep:pair')}
-					data-testid="bridge-pair-invitation">{t('integrationen.bridge.pairInvitation')}</button
-				>
-			</form>
-			<p class="mt-2 text-xs text-faint">{t('integrationen.bridge.invitationHint')}</p>
-		{/if}
-		<form class="mt-4 flex flex-wrap items-end gap-3" onsubmit={pair}>
-			<label class="flex flex-col text-sm">
-				<span class="text-faint">{t('integrationen.bridge.url')}</span>
-				<input
-					class="mt-1 min-h-11 w-64 max-w-full rounded-md border px-2 font-mono text-sm"
-					bind:value={bridge.url}
-					data-testid="bridge-url"
-				/>
-			</label>
-			<label class="flex flex-col text-sm">
-				<span class="text-faint">{t('integrationen.bridge.code')}</span>
-				<input
-					class="mt-1 min-h-11 w-40 rounded-md border px-2 font-mono text-sm uppercase"
-					bind:value={code}
-					placeholder="ABCD-EFGH"
-					autocomplete="off"
-					data-testid="pairing-code"
-				/>
-			</label>
-			<button
-				type="submit"
-				class="min-h-11 rounded-md bg-coral-700 px-4 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
-				disabled={pairing || !code.trim()}>{t('integrationen.bridge.pair')}</button
-			>
-		</form>
-		<p class="mt-2 text-xs text-faint">
-			{t('integrationen.bridge.codeHint', {
-				when: bridge.paired
-					? t('integrationen.bridge.codeHintPaired')
-					: t('integrationen.bridge.codeHintFirst')
-			})}
-		</p>
+		{@render pairForms()}
 	{:else if bridgeViaStream()}
 		<p class="mt-3 text-sm text-text" data-testid="bridge-via-stream">
 			{t('integrationen.bridge.viaStreamHint')}
 		</p>
 		{#if hostedOnly}
-			<p class="mt-3 text-sm text-text" data-testid="unpair-hosted-stays">
-				{t('integrationen.bridge.unpairHostedOnly')}
-			</p>
+			{@render hostedOnlyHint()}
 		{:else}
 			<button
 				type="button"
@@ -175,9 +203,7 @@
 			{t('integrationen.bridge.onAPhone')}
 		</p>
 	{:else if hostedOnly}
-		<p class="mt-3 text-sm text-text" data-testid="unpair-hosted-stays">
-			{t('integrationen.bridge.unpairHostedOnly')}
-		</p>
+		{@render hostedOnlyHint()}
 	{:else}
 		<button
 			type="button"

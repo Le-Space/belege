@@ -446,6 +446,8 @@ export default {
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice:
 				'Die Bridge auf diesem Computer kennt dieses Gerät nicht: Ihr Token stammt von einer früheren Kopplung. Neu koppeln mit der Bridge auf diesem Computer hilft – eine gehostete Bridge betrifft das nicht.',
+			notPairedHere:
+				'Dieses Gerät ist mit der Bridge auf diesem Computer nicht gekoppelt. Unter Integrationen → Bridge mit ihrem Kopplungscode koppeln.',
 			streamTooLarge:
 				'Die Anfrage ist zu groß für den Knoten der Bridge und wurde nicht gesendet. Neu koppeln ist nicht nötig.',
 			nodeUnreachable:
@@ -5000,6 +5002,9 @@ export default {
 			unpairLocal: 'Kopplung mit der Bridge auf diesem Rechner lösen',
 			unpairHostedOnly:
 				'Die Bridge dieser Bücher ist die gehostete. Sie wird auf ihrer Karte gestoppt, nicht hier; auf diesem Rechner ist keine Bridge gekoppelt.',
+			switchLocal: 'Stattdessen die Bridge auf diesem Rechner nutzen',
+			switchLocalHint:
+				'Auf diesem Rechner antwortet eine Bridge. Mit ihrem Kopplungscode wird sie die Bridge dieser Bücher. Die gehostete Bridge, ihre Einstellungen und ihre VM bleiben; wird die VM wieder entsperrt, ist sie wieder die Bridge der Bücher.',
 			nodeNotPaired:
 				'Per Code gekoppelt, aber der Netzknoten der Bridge ließ sich nicht koppeln: {error} Ohne ihn antwortet keine Funktion der Bridge. „Status prüfen“ versucht es noch einmal.',
 			unpairOffline:
