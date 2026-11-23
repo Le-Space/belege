@@ -100,16 +100,6 @@ function secondsOf(iso) {
 const lowerAddress = (v) => (typeof v === 'string' ? v.toLowerCase() : '');
 
 /**
- * @param {object} [options]
- * @param {typeof fetch} [options.fetch]
- * @param {number} [options.timeoutMs]
- * @param {(ms: number) => Promise<void>} [options.sleep]
- * @param {number} [options.maxPages] per direction
- * @param {number} [options.maxHiddenBlocks] blocks fetched for transactions the transfers do not show
- * @param {number} [options.computeUnitsPerSecond] spent at most (Alchemy free: 300)
- * @param {() => number} [options.now] milliseconds (tests: a clock that `sleep` moves)
- */
-/**
  * The token contracts this address moved itself (#93): a transfer from it in a transaction it
  * sent, or – a token taken from it in someone else's transaction, a burn by the token's project
  * (#162) – one it held: it got at least what left. A contract can emit a transfer "from" any
@@ -148,6 +138,16 @@ export function tokensMovedBy(tokens, address, sentByIt) {
 	);
 }
 
+/**
+ * @param {object} [options]
+ * @param {typeof fetch} [options.fetch]
+ * @param {number} [options.timeoutMs]
+ * @param {(ms: number) => Promise<void>} [options.sleep]
+ * @param {number} [options.maxPages] per direction
+ * @param {number} [options.maxHiddenBlocks] blocks fetched for transactions the transfers do not show
+ * @param {number} [options.computeUnitsPerSecond] spent at most (Alchemy free: 300)
+ * @param {() => number} [options.now] milliseconds (tests: a clock that `sleep` moves)
+ */
 export function createAlchemyReader({
 	fetch: f = fetch,
 	timeoutMs,
