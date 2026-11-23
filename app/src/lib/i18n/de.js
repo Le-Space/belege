@@ -5583,7 +5583,7 @@ export default {
 					'Das Modell laden – voreingestellt, für 16 GB Arbeitsspeicher: ollama pull qwen3:4b-instruct-2507-q4_K_M (2,5 GB); ab 32 GB, das besser liest: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Größeren Kontext und längeres Vorhalten setzen (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 und OLLAMA_KEEP_ALIVE 2h), dann Ollama neu starten.',
 					'pnpm setup:llm: 1 (Ollama), dann Enter für die Voreinstellungen (oder der Name des größeren Modells) – kein API-Key. Dann die Bridge neu starten.',
-					'Unter Statistik die gleichzeitigen KI-Anfragen auf 1 stellen.'
+					'Unter „Speicher und KI“ die gleichzeitigen KI-Anfragen je Lauf auf 1 stellen.'
 				],
 				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
 			},

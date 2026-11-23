@@ -5514,7 +5514,7 @@ export default {
 					'Download the model – the default, for 16 GB memory: ollama pull qwen3:4b-instruct-2507-q4_K_M (2.5 GB); with 32 GB or more, reading better: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Set a larger context and a longer keep-alive (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 and OLLAMA_KEEP_ALIVE 2h), then restart Ollama.',
 					'pnpm setup:llm: 1 (Ollama), then Enter for the defaults (or the larger model’s name) – no API key. Then restart the bridge.',
-					'Under Statistik, set the AI requests at once to 1.'
+					'Under “Storage and AI”, set the concurrent AI requests per run to 1.'
 				],
 				doc: 'The whole guide, with measurements and help when something goes wrong'
 			},

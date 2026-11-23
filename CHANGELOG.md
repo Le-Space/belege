@@ -9,6 +9,7 @@ All notable changes to Le Space Belege. The format follows
 ### Fixed
 
 - **A long PDF is read over the bridge's node too** (#975). "Belege auslesen" sent the whole text of a statement or a contract of many pages, or a long OCR text. Over the bridge's own node a bridge from before takes 64 KiB, so such a receipt ended in "zu groß für den Knoten der Bridge" and was not read. Now the app sends at most what the request takes (the limit the bridge states since #976, sealing counted, at most the bridge's body limit) and at most the 30 000 characters the bridge hands the model. A longer text goes as its start (two thirds) and its end, with `[…]` where the middle was left out: the vendor and the number stand at the top, the totals at the bottom. "Wie ausgelesen" says how many of how many characters were sent. Since the app sends no more than 30 000 characters, a bridge from before passes the start and the end on too. The bridge itself now cuts a longer text it gets (from an older app, or over HTTP from elsewhere) the same way, instead of keeping only the start.
+- **The Ollama guide names the page by its title.** Its last step said to set the concurrent AI requests "unter Statistik"; it now names the page "Speicher und KI" ("Storage and AI"), as its heading says.
 
 ### Changed
 
