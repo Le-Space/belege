@@ -100,25 +100,6 @@ async function createRelay() {
 }
 
 /**
- * A node as a consumer uses it: it reaches browsers through the relay.
- *
- * @param {string} relay
- */
-export async function startConsumerNode(relay) {
-	const node = await createLibp2p({
-		addresses: { listen: [] },
-		transports: [webSockets(), circuitRelayTransport()],
-		connectionEncrypters: [noise()],
-		streamMuxers: [yamux()],
-		connectionGater: { denyDialMultiaddr: () => false },
-		services: { identify: identify(), identifyPush: identifyPush() }
-	});
-	const { multiaddr } = await import('@multiformats/multiaddr');
-	await node.dial(multiaddr(relay));
-	return node;
-}
-
-/**
  * A node as the invoicing app is one: a reservation on the relay, and WebRTC,
  * so a browser can reach it directly once the relay has introduced them.
  *

@@ -121,30 +121,6 @@ export const DEFAULT_PAYMENT_ACCOUNT = '1360';
 export const DEFAULT_GRACE_DAYS = 7;
 export const MAX_GRACE_DAYS = 90;
 
-/** @returns {MatchingSettings} */
-export function defaultMatchingSettings() {
-	return {
-		companyNames: [],
-		ownNames: [],
-		employees: [],
-		ownIbans: [],
-		notOwnIbans: [],
-		rules: [],
-		graceDays: DEFAULT_GRACE_DAYS,
-		feeKeys: [],
-		notTransfers: [],
-		ownTransfers: [],
-		ownSwaps: [],
-		migrations: [],
-		refundPairs: [],
-		notRefunds: [],
-		prepaidVendors: [],
-		keptTransferReceipts: [],
-		networkFeeAccount: '',
-		paymentAccountLedger: DEFAULT_PAYMENT_ACCOUNT
-	};
-}
-
 /** @param {unknown} v @returns {number} */
 function graceDaysOf(v) {
 	const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;

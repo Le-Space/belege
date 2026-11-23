@@ -128,9 +128,6 @@ export async function loadNodes({ url = CRN_LIST, fetch: f = fetch, loopback = f
 	return confidentialNodes(await res.json(), { loopback });
 }
 
-/** Who pays the VM: Le Space from the books' package, or the books' key itself. */
-export const PAYERS = Object.freeze(['lespace', 'books']);
-
 /**
  * The INSTANCE's content: the published image, confidential with the pins
  * computed for the books' key, on this node, paid in credits by `payer`.

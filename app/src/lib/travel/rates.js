@@ -75,11 +75,6 @@ export const LODGING_RATES = Object.freeze([
 	{ country: 'DE', from: '2014-01-01', cents: 2000, source: 'R 9.7 Abs. 3 LStR' }
 ]);
 
-/** Up to this gross (cents), an invoice needs less to count for input VAT. */
-export const SMALL_AMOUNT_INVOICE = Object.freeze([
-	{ from: '2017-01-01', grossCents: 25000, source: '§ 33 UStDV' }
-]);
-
 /**
  * The entry of a table that applies on a day: the latest one from before it
  * that matches.
