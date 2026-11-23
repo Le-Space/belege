@@ -98,6 +98,7 @@ test('FIL for USDFC on SushiSwap: an account per asset, a Tausch, no receipt nee
 	expect(bridge.out()).not.toContain(WALLET);
 
 	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	await expect(page).toHaveURL(/\/zahlungen\/?$/);
 	await page.getByRole('button', { name: /^Alle/ }).click();
 	// Both legs and the gas, which names the swap it paid for.
 	const rows = page.getByTestId('transaction').filter({ hasText: 'SushiSwap' });

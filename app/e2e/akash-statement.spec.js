@@ -87,7 +87,8 @@ test('an Akash month: the statement covers its fees, the export books them as on
 	await card.getByTestId('wallet-endpoint-indexer').fill(indexer.url);
 	await card.getByTestId('wallet-add-button').click();
 	const wallet = card.getByTestId('wallet').filter({ hasText: W });
-	// The wallet's ledger account, for the export.
+	// The wallet's ledger account, for the export: in the row's ⋯ menu (#1019).
+	await wallet.getByTestId('wallet-menu').click();
 	await wallet.getByTestId('wallet-edit').click();
 	await wallet.getByTestId('wallet-edit-ledger').fill('1365');
 	await wallet.getByTestId('wallet-edit-save').click();
@@ -96,8 +97,10 @@ test('an Akash month: the statement covers its fees, the export books them as on
 		'Neu: 2 · Aktualisiert: 0 · Übersprungen: 0'
 	);
 
-	// The statement of September: both fees, the deployment's 2.5 ACT.
-	const statement = wallet.getByTestId('akash-statement');
+	// The statement of September, in the tab "Nachweise": both fees, the deployment's 2.5 ACT.
+	await card.getByTestId('wallets-tab-statements').click();
+	const statements = card.getByTestId('wallet-statement').filter({ hasText: W });
+	const statement = statements.getByTestId('akash-statement');
 	await statement.getByTestId('akash-statement-month').selectOption('2026-09');
 	await statement.getByTestId('akash-statement-make').click();
 	await expect(statement.getByTestId('akash-statement-note')).toHaveText(
@@ -106,12 +109,14 @@ test('an Akash month: the statement covers its fees, the export books them as on
 	await expect(statement.getByTestId('akash-statement-exists')).toBeVisible();
 
 	// The ACT account: 1 ACT held, 2.5 used, so 3.5 minted.
-	await wallet.getByTestId('akash-act-open').click();
-	const summary = wallet.getByTestId('akash-act-summary');
+	await statements.getByTestId('akash-act-open').click();
+	const summary = statements.getByTestId('akash-act-summary');
 	await expect(summary).toContainText('Aufgeladen 3,5 ACT');
 	await expect(summary).toContainText('verbraucht 2,5 ACT');
 	await expect(summary).toContainText('übrig 1 ACT auf der Wallet und 0 ACT im Escrow');
-	await expect(wallet.getByTestId('akash-act-month').filter({ hasText: '2026-09' })).toBeVisible();
+	await expect(
+		statements.getByTestId('akash-act-month').filter({ hasText: '2026-09' })
+	).toBeVisible();
 	expect(bridge.out()).not.toContain(W);
 
 	// The export: the fees' accounts confirmed, then one collective line.

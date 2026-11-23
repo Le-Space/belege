@@ -5694,7 +5694,13 @@ export default {
 				rpc: 'RPC',
 				rest: 'REST',
 				indexer: 'Indexer (older history)',
-				api: 'API (Blockscout)',
+				api: 'API',
+				apiService: {
+					blockscout: 'API (Blockscout)',
+					esplora: 'API (Esplora, mempool.space)',
+					filfox: 'API (Filfox)',
+					nearblocks: 'API (NearBlocks)'
+				},
 				apiOwn: 'Own API endpoint (optional; leave empty: Alchemy reads this wallet)'
 			},
 			meta: {
@@ -5741,6 +5747,78 @@ export default {
 			indexerFailed: 'The Akash indexer was not reachable; the next fetch asks it again.',
 			balanceGap:
 				'Booked {booked}, balance {balance}: transactions are missing – older ones the node no longer knows, or tokens from unbonding, which are not a transaction.',
+			// The page in tabs, the list grouped by chain, one row per wallet (#1019).
+			tabs: {
+				label: 'Wallet views',
+				wallets: 'Wallets',
+				overview: 'Overview',
+				statements: 'Statements',
+				problems: 'Chains with a problem: {count}'
+			},
+			search: {
+				label: 'Search the wallets',
+				placeholder: 'Search: name, address, asset',
+				none: 'No wallet matches “{query}”.',
+				expandAll: 'Expand all',
+				collapseAll: 'Collapse all'
+			},
+			group: {
+				count: '{count} wallets',
+				countOne: '1 wallet',
+				found: '{found} of {count} wallets',
+				errors: 'Errors: {count}',
+				gaps: 'Balance differs: {count}',
+				sync: 'Sync chain',
+				syncLabel: 'Sync all wallets on {chain}',
+				errorOf: 'Wallets with this error: {names}'
+			},
+			row: {
+				ok: 'All right',
+				gap: 'Balance differs from the bookings',
+				error: 'Sync failed',
+				syncOne: 'Sync {name}',
+				more: 'More for {name}',
+				details: 'Details of {name}',
+				moreTokens: '{count} more tokens without a balance',
+				synced: 'Last synced',
+				ago: {
+					never: 'never',
+					now: 'just now',
+					hours: '{count} h ago',
+					yesterday: 'yesterday',
+					days: '{count} days ago',
+					date: 'on {date}'
+				}
+			},
+			details: {
+				address: 'Address',
+				source: 'Data source',
+				endpoints: 'Endpoints',
+				booking: 'Booking',
+				accounts: 'Accounts and balance',
+				check: 'Balance check',
+				checkOk: 'The bookings add up to the balance.',
+				lastSync: 'Last',
+				error: 'Error'
+			},
+			overview: {
+				perChain: 'Per chain',
+				chain: 'Chain',
+				wallets: 'Wallets',
+				holdings: 'Holdings',
+				value: 'Value (last day with a rate)',
+				total: 'Together',
+				noRate: 'no rate'
+			},
+			statements: {
+				intro:
+					'Monthly statements from your wallets. A statement is a self-made receipt and lies with the receipts once made.',
+				alephTitle: 'Aleph',
+				alephText:
+					'The Aleph statements belong to the Aleph account, not to a wallet: they are with the Aleph integration.',
+				alephLink: 'To Integrations → Aleph'
+			},
+			explorerMenu: 'In the block explorer ({name})',
 			// The chart of the wallets' value per day (#908).
 			chart: {
 				title: 'Value of the wallets in euros',

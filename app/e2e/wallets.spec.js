@@ -179,7 +179,7 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 				const y = c.querySelector(`[data-testid="${b}"]`);
 				return Boolean(x && y && x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING);
 			},
-			['wallet-add-open', 'wallets']
+			['wallet-add-open', 'wallet-groups']
 		)
 	).toBe(true);
 	await expect(walletB.getByTestId('wallet-account')).toContainText('100 NYM');
@@ -212,8 +212,9 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(walletB.getByTestId('wallet-balance-gap')).toHaveCount(0);
 	await expect(walletA.getByTestId('wallet-pruned')).toHaveCount(0);
 
-	// The chart above the list (#908): what the wallets were worth, day by
+	// The chart in the tab "Übersicht" (#908, #1019): what the wallets were worth, day by
 	// day. One chain with two accounts: one line, 149,995 + 100 NYM at 0,05 EUR.
+	await card.getByTestId('wallets-tab-overview').click();
 	const chart = card.getByTestId('wallet-chart');
 	const brief = (/** @type {string} */ a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 	const today = new Date().toISOString().slice(0, 10);
@@ -257,6 +258,12 @@ test('add two own Nym wallets, sync, see balances, explorer links and the own tr
 	await expect(chart.locator('polyline[data-series="s1"]')).toHaveCount(1);
 	await chart.getByTestId('wallet-chart-open').click();
 	await expect(dayLine).toContainText(/Nym \(Nyx\): 12,50\sEUR/);
+	// The group in the list takes the chain's colour from the chart.
+	await card.getByTestId('wallets-tab-wallets').click();
+	await expect(card.locator('[data-testid="wallet-group"][data-chain="nyx"]')).toHaveAttribute(
+		'data-color',
+		's1'
+	);
 
 	// A pruned node that claims to know everything: found out, and the
 	// balance shows what is missing.

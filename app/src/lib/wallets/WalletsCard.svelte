@@ -1,32 +1,38 @@
 <script>
 	// Integrationen → Eigene Wallets: add a wallet by chain and address (read
-	// only, never a key), see which node and explorer are used, synchronise
-	// it (wallet-sync.js), take it off the list again.
+	// only, never a key), synchronise it (wallet-sync.js), take it off the list
+	// again. Three tabs (#1019): the wallets grouped by chain in the chart's
+	// colours, one row each (WalletGroup, WalletRow); the overview with the
+	// value chart and the totals per chain; the monthly statements.
 	import { resolve } from '$app/paths';
 	import { btn } from '$lib/ui/styles.js';
-	import WayOut from '$lib/help/WayOut.svelte';
 	import { updateAlerts } from '$lib/integrations/alerts.js';
 	import { createBridgeClient } from '$lib/bridge/client.js';
-	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity, toUnits } from '$lib/assets/quantity.js';
 	import { balanceGap } from './balance-check.js';
 	import { app, currentStore, refreshNow, runMatchingNow } from '$lib/session.svelte.js';
 	import { list, t } from '$lib/i18n/index.js';
 	import TechnicalNote from '$lib/TechnicalNote.svelte';
-	import CopyButton from '$lib/CopyButton.svelte';
-	import {
-		WALLET_CHAINS,
-		importedChain,
-		looksLikeAddress,
-		safeExplorerUrl,
-		walletChain
-	} from './chains.js';
+	import ChartColors from '$lib/charts/ChartColors.svelte';
+	import { importedChain, safeExplorerUrl, walletChain } from './chains.js';
 	import { importMoneroExport } from './monero-import.js';
-	import AkashStatement from '$lib/akash/AkashStatement.svelte';
-	import AkashActAccount from '$lib/akash/AkashActAccount.svelte';
-	import { addWallet, loadWallets, removeWallet, updateWalletMeta } from './wallet-sync.js';
+	import FilecoinPayCard from '$lib/filecoin-pay/FilecoinPayCard.svelte';
+	import { loadWallets, removeWallet, updateWalletMeta } from './wallet-sync.js';
 	import { walletList } from './wallet-list.svelte.js';
 	import WalletValueChart from './WalletValueChart.svelte';
+	import WalletAddForm from './WalletAddForm.svelte';
+	import WalletGroup from './WalletGroup.svelte';
+	import WalletChainTotals from './WalletChainTotals.svelte';
+	import WalletStatements from './WalletStatements.svelte';
+	import {
+		WALLET_TABS,
+		endpointLabel,
+		groupWallets,
+		rememberTab,
+		rememberedTab,
+		roundedQuantity,
+		walletMatches
+	} from './wallet-groups.js';
 	import {
 		dismissWalletSummary,
 		syncable,
@@ -38,8 +44,6 @@
 	import { percentOf } from './sync-turn.js';
 	import { askToNotify, canNotify } from '$lib/notify.js';
 	import { takeWalletProposal } from './proposal.svelte.js';
-	import { cleanChart } from '$lib/booking/chart.js';
-	import { suggestWalletLedger, walletLedgerCandidates } from '$lib/booking/ledger-match.js';
 
 	/** @type {{ url: string, token: string | null, paired?: boolean }} `paired`: a token, or the bridge's node over the stream (#575) */
 	let { url, token, paired = Boolean(token) } = $props();
@@ -53,29 +57,14 @@
 	let alchemy = $state(null);
 	/** @type {import('./wallet-sync.js').Wallet[]} */
 	let wallets = $state([]);
-	// A wallet offered from a payment (proposal.svelte.js): the form opens with
-	// its chain and address; nothing is added before the person presses the button.
-	const proposed = takeWalletProposal();
-	const proposedChain = walletChain(proposed?.chain);
-	let chainId = $state(proposedChain?.id ?? 'nyx');
-	let address = $state(proposedChain ? (proposed?.address ?? '') : '');
-	let newName = $state('');
-	let newLedger = $state('');
-	let newCostCentre = $state('');
-	/** @type {string | null} the wallet whose name, account and cost centre are open */
-	let editing = $state(null);
-	let editName = $state('');
-	let editLedger = $state('');
-	let editCostCentre = $state('');
-	/** @type {string | null} */
-	let editError = $state(null);
-	/** @type {Record<string, string>} */
-	let custom = $state({});
-	let adding = $state(false);
+	/** @type {string | null} the chains could not be read from the bridge */
+	let loadError = $state(null);
+	// A wallet offered from a payment (proposal.svelte.js): the form opens with it.
+	const offered = takeWalletProposal();
+	/** @type {{ chain?: string, address?: string } | null} */
+	let proposed = $state(offered);
 	/** "+ Wallet hinzufügen": the form, once a wallet exists, only when asked for (issue #152). */
-	let showAdd = $state(Boolean(proposedChain));
-	/** @type {string | null} */
-	let addError = $state(null);
+	let showAdd = $state(Boolean(walletChain(offered?.chain)));
 	// A sync, one wallet's or all of them, is a run of the app (sync-run.svelte.js):
 	// it goes on while the person is elsewhere, and its results are there on return.
 	const busy = $derived(walletRun.syncing !== null || walletRun.progress !== null);
@@ -86,35 +75,6 @@
 		void walletRun.syncing;
 		const store = currentStore();
 		if (store && walletRun.syncing === null) loadWallets(store.settings).then((w) => (wallets = w));
-	});
-
-	const info = $derived(chains.find((c) => c.id === chainId) ?? null);
-	const localChain = $derived(walletChain(chainId));
-
-	// A ledger account for the wallet being added (booking/ledger-match.js): the
-	// chart account that names it or its chain, else the next free number beside
-	// the other wallets'. Filled in while the person has not typed one of their own.
-	const ledgerAsk = $derived({
-		name: newName,
-		address,
-		chain: localChain,
-		wallets,
-		accounts: app.accounts,
-		chart: cleanChart(app.chart)
-	});
-	const ledgerSuggestion = $derived.by(() => (showAdd ? suggestWalletLedger(ledgerAsk) : null));
-	// Several accounts of the chart fit: none is picked, they are offered.
-	const ledgerCandidates = $derived.by(() =>
-		showAdd && !ledgerSuggestion ? walletLedgerCandidates(ledgerAsk) : []
-	);
-	/** The number the form filled in by itself, to tell it from one that was typed. */
-	let autoLedger = $state('');
-	$effect(() => {
-		const offered = ledgerSuggestion?.number ?? '';
-		if (newLedger === autoLedger && newLedger !== offered) {
-			newLedger = offered;
-			autoLedger = offered;
-		}
 	});
 
 	$effect(() => {
@@ -130,56 +90,42 @@
 			chains = answer.chains.filter((c) => walletChain(c.id));
 			alchemy = typeof answer.alchemy === 'boolean' ? answer.alchemy : null;
 		} catch (e) {
-			addError = e instanceof Error ? e.message : String(e);
+			loadError = e instanceof Error ? e.message : String(e);
 		}
 	}
 
-	/** @param {string} name */
-	const endpointLabel = (name) => t(`integrationen.wallets.endpoint.${name}`);
-
-	/**
-	 * Alchemy reads a new wallet of this chain unless an own API endpoint is
-	 * given: then the field is that own endpoint, not Blockscout.
-	 *
-	 * @param {string} name
-	 */
-	const alchemyField = (name) => Boolean(alchemy && info?.alchemySupported && name === 'api');
-
-	/** @param {import('./wallet-sync.js').Wallet} wallet */
-	function openEdit(wallet) {
-		editing = wallet.id;
-		editName = wallet.name ?? '';
-		editLedger = wallet.ledgerAccount ?? '';
-		editCostCentre = wallet.costCentre ?? '';
-		editError = null;
-	}
-
-	/** @param {SubmitEvent} event @param {import('./wallet-sync.js').Wallet} wallet */
-	async function saveEdit(event, wallet) {
-		event.preventDefault();
+	async function added() {
 		const store = currentStore();
 		if (!store) return;
-		editError = null;
-		try {
-			await updateWalletMeta(store, wallet.id, {
-				name: editName,
-				ledgerAccount: editLedger,
-				costCentre: editCostCentre
-			});
-			wallets = await loadWallets(store.settings);
-			await refreshNow();
-			editing = null;
-		} catch (e) {
-			editError = e instanceof Error ? e.message : String(e);
-		}
+		wallets = await loadWallets(store.settings);
+		walletList.changes++;
+		proposed = null;
 	}
 
-	/** @param {import('./wallet-sync.js').Wallet} wallet */
-	function accountsOf(wallet) {
-		return app.accounts
-			.filter((a) => a.source === wallet.chain && a.walletAddress === wallet.address && !a.deleted)
-			.sort((a, b) => (a.name < b.name ? -1 : 1));
+	// ── The tabs: which one this browser showed last (a UI preference, no book data).
+	let tab = $state(rememberedTab());
+	/** @param {(typeof WALLET_TABS)[number]} next */
+	function choose(next) {
+		tab = next;
+		rememberTab(next);
 	}
+	/** @param {KeyboardEvent} event */
+	function tabKey(event) {
+		const i = WALLET_TABS.indexOf(tab);
+		const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+		let next = i;
+		if (step) next = (i + step + WALLET_TABS.length) % WALLET_TABS.length;
+		else if (event.key === 'Home') next = 0;
+		else if (event.key === 'End') next = WALLET_TABS.length - 1;
+		else return;
+		event.preventDefault();
+		choose(WALLET_TABS[next]);
+		document.getElementById(`wallets-tab-${WALLET_TABS[next]}`)?.focus();
+	}
+
+	// ── What every row needs: the chain's endpoints and explorer, the accounts, a problem.
+	/** @param {import('./wallet-sync.js').Wallet} wallet */
+	const infoOf = (wallet) => chains.find((c) => c.id === wallet.chain);
 
 	/** @param {Record<string, any>} account */
 	function balanceText(account) {
@@ -194,15 +140,37 @@
 			return '';
 		}
 	}
+	/** @param {Record<string, any>} account */
+	function roundedText(account) {
+		if (typeof account.balance !== 'string' || !Number.isInteger(account.decimals)) return '';
+		try {
+			return roundedQuantity(
+				toUnits(account.balance, account.decimals),
+				account.decimals,
+				account.asset
+			);
+		} catch {
+			return '';
+		}
+	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
-	function endpointsOf(wallet) {
-		const defaults = chains.find((c) => c.id === wallet.chain)?.endpoints ?? {};
-		return Object.entries(defaults).map(([name, url]) => ({
-			name,
-			url: wallet.endpoints?.[name] || url,
-			own: Boolean(wallet.endpoints?.[name])
-		}));
+	function accountsOf(wallet) {
+		return app.accounts
+			.filter((a) => a.source === wallet.chain && a.walletAddress === wallet.address && !a.deleted)
+			.sort((a, b) => (a.name < b.name ? -1 : 1))
+			.map((account) => ({
+				account,
+				balance: balanceText(account),
+				rounded: roundedText(account),
+				gap: balanceGap(account, app.transactions)
+			}));
+	}
+
+	/** @param {import('./wallet-sync.js').Wallet} wallet @returns {import('./wallet-groups.js').WalletProblem} */
+	function problemOf(wallet) {
+		if (walletRun.errors[wallet.id]) return 'error';
+		return accountsOf(wallet).some((a) => a.gap && a.gap.gap !== 0n) ? 'gap' : null;
 	}
 
 	/**
@@ -211,68 +179,27 @@
 	 *
 	 * @param {import('./wallet-sync.js').Wallet} wallet
 	 */
-	function readByAlchemy(wallet) {
-		const info = chains.find((c) => c.id === wallet.chain);
-		return Boolean(alchemy && info?.alchemySupported && !wallet.endpoints?.api);
+	const readByAlchemy = (wallet) =>
+		Boolean(alchemy && infoOf(wallet)?.alchemySupported && !wallet.endpoints?.api);
+
+	/** @param {import('./wallet-sync.js').Wallet} wallet */
+	function endpointsOf(wallet) {
+		const defaults = infoOf(wallet)?.endpoints ?? {};
+		const kind = walletChain(wallet.chain)?.kind;
+		return Object.entries(defaults).map(([name, fallback]) => ({
+			name,
+			label: endpointLabel(name, kind),
+			url: wallet.endpoints?.[name] || fallback,
+			own: Boolean(wallet.endpoints?.[name])
+		}));
 	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
 	function addressLink(wallet) {
 		const saved = safeExplorerUrl(wallet.addressUrl);
 		if (saved) return saved;
-		const pattern = chains.find((c) => c.id === wallet.chain)?.explorer.address;
+		const pattern = infoOf(wallet)?.explorer.address;
 		return pattern ? safeExplorerUrl(pattern.replace('{address}', wallet.address)) : null;
-	}
-
-	/** @type {string | null} */
-	let bitcoinNote = $state(null);
-
-	/** Bitcoin: the key is in the bridge; the app takes only its fingerprint. */
-	async function takeBitcoinKey() {
-		bitcoinNote = null;
-		try {
-			const { configured, fingerprint } = await client.bitcoinKey();
-			if (configured && fingerprint) address = fingerprint;
-			else bitcoinNote = t('integrationen.wallets.bitcoinNoKey');
-		} catch (e) {
-			bitcoinNote = e instanceof Error ? e.message : String(e);
-		}
-	}
-
-	/** @param {SubmitEvent} event */
-	async function add(event) {
-		event.preventDefault();
-		const store = currentStore();
-		if (!store || !localChain) return;
-		addError = null;
-		if (!looksLikeAddress(localChain, address)) {
-			addError = t('integrationen.wallets.badAddress', { chain: localChain.name });
-			return;
-		}
-		adding = true;
-		try {
-			await addWallet(store.settings, {
-				chain: chainId,
-				address,
-				endpoints: custom,
-				name: newName,
-				ledgerAccount: newLedger,
-				costCentre: newCostCentre
-			});
-			wallets = await loadWallets(store.settings);
-			walletList.changes++;
-			showAdd = false;
-			address = '';
-			custom = {};
-			newName = '';
-			newLedger = '';
-			autoLedger = '';
-			newCostCentre = '';
-		} catch (e) {
-			addError = e instanceof Error ? e.message : String(e);
-		} finally {
-			adding = false;
-		}
 	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */
@@ -289,6 +216,12 @@
 	async function syncAll() {
 		if (canNotify()) await askToNotify();
 		await syncAllWallets({ client });
+	}
+
+	/** "Kette synchronisieren": the same turn over one chain's wallets. @param {string} chain */
+	async function syncChain(chain) {
+		if (canNotify()) await askToNotify();
+		await syncAllWallets({ client, chain });
 	}
 
 	/**
@@ -334,44 +267,89 @@
 		wallets = await loadWallets(store.settings);
 		walletList.changes++;
 	}
-</script>
 
-{#snippet metaFields(
-	/** @type {{ name: string, ledger: string, cost: string }} */ v,
-	/** @type {string} */ id
-)}
-	<label class="flex flex-col gap-1">
-		{t('integrationen.wallets.meta.name')}
-		<input
-			class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
-			bind:value={v.name}
-			maxlength="60"
-			placeholder={t('integrationen.wallets.meta.namePlaceholder')}
-			data-testid={`${id}-name`}
-		/>
-	</label>
-	<div class="flex flex-wrap gap-3">
-		<label class="flex flex-col gap-1">
-			{t('integrationen.wallets.meta.ledger')}
-			<input
-				class="w-32 rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-				bind:value={v.ledger}
-				inputmode="numeric"
-				data-testid={`${id}-ledger`}
-			/>
-		</label>
-		<label class="flex flex-col gap-1">
-			{t('integrationen.wallets.meta.costCentre')}
-			<input
-				class="w-40 rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-				bind:value={v.cost}
-				maxlength="36"
-				data-testid={`${id}-cost`}
-			/>
-		</label>
-	</div>
-	<p class="text-xs text-faint">{t('integrationen.wallets.meta.hint')}</p>
-{/snippet}
+	/**
+	 * @param {import('./wallet-sync.js').Wallet} wallet
+	 * @param {{ name: string, ledgerAccount: string, costCentre: string }} meta
+	 */
+	async function saveMeta(wallet, meta) {
+		const store = currentStore();
+		if (!store) return;
+		await updateWalletMeta(store, wallet.id, meta);
+		wallets = await loadWallets(store.settings);
+		await refreshNow();
+	}
+
+	/** @type {import('./wallet-groups.js').RowContext} */
+	const ctx = {
+		get busy() {
+			return busy;
+		},
+		verlaufAbruf,
+		imported: (w) => Boolean(importedChain(walletChain(w.chain))),
+		readByAlchemy,
+		alchemyInternal: (w) => Boolean(infoOf(w)?.alchemyInternal),
+		endpointsOf,
+		addressLink,
+		explorerName: (w) => infoOf(w)?.explorer.name ?? '',
+		accountsOf,
+		problemOf,
+		sync,
+		importHistory,
+		remove,
+		saveMeta
+	};
+
+	// ── The groups: one per chain, in the chart's colour and order; the search narrows them.
+	/** @type {Map<string, { color: string, value: string | null }>} */
+	let summary = $state(new Map());
+	let query = $state('');
+	/** @type {Record<string, boolean>} folded or open, per chain, as the person left it */
+	let opened = $state({});
+	// On a phone the groups start folded: the chains are the overview there.
+	const narrow =
+		typeof window !== 'undefined' && window.matchMedia?.('(max-width: 639px)').matches === true;
+	/** @param {string} chain */
+	const isOpen = (chain) => opened[chain] ?? !narrow;
+	/** @param {string} chain */
+	const chainName = (chain) => walletChain(chain)?.name ?? chain;
+	const groups = $derived(
+		groupWallets({
+			wallets,
+			problem: problemOf,
+			values: new Map([...summary].map(([c, s]) => [c, s.value])),
+			name: chainName,
+			found: (w) =>
+				walletMatches(query, {
+					name: w.name,
+					address: w.address,
+					chainName: chainName(w.chain),
+					assets: accountsOf(w).map((a) => String(a.account.asset ?? ''))
+				})
+		})
+	);
+	const problemChains = $derived(
+		groupWallets({ wallets, problem: problemOf }).filter((g) => g.errors || g.gaps).length
+	);
+	/** @param {string} chain */
+	const colorOf = (chain) => summary.get(chain)?.color ?? 'other';
+	/** @param {boolean} open */
+	function foldAll(open) {
+		opened = Object.fromEntries(wallets.map((w) => [w.chain, open]));
+	}
+	const walletAccounts = $derived(
+		app.accounts.filter(
+			(a) =>
+				!a.deleted && wallets.some((w) => w.chain === a.source && w.address === a.walletAddress)
+		)
+	);
+	const tabClass = (/** @type {string} */ name) =>
+		`-mb-px min-h-11 border-b-2 px-3 text-sm font-medium whitespace-nowrap ${
+			tab === name
+				? 'border-coral-700 text-heading'
+				: 'border-transparent text-text hover:text-heading'
+		}`;
+</script>
 
 {#if paired}
 	<section
@@ -408,211 +386,44 @@
 		{/if}
 
 		<!-- Adding comes first: with many wallets, a form below the list is not found. -->
-		{#if wallets.length && !showAdd}
-			<button
-				type="button"
-				class="mt-4 {btn.secondary}"
-				onclick={() => (showAdd = true)}
-				data-testid="wallet-add-open">+ {t('integrationen.wallets.addTitle')}</button
-			>
-		{:else}
-			<form
-				class="mt-4 flex flex-col gap-2 text-sm {wallets.length
-					? 'border-b border-border pb-4'
-					: ''}"
-				onsubmit={add}
-				data-testid="wallet-add"
-			>
-				<h3 class="font-medium text-heading">{t('integrationen.wallets.addTitle')}</h3>
-				<label class="flex flex-wrap items-center gap-2">
-					{t('integrationen.wallets.chain')}
-					<select
-						class="rounded-md border border-border bg-surface px-2 py-1 text-heading"
-						bind:value={chainId}
-						onchange={() => (custom = {})}
-						data-testid="wallet-chain"
-					>
-						{#each Object.values(WALLET_CHAINS) as c (c.id)}
-							<option value={c.id}>{c.name}</option>
-						{/each}
-					</select>
-				</label>
-				{#if localChain?.kind === 'bitcoin'}
-					<div class="flex flex-col gap-1" data-testid="wallet-bitcoin-key">
-						<p class="text-xs text-faint">{t('integrationen.wallets.bitcoinHint')}</p>
-						<div class="flex flex-wrap items-center gap-2">
-							<button
-								type="button"
-								class="rounded-md border border-border px-3 py-1 text-sm text-text hover:bg-surface-2"
-								onclick={takeBitcoinKey}
-								data-testid="wallet-bitcoin-take">{t('integrationen.wallets.bitcoinTake')}</button
-							>
-							{#if address}<span class="font-mono text-heading">{address}</span>{/if}
-						</div>
-						{#if bitcoinNote}<p class="text-xs text-danger" role="alert">{bitcoinNote}</p>{/if}
-					</div>
-				{:else}
-					<label class="flex flex-col gap-1">
-						{t('integrationen.wallets.address')}
-						<input
-							class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-							bind:value={address}
-							autocomplete="off"
-							spellcheck="false"
-							placeholder={localChain?.kind === 'evm'
-								? '0x…'
-								: localChain?.kind === 'filecoin'
-									? 'f1… · f410f… · 0x…'
-									: localChain?.kind === 'monero'
-										? '4… · 8…'
-										: localChain?.kind === 'near'
-											? 'name.near'
-											: `${localChain?.bech32Prefix ?? ''}1…`}
-							data-testid="wallet-address-input"
-						/>
-					</label>
-					<p class="text-xs text-faint">
-						{localChain?.kind === 'monero'
-							? t('integrationen.wallets.moneroHint')
-							: t('integrationen.wallets.addressHint')}
-					</p>
-				{/if}
-				{@render metaFields(
-					{
-						get name() {
-							return newName;
-						},
-						set name(v) {
-							newName = v;
-						},
-						get ledger() {
-							return newLedger;
-						},
-						set ledger(v) {
-							newLedger = v;
-						},
-						get cost() {
-							return newCostCentre;
-						},
-						set cost(v) {
-							newCostCentre = v;
-						}
-					},
-					'wallet-new'
-				)}
-				{#if ledgerSuggestion && newLedger === ledgerSuggestion.number}
-					<p class="text-xs text-text" data-testid="wallet-new-ledger-suggestion">
-						{ledgerSuggestion.source === 'chart'
-							? t('integrationen.wallets.meta.ledgerFromChart', {
-									account: ledgerSuggestion.number,
-									name: ledgerSuggestion.name
-								})
-							: t('integrationen.wallets.meta.ledgerNext', { account: ledgerSuggestion.number })}
-					</p>
-				{/if}
-				{#if ledgerCandidates.length && !newLedger.trim()}
-					<p
-						class="flex flex-wrap items-center gap-1.5 text-xs text-text"
-						data-testid="wallet-new-ledger-candidates"
-					>
-						{t('integrationen.wallets.meta.ledgerCandidates')}
-						{#each ledgerCandidates as c (c.number)}
-							<button
-								type="button"
-								class="rounded-md border border-border px-2 py-0.5 hover:bg-surface-2 hover:text-heading"
-								onclick={() => (newLedger = c.number)}
-								data-testid="wallet-new-ledger-candidate"
-								data-number={c.number}>{c.number} {c.name}</button
-							>
-						{/each}
-					</p>
-				{:else if !ledgerSuggestion && !newLedger.trim() && address.trim()}
-					<p class="text-xs text-faint" data-testid="wallet-new-ledger-none">
-						{t(
-							ledgerAsk.chart
-								? 'integrationen.wallets.meta.ledgerNoneInChart'
-								: 'integrationen.wallets.meta.ledgerNoneNoChart'
-						)}
-					</p>
-				{/if}
-				{#if info}
-					<div
-						class="rounded-md border border-border bg-surface-2 px-3 py-2"
-						data-testid="wallet-uses"
-					>
-						<p class="text-xs font-semibold text-heading">{t('integrationen.wallets.uses')}</p>
-						{#each Object.entries(info.endpoints) as [name, fallback] (name)}
-							<label class="mt-1 flex flex-col gap-0.5 text-xs">
-								<span
-									>{alchemyField(name)
-										? t('integrationen.wallets.endpoint.apiOwn')
-										: `${endpointLabel(name)} (${t('integrationen.wallets.customHint')})`}</span
-								>
-								<input
-									class="rounded-md border border-border bg-surface px-2 py-1 font-mono text-heading"
-									value={custom[name] ?? ''}
-									oninput={(e) => (custom = { ...custom, [name]: e.currentTarget.value })}
-									placeholder={alchemyField(name) ? 'https://…' : fallback}
-									data-testid={`wallet-endpoint-${name}`}
-								/>
-							</label>
-							{#if info.alternatives?.[name]?.length}
-								<p class="text-xs text-faint">
-									{t('integrationen.wallets.alternatives', {
-										list: info.alternatives[name].join(', ')
-									})}
-								</p>
-							{/if}
-						{/each}
-						{#if alchemy && info.alchemySupported}
-							<p class="mt-1 text-xs" data-testid="wallet-uses-alchemy">
-								{t('integrationen.wallets.source.customReplaces')}
-							</p>
-						{/if}
-						<p class="mt-1 text-xs">
-							{t('integrationen.wallets.explorer', { name: info.explorer.name })}
-						</p>
-					</div>
-				{/if}
-				<button
-					type="submit"
-					class="self-start rounded-md border border-border px-4 py-1.5 font-medium text-heading hover:bg-surface-2 disabled:opacity-50"
-					disabled={adding || !address.trim()}
-					data-testid="wallet-add-button">{t('integrationen.wallets.add')}</button
-				>
-				{#if wallets.length}
-					<button
-						type="button"
-						class="self-start text-sm text-text underline hover:text-heading"
-						onclick={() => (showAdd = false)}
-						data-testid="wallet-add-cancel">{t('integrationen.wallets.addCancel')}</button
-					>
-				{/if}
-				{#if addError}
-					<p class="text-sm text-danger" role="alert" data-testid="wallet-add-error">{addError}</p>
-					<WayOut message={addError} />
-				{/if}
-			</form>
-		{/if}
-
-		{#if wallets.length}
-			<!-- Above the list: what the wallets were worth, day by day (#908). -->
-			<WalletValueChart {wallets} {client} {busy} />
-		{/if}
-
-		{#if syncableCount > 1}
-			<!-- All wallets, one after the other; it goes on while you are elsewhere in Belege. -->
-			<div class="mt-4" data-testid="wallets-sync-all-row">
+		<div class="mt-4 flex flex-wrap items-center gap-2">
+			{#if wallets.length && !showAdd}
 				<button
 					type="button"
-					class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
+					class={btn.secondary}
+					onclick={() => (showAdd = true)}
+					data-testid="wallet-add-open">+ {t('integrationen.wallets.addTitle')}</button
+				>
+			{/if}
+			{#if syncableCount > 1}
+				<!-- All wallets, one after the other; it goes on while you are elsewhere in Belege. -->
+				<button
+					type="button"
+					class={btn.primary}
 					disabled={busy}
 					onclick={syncAll}
 					data-testid="wallets-sync-all"
 					>{t('integrationen.wallets.all.button', { count: syncableCount })}</button
 				>
+			{/if}
+		</div>
+		{#if !wallets.length || showAdd}
+			<WalletAddForm
+				{wallets}
+				{chains}
+				{alchemy}
+				{client}
+				{loadError}
+				{proposed}
+				bind:open={showAdd}
+				onadded={added}
+			/>
+		{/if}
+
+		{#if syncableCount > 1}
+			<div data-testid="wallets-sync-all-row">
 				{#if walletRun.progress}
-					<div class="mt-2" role="status" data-testid="wallets-sync-progress">
+					<div class="mt-3" role="status" data-testid="wallets-sync-progress">
 						<progress
 							class="h-2 w-full max-w-md"
 							max="100"
@@ -629,7 +440,7 @@
 						<p class="mt-1 text-xs text-faint">{t('integrationen.wallets.all.goesOn')}</p>
 					</div>
 				{:else if walletRun.summary}
-					<div class="mt-2 text-sm" role="status" data-testid="wallets-sync-summary">
+					<div class="mt-3 text-sm" role="status" data-testid="wallets-sync-summary">
 						<span class="text-heading">{summaryText(walletRun.summary)}</span>
 						{#if walletRun.summary.superseded}
 							<span class="text-heading">·</span>
@@ -656,265 +467,117 @@
 		{/if}
 
 		{#if wallets.length}
-			<ul class="mt-3 divide-y divide-border" data-testid="wallets">
-				{#each wallets as wallet (wallet.id)}
-					{@const result = walletRun.results[wallet.id]}
-					<li class="py-3" data-testid="wallet" data-chain={wallet.chain}>
-						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							{#if wallet.name}
-								<span class="font-semibold text-heading" data-testid="wallet-name"
-									>{wallet.name}</span
-								>
-							{/if}
-							<span class="font-medium text-heading">{walletChain(wallet.chain)?.name}</span>
-							<code class="font-mono text-xs break-all text-text" data-testid="wallet-address"
-								><CopyButton
-									text={wallet.address}
-									label={t('copy.address')}
-									testid="wallet-address-copy">{wallet.address}</CopyButton
-								></code
-							>
-							{#if addressLink(wallet)}
-								<a
-									href={addressLink(wallet)}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="text-sm underline"
-									data-testid="wallet-explorer">{t('integrationen.wallets.addressLink')}</a
-								>
-							{/if}
-						</div>
-						<ul class="mt-1 text-xs text-faint" data-testid="wallet-endpoints">
-							{#if readByAlchemy(wallet)}
-								<li data-testid="wallet-source">{t('integrationen.wallets.source.wallet')}</li>
-							{/if}
-							{#each endpointsOf(wallet) as e (e.name)}
-								{#if !readByAlchemy(wallet) || !chains.find((c) => c.id === wallet.chain)?.alchemyInternal}
-									<li>
-										{#if readByAlchemy(wallet)}{t('integrationen.wallets.source.internalVia')} –{/if}
-										{endpointLabel(e.name)}:
-										<span class="font-mono">{e.url}</span>
-										{e.own ? t('integrationen.wallets.own') : t('integrationen.wallets.default')}
-									</li>
-								{/if}
-							{/each}
-						</ul>
-						{#if wallet.ledgerAccount || wallet.costCentre}
-							<p class="mt-1 text-xs text-faint" data-testid="wallet-booking">
-								{#if wallet.ledgerAccount}{t('integrationen.wallets.meta.ledgerShort', {
-										account: wallet.ledgerAccount
-									})}{/if}{#if wallet.ledgerAccount && wallet.costCentre}
-									·
-								{/if}{#if wallet.costCentre}{t('integrationen.wallets.meta.costCentreShort', {
-										costCentre: wallet.costCentre
-									})}{/if}
+			<ChartColors class="mt-4">
+				<div
+					class="flex gap-1 overflow-x-auto border-b border-border"
+					role="tablist"
+					aria-label={t('integrationen.wallets.tabs.label')}
+					tabindex="-1"
+					onkeydown={tabKey}
+				>
+					{#each WALLET_TABS as name (name)}
+						<button
+							type="button"
+							role="tab"
+							id={`wallets-tab-${name}`}
+							aria-selected={tab === name}
+							aria-controls={`wallets-panel-${name}`}
+							tabindex={tab === name ? 0 : -1}
+							class={tabClass(name)}
+							onclick={() => choose(name)}
+							data-testid={`wallets-tab-${name}`}
+							>{t(`integrationen.wallets.tabs.${name}`)}{#if name === 'wallets'}<span
+									class="ml-1 font-normal text-faint tabular-nums">{wallets.length}</span
+								>{#if problemChains}<span
+										class="ml-1.5 inline-block h-2 w-2 rounded-full bg-warning align-middle"
+										title={t('integrationen.wallets.tabs.problems', { count: problemChains })}
+										><span class="sr-only"
+											>{t('integrationen.wallets.tabs.problems', { count: problemChains })}</span
+										></span
+									>{/if}{/if}</button
+						>
+					{/each}
+				</div>
+
+				<!-- Every panel stays mounted: the chart keeps asking for rates, the statements their months. -->
+				<div
+					role="tabpanel"
+					id="wallets-panel-wallets"
+					aria-labelledby="wallets-tab-wallets"
+					hidden={tab !== 'wallets'}
+					data-testid="wallets-panel-wallets"
+				>
+					<div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+						<input
+							type="search"
+							class="min-h-11 min-w-0 flex-[1_1_14rem] rounded-md border border-border bg-surface px-3 text-sm text-heading sm:min-h-9"
+							placeholder={t('integrationen.wallets.search.placeholder')}
+							aria-label={t('integrationen.wallets.search.label')}
+							bind:value={query}
+							data-testid="wallets-search"
+						/>
+						<button
+							type="button"
+							class="text-sm text-text underline hover:text-heading"
+							onclick={() => foldAll(true)}
+							data-testid="wallets-expand-all">{t('integrationen.wallets.search.expandAll')}</button
+						>
+						<button
+							type="button"
+							class="text-sm text-text underline hover:text-heading"
+							onclick={() => foldAll(false)}
+							data-testid="wallets-collapse-all"
+							>{t('integrationen.wallets.search.collapseAll')}</button
+						>
+					</div>
+					<div class="mt-3 flex flex-col gap-2.5" data-testid="wallet-groups">
+						{#each groups as group (group.chain)}
+							<WalletGroup
+								{group}
+								all={wallets.filter((w) => w.chain === group.chain)}
+								name={chainName(group.chain)}
+								color={colorOf(group.chain)}
+								value={summary.get(group.chain)?.value ?? null}
+								open={isOpen(group.chain)}
+								searching={Boolean(query.trim())}
+								syncable={wallets.filter((w) => w.chain === group.chain && syncable(w)).length}
+								{ctx}
+								ontoggle={() => (opened = { ...opened, [group.chain]: !isOpen(group.chain) })}
+								onsync={() => syncChain(group.chain)}
+							/>
+						{:else}
+							<p class="py-4 text-center text-sm text-faint" data-testid="wallets-search-none">
+								{t('integrationen.wallets.search.none', { query: query.trim() })}
 							</p>
-						{/if}
-						{#if wallet.lastSyncedAt}
-							<p class="mt-1 text-xs text-faint">
-								{t('integrationen.wallets.lastSync', {
-									date: formatDate(wallet.lastSyncedAt.slice(0, 10))
-								})}
-							</p>
-						{/if}
-						{#if accountsOf(wallet).length}
-							<ul class="mt-1 text-sm" data-testid="wallet-accounts">
-								{#each accountsOf(wallet) as account (account.id)}
-									{@const check = balanceGap(account, app.transactions)}
-									<li class="flex flex-wrap gap-3" data-testid="wallet-account">
-										<span class="text-heading">{account.name}</span>
-										<span class="font-mono text-heading tabular-nums">{balanceText(account)}</span>
-										{#if account.balanceOn}
-											<span class="text-xs text-faint"
-												>{t('integrationen.kraken.balanceOn', {
-													date: formatDate(account.balanceOn)
-												})}</span
-											>
-										{/if}
-										{#if check && check.gap !== 0n}
-											<span class="basis-full text-xs text-warning" data-testid="wallet-balance-gap"
-												>{t('integrationen.wallets.balanceGap', {
-													booked: formatQuantity(
-														String(check.booked),
-														account.decimals,
-														account.asset
-													),
-													balance: balanceText(account)
-												})}</span
-											>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						<div class="mt-2 flex flex-wrap gap-3">
-							{#if importedChain(walletChain(wallet.chain))}
-								<!-- Monero: no sync by address; the wallet's own export, read here. -->
-								<label
-									class="cursor-pointer rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 {busy
-										? 'pointer-events-none opacity-50'
-										: ''}"
-									data-testid="wallet-import"
-									>{walletRun.syncing === wallet.id
-										? t('integrationen.wallets.importing')
-										: t('integrationen.wallets.import')}<input
-										type="file"
-										accept=".csv,text/csv"
-										class="sr-only"
-										disabled={busy}
-										onchange={(e) => {
-											const input = /** @type {HTMLInputElement} */ (e.currentTarget);
-											void importHistory(wallet, input.files?.[0]);
-											input.value = '';
-										}}
-										data-testid="wallet-import-file"
-									/></label
-								>
-							{:else}
-								<button
-									type="button"
-									class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
-									disabled={busy}
-									onclick={() => sync(wallet)}
-									data-testid="wallet-sync"
-									>{walletRun.syncing === wallet.id
-										? t('integrationen.wallets.syncing')
-										: t('integrationen.wallets.sync')}</button
-								>
-							{/if}
-							<button
-								type="button"
-								class="text-sm text-text underline hover:text-heading"
-								onclick={() => (editing === wallet.id ? (editing = null) : openEdit(wallet))}
-								aria-expanded={editing === wallet.id}
-								data-testid="wallet-edit">{t('integrationen.wallets.meta.edit')}</button
-							>
-							<button
-								type="button"
-								class="text-sm text-faint underline hover:text-heading"
-								disabled={busy}
-								onclick={() => remove(wallet)}
-								data-testid="wallet-remove">{t('integrationen.wallets.remove')}</button
-							>
-						</div>
-						{#if editing === wallet.id}
-							<form
-								class="mt-2 flex flex-col gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
-								onsubmit={(e) => saveEdit(e, wallet)}
-								data-testid="wallet-edit-form"
-							>
-								{@render metaFields(
-									{
-										get name() {
-											return editName;
-										},
-										set name(v) {
-											editName = v;
-										},
-										get ledger() {
-											return editLedger;
-										},
-										set ledger(v) {
-											editLedger = v;
-										},
-										get cost() {
-											return editCostCentre;
-										},
-										set cost(v) {
-											editCostCentre = v;
-										}
-									},
-									'wallet-edit'
-								)}
-								<div class="flex gap-3">
-									<button
-										type="submit"
-										class="rounded-md border border-border bg-surface px-3 py-1 font-medium text-heading hover:bg-surface-2"
-										data-testid="wallet-edit-save">{t('integrationen.wallets.meta.save')}</button
-									>
-									<button
-										type="button"
-										class="text-faint underline hover:text-heading"
-										onclick={() => (editing = null)}
-										>{t('integrationen.wallets.meta.cancel')}</button
-									>
-								</div>
-								{#if editError}
-									<p class="text-danger" role="alert" data-testid="wallet-edit-error">
-										{editError}
-									</p>
-								{/if}
-							</form>
-						{/if}
-						{#if wallet.chain === 'akash'}
-							<AkashStatement {wallet} {client} />
-							<AkashActAccount {wallet} {client} />
-						{/if}
-						{#if result}
-							<p class="mt-2 text-sm text-heading" role="status" data-testid="wallet-result">
-								{t('integrationen.counts', result.totals)}{#if result.superseded}
-									·
-									<a
-										class="underline"
-										href={verlaufAbruf}
-										title={t('integrationen.wallets.supersededTitle')}
-										data-testid="wallet-result-superseded"
-										>{t('integrationen.wallets.superseded', { count: result.superseded })}</a
-									>{/if}
-							</p>
-							{#if result.unpriced.length}
-								<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-unpriced">
-									{t('integrationen.wallets.unpriced', {
-										count: result.unpriced.length,
-										assets: [...new Set(result.unpriced.map((u) => u.asset))].join(', ')
-									})}
-								</p>
-							{/if}
-							{#if result.unknownAssets}
-								<p class="mt-1 text-xs text-faint" data-testid="wallet-unknown">
-									{t('integrationen.wallets.unknownAssets', { count: result.unknownAssets })}
-								</p>
-							{/if}
-							{#if result.history.pruned && result.history.completedBy === 'indexer'}
-								<p class="mt-1 text-xs text-faint" data-testid="wallet-indexed">
-									{t('integrationen.wallets.indexed', {
-										date: result.history.earliestTime
-											? formatDate(result.history.earliestTime.slice(0, 10))
-											: '?'
-									})}
-								</p>
-								{#if result.history.unknownAmounts}
-									<p
-										class="mt-1 text-sm text-warning"
-										role="status"
-										data-testid="wallet-unknown-amounts"
-									>
-										{t('integrationen.wallets.unknownAmounts', {
-											count: result.history.unknownAmounts
-										})}
-									</p>
-								{/if}
-							{:else if result.history.pruned}
-								<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-pruned">
-									{t('integrationen.wallets.pruned', {
-										date: result.history.earliestTime
-											? formatDate(result.history.earliestTime.slice(0, 10))
-											: '?'
-									})}{result.history.indexerError
-										? ` ${t('integrationen.wallets.indexerFailed')}`
-										: ''}
-								</p>
-							{/if}
-						{/if}
-						{#if walletRun.errors[wallet.id]}
-							<p class="mt-2 text-sm text-danger" role="alert" data-testid="wallet-error">
-								{walletRun.errors[wallet.id]}
-							</p>
-							<WayOut message={walletRun.errors[wallet.id]} />
-						{/if}
-					</li>
-				{/each}
-			</ul>
+						{/each}
+					</div>
+				</div>
+
+				<div
+					role="tabpanel"
+					id="wallets-panel-overview"
+					aria-labelledby="wallets-tab-overview"
+					hidden={tab !== 'overview'}
+					data-testid="wallets-panel-overview"
+				>
+					<!-- What the wallets were worth, day by day (#908). -->
+					<WalletValueChart {wallets} {client} {busy} onsummary={(s) => (summary = s)} />
+					<WalletChainTotals {wallets} accounts={walletAccounts} {summary} />
+				</div>
+
+				<div
+					role="tabpanel"
+					id="wallets-panel-statements"
+					aria-labelledby="wallets-tab-statements"
+					hidden={tab !== 'statements'}
+					class="mt-3"
+					data-testid="wallets-panel-statements"
+				>
+					<WalletStatements {wallets} {client} {url} {token} {paired} {colorOf} />
+				</div>
+			</ChartColors>
 		{/if}
 	</section>
+{:else}
+	<FilecoinPayCard {url} {token} {paired} />
 {/if}

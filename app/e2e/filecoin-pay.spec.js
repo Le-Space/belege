@@ -106,6 +106,8 @@ test('a wallet’s balance in Filecoin Pay is found, and last month becomes an E
 	await wallets.getByTestId('wallet-add-button').click();
 	await expect(wallets.getByTestId('wallet').filter({ hasText: WALLET.slice(-6) })).toHaveCount(1);
 
+	// In the tab "Nachweise" (#1019).
+	await wallets.getByTestId('wallets-tab-statements').click();
 	const card = page.getByTestId('filecoin-pay-card');
 	await expect(card).toBeVisible();
 	expect(fake.calls).toEqual([]);
