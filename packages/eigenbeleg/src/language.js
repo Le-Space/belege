@@ -77,39 +77,43 @@ export const enDate = (date) => date.slice(0, 10);
  */
 export function localizeSource(text, language) {
 	if (language !== 'en' || !text) return text;
-	return text
-		.replace(/(\S+), Kurs (\d{4}-\d{2}-\d{2}) 00:00 UTC/g, '$1, rate of $2 00:00 UTC')
-		.replace(/(\S+), Kurs 00:00 UTC/g, '$1, rate at 00:00 UTC')
-		.replace(
-			/EZB-Referenzkurs ([A-Z]{3})\/([A-Z]{3}) vom (\d{4}-\d{2}-\d{2})/g,
-			'ECB reference rate $1/$2 of $3'
-		)
-		.replace(/EZB-Referenzkurs ([A-Z]{3})\/([A-Z]{3})/g, 'ECB reference rate $1/$2')
-		.replace(
-			/amtlicher Kurs EUR\/([A-Z]{3}) der Bank von Russland vom (\d{4}-\d{2}-\d{2})/g,
-			'official rate EUR/$1 of the Bank of Russia of $2'
-		)
-		.replace(
-			/amtlicher Kurs EUR\/([A-Z]{3}) der Bank von Russland/g,
-			'official rate EUR/$1 of the Bank of Russia'
-		)
-		.replace(
-			/Uniswap v(\d), Pool (\S+) bei Block (\d+), gegen den Tageskurs (\d{4}-\d{2}-\d{2}) 00:00 UTC/g,
-			"Uniswap v$1, pool $2 at block $3, against the day's rate of $4 00:00 UTC"
-		)
-		.replace(
-			/Uniswap v(\d), Pool (\S+) bei Block (\d+), gegen den Tageskurs/g,
-			"Uniswap v$1, pool $2 at block $3, against the day's rate"
-		)
-		.replace(/Token-Vertrag/g, 'token contract')
-		.replace(/Referenzwert von (.+?) \(Standardwert\)/g, 'reference value of $1 (default)')
-		.replace(/Referenzwert des Ausstellers/g, "the issuer's reference value")
-		.replace(/Referenzwert von /g, 'reference value of ')
-		.replace(/, Stand (\d{4}-\d{2}-\d{2})/g, ', as of $1')
-		.replace(/\(kein Börsenkurs\)/g, '(no market rate)')
-		.replace(/Aleph Kaufpreis ([\d.]+) USD je Credit/g, 'Aleph purchase price $1 USD per credit')
-		.replace(/Aleph Listenpreis ([\d.]+) USD je Credit/g, 'Aleph list price $1 USD per credit')
-		.replace(/fester Testkurs/g, 'fixed test rate');
+	return (
+		text
+			.replace(/(\S+), Kurs (\d{4}-\d{2}-\d{2}) 00:00 UTC/g, '$1, rate of $2 00:00 UTC')
+			.replace(/(\S+), Kurs 00:00 UTC/g, '$1, rate at 00:00 UTC')
+			// A source without its day, as the documents name it once for every position (sourceName).
+			.replace(/(\S+), Kurs(?=$| ×|;)/g, '$1, rate')
+			.replace(
+				/EZB-Referenzkurs ([A-Z]{3})\/([A-Z]{3}) vom (\d{4}-\d{2}-\d{2})/g,
+				'ECB reference rate $1/$2 of $3'
+			)
+			.replace(/EZB-Referenzkurs ([A-Z]{3})\/([A-Z]{3})/g, 'ECB reference rate $1/$2')
+			.replace(
+				/amtlicher Kurs EUR\/([A-Z]{3}) der Bank von Russland vom (\d{4}-\d{2}-\d{2})/g,
+				'official rate EUR/$1 of the Bank of Russia of $2'
+			)
+			.replace(
+				/amtlicher Kurs EUR\/([A-Z]{3}) der Bank von Russland/g,
+				'official rate EUR/$1 of the Bank of Russia'
+			)
+			.replace(
+				/Uniswap v(\d), Pool (\S+) bei Block (\d+), gegen den Tageskurs (\d{4}-\d{2}-\d{2}) 00:00 UTC/g,
+				"Uniswap v$1, pool $2 at block $3, against the day's rate of $4 00:00 UTC"
+			)
+			.replace(
+				/Uniswap v(\d), Pool (\S+) bei Block (\d+), gegen den Tageskurs/g,
+				"Uniswap v$1, pool $2 at block $3, against the day's rate"
+			)
+			.replace(/Token-Vertrag/g, 'token contract')
+			.replace(/Referenzwert von (.+?) \(Standardwert\)/g, 'reference value of $1 (default)')
+			.replace(/Referenzwert des Ausstellers/g, "the issuer's reference value")
+			.replace(/Referenzwert von /g, 'reference value of ')
+			.replace(/, Stand (\d{4}-\d{2}-\d{2})/g, ', as of $1')
+			.replace(/\(kein Börsenkurs\)/g, '(no market rate)')
+			.replace(/Aleph Kaufpreis ([\d.]+) USD je Credit/g, 'Aleph purchase price $1 USD per credit')
+			.replace(/Aleph Listenpreis ([\d.]+) USD je Credit/g, 'Aleph list price $1 USD per credit')
+			.replace(/fester Testkurs/g, 'fixed test rate')
+	);
 }
 
 /**

@@ -56,6 +56,8 @@ test('the rates’ sources in English; German text stays as it is', () => {
 	const cases = [
 		['CoinGecko, Kurs 2026-10-05 00:00 UTC', 'CoinGecko, rate of 2026-10-05 00:00 UTC'],
 		['CoinGecko, Kurs 00:00 UTC', 'CoinGecko, rate at 00:00 UTC'],
+		['CoinGecko, Kurs', 'CoinGecko, rate'],
+		['Kraken, Kurs × EZB-Referenzkurs EUR/CHF', 'Kraken, rate × ECB reference rate EUR/CHF'],
 		['EZB-Referenzkurs USD/EUR vom 2026-10-05', 'ECB reference rate USD/EUR of 2026-10-05'],
 		['amtlicher Kurs EUR/RUB der Bank von Russland', 'official rate EUR/RUB of the Bank of Russia'],
 		[
