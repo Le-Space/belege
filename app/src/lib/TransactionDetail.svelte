@@ -1540,7 +1540,7 @@
 		...choices.filter((c) => findsReceipt(c.receipt)),
 		...assignedOthers.filter((c) => findsReceipt(c.receipt))
 	]);
-	// The payment's period: open receipts at most FIND_PERIOD_DAYS from its day.
+	// The payment's period: open receipts within FIND_PERIOD of its day.
 	let period = $derived(findPeriod(tx?.bookedOn));
 	let foundPeriod = $derived(
 		choices.filter((c) => findsReceipt(c.receipt) && inFindPeriod(c.receipt, tx?.bookedOn))

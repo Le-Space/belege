@@ -2,7 +2,7 @@
 // a search text looks through every receipt, assigned ones too. Made up.
 import { describe, expect, it } from 'vitest';
 import {
-	FIND_PERIOD_DAYS,
+	FIND_PERIOD,
 	assignedElsewhere,
 	findPeriod,
 	findsAll,
@@ -21,16 +21,16 @@ const tx = {
 };
 
 describe('findPeriod / inFindPeriod', () => {
-	it('is 30 days before and after the booking day', () => {
-		expect(FIND_PERIOD_DAYS).toBe(30);
-		expect(findPeriod('2026-03-10')).toEqual({ from: '2026-02-08', to: '2026-04-09' });
+	it('is 60 days before and 30 days after the booking day', () => {
+		expect(FIND_PERIOD).toEqual({ before: 60, after: 30 });
+		expect(findPeriod('2026-03-10')).toEqual({ from: '2026-01-09', to: '2026-04-09' });
 		expect(findPeriod(null)).toBeNull();
 	});
 
 	it('takes a receipt by its date, at the edges too', () => {
-		expect(inFindPeriod({ documentDate: '2026-02-08' }, tx.bookedOn)).toBe(true);
+		expect(inFindPeriod({ documentDate: '2026-01-09' }, tx.bookedOn)).toBe(true);
 		expect(inFindPeriod({ documentDate: '2026-04-09' }, tx.bookedOn)).toBe(true);
-		expect(inFindPeriod({ documentDate: '2026-02-07' }, tx.bookedOn)).toBe(false);
+		expect(inFindPeriod({ documentDate: '2026-01-08' }, tx.bookedOn)).toBe(false);
 		expect(inFindPeriod({ documentDate: '2026-04-10' }, tx.bookedOn)).toBe(false);
 		// Half a year away, or another year: not this payment's.
 		expect(inFindPeriod({ documentDate: '2025-08-03' }, tx.bookedOn)).toBe(false);

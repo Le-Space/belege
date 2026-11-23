@@ -1,5 +1,5 @@
 // "Beleg finden" with no suggestion opens on the receipts from around the
-// payment (30 days before and after), not on its whole year or every receipt
+// payment (60 days before to 30 days after), not on its whole year or every receipt
 // ever kept: one from months away is no answer for a direct debit. A search
 // text looks through every receipt, all years, and also through those already
 // assigned to another payment – which say so and are moved only on a click.

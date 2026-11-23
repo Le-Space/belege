@@ -8,36 +8,42 @@ import { isActive } from './engine.js';
 import { dayNumber } from './normalize.js';
 import { receiptDay } from './view.js';
 
-/** Days before and after a payment's booking day that count as its period. */
-export const FIND_PERIOD_DAYS = 30;
+/**
+ * A payment's period: the days before and after its booking day that count.
+ * An invoice comes before its payment – a few days for a direct debit, weeks
+ * with a payment term – and rarely long after. One window for every source
+ * "Beleg finden" asks: the receipts here, and Paperless (#617).
+ */
+export const FIND_PERIOD = Object.freeze({ before: 60, after: 30 });
 
 /**
  * The days around a booking day that are its period.
  *
  * @param {string | null | undefined} bookedOn YYYY-MM-DD
- * @param {number} [days]
+ * @param {{ before: number, after: number }} [window]
  * @returns {{ from: string, to: string } | null} YYYY-MM-DD
  */
-export function findPeriod(bookedOn, days = FIND_PERIOD_DAYS) {
+export function findPeriod(bookedOn, window = FIND_PERIOD) {
 	const day = dayNumber(bookedOn ?? null);
 	if (day === null) return null;
 	const iso = (/** @type {number} */ n) => new Date(n * 864e5).toISOString().slice(0, 10);
-	return { from: iso(day - days), to: iso(day + days) };
+	return { from: iso(day - window.before), to: iso(day + window.after) };
 }
 
 /**
  * Whether a receipt is from the payment's period: its date, else the day it
- * came in, at most `days` away from the booking day. A receipt with no day at
- * all is not.
+ * came in, at most `before` days before the booking day or `after` days after
+ * it. A receipt with no day at all is not.
  *
  * @param {Record<string, any>} receipt
  * @param {string | null | undefined} bookedOn
- * @param {number} [days]
+ * @param {{ before: number, after: number }} [window]
  */
-export function inFindPeriod(receipt, bookedOn, days = FIND_PERIOD_DAYS) {
+export function inFindPeriod(receipt, bookedOn, window = FIND_PERIOD) {
 	const paid = dayNumber(bookedOn ?? null);
 	const day = dayNumber(receiptDay(/** @type {any} */ (receipt)));
-	return paid !== null && day !== null && Math.abs(day - paid) <= days;
+	if (paid === null || day === null) return false;
+	return day >= paid - window.before && day <= paid + window.after;
 }
 
 /**
