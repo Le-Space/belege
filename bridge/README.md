@@ -279,7 +279,8 @@ no books.
   either, with device sync on or off, so it does not go online itself; to reach it from other
   devices, pair it by invitation, or let a desktop share it ("Bridge dieses Rechners für eigene
   Geräte freigeben"). `/unpair`, or `unpair` over the stream ("Kopplung lösen" on
-  the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation. A key a
+  the device that paired it), removes the bridge's key and the node runs on unarmed, with a new invitation; the UCEP grants and
+  invitations of the last pairing go with it, and only a handover sealed by a new invitation pairs it again. A key a
   build before #575 kept under `device-auth` is removed at start.
 - **What the stream offers:** `help`, `handover`, `devices`, `unpair`, and – armed – every command
   of the table below by its own name (`bank.transactions`, `mail.search`; protocol version 2,

@@ -149,11 +149,28 @@ describe('the bridge’s node', () => {
 				}),
 				(/** @type {any} */ e) => e.code === 'PAIRING_REQUIRED'
 			);
-			const answer = await phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+			const args = {
 				bridgeAuth: Buffer.from(AUTH_KEY).toString('base64'),
 				relays: [],
 				devices: []
-			});
+			};
+			// The key never goes unsealed, not even by a device that holds the grant.
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'handover', args),
+				(/** @type {any} */ e) => e.code === 'INVALID_ARGUMENTS' && /sealed/.test(e.message)
+			);
+			const inv = parseInvitation(uri);
+			const call = await sealCall(
+				await handoverSecret(inv.secret),
+				{ consumer: phone.peerId, provider: node.peerId, command: 'handover' },
+				args
+			);
+			const answer = await call.open(
+				await phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+					...call.sent,
+					inv: inv.invitationId
+				})
+			);
 			assert.equal(answer.peerId, node.peerId);
 			await new Promise((r) => setTimeout(r, 1200));
 			assert.equal(handovers.length, 1);
@@ -492,6 +509,62 @@ describe('calls sealed above the connection', () => {
 	});
 	after(async () => {
 		await rm(dir, { recursive: true, force: true });
+	});
+
+	test('unpaired: the pairing from before is gone, only a new invitation pairs again', async () => {
+		const nodeDir = join(dir, 'unpaired');
+		const args = {
+			bridgeAuth: Buffer.from(OTHER_KEY).toString('base64'),
+			relays: [],
+			devices: []
+		};
+		/** @param {string[]} devices */
+		const start = (devices) =>
+			startBridgeNode({
+				dir: nodeDir,
+				authKey: null,
+				relays: [],
+				devices,
+				commands: emptyCommands(),
+				transports: [memory()],
+				listen: ['/memory/bridge-unpaired']
+			});
+		let node = await start([]);
+		const uri = await node.invite();
+		const phone = await device(null);
+		try {
+			await phone.consumer.pairWithInvitation(uri);
+			await node.stop();
+
+			// Unarmed with devices listed: a keychain that did not answer. The pairing stays.
+			node = await start([phone.peerId]);
+			assert.match(await readFile(join(nodeDir, 'grants.json'), 'utf8'), /12D3KooW/);
+			await node.stop();
+
+			// As after "Kopplung lösen": no key, no devices.
+			node = await start([]);
+			await assert.rejects(readFile(join(nodeDir, 'grants.json'), 'utf8'), { code: 'ENOENT' });
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'handover', args),
+				(/** @type {any} */ e) => e.code === 'PAIRING_REQUIRED'
+			);
+			const inv = parseInvitation(uri);
+			const old = await sealCall(
+				await handoverSecret(inv.secret),
+				{ consumer: phone.peerId, provider: node.peerId, command: 'handover' },
+				args
+			);
+			await assert.rejects(
+				phone.consumer.call(node.peerId, 'belege-bridge', 'handover', {
+					...old.sent,
+					inv: inv.invitationId
+				}),
+				(/** @type {any} */ e) => e.code === 'PAIRING_REQUIRED'
+			);
+		} finally {
+			await phone.stop();
+			await node.stop();
+		}
 	});
 
 	test('unarmed: the handover is sealed with a key from the invitation', async () => {
