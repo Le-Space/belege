@@ -108,7 +108,7 @@ test('a workflow file: itself, and the bridge job that checks its shell', () => 
 });
 
 test('outside the workspace: nothing', () => {
-	assert.deepEqual(pr('spikes/imap/probe.mjs', 'e2e-remote/remote.mjs', 'LICENSE'), {
+	assert.deepEqual(pr('e2e-remote/remote.mjs', 'LICENSE'), {
 		unit: false,
 		bridge: false,
 		e2e: 'none'

@@ -427,7 +427,8 @@ export function createBridgeClient({
 			const messages = /** @type {Record<number, string>} */ ({
 				// Only HTTP answers 401 – the stream knows a device by its proof, and says no
 				// with a grant's code: so it is the bridge on this computer, with this token.
-				401: t('messages.bridge.unknownDevice'),
+				// Without a token there is no earlier pairing to blame: none is here.
+				401: token ? t('messages.bridge.unknownDevice') : t('messages.bridge.notPairedHere'),
 				403:
 					body?.error === 'origin not allowed'
 						? t('messages.bridge.originNotAllowed')

@@ -26,6 +26,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { base58 } from '@scure/base';
+import { toBase64 } from '@le-space/ledger/bytes';
 
 const env = import.meta.env ?? {};
 
@@ -91,13 +92,6 @@ function concat(...parts) {
 	}
 	return out;
 }
-/** @param {Uint8Array} bytes */
-const toBase64 = (bytes) => {
-	let s = '';
-	for (let i = 0; i < bytes.length; i += 0x8000)
-		s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	return btoa(s);
-};
 /** @param {string} b64 */
 const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 

@@ -7,6 +7,7 @@ import {
 	readBridgeRecord,
 	readHostedRecord,
 	readNearHostedRecord,
+	recordAfterCodePairing,
 	recordAfterUnpair,
 	writeBridgeRecord,
 	writeHostedRecord,
@@ -125,5 +126,49 @@ describe('recordAfterUnpair', () => {
 		});
 		expect(recordAfterUnpair({ token: 'a-token' }, 'u', true)).toEqual({ url: 'u', token: null });
 		expect(recordAfterUnpair(null, 'u', false)).toEqual({ url: 'u', token: null });
+	});
+});
+
+describe('the pairing after a pairing by code', () => {
+	const paired = {
+		url: 'http://127.0.0.1:8765',
+		token: 'new-token',
+		pairedAt: '2026-01-02T03:04:05Z'
+	};
+	const hostedPeer = '12D3KooWHostedBridgeNode';
+
+	it('the first pairing: the token, nothing else', () => {
+		expect(recordAfterCodePairing(null, paired)).toEqual(paired);
+	});
+
+	it('keeps the generation of the bridge’s key: a code does not go back to an older key', () => {
+		const saved = { url: paired.url, token: null, keyGeneration: 3 };
+		expect(recordAfterCodePairing(saved, paired)).toEqual({ ...paired, keyGeneration: 3 });
+	});
+
+	it('beside a hosted bridge, by default: its node stays the books’ bridge', () => {
+		const saved = {
+			url: paired.url,
+			token: null,
+			peerId: hostedPeer,
+			keyGeneration: 2,
+			nodePairedAt: '2026-01-01T00:00:00Z'
+		};
+		expect(recordAfterCodePairing(saved, paired)).toEqual({ ...saved, ...paired });
+	});
+
+	it('moving the books from the hosted bridge to this computer’s: its node goes, the key’s generation stays', () => {
+		const saved = {
+			url: paired.url,
+			token: null,
+			peerId: hostedPeer,
+			keyGeneration: 2,
+			nodePairedAt: '2026-01-01T00:00:00Z'
+		};
+		const after = recordAfterCodePairing(saved, paired, { fromHosted: true });
+		expect(after).toEqual({ ...paired, keyGeneration: 2 });
+		// The node of the bridge here is paired by its invitation next (local.js `mayPairNodeByCode`).
+		expect(after.peerId).toBeUndefined();
+		expect(after.nodePairedAt).toBeUndefined();
 	});
 });

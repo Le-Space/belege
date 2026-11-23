@@ -3,7 +3,7 @@
 	"private": true,
 	"license": "AGPL-3.0-or-later",
 	"version": "0.2.0",
-	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC, IMAP, the LLM call, customer portals).",
+	"description": "The belege bridge on 127.0.0.1: what a browser cannot do (Hibiscus XML-RPC, IMAP, the LLM call, customer portals, Kraken, Paperless, Enable Banking, chain and rate reads, the Aleph backup) and its own libp2p node for the books' devices.",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -18,7 +18,6 @@
 		"./testing/llm": "./test/support/fake-llm.js",
 		"./testing/pdf": "./test/support/synthetic-pdf.js",
 		"./testing/portal": "./test/support/fake-portal.js",
-		"./testing/kraken": "./test/support/fake-kraken.js",
 		"./testing/paperless": "./test/support/fake-paperless.js",
 		"./testing/enablebanking": "./test/support/fake-enablebanking.js",
 		"./testing/filfox": "./test/support/fake-filfox.js",
@@ -46,8 +45,8 @@
 		"setup:aleph": "node src/setup-aleph.js",
 		"setup:origins": "node src/setup-origins.js",
 		"test": "node --test --test-reporter=spec \"test/*.test.js\"",
-		"lint": "prettier --check src test rootfs/test",
-		"format": "prettier --write src test rootfs/test"
+		"lint": "prettier --check src test rootfs/test scripts tee/dstack/*.mjs",
+		"format": "prettier --write src test rootfs/test scripts tee/dstack/*.mjs"
 	},
 	"dependencies": {
 		"@belege/device-gate": "workspace:*",

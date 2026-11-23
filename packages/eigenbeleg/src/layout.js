@@ -223,11 +223,12 @@ export function pageLayout(pdf, fonts, { margin = 48, bottom = 14, leavePage, en
 		 * given), its number, what it is in one line, and the strong rule under them.
 		 *
 		 * @param {string} kind
-		 * @param {{ number?: string, subtitle?: string, image?: import('pdf-lib').PDFImage | null, mark?: number }} [o]
+		 * @param {{ number?: string, subtitle?: string, image?: import('pdf-lib').PDFImage | null, mark?: number, numberLabel?: string }} [o]
+		 *   numberLabel: what stands before the number (`Nr.`; `No.` in English)
 		 */
-		head(kind, { number = '', subtitle = '', image = null, mark } = {}) {
+		head(kind, { number = '', subtitle = '', image = null, mark, numberLabel = 'Nr.' } = {}) {
 			l.title(kind, { face: fonts.bold, size: TYPE.title }, image, mark);
-			if (number) l.text(`Nr. ${number}`, { size: TYPE.lead });
+			if (number) l.text(`${numberLabel} ${number}`, { size: TYPE.lead });
 			if (subtitle) {
 				l.gap(1);
 				l.text(subtitle, { size: TYPE.body, color: GREY });

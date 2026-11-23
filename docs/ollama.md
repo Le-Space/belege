@@ -56,7 +56,7 @@ A bridge that still had DeepSeek from the old default asks once – in `pnpm set
 
 ## 4. In Belege
 
-- _Statistik → Gleichzeitige KI-Anfragen je Lauf_: **1**. On a CPU Ollama answers one request at a time; a second one only waits behind it.
+- _Speicher und KI → Gleichzeitige KI-Anfragen je Lauf_: **1**. On a CPU Ollama answers one request at a time; a second one only waits behind it.
 - _Belege → Alle neuen auslesen_ reads the waiting receipts. Let it run; it shows where it is on the Belege tab and can be cancelled.
 
 ## How fast, how good

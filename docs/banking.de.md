@@ -90,7 +90,7 @@ Du richtest es einmal ein, mit `pnpm setup:hibiscus`. Die Einzelheiten stehen in
 
 [Enable Banking](https://enablebanking.com) ist ein Kontoinformationsdienst (AIS) nach PSD2. PSD2 ist die EU-Richtlinie, nach der Banken solchen Diensten Lesezugriff geben müssen. Du gibst den Zugriff bei deiner Bank frei. Dann liest Enable Banking deine Konten und Umsätze und reicht sie weiter.
 
-Enable Banking erreicht Banken, die Hibiscus nicht abruft, etwa Revolut, Wise und die meisten Banken außerhalb Deutschlands.
+Enable Banking erreicht Banken, die Hibiscus nicht abruft, etwa manche Online-Banken und die meisten Banken außerhalb Deutschlands.
 
 ### Deine eigene Anwendung
 

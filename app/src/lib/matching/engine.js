@@ -80,21 +80,6 @@ export function matchable(r) {
 	);
 }
 
-/**
- * Whether a transaction is covered: a receipt, or no receipt needed.
- *
- * @param {Record<string, any>} tx
- * @param {import('./classify.js').Classification | null | undefined} classification
- */
-export function isCovered(tx, classification) {
-	return (
-		Boolean(tx.receiptId) ||
-		Boolean(tx.noReceipt) ||
-		Boolean(privateKind(tx)) ||
-		Boolean(classification)
-	);
-}
-
 /** Same JSON, same value (for "did anything change"). */
 const same = (/** @type {unknown} */ a, /** @type {unknown} */ b) =>
 	JSON.stringify(a ?? null) === JSON.stringify(b ?? null);

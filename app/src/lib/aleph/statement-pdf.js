@@ -13,13 +13,12 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
+import { euro } from '../export/pdf-format.js';
 import { monthly } from '@le-space/eigenbeleg/statement';
 import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 
 /** 1234567 → "1.234.567". @param {number} n */
 const credits = (n) => Math.round(n).toLocaleString('de-DE');
-/** @param {number | null} cents */
-const euro = (cents) => (cents === null ? '—' : `${amount(cents)} EUR`);
 /** @param {string} iso */
 const utc = (iso) => `${iso.slice(0, 16).replace('T', ' ')} UTC`;
 const KIND = /** @type {Record<string, string>} */ ({

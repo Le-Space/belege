@@ -104,6 +104,14 @@ export function vatCase(r, own) {
 		);
 		if (germanVat && (!country || country === 'DE')) return out('domestic');
 		if (categories.has('reverse_charge') && country === 'DE') return out('reverseChargeDe');
+		// Marked exempt (§4 UStG) and nothing else: the explicit choice wins over
+		// what the customer's country would suggest (#539).
+		if (
+			categories.has('exempt') &&
+			!germanVat &&
+			!['intra_eu', 'reverse_charge', 'export', 'not_taxable'].some((c) => categories.has(c))
+		)
+			return out('exempt');
 		if (
 			categories.has('intra_eu') ||
 			((categories.has('reverse_charge') || vatCents === 0) && isEu(country) && country !== 'DE')

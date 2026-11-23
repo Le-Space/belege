@@ -106,6 +106,20 @@ export function hostedBridgeOf(peerId, peers) {
 }
 
 /**
+ * Whether Integrationen → Bridge offers to make the bridge on this computer
+ * the books' bridge: the books' bridge is a hosted one, this device holds no
+ * token of the bridge here, and a bridge answers here – over HTTP, not the
+ * hosted one over its stream and not another device's. Without this the
+ * panel had nothing to pair while the hosted VM was stopped.
+ *
+ * @param {{ hosted: string | null | undefined, token: string | null | undefined, state: string, route?: string | null, here: boolean }} f
+ */
+export function offersLocalBesideHosted(f) {
+	if (!f.hosted || f.token || !f.here) return false;
+	return f.state === 'online' && f.route !== 'stream' && f.route !== 'device';
+}
+
+/**
  * A hosted VM runs right now: what is kept for it reaches it only at its
  * next start.
  *

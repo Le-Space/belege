@@ -10,7 +10,8 @@ import {
 	detectMapping,
 	parseAmount,
 	parseDay,
-	readCardCsv
+	readCardCsv,
+	slashDayOrder
 } from './card-csv.js';
 import { addCard, cleanCard, importCardLines } from './card-import.js';
 import { confirmMatch } from '../matching/actions.js';
@@ -113,6 +114,34 @@ describe('reading a card statement (#382)', () => {
 		expect(skipped).toEqual([{ row: 2, why: 'currency' }]);
 		// A refund is no settlement.
 		expect(lines[1].bookingType).toBeUndefined();
+	});
+
+	it('slash dates: the order read from the file, refused while it stays ambiguous (#539)', () => {
+		const us = (/** @type {string[]} */ days) =>
+			readCardCsv(
+				[
+					'Transaction Date,Description,Amount',
+					...days.map((d) => `${d},Example Shop,-12.34`)
+				].join('\n')
+			);
+		// A month-first export: 01/13 settles it, and 02/01 is the 1st of February.
+		const mdy = cardLines(us(['01/13/2026', '02/01/2026']));
+		expect(mdy.refused).toBeNull();
+		expect(mdy.lines.map((l) => l.date)).toEqual(['2026-01-13', '2026-02-01']);
+		// Day first: 13/01 settles it, and 02/01 is the 2nd of January.
+		const dmy = cardLines(us(['13/01/2026', '02/01/2026']));
+		expect(dmy.lines.map((l) => l.date)).toEqual(['2026-01-13', '2026-01-02']);
+		// Nothing above 12 on either side: refused, never guessed.
+		const unsure = cardLines(us(['02/01/2026', '03/01/2026']));
+		expect(unsure).toEqual({ lines: [], skipped: [], refused: 'ambiguousDates' });
+		// Both orders in one file: refused too.
+		expect(cardLines(us(['13/01/2026', '01/13/2026'])).refused).toBe('mixedDates');
+		// The same day and month either way: no question.
+		expect(cardLines(us(['05/05/2026'])).lines.map((l) => l.date)).toEqual(['2026-05-05']);
+		// Dots are always day first, and settle nothing for slashes.
+		expect(slashDayOrder(['02.01.2026', '2026-01-13'])).toBeNull();
+		expect(parseDay('02/01/2026', 'mdy')).toBe('2026-02-01');
+		expect(parseDay('02.01.2026', 'mdy')).toBe('2026-01-02');
 	});
 
 	it('no table at all: said', () => {

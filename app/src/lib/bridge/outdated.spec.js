@@ -41,6 +41,16 @@ describe('the bridge’s node not connected', () => {
 		expect(error.message).toMatch(/^Die Bridge auf diesem Computer kennt dieses Gerät nicht/);
 	});
 
+	it('a 401 without a token blames no earlier pairing: none is here', async () => {
+		answer(401, { error: 'unauthorized' });
+		const error = await createBridgeClient()
+			.llmStatus()
+			.catch((/** @type {any} */ e) => e);
+		expect(error.message).not.toContain('früheren Kopplung');
+		expect(error.message).toContain('nicht gekoppelt');
+		expect(error.status).toBe(401);
+	});
+
 	it('a call too large for the bridge’s node says so – not “pair again”', async () => {
 		answer(413, { error: 'too large', code: 'BRIDGE_STREAM_TOO_LARGE' });
 		const error = await createBridgeClient()

@@ -26,7 +26,17 @@
 
 import { normalize, round, sum } from '@le-space/ledger';
 
-/* The document is German: it is for German bookkeeping. */
+import {
+	documentLanguage,
+	enDate,
+	enFixed,
+	enNumber,
+	localizeLabel,
+	localizeSource,
+	say
+} from './language.js';
+
+/* The document is German unless asked for in English (language.js): it is for German bookkeeping. */
 
 export const NOTE =
 	'Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Empfänger ist ein Peer-to-Peer-Netzwerk ohne rechnungsstellende Organisation. ' +
@@ -37,13 +47,35 @@ export const ALEPH_NOTE =
 	'Eigenbeleg. Für diese Zahlung gibt es keinen Fremdbeleg: Aleph-Cloud-Guthaben (Credits) wird per Token-Zahlung an das Aleph-Netzwerk gekauft; Aleph stellt dafür keine Rechnung aus. ' +
 	'Ausgestellt vom Zahlenden auf Grundlage der öffentlichen Transaktion; jede Position ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
 
+/** The notes in English (language.js). */
+export const NOTE_EN =
+	'Self-issued receipt. There is no receipt from the other side for this payment: the recipient is a peer-to-peer network without an organisation that issues invoices. ' +
+	'Issued by the payer from the public transaction; every position can be checked by its transaction hash in a public block explorer.';
+
+export const ALEPH_NOTE_EN =
+	'Self-issued receipt. There is no receipt from the other side for this payment: Aleph Cloud credits are bought by a token payment to the Aleph network; Aleph issues no invoice for it. ' +
+	'Issued by the payer from the public transaction; every position can be checked by its transaction hash in a public block explorer.';
+
 /**
  * Why there is no invoice for a payment on this chain: the recipient line and the reason, as the Eigenbeleg prints them.
  *
  * @param {string} chain
  * @param {string} chainName
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export function noInvoice(chain, chainName) {
+export function noInvoice(chain, chainName, language = 'de') {
+	if (language === 'en')
+		return chain === 'aleph'
+			? {
+					recipient: `${chainName}: purchase of credits by a token payment to the network, without an invoice`,
+					why: 'Aleph Cloud credits are bought by a token payment to the Aleph network; Aleph issues no invoice for it.',
+					note: ALEPH_NOTE_EN
+				}
+			: {
+					recipient: `${chainName}: peer-to-peer network without an organisation that issues invoices`,
+					why: 'The recipient is a peer-to-peer network without an organisation that issues invoices; it issues none.',
+					note: NOTE_EN
+				};
 	if (chain === 'aleph')
 		return {
 			recipient: `${chainName}: Kauf von Guthaben per Token-Zahlung an das Netzwerk, ohne Rechnung`,
@@ -59,6 +91,9 @@ export function noInvoice(chain, chainName) {
 
 export const NOT_AN_INVOICE =
 	'Dies ist keine Rechnung und kein Beleg eines Dritten. Le Space stellt keine Rechnungen für andere aus.';
+
+export const NOT_AN_INVOICE_EN =
+	'This is no invoice and no receipt of a third party. Le Space issues no invoices for others.';
 
 /**
  * The currencies a document can be kept in (Le-Space/eigenbeleg-agent#72),
@@ -104,10 +139,15 @@ export const currencyPlaces = (currency) => DOCUMENT_CURRENCIES[documentCurrency
  * is: the ECB's reference rate, or the Bank of Russia's official rate.
  *
  * @param {string} currency
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export function conversionText(currency) {
-	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
+export function conversionText(currency, language = 'de') {
 	if (documentCurrency(currency) === 'EUR') return '';
+	if (language === 'en')
+		return DOCUMENT_CURRENCIES[currency].via === 'cbr'
+			? `converted through the euro into ${currency} at the official rate of the Bank of Russia valid on the day`
+			: `converted through the euro into ${currency} at the ECB's euro reference rate of the day or the last one before it`;
+	const ecb = 'zum Euro-Referenzkurs der EZB des Tages oder des letzten davor';
 	if (DOCUMENT_CURRENCIES[currency].via === 'cbr')
 		return `über den Euro in ${currency} umgerechnet zum amtlichen Kurs der Bank von Russland, gültig am Tag`;
 	return `über den Euro in ${currency} umgerechnet ${ecb}`;
@@ -162,16 +202,32 @@ export const KIND_TEXT = {
 	usage: 'Verbrauch (aus Guthaben abgerechnet)'
 };
 
+export const KIND_TEXT_EN = {
+	fee: 'Network fee (gas)',
+	storage: 'Storage deposit',
+	transfer: 'Transfer',
+	call: 'Payment to a contract',
+	stake: 'Staking (no payment)',
+	unstake: 'Unstaking',
+	reward: 'Staking reward',
+	swap: 'Swap',
+	escrow: 'Deposit for a deployment (escrow)',
+	usage: 'Usage (billed from the balance)'
+};
+
 /**
  * What an entry's kind is called on the documents. An Aleph credit purchase is a swap
  * of a token for credits in the ledger; for the books it is the purchase of a balance.
  *
  * @param {{ chain: string, kind: string }} e
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export const kindText = (e) =>
+export const kindText = (e, language = 'de') =>
 	e.chain === 'aleph' && e.kind === 'swap'
-		? 'Kauf von Guthaben (Credits)'
-		: (KIND_TEXT[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind);
+		? say(language, 'Kauf von Guthaben (Credits)', 'Purchase of credits')
+		: ((language === 'en' ? KIND_TEXT_EN : KIND_TEXT)[
+				/** @type {keyof typeof KIND_TEXT} */ (e.kind)
+			] ?? e.kind);
 
 /** The chains Eigenbeleg makes documents for, by id (as @le-space/chains names them). */
 export const CHAIN_NAMES = {
@@ -203,6 +259,18 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
 	doichain: 'ElectrumX-Server des Doichain-Netzes'
 });
 
+export const DATA_SOURCES_EN = /** @type {Record<string, string>} */ ({
+	near: 'NearBlocks.io APIs, NEAR archival RPC',
+	filecoin: 'Filfox',
+	akash: 'Akash RPC, Akash Console',
+	aleph: 'Aleph API (api2.aleph.im)',
+	'filecoin-pay': 'Filecoin Pay index (Goldsky), Blockscout, Filfox',
+	ethereum: 'Alchemy APIs (Ethereum Mainnet)',
+	base: 'Alchemy APIs (Base Mainnet)',
+	bitcoin: 'Esplora API of mempool.space',
+	doichain: 'ElectrumX servers of the Doichain network'
+});
+
 /**
  * The data source a document names: the one the caller read from when it
  * says so (an own Esplora, say), else the chain's usual one.
@@ -210,9 +278,10 @@ export const DATA_SOURCES = /** @type {Record<string, string>} */ ({
  * @param {string} chain
  * @param {string} chainName
  * @param {string} [given]
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export const dataSourceOf = (chain, chainName, given) =>
-	given?.trim() || DATA_SOURCES[chain] || chainName;
+export const dataSourceOf = (chain, chainName, given, language = 'de') =>
+	given?.trim() || (language === 'en' ? DATA_SOURCES_EN : DATA_SOURCES)[chain] || chainName;
 
 /**
  * @typedef {object} Payer who pays and issues the Eigenbeleg
@@ -265,6 +334,7 @@ export const dataSourceOf = (chain, chainName, given) =>
  * @param {string} [p.currency] the document's currency (DOCUMENT_CURRENCIES), EUR when not
  *   given; the entries are valued in it. The fields named `eur…` hold the values in this
  *   currency: they keep the name they had when every document was in euro.
+ * @param {import('./language.js').DocumentLanguage} [p.language] `de` (the default) or `en` (language.js)
  */
 export function buildDocument({
 	payer,
@@ -277,11 +347,13 @@ export function buildDocument({
 	issuedAt,
 	layout = 'collective',
 	dataSource,
-	currency: asked
+	currency: asked,
+	language: askedLanguage
 }) {
 	if (layout !== 'collective' && layout !== 'single')
 		throw new Error('layout: collective or single');
 	const currency = documentCurrency(asked);
+	const L = documentLanguage(askedLanguage);
 	checkValued(entries, currency);
 	checkPayer(payer);
 	const kinds = new Set(includeKinds);
@@ -293,29 +365,45 @@ export function buildDocument({
 	for (const e of entries) {
 		const why =
 			e.type === 'received'
-				? 'Eingang, keine Zahlung'
+				? say(L, 'Eingang, keine Zahlung', 'incoming, no payment')
 				: !e.success
-					? 'fehlgeschlagen, nichts gezahlt'
+					? say(L, 'fehlgeschlagen, nichts gezahlt', 'failed, nothing paid')
 					: own.has(e.counterparty)
-						? 'Umbuchung zwischen eigenen Adressen'
+						? say(L, 'Umbuchung zwischen eigenen Adressen', 'transfer between own addresses')
 						: !kinds.has(e.kind)
 							? e.kind === 'transfer' || e.kind === 'call'
-								? 'Zahlung an ein Konto: Fremdbeleg anfordern oder bewusst einbeziehen'
+								? say(
+										L,
+										'Zahlung an ein Konto: Fremdbeleg anfordern oder bewusst einbeziehen',
+										'payment to an account: ask for its receipt or include it on purpose'
+									)
 								: e.kind === 'escrow'
-									? 'Hinterlegung (Escrow), noch kein Endbetrag'
+									? say(
+											L,
+											'Hinterlegung (Escrow), noch kein Endbetrag',
+											'deposit (escrow), no final amount yet'
+										)
 									: e.kind === 'usage'
-										? 'Verbrauch aus Guthaben: steht im Verbrauchsauszug'
-										: 'keine Zahlung an das Netzwerk'
+										? say(
+												L,
+												'Verbrauch aus Guthaben: steht im Verbrauchsauszug',
+												'usage from a balance: on the usage statement'
+											)
+										: say(L, 'keine Zahlung an das Netzwerk', 'no payment to the network')
 							: !e.eur
-								? 'kein verlässlicher Kurs (unbekannter Token)'
+								? say(
+										L,
+										'kein verlässlicher Kurs (unbekannter Token)',
+										'no reliable rate (unknown token)'
+									)
 								: '';
 		if (why) excluded.push({ entry: e, why });
 		else
 			positions.push({
 				pos: 0,
 				entry: e,
-				what: kindText(e),
-				recipient: e.counterpartyLabel || e.counterparty
+				what: kindText(e, L),
+				recipient: localizeLabel(e.counterpartyLabel, L) || e.counterparty
 			});
 	}
 	const first = number || `EB-${period.to.slice(0, 4)}-001`;
@@ -334,13 +422,13 @@ export function buildDocument({
 				hash: p.entry.hash,
 				time: p.entry.time,
 				explorerUrl: p.entry.explorerUrl,
-				from: { address: p.entry.account, label: 'eigene Adresse' },
-				to: { address: main.counterparty, label: main.counterpartyLabel },
+				from: { address: p.entry.account, label: say(L, 'eigene Adresse', 'own address') },
+				to: { address: main.counterparty, label: localizeLabel(main.counterpartyLabel, L) },
 				movements: all.map((e) => {
 					const x = excluded.find((y) => y.entry === e);
 					return {
 						entry: e,
-						what: kindText(e),
+						what: kindText(e, L),
 						onIt: !x,
 						why: x?.why ?? ''
 					};
@@ -382,11 +470,12 @@ export function buildDocument({
 		},
 		chain,
 		chainName,
-		dataSource: dataSourceOf(chain, chainName, dataSource),
+		dataSource: dataSourceOf(chain, chainName, dataSource, L),
 		network,
 		testnet: network !== 'mainnet',
 		period,
 		currency,
+		language: L,
 		positions,
 		excluded,
 		totals: {
@@ -397,10 +486,12 @@ export function buildDocument({
 		},
 		// The rate's name without its day (`… vom 2026-08-10`): the day is each position's.
 		sources: [
-			...new Set(positions.map((p) => sourceName(/** @type {any} */ (p.entry.eur).source)))
+			...new Set(
+				positions.map((p) => localizeSource(sourceName(/** @type {any} */ (p.entry.eur).source), L))
+			)
 		],
-		note: noInvoice(chain, chainName).note,
-		notInvoice: NOT_AN_INVOICE
+		note: noInvoice(chain, chainName, L).note,
+		notInvoice: L === 'en' ? NOT_AN_INVOICE_EN : NOT_AN_INVOICE
 	};
 }
 
@@ -495,4 +586,31 @@ export function deMoney(amount, currency, places = currencyPlaces(currency)) {
 export function deDate(date) {
 	const [y, m, d] = date.slice(0, 10).split('-');
 	return `${d}.${m}.${y}`;
+}
+
+// ---- the formats of a document's language -------------------------------------
+
+/**
+ * The number and date formats of a document's language: German as above, or
+ * English (language.js). Same names, so a drawing reads `f.money(…)` either way.
+ *
+ * @param {import('./language.js').DocumentLanguage} [language]
+ */
+export function formats(language = 'de') {
+	if (language !== 'en')
+		return { number: deNumber, rate: deRate, fixed: deFixed, money: deMoney, date: deDate };
+	/** @param {string} rate @param {number} [digits] */
+	const rate = (rate, digits = 6) => {
+		const s = normalize(String(rate)).replace(/^-/, '');
+		const [int, frac = ''] = s.split('.');
+		const places =
+			int !== '0'
+				? Math.max(0, digits - int.length)
+				: frac.length - frac.replace(/^0+/, '').length + digits;
+		return enNumber(normalize(round(String(rate), places)));
+	};
+	/** @param {string} amount @param {string} currency @param {number} [places] */
+	const money = (amount, currency, places = currencyPlaces(currency)) =>
+		`${enFixed(amount, places)} ${currency}`;
+	return { number: enNumber, rate, fixed: enFixed, money, date: enDate };
 }

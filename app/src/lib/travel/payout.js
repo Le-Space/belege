@@ -21,6 +21,7 @@
 import { recordEvent } from '../activity/events.js';
 import { confirmMatch } from '../matching/actions.js';
 import { isActive, syncLinks } from '../matching/engine.js';
+import { pickBySum } from '../matching/exact-sum.js';
 import { isOutlay } from '../outlays/outlays.js';
 import { advancesOf, allocateAdvances } from './advances.js';
 
@@ -159,7 +160,8 @@ export function mayPayOut(tx, matches, classification) {
  * The open statements a payout most likely pays: those whose number the
  * purpose names; else, where the receiving IBAN ends in a traveller's digits
  * (#380), only that traveller's; of those, the ones whose open amounts add
- * up to it exactly, the oldest preferred; else the oldest until it is used up.
+ * up to it exactly, the oldest preferred; else the oldest until it is used up
+ * (matching/exact-sum.js).
  *
  * @param {Rec} tx
  * @param {Settlement[]} all oldest first, open > 0
@@ -178,26 +180,10 @@ export function suggestStatements(tx, all, travellers = []) {
 	);
 	const open = whose.size ? all.filter((s) => whose.has(String(s.head.travellerId))) : all;
 	const cents = Math.abs(Number(tx.amountCents ?? 0));
-	const pool = open.slice(0, 24);
-	/** @type {Map<number, number[]>} */
-	const reach = new Map([[0, []]]);
-	for (let i = 0; i < pool.length; i++) {
-		for (const [sum, picked] of [...reach]) {
-			const next = sum + pool[i].openCents;
-			if (next <= cents && !reach.has(next)) reach.set(next, [...picked, i]);
-		}
-		const hit = reach.get(cents);
-		if (hit) return hit.map((j) => String(pool[j].head.id));
-	}
-	/** @type {string[]} */
-	const picked = [];
-	let left = cents;
-	for (const s of open) {
-		if (left <= 0) break;
-		picked.push(String(s.head.id));
-		left -= s.openCents;
-	}
-	return picked;
+	return pickBySum(
+		cents,
+		open.map((s) => s.openCents)
+	).map((i) => String(open[i].head.id));
 }
 
 /**

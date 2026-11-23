@@ -487,6 +487,49 @@ describe('a call when the bridge’s node is not connected', () => {
 		expect(routes).toEqual([]);
 	});
 
+	it('without a token, with device sync on and no own device serving one: still the node, not HTTP’s 401', async () => {
+		// A hosted bridge stopped, the bridge on this computer answering but not paired.
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: notConnected,
+			remote: () => async () => {
+				throw new TypeError('no own device serves a bridge');
+			},
+			waitMs: 0
+		});
+		const res = await f('http://127.0.0.1:8765/nyx/wallet', { method: 'POST' });
+		expect(res.status).toBe(503);
+		expect((await res.json()).code).toBe(NODE_UNREACHABLE);
+	});
+
+	it('without a token, HTTP’s 401 here: another own device’s bridge is asked', async () => {
+		/** @type {string[]} */
+		const routes = [];
+		const f = bridgeFetch({
+			local: async () => json({ error: 'unauthorized' }, 401),
+			stream: notConnected,
+			remote: () => async () => json({ ok: true }),
+			onRoute: (r) => routes.push(r),
+			waitMs: 0
+		});
+		expect((await f('http://127.0.0.1:8765/nyx/wallet', { method: 'POST' })).status).toBe(200);
+		expect(routes).toEqual(['device']);
+	});
+
+	it('without a token, no bridge here and no own device serving one: the node, not “Failed to fetch”', async () => {
+		const f = bridgeFetch({
+			local: async () => {
+				throw new TypeError('Failed to fetch');
+			},
+			stream: notConnected,
+			remote: () => async () => {
+				throw new TypeError('no own device serves a bridge');
+			},
+			waitMs: 0
+		});
+		expect((await (await f('http://127.0.0.1:8765/health')).json()).code).toBe(NODE_UNREACHABLE);
+	});
+
 	it('without a token and no bridge on this machine either: the same, not “Failed to fetch”', async () => {
 		const f = bridgeFetch({
 			local: async () => {

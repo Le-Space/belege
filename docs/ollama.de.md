@@ -56,7 +56,7 @@ Eine Bridge, die DeepSeek noch aus der alten Voreinstellung hat, fragt einmal �
 
 ## 4. In Belege
 
-- _Statistik → Gleichzeitige KI-Anfragen je Lauf_: **1**. Auf dem Prozessor beantwortet Ollama eine Anfrage nach der anderen; eine zweite wartet nur dahinter.
+- _Speicher und KI → Gleichzeitige KI-Anfragen je Lauf_: **1**. Auf dem Prozessor beantwortet Ollama eine Anfrage nach der anderen; eine zweite wartet nur dahinter.
 - _Belege → Alle neuen auslesen_ liest die wartenden Belege. Lass es laufen; der Fortschritt steht am Belege-Tab, und es lässt sich abbrechen.
 
 ## Wie schnell, wie gut

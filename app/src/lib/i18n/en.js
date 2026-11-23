@@ -428,6 +428,8 @@ export default {
 				'The bridge cannot be reached. Is it running (pnpm bridge)? Whether it lets this page in, "Check status" under Integrations → Bridge says.',
 			unknownDevice:
 				'The bridge on this computer does not know this device: its token is from an earlier pairing. Pairing again with the bridge on this computer helps – a hosted bridge is not affected.',
+			notPairedHere:
+				'This device is not paired with the bridge on this computer. Pair it with its pairing code under Integrations → Bridge.',
 			streamTooLarge:
 				'The request is too large for the bridge’s node and was not sent. No need to pair again.',
 			nodeUnreachable:
@@ -1286,7 +1288,6 @@ export default {
 			'No gateway: the browser fetches the backup itself over IPFS, from Aleph’s nodes and from whoever holds it according to the public routing. Aleph’s nodes are reachable over IPv6 only; the routing (cid.contact, delegated-ipfs.dev) sees the CID and this IP address.',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
-		increments: '+ {count} increments',
 		fetchingIncrements: 'Fetching increments: {done} of {total} …',
 		doneIncrements: 'With {count} increments to the full backup.',
 		isIncrement:
@@ -1660,7 +1661,6 @@ export default {
 	},
 	uploadPanel: {
 		open: 'Upload receipts',
-		openShort: 'Upload',
 		title: 'Upload receipts',
 		zone: 'Upload receipts',
 		zoneHint: 'or drop files here – on any page',
@@ -1679,7 +1679,6 @@ export default {
 		exists: 'Statement {number} is under Belege.',
 		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.',
 		act: {
-			title: 'ACT account (credit for deployments)',
 			what: 'ACT is minted by burning AKT and pays the deployments. Here: what was topped up, used and is left, valued at cost.',
 			open: 'Show ACT account',
 			loading: 'Reading balance and deployments …',
@@ -2197,6 +2196,8 @@ export default {
 			due: 'Payable',
 			outputOpen:
 				'Output VAT on invoices not paid yet: {amount} (invoices: {count}) – under Ist due only when the money comes in.',
+			outputElsewhere:
+				'Output VAT on shares paid in another fiscal year: {amount} (invoices: {count}) – under Ist it counts in the year the money came in.',
 			outputMissing:
 				'Invoices whose VAT the invoice app did not send: {count} ({amount} gross) – not in the output VAT until the app sends the VAT per rate.',
 			outputNone: 'Invoices without VAT: {count} ({amount}).',
@@ -2563,8 +2564,7 @@ export default {
 		savePrices: 'Save prices',
 		resetPrices: 'Reset to the vendor’s prices',
 		home: 'Storage and AI',
-		homeLine: '{storage} used · AI this month {cost}',
-		homeOpen: 'Details'
+		homeLine: '{storage} used · AI this month {cost}'
 	},
 	rueckfragen: {
 		ai: {
@@ -2621,7 +2621,6 @@ export default {
 		ignore: 'Ignore',
 		confirmSender: 'Sender checked – approve',
 		openTx: 'Open payment',
-		auto: 'resolved itself',
 		answer: {
 			candidate: 'linked',
 			none: 'none of these',
@@ -4254,7 +4253,6 @@ export default {
 		noneForSelection: 'No payments for this selection.',
 		open: 'Open payment',
 		trade: 'Swap {arrow} {what}',
-		tradeTitle: 'Swapped',
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
@@ -4371,8 +4369,6 @@ export default {
 				'The sender address {address} starts and ends like {known}, which you have dealt with, but it is a different one. An address like this is planted in your history with a tiny amount so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
 			title: 'Payment',
 			close: 'Close',
-			date: 'Booking date',
-			quantity: 'Quantity',
 			valuation: 'Rate',
 			original: 'Paid in',
 			originalAmount: '{amount} {currency}',
@@ -4430,17 +4426,11 @@ export default {
 			explorer: 'View in block explorer',
 			explorerQr: 'QR code',
 			valueDate: 'Value date',
-			amount: 'Amount',
-			account: 'Account',
-			bookingType: 'Booking type',
 			iban: 'IBAN of the other side',
 			purpose: 'Payment reference (full)',
 			receipts: 'Receipt',
 			noReceipt: 'No receipt linked yet.',
 			unlink: 'Unlink',
-			assign: 'Link receipt',
-			suggestions: 'Suggestions',
-			allReceipts: 'All other receipts',
 			choose: 'Link',
 			peek: {
 				label: 'Preview: {name}',
@@ -4455,7 +4445,6 @@ export default {
 			reason: 'Reason',
 			reasonPlaceholder: 'e.g. entertainment, receipt lost',
 			save: 'Save',
-			cancel: 'Cancel',
 			needsReceipt: 'Link a receipt after all',
 			bankFee: 'Bank fee – no receipt needed',
 			counterOpen: 'Open counter-booking',
@@ -4592,7 +4581,6 @@ export default {
 			othersOut: 'More payments to {name}',
 			othersIn: 'More payments from {name}',
 			othersNone: 'No other payments with this counterparty.',
-			withReceipt: 'with receipt',
 			withoutReceipt: 'without receipt',
 			privateSearch: 'Search the private mailbox',
 			privateHint:
@@ -4674,7 +4662,6 @@ export default {
 				taking: 'Taking over …'
 			},
 			vendor: {
-				title: 'Fetch from the vendor',
 				income:
 					'An incoming payment: its receipt is your own outgoing invoice, not a vendor’s invoice. Upload it above or link it.',
 				noBridge: 'For this, pair the bridge under Integrations.',
@@ -4952,6 +4939,9 @@ export default {
 			unpairLocal: 'Remove pairing with the bridge on this computer',
 			unpairHostedOnly:
 				'The bridge of these books is the hosted one. It is stopped on its own card, not here; no bridge on this computer is paired.',
+			switchLocal: 'Use the bridge on this computer instead',
+			switchLocalHint:
+				'A bridge answers on this computer. Paired with its pairing code, it becomes the bridge of these books. The hosted bridge, its settings and its VM stay; once the VM is unlocked again, it is the books’ bridge again.',
 			nodeNotPaired:
 				'Paired by code, but the bridge’s network node could not be paired: {error} Without it none of the bridge’s functions answers. “Status prüfen” tries again.',
 			unpairOffline:
@@ -5165,7 +5155,6 @@ export default {
 					store: 'Your image on Aleph (STORE)'
 				}
 			},
-			startTitle: 'Start a new VM',
 			startHint:
 				'The VM belongs to the books’ Aleph key: the measurement names it, and only it unlocks the VM. Aleph takes it only with a day in reserve.',
 			payer: {
@@ -5472,7 +5461,11 @@ export default {
 			error: {
 				name: 'The card needs a name.',
 				last4: 'The last 4 digits of the card, please.',
-				noTable: 'This file has no table with a date and an amount.'
+				noTable: 'This file has no table with a date and an amount.',
+				ambiguousDates:
+					'The dates in this file could be day/month or month/day, and none of them settles it (no day above 12). Nothing is imported: export the statement with ISO dates (2026-01-31) or with a longer period, or ask the card issuer which order it uses.',
+				mixedDates:
+					'The dates in this file are written both day/month and month/day. Nothing is imported: export the statement again from the card issuer.'
 			},
 			adviser:
 				'Enter the card’s ledger account under Settings → Bookkeeping, as for a bank account; which one is for the tax adviser.'
@@ -5514,7 +5507,7 @@ export default {
 					'Download the model – the default, for 16 GB memory: ollama pull qwen3:4b-instruct-2507-q4_K_M (2.5 GB); with 32 GB or more, reading better: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Set a larger context and a longer keep-alive (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 and OLLAMA_KEEP_ALIVE 2h), then restart Ollama.',
 					'pnpm setup:llm: 1 (Ollama), then Enter for the defaults (or the larger model’s name) – no API key. Then restart the bridge.',
-					'Under Statistik, set the AI requests at once to 1.'
+					'Under “Storage and AI”, set the concurrent AI requests per run to 1.'
 				],
 				doc: 'The whole guide, with measurements and help when something goes wrong'
 			},

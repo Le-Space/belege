@@ -13,14 +13,13 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
+import { euro } from '../export/pdf-format.js';
 import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 import { byRail, shortAmount } from './filecoin-pay.js';
 
 /** The payment contract, as @le-space/chains names it (public, like a BIC). */
 const CONTRACT = '0x23b1e018f08bb982348b15a86ee926eebf7f4daa';
 
-/** @param {number | null} cents */
-const euro = (cents) => (cents === null ? '—' : `${amount(cents)} EUR`);
 /** @param {string} iso */
 const utc = (iso) => `${iso.slice(0, 16).replace('T', ' ')} UTC`;
 /** @param {string} a */

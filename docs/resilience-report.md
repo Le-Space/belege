@@ -193,4 +193,4 @@ The same 108 232 bytes from both: the domain serves exactly the CID the release 
 
 ## Earlier: how the books behave as they grow
 
-The books benchmark (`pnpm bench:books`, [performance.md](performance.md)) measured the store itself on 26 September 2026: after the first fixes of #78, 1 000 bookings write in 9 s, `refresh()` takes 24 ms, the first matching run 24 s, unlock to Home 3.0 s, 11 MB in IndexedDB.
+The books benchmark (`pnpm --filter @belege/app bench:books`, [performance.md](performance.md)) measured the store itself on 26 September 2026: after the first fixes of #78, 1 000 bookings write in 9 s, `refresh()` takes 24 ms, the first matching run 24 s, unlock to Home 3.0 s, 11 MB in IndexedDB.

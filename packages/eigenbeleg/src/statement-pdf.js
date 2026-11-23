@@ -14,7 +14,8 @@
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
 
-import { DATA_SOURCES, conversionText, deDate, deFixed, deMoney, deNumber } from './document.js';
+import { DATA_SOURCES, DATA_SOURCES_EN, conversionText, formats } from './document.js';
+import { localizeSource, say } from './language.js';
 import { CREATOR, PRODUCER } from './pdf.js';
 import { isDust, reconciled } from './statement.js';
 import { drawScene, sceneMeasure } from './chart-pdf.js';
@@ -25,6 +26,7 @@ import { BLACK, GREY, INK, MARK_SIZE, TYPE, WARN, pageLayout } from './layout.js
 const M = 48;
 
 const MARKET_RATE = 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)';
+const MARKET_RATE_EN = "the day's rate (rate at 00:00 UTC: CoinGecko, else Kraken)";
 
 /**
  * What a section's values are at, for its note: the market rate of the day, a
@@ -32,28 +34,39 @@ const MARKET_RATE = 'Tageskurs (Kurs 00:00 UTC: CoinGecko, sonst Kraken)';
  * rate's name for another currency.
  *
  * @param {{ marketRate?: boolean, referenceValues?: string[] }} s
+ * @param {import('./language.js').DocumentLanguage} [language]
  * @returns {[string, string]}
  */
-function marketOrReference({ marketRate = true, referenceValues = [] }) {
+function marketOrReference({ marketRate = true, referenceValues = [] }, language = 'de') {
+	const en = language === 'en';
 	const names = [
-		...(marketRate || !referenceValues.length ? [MARKET_RATE] : []),
-		...referenceValues
+		...(marketRate || !referenceValues.length ? [en ? MARKET_RATE_EN : MARKET_RATE] : []),
+		...referenceValues.map((r) => localizeSource(r, language))
 	];
-	return [names.map((n) => `zum ${n}`).join(' und '), names.join(' und ')];
+	return en
+		? [names.map((n) => `at ${n}`).join(' and '), names.join(' and ')]
+		: [names.map((n) => `zum ${n}`).join(' und '), names.join(' und ')];
 }
 
-/** The table of bookings; its last column names the statement's currency. @param {string} currency */
-const columns = (currency) => [
-	{ title: 'Buchungstag', width: 52 },
-	{ title: 'Vorgang', width: 167 },
-	{ title: 'Soll', width: 72, right: true },
-	{ title: 'Haben', width: 72, right: true },
-	{ title: 'Saldo', width: 80, right: true },
-	{ title: `Wert ${currency}`, width: 56, right: true }
-];
-
-/** Quantities in the table: at most 12 decimals, the CSV keeps them all. @param {string} q */
-const qty = (q) => (q ? deNumber(round(q, 12)) : '');
+/** The table of bookings; its last column names the statement's currency. @param {string} currency @param {import('./language.js').DocumentLanguage} [language] */
+const columns = (currency, language = 'de') =>
+	language === 'en'
+		? [
+				{ title: 'Date', width: 52 },
+				{ title: 'Transaction', width: 167 },
+				{ title: 'Debit', width: 72, right: true },
+				{ title: 'Credit', width: 72, right: true },
+				{ title: 'Balance', width: 80, right: true },
+				{ title: `Value ${currency}`, width: 56, right: true }
+			]
+		: [
+				{ title: 'Buchungstag', width: 52 },
+				{ title: 'Vorgang', width: 167 },
+				{ title: 'Soll', width: 72, right: true },
+				{ title: 'Haben', width: 72, right: true },
+				{ title: 'Saldo', width: 80, right: true },
+				{ title: `Wert ${currency}`, width: 56, right: true }
+			];
 
 /**
  * @param {import('./statement.js').Statement} st
@@ -74,12 +87,21 @@ export async function statementPdf(
 	const pay = st.chain === 'filecoin-pay';
 	// The statement's currency (EUR unless another): its code in the column heads and sums.
 	const cur = st.currency ?? 'EUR';
-	const COLS = columns(cur);
+	// The statement's language (German unless it says English) and its formats.
+	const L = st.language ?? 'de';
+	/** @param {string} de @param {string} en */
+	const t = (de, en) => say(L, de, en);
+	const { number: deNumber, fixed: deFixed, money: fmtMoney, date: deDate } = formats(L);
+	/** Quantities in the table: at most 12 decimals, the CSV keeps them all. @param {string} q */
+	const qty = (q) => (q ? deNumber(round(q, 12)) : '');
+	const COLS = columns(cur, L);
 	/** @param {string} amount */
-	const money = (amount) => deMoney(amount, cur);
+	const money = (amount) => fmtMoney(amount, cur);
 	/** What the values are: in euro as it always said, or how they became another currency. @param {string} eur @param {string} rate */
 	const valued = (eur, rate) =>
-		cur === 'EUR' ? `Euro-Werte ${eur}` : `Werte in ${cur}: ${rate}, ${conversionText(cur)}`;
+		cur === 'EUR'
+			? `${t('Euro-Werte', 'Euro values')} ${eur}`
+			: `${t('Werte in', 'Values in')} ${cur}: ${rate}, ${conversionText(cur, L)}`;
 	const title = `${st.title} ${st.number}`;
 	const subject = `${st.title} ${st.chainName} ${st.account}, ${deDate(st.period.from)} – ${deDate(st.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
@@ -109,18 +131,24 @@ export async function statementPdf(
 
 	// ---- head: the title first, as on every document; below the rule the holder and the facts
 	if (st.testnet) {
-		text('TESTNET – keine echten Werte. Kurse des Mainnet-Assets nur zur Veranschaulichung.', {
-			face: bold,
-			size: TYPE.table,
-			color: WARN
-		});
+		text(
+			t(
+				'TESTNET – keine echten Werte. Kurse des Mainnet-Assets nur zur Veranschaulichung.',
+				'TESTNET – no real values. Rates of the mainnet asset for illustration only.'
+			),
+			{
+				face: bold,
+				size: TYPE.table,
+				color: WARN
+			}
+		);
 		l.y -= 6;
 	}
 	// The chain's mark, larger: a statement shows what the network's account did. The issuer's logo is
 	// not on it: a statement is not the issuer's own receipt.
 	l.head(st.title, { image: mark, mark: MARK_SIZE.large });
 	const top = l.y;
-	label('Kontoinhaber', { max: 250 });
+	label(t('Kontoinhaber', 'Account holder'), { max: 250 });
 	text(st.holder.name, { face: bold, size: TYPE.lead, max: 250 });
 	text(st.holder.address, { max: 250 });
 	const leftEnd = l.y;
@@ -128,10 +156,10 @@ export async function statementPdf(
 	const rx = M + width / 2 + 10;
 	const facts = [
 		// The label column is 72 pt wide: »Verbrauchsauszug« does not fit.
-		[st.title === 'Kontoauszug' ? 'Kontoauszug' : 'Auszug-Nr.', st.number],
-		['Zeitraum', `${deDate(st.period.from)} – ${deDate(st.period.to)}`],
+		[st.title === 'Kontoauszug' ? 'Kontoauszug' : t('Auszug-Nr.', 'Statement no.'), st.number],
+		[t('Zeitraum', 'Period'), `${deDate(st.period.from)} – ${deDate(st.period.to)}`],
 		['Chain', `${st.chainName} (${st.network})`],
-		['Erstellt am', `${deDate(st.issuedAt)}, ${st.issuedAt.slice(11, 16)} UTC`]
+		[t('Erstellt am', 'Made on'), `${deDate(st.issuedAt)}, ${st.issuedAt.slice(11, 16)} UTC`]
 	];
 	for (const [k, v] of facts) {
 		regular.draw(l.page, k, { x: rx, y: l.y - TYPE.body, size: TYPE.small, color: GREY });
@@ -139,7 +167,7 @@ export async function statementPdf(
 		l.y -= 13;
 	}
 	l.y = Math.min(l.y, leftEnd) - 8;
-	label('Konto');
+	label(t('Konto', 'Account'));
 	text(st.account, { face: mono, size: TYPE.body });
 	l.y -= 10;
 	l.note(st.note, TYPE.table);
@@ -148,9 +176,9 @@ export async function statementPdf(
 	/** A booking's two lines of text, and the height of its row. @param {import('./statement.js').StatementRow} r */
 	const rowText = (r) => {
 		const detail = [
-			r.counterparty && `${r.debit ? 'an' : 'von'} ${r.counterparty}`,
+			r.counterparty && `${r.debit ? t('an', 'to') : t('von', 'from')} ${r.counterparty}`,
 			r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
-			r.beleg && `Eigenbeleg ${r.beleg}`
+			r.beleg && `${t('Eigenbeleg', 'Receipt')} ${r.beleg}`
 		]
 			.filter(Boolean)
 			.join(' · ');
@@ -186,7 +214,10 @@ export async function statementPdf(
 		// A section: its head on a hairline. No band, no fill. A token not in the list is named by its
 		// contract; what it calls itself is the contract's own claim.
 		if (s.contract) {
-			text(`${s.asset} (laut Token-Vertrag)`, { face: bold, size: TYPE.lead });
+			text(`${s.asset} (${t('laut Token-Vertrag', 'as the token contract says')})`, {
+				face: bold,
+				size: TYPE.lead
+			});
 			text(s.contract, { face: mono, size: TYPE.body });
 		} else text(`${s.asset} · ${st.account}`, { face: bold, size: TYPE.lead });
 		l.y -= 3;
@@ -194,7 +225,10 @@ export async function statementPdf(
 		l.y -= 10;
 		if (s.contract) {
 			text(
-				`Token außerhalb der Liste geprüfter Token dieser Chain: Name »${s.asset}« und Nachkommastellen nennt der Vertrag selbst; maßgeblich ist seine Adresse oben.`,
+				t(
+					`Token außerhalb der Liste geprüfter Token dieser Chain: Name »${s.asset}« und Nachkommastellen nennt der Vertrag selbst; maßgeblich ist seine Adresse oben.`,
+					`A token outside this chain's list of checked tokens: its name "${s.asset}" and decimals are what the contract says of itself; its address above is what counts.`
+				),
 				{ size: TYPE.small, color: GREY }
 			);
 			l.y -= 6;
@@ -207,9 +241,9 @@ export async function statementPdf(
 				.filter((x) => x !== null);
 			if (lines.length) {
 				l.ensure(14 + lines.length * 11 + 8);
-				l.at('Monatsübersicht', M, TYPE.label, regular, GREY);
-				l.right(pay ? s.asset : 'Credits', edge(CREDIT), TYPE.label, regular, GREY);
-				l.right(`Wert ${cur}`, edge(VALUE), TYPE.label, regular, GREY);
+				l.at(t('Monatsübersicht', 'The month in sums'), M, TYPE.label, regular, GREY);
+				l.right(pay ? s.asset : t('Credits', 'Credits'), edge(CREDIT), TYPE.label, regular, GREY);
+				l.right(`${t('Wert', 'Value')} ${cur}`, edge(VALUE), TYPE.label, regular, GREY);
 				l.y -= 11;
 				l.strong();
 				l.y -= 4;
@@ -250,7 +284,15 @@ export async function statementPdf(
 		};
 		head();
 		// opening balance
-		l.at(`Kontostand am ${deDate(st.period.from)} (Beginn)`, M + COLS[0].width, 8, bold);
+		l.at(
+			t(
+				`Kontostand am ${deDate(st.period.from)} (Beginn)`,
+				`Balance on ${deDate(st.period.from)} (start)`
+			),
+			M + COLS[0].width,
+			8,
+			bold
+		);
 		l.right(qty(s.opening), edge(BALANCE), 8, bold);
 		l.y -= 13;
 		l.rule();
@@ -292,7 +334,13 @@ export async function statementPdf(
 			l.y -= 1;
 		}
 		if (s.rows.length === 0) {
-			l.at('Keine Buchungen in diesem Zeitraum.', M + COLS[0].width, 8, regular, GREY);
+			l.at(
+				t('Keine Buchungen in diesem Zeitraum.', 'No bookings in this period.'),
+				M + COLS[0].width,
+				8,
+				regular,
+				GREY
+			);
 			l.y -= 13;
 		}
 		// sums and closing balance
@@ -301,11 +349,16 @@ export async function statementPdf(
 		l.y += 1;
 		l.strong();
 		l.y -= 5;
-		l.at('Summe', M + COLS[0].width, 8, regular);
+		l.at(t('Summe', 'Total'), M + COLS[0].width, 8, regular);
 		l.right(qty(s.debit), edge(DEBIT), 8, regular);
 		l.right(qty(s.credit), edge(CREDIT), 8, regular);
 		l.y -= 14;
-		l.at(`Kontostand am ${deDate(st.period.to)} (Ende)`, M + COLS[0].width, TYPE.lead, bold);
+		l.at(
+			t(`Kontostand am ${deDate(st.period.to)} (Ende)`, `Balance on ${deDate(st.period.to)} (end)`),
+			M + COLS[0].width,
+			TYPE.lead,
+			bold
+		);
 		l.right(`${qty(s.closing)} ${s.asset}`, edge(BALANCE), TYPE.lead, bold);
 		l.y -= 17;
 		l.strong();
@@ -319,52 +372,92 @@ export async function statementPdf(
 				: '';
 			text(
 				ok && isDust(difference)
-					? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset}; die Differenz von ${deNumber(difference)} ${s.asset} liegt unter der dargestellten Genauigkeit (das 1 yoctoNEAR, das ein Token-Transfer als Sicherheit mitgibt, zählt nicht als Zahlung).`
+					? t(
+							`Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset}; die Differenz von ${deNumber(difference)} ${s.asset} liegt unter der dargestellten Genauigkeit (das 1 yoctoNEAR, das ein Token-Transfer als Sicherheit mitgibt, zählt nicht als Zahlung).`,
+							`Reconciled: the balance the chain reports after the period${when} is ${qty(s.reported)} ${s.asset}; the difference of ${deNumber(difference)} ${s.asset} is below the precision shown (the 1 yoctoNEAR a token transfer attaches as its security deposit is no payment).`
+						)
 					: ok
-						? `Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset} und stimmt mit Anfangsstand plus Buchungen überein.`
-						: `Nicht abgestimmt: Der Kontostand laut Chain${when} ist ${qty(s.reported)} ${s.asset}; Differenz ${deNumber(difference)} ${s.asset} (Bewegungen, die der Leser nicht sieht, etwa Auszahlungen eines Staking-Pools).`,
+						? t(
+								`Abgestimmt: Der Kontostand laut Chain nach dem Zeitraum${when} ist ${qty(s.reported)} ${s.asset} und stimmt mit Anfangsstand plus Buchungen überein.`,
+								`Reconciled: the balance the chain reports after the period${when} is ${qty(s.reported)} ${s.asset} and equals the opening balance plus the bookings.`
+							)
+						: t(
+								`Nicht abgestimmt: Der Kontostand laut Chain${when} ist ${qty(s.reported)} ${s.asset}; Differenz ${deNumber(difference)} ${s.asset} (Bewegungen, die der Leser nicht sieht, etwa Auszahlungen eines Staking-Pools).`,
+								`Not reconciled: the balance the chain reports${when} is ${qty(s.reported)} ${s.asset}; difference ${deNumber(difference)} ${s.asset} (movements the reader does not see, such as payouts of a staking pool).`
+							),
 				// Reconciled is the normal case and reads as text; only a difference is a warning.
 				{ size: TYPE.small, color: ok ? INK : WARN }
 			);
 		} else {
 			text(
-				`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : pay ? 'der Zahlungsvertrag nennt nur den heutigen Stand' : 'die Chain hält keine alten Kontostände vor'}).`,
+				t(
+					`Anfangs- und Endstand abgeleitet aus dem heutigen Kontostand abzüglich aller Bewegungen seither (${aleph ? 'die Aleph-API nennt den heutigen Stand und die Summen seither' : pay ? 'der Zahlungsvertrag nennt nur den heutigen Stand' : 'die Chain hält keine alten Kontostände vor'}).`,
+					`Opening and closing balance derived from today's balance less every movement since (${aleph ? "the Aleph API names today's balance and the sums since" : pay ? "the payment contract names only today's balance" : 'the chain keeps no old balances'}).`
+				),
 				{ size: TYPE.small, color: GREY }
 			);
 		}
 		l.y -= 4;
 		text(
-			pay
-				? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued(`zum Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`, `Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`)}.`
-				: aleph
-					? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
-							cur === 'EUR'
-								? 'Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages'
-								: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
-						}.`
-					: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
-							!s.contract
-								? valued(...marketOrReference(s))
-								: s.sources?.length
-									? valued(
-											`zum Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`,
-											`Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`
-										)
-									: 'für diesen Token nennt keine Kursquelle einen Kurs'
-						}.`,
+			L === 'en'
+				? pay
+					? `Out ${money(s.eurOut)} · in ${money(s.eurIn)} · of which usage (expense) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} booking(s) without a rate` : ''} – ${valued(`at the day's rate of USDC, pegged to the US dollar like ${s.asset} (rate at 00:00 UTC: CoinGecko, else Kraken)`, `the day's rate of USDC, pegged to the US dollar like ${s.asset} (rate at 00:00 UTC: CoinGecko, else Kraken)`)}.`
+					: aleph
+						? `Out ${money(s.eurOut)} · in ${money(s.eurIn)} · of which usage (expense) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} booking(s) without a rate` : ''} – ${
+								cur === 'EUR'
+									? 'Euro values: the USD price per credit (the last purchase on or before the day, else the list price) × the ECB reference rate USD/EUR of the day'
+									: `Values in ${cur}: the USD price per credit (the last purchase on or before the day, else the list price)${cur === 'USD' ? '' : `, ${conversionText(cur, L)}`}`
+							}.`
+						: `Out ${money(s.eurOut)} · in ${money(s.eurIn)} · of which network fees (expense) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} booking(s) without a rate` : ''} – ${
+								!s.contract
+									? valued(...marketOrReference(s, L))
+									: s.sources?.length
+										? valued(
+												`at the rate by the contract's address: ${s.sources.map((x) => localizeSource(x, L)).join(' and ')}`,
+												`rate by the contract's address: ${s.sources.map((x) => localizeSource(x, L)).join(' and ')}`
+											)
+										: 'no rate source names a rate for this token'
+							}.`
+				: pay
+					? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${valued(`zum Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`, `Tageskurs von USDC, an den US-Dollar gebunden wie ${s.asset} (Kurs 00:00 UTC: CoinGecko, sonst Kraken)`)}.`
+					: aleph
+						? `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Verbrauch (Aufwand) ${money(s.eurUsage)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
+								cur === 'EUR'
+									? 'Euro-Werte: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis) × EZB-Referenzkurs USD/EUR des Tages'
+									: `Werte in ${cur}: USD-Preis je Credit (letzter Kauf am oder vor dem Tag, sonst Listenpreis)${cur === 'USD' ? '' : `, ${conversionText(cur)}`}`
+							}.`
+						: `Ausgänge ${money(s.eurOut)} · Eingänge ${money(s.eurIn)} · davon Netzwerkgebühren (Aufwand) ${money(s.eurFees)}${s.unvalued ? ` · ${s.unvalued} Buchung(en) ohne Kurs` : ''} – ${
+								!s.contract
+									? valued(...marketOrReference(s))
+									: s.sources?.length
+										? valued(
+												`zum Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`,
+												`Kurs nach der Vertragsadresse: ${s.sources.join(' und ')}`
+											)
+										: 'für diesen Token nennt keine Kursquelle einen Kurs'
+							}.`,
 			{ size: TYPE.small, color: GREY }
 		);
 		l.y -= 20;
 	}
 	if (st.unlisted)
 		text(
-			`${st.unlisted} Bewegung(en) in Token ohne verlässlichen Kurs (oft Spam) sind nur in der CSV-Datei aufgeführt.`,
+			t(
+				`${st.unlisted} Bewegung(en) in Token ohne verlässlichen Kurs (oft Spam) sind nur in der CSV-Datei aufgeführt.`,
+				`${st.unlisted} movement(s) in tokens without a reliable rate (often spam) are listed in the CSV file only.`
+			),
 			{ size: TYPE.small, color: GREY }
 		);
 
 	// page numbers and footer on every page
-	const data = `Daten: ${st.dataSource ?? DATA_SOURCES[st.chain] ?? st.chainName} · kein Dokument eines Kreditinstituts`;
-	l.pages.forEach((p, i) => l.foot(p, `${st.number} · Seite ${i + 1} von ${l.pages.length}`, data));
+	const data = `${t('Daten', 'Data')}: ${st.dataSource ?? (L === 'en' ? DATA_SOURCES_EN : DATA_SOURCES)[st.chain] ?? st.chainName} · ${t('kein Dokument eines Kreditinstituts', 'no document of a bank')}`;
+	l.pages.forEach((p, i) =>
+		l.foot(
+			p,
+			`${st.number} · ${t('Seite', 'Page')} ${i + 1} ${t('von', 'of')} ${l.pages.length}`,
+			data
+		)
+	);
 
 	return savePdfA(pdf, {
 		title,

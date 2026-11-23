@@ -20,7 +20,7 @@
 //   - gas: every transaction this address sent costs gasUsed × gasPrice,
 //     also a failed one; an entry of its own (type fee). On rollups
 //     (Optimism, Base, Arbitrum) the L1 data fee is not in this API and is
-//     missing – see docs/wallets.md.
+//     missing – see docs/crypto.md#own-wallets.
 //   - a failed transaction (isError 1 or txreceipt_status 0) moved nothing
 //     but its gas.
 //   - value out or in: an entry sent or received; to itself: none.
@@ -52,7 +52,7 @@ import { addressUrl, txUrl } from './explorer.js';
 import { markSwaps } from './core.js';
 import { createJsonFetcher, WalletError } from './http.js';
 import { unitsToDecimal } from './cosmos.js';
-import { alchemyBaseUrl, createAlchemyReader, isAlchemyKey } from './alchemy.js';
+import { alchemyBaseUrl, createAlchemyReader, isAlchemyKey, tokensMovedBy } from './alchemy.js';
 import { derivedStatement, fromWalletEntry, sortEntries } from '@le-space/ledger';
 
 /** Symbols an unlisted token may never be booked under: the big ones a fake would copy. */
@@ -243,7 +243,9 @@ export function normalizeEvm(
 	}
 
 	// Tokens not in the list (issue #115): booked in an account of their own
-	// once the wallet has sent them itself – an airdrop it never touched is
+	// once the wallet has sent them itself, in a transaction it sent – an
+	// airdrop it never touched, or a fake transfer a spam contract emits in
+	// the wallet's name, is
 	// not booked, unless the caller names its contract (#93). Never under a
 	// symbol that is a listed asset's or another token's already (a contract
 	// can call itself anything): those stay out.
@@ -257,10 +259,13 @@ export function normalizeEvm(
 	const used = new Map();
 	/** @type {Set<string>} */
 	const takenSymbols = new Set();
+	// Moved by the wallet itself (tokensMovedBy): not a transfer a spam contract emits in its name.
+	const moved = tokensMovedBy(tokens, address, (h) => ownSent.has(h));
 	for (const raw of tokens) {
 		const contract = String(raw.contractAddress ?? '').toLowerCase();
 		if (Object.hasOwn(chain.tokens, contract) || used.has(contract)) continue;
-		if (String(raw.from ?? '').toLowerCase() !== address && !named.has(contract)) continue;
+		const ownMove = moved.has(contract);
+		if (!ownMove && !named.has(contract)) continue;
 		const symbol = String(raw.tokenSymbol ?? '').toUpperCase();
 		const decimals = Number(raw.tokenDecimal);
 		if (

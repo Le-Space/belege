@@ -1,8 +1,7 @@
 name: Bridge tests
 
-# The bridge's tests, with fakes only. The phase-0 spikes under spikes/ talk to
-# a local Hibiscus, a mail server and an LLM API; they are not run here. A
-# workflow of its own, so the README can show its state.
+# The bridge's tests, with fakes only: no local Hibiscus, mail server or LLM
+# API is contacted. A workflow of its own, so the README can show its state.
 
 permissions:
   contents: read

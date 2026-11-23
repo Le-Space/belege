@@ -62,6 +62,35 @@ describe('the VAT case of an invoice (#354)', () => {
 		).toBe('exempt');
 	});
 
+	it('our own: an explicit exempt wins over what the customer’s country suggests (#539)', () => {
+		const own = (/** @type {Record<string, any>} */ x) => vatCase(inv('E', x), true);
+		// §4 UStG to a customer in another EU country, with its VAT ID: still exempt.
+		expect(
+			own({
+				net: 200,
+				gross: 200,
+				vat: [line(0, 0, 'exempt')],
+				customer_vat_id: 'ATU00000000',
+				customer_country: 'AT'
+			}).kind
+		).toBe('exempt');
+		expect(
+			own({ net: 200, gross: 200, vat: [line(0, 0, 'exempt')], customer_country: 'FR' }).kind
+		).toBe('exempt');
+		expect(
+			own({ net: 200, gross: 200, vat: [line(0, 0, 'exempt')], customer_country: 'CH' }).kind
+		).toBe('exempt');
+		// Another explicit category on the same invoice still says what it is.
+		expect(
+			own({
+				net: 200,
+				gross: 200,
+				vat: [line(0, 0, 'exempt'), line(0, 0, 'intra_eu')],
+				customer_vat_id: 'ATU00000000'
+			}).kind
+		).toBe('intraEu');
+	});
+
 	it('our own, unclear rather than guessed: intra-EU without the customer’s VAT ID, 0 % to nowhere known', () => {
 		expect(
 			vatCase(

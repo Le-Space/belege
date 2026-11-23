@@ -446,6 +446,8 @@ export default {
 				'Die Bridge ist nicht erreichbar. Läuft sie (pnpm bridge)? Ob sie diese Seite hereinlässt, sagt „Status prüfen“ unter Integrationen → Bridge.',
 			unknownDevice:
 				'Die Bridge auf diesem Computer kennt dieses Gerät nicht: Ihr Token stammt von einer früheren Kopplung. Neu koppeln mit der Bridge auf diesem Computer hilft – eine gehostete Bridge betrifft das nicht.',
+			notPairedHere:
+				'Dieses Gerät ist mit der Bridge auf diesem Computer nicht gekoppelt. Unter Integrationen → Bridge mit ihrem Kopplungscode koppeln.',
 			streamTooLarge:
 				'Die Anfrage ist zu groß für den Knoten der Bridge und wurde nicht gesendet. Neu koppeln ist nicht nötig.',
 			nodeUnreachable:
@@ -1317,7 +1319,6 @@ export default {
 			'Ohne Gateway: Der Browser holt das Backup selbst über IPFS, von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält. Alephs Knoten sind nur über IPv6 erreichbar; das Routing (cid.contact, delegated-ipfs.dev) sieht die CID und diese IP-Adresse.',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
-		increments: '+ {count} Zuwächse',
 		fetchingIncrements: 'Zuwächse werden geladen: {done} von {total} …',
 		doneIncrements: 'Mit {count} Zuwächsen zum Vollbackup.',
 		isIncrement:
@@ -1786,7 +1787,6 @@ export default {
 	},
 	uploadPanel: {
 		open: 'Belege hochladen',
-		openShort: 'Hochladen',
 		title: 'Belege hochladen',
 		zone: 'Belege hochladen',
 		zoneHint: 'oder Dateien hierher ziehen – auf jeder Seite',
@@ -1805,7 +1805,6 @@ export default {
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.',
 		act: {
-			title: 'ACT-Konto (Guthaben für Deployments)',
 			what: 'ACT entsteht durch Verbrennen von AKT und bezahlt die Deployments. Hier: was aufgeladen, verbraucht und übrig ist, zu Anschaffungskosten bewertet.',
 			open: 'ACT-Konto anzeigen',
 			loading: 'Lese Bestand und Deployments …',
@@ -2236,6 +2235,8 @@ export default {
 			due: 'Zahllast',
 			outputOpen:
 				'Umsatzsteuer aus noch nicht bezahlten Rechnungen: {amount} (Rechnungen: {count}) – bei Ist erst fällig, wenn das Geld kommt.',
+			outputElsewhere:
+				'Umsatzsteuer aus Teilen, die in einem anderen Geschäftsjahr bezahlt wurden: {amount} (Rechnungen: {count}) – bei Ist zählt sie im Jahr, in dem das Geld kam.',
 			outputMissing:
 				'Rechnungen ohne Steuerangabe der Rechnungs-App: {count} ({amount} brutto) – nicht in der Umsatzsteuer, bis die App die Steuer je Satz liefert.',
 			outputNone: 'Rechnungen ohne Umsatzsteuer: {count} ({amount}).',
@@ -2603,8 +2604,7 @@ export default {
 		savePrices: 'Preise speichern',
 		resetPrices: 'Auf die Preise des Anbieters zurücksetzen',
 		home: 'Speicher und KI',
-		homeLine: '{storage} belegt · KI diesen Monat {cost}',
-		homeOpen: 'Details'
+		homeLine: '{storage} belegt · KI diesen Monat {cost}'
 	},
 	rueckfragen: {
 		ai: {
@@ -2662,7 +2662,6 @@ export default {
 		ignore: 'Ignorieren',
 		confirmSender: 'Absender geprüft – freigeben',
 		openTx: 'Zahlung öffnen',
-		auto: 'hat sich erledigt',
 		answer: {
 			candidate: 'zugeordnet',
 			none: 'keiner davon',
@@ -4315,7 +4314,6 @@ export default {
 		noneForSelection: 'Keine Zahlungen für diese Auswahl.',
 		open: 'Zahlung öffnen',
 		trade: 'Tausch {arrow} {what}',
-		tradeTitle: 'Getauscht',
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
@@ -4428,8 +4426,6 @@ export default {
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
 			title: 'Zahlung',
 			close: 'Schließen',
-			date: 'Buchungstag',
-			quantity: 'Menge',
 			valuation: 'Kurs',
 			original: 'Bezahlt in',
 			originalAmount: '{amount} {currency}',
@@ -4486,17 +4482,11 @@ export default {
 			explorer: 'Im Block-Explorer ansehen',
 			explorerQr: 'QR-Code',
 			valueDate: 'Wertstellung',
-			amount: 'Betrag',
-			account: 'Konto',
-			bookingType: 'Buchungsart',
 			iban: 'IBAN der Gegenseite',
 			purpose: 'Verwendungszweck (vollständig)',
 			receipts: 'Beleg',
 			noReceipt: 'Noch kein Beleg zugeordnet.',
 			unlink: 'Zuordnung lösen',
-			assign: 'Beleg zuordnen',
-			suggestions: 'Vorschläge',
-			allReceipts: 'Alle anderen Belege',
 			choose: 'Zuordnen',
 			peek: {
 				label: 'Vorschau: {name}',
@@ -4511,7 +4501,6 @@ export default {
 			reason: 'Grund',
 			reasonPlaceholder: 'z. B. Bewirtung, Beleg verloren',
 			save: 'Speichern',
-			cancel: 'Abbrechen',
 			needsReceipt: 'Doch einen Beleg zuordnen',
 			bankFee: 'Bankgebühr – kein Beleg nötig',
 			counterOpen: 'Gegenbuchung öffnen',
@@ -4650,7 +4639,6 @@ export default {
 			othersOut: 'Weitere Zahlungen an {name}',
 			othersIn: 'Weitere Zahlungen von {name}',
 			othersNone: 'Keine weiteren Zahlungen mit dieser Gegenpartei.',
-			withReceipt: 'mit Beleg',
 			withoutReceipt: 'ohne Beleg',
 			privateSearch: 'Im privaten Postfach suchen',
 			privateHint:
@@ -4732,7 +4720,6 @@ export default {
 				taking: 'Übernehme …'
 			},
 			vendor: {
-				title: 'Beim Anbieter holen',
 				income:
 					'Ein Zahlungseingang: Der Beleg dazu ist deine eigene Ausgangsrechnung, nicht die Rechnung eines Anbieters. Lade sie oben hoch oder ordne sie zu.',
 				noBridge: 'Dafür die Bridge unter Integrationen koppeln.',
@@ -5015,6 +5002,9 @@ export default {
 			unpairLocal: 'Kopplung mit der Bridge auf diesem Rechner lösen',
 			unpairHostedOnly:
 				'Die Bridge dieser Bücher ist die gehostete. Sie wird auf ihrer Karte gestoppt, nicht hier; auf diesem Rechner ist keine Bridge gekoppelt.',
+			switchLocal: 'Stattdessen die Bridge auf diesem Rechner nutzen',
+			switchLocalHint:
+				'Auf diesem Rechner antwortet eine Bridge. Mit ihrem Kopplungscode wird sie die Bridge dieser Bücher. Die gehostete Bridge, ihre Einstellungen und ihre VM bleiben; wird die VM wieder entsperrt, ist sie wieder die Bridge der Bücher.',
 			nodeNotPaired:
 				'Per Code gekoppelt, aber der Netzknoten der Bridge ließ sich nicht koppeln: {error} Ohne ihn antwortet keine Funktion der Bridge. „Status prüfen“ versucht es noch einmal.',
 			unpairOffline:
@@ -5230,7 +5220,6 @@ export default {
 					store: 'Dein Image bei Aleph (STORE)'
 				}
 			},
-			startTitle: 'Neue VM starten',
 			startHint:
 				'Die VM gehört dem Aleph-Schlüssel der Bücher: Die Messung nennt ihn, und nur er entsperrt sie. Aleph nimmt sie erst mit einem Tag Reserve an.',
 			payer: {
@@ -5540,7 +5529,11 @@ export default {
 			error: {
 				name: 'Die Karte braucht einen Namen.',
 				last4: 'Bitte die letzten 4 Ziffern der Karte.',
-				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.'
+				noTable: 'In dieser Datei steht keine Tabelle mit Datum und Betrag.',
+				ambiguousDates:
+					'Die Datumsangaben in dieser Datei können Tag/Monat oder Monat/Tag sein, und keine davon entscheidet es (kein Tag über 12). Nichts wird eingelesen: die Abrechnung mit ISO-Datum (2026-01-31) oder über einen längeren Zeitraum exportieren, oder beim Kartenaussteller nachfragen, in welcher Reihenfolge die Datei das Datum schreibt.',
+				mixedDates:
+					'Die Datumsangaben in dieser Datei stehen teils als Tag/Monat, teils als Monat/Tag. Nichts wird eingelesen: die Abrechnung beim Kartenaussteller neu exportieren.'
 			},
 			adviser:
 				'Das Sachkonto der Karte trägst du unter Einstellungen → Buchhaltung ein, wie bei einem Bankkonto; welches, klärst du mit der Steuerberatung.'
@@ -5583,7 +5576,7 @@ export default {
 					'Das Modell laden – voreingestellt, für 16 GB Arbeitsspeicher: ollama pull qwen3:4b-instruct-2507-q4_K_M (2,5 GB); ab 32 GB, das besser liest: qwen3:30b-a3b-instruct-2507-q4_K_M (18 GB).',
 					'Größeren Kontext und längeres Vorhalten setzen (launchctl setenv OLLAMA_CONTEXT_LENGTH 16384 und OLLAMA_KEEP_ALIVE 2h), dann Ollama neu starten.',
 					'pnpm setup:llm: 1 (Ollama), dann Enter für die Voreinstellungen (oder der Name des größeren Modells) – kein API-Key. Dann die Bridge neu starten.',
-					'Unter Statistik die gleichzeitigen KI-Anfragen auf 1 stellen.'
+					'Unter „Speicher und KI“ die gleichzeitigen KI-Anfragen je Lauf auf 1 stellen.'
 				],
 				doc: 'Die ganze Anleitung, mit Messwerten und Hilfe bei Fehlern'
 			},

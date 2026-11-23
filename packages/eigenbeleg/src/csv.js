@@ -6,9 +6,13 @@
 // A cell that starts like a formula (= + - @) is prefixed with ' so a
 // spreadsheet shows it as text: account names and memos come from the chain,
 // where anyone can write anything.
+//
+// In English (`doc.language`, language.js): English heads and words, decimal
+// points; still semicolons, since texts hold commas.
 
 import { round } from '@le-space/ledger';
 import { currencyPlaces, kindText } from './document.js';
+import { localizeLabel, localizeSource } from './language.js';
 
 /** The head; rate and value name the document's currency. @param {string} currency */
 const header = (currency) => [
@@ -34,7 +38,32 @@ const header = (currency) => [
 	'Hinweis'
 ];
 
+/** The head in English. @param {string} currency */
+const headerEn = (currency) => [
+	'Receipt number',
+	'Position',
+	'Date (UTC)',
+	'Time (UTC)',
+	'Chain',
+	'Network',
+	'Own address',
+	'Kind',
+	'Direction',
+	'Counterparty',
+	'Asset',
+	'Token contract',
+	'Amount',
+	`Rate ${currency}`,
+	`Value ${currency}`,
+	'Rate source',
+	'Transaction hash',
+	'Explorer',
+	'On receipt',
+	'Note'
+];
+
 const DIRECTION = { sent: 'Ausgang', received: 'Eingang', fee: 'Gebühr' };
+const DIRECTION_EN = { sent: 'out', received: 'in', fee: 'fee' };
 
 /** `-0.5` → `-0,5` (a plain number for a spreadsheet: no grouping). @param {string} s */
 const num = (s) => String(s).replace('.', ',');
@@ -42,7 +71,7 @@ const num = (s) => String(s).replace('.', ',');
 /** @param {unknown} v */
 function cell(v) {
 	let s = String(v ?? '');
-	if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(,\d+)?$/.test(s)) s = `'${s}`;
+	if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+([,.]\d+)?$/.test(s)) s = `'${s}`;
 	return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -52,8 +81,12 @@ function cell(v) {
  */
 export function eigenbelegCsv(doc) {
 	const currency = doc.currency ?? 'EUR';
+	const en = doc.language === 'en';
+	/** A plain number in the document's language: a decimal comma, or a point. @param {string} x */
+	const n = (x) => (en ? String(x) : num(x));
+	const yes = en ? 'yes' : 'ja';
 	/** @type {unknown[][]} */
-	const rows = [header(currency)];
+	const rows = [(en ? headerEn : header)(currency)];
 	const places = currencyPlaces(currency);
 	const numberOf = (/** @type {number | string} */ pos) =>
 		doc.layout === 'single' ? (doc.transactions[Number(pos) - 1]?.number ?? '') : doc.number;
@@ -66,18 +99,20 @@ export function eigenbelegCsv(doc) {
 		e.chain,
 		e.network,
 		e.account,
-		kindText(e),
-		DIRECTION[e.type],
-		e.counterpartyLabel ? `${e.counterpartyLabel} (${e.counterparty})` : e.counterparty,
+		kindText(e, doc.language),
+		(en ? DIRECTION_EN : DIRECTION)[e.type],
+		e.counterpartyLabel
+			? `${localizeLabel(e.counterpartyLabel, doc.language)} (${e.counterparty})`
+			: e.counterparty,
 		e.asset,
 		e.contract,
-		num(e.amount),
-		e.eur ? num(e.eur.rate) : '',
-		e.eur ? num(e.eur.value) : '',
-		e.eur?.source ?? '',
+		n(e.amount),
+		e.eur ? n(e.eur.rate) : '',
+		e.eur ? n(e.eur.value) : '',
+		localizeSource(e.eur?.source ?? '', doc.language),
 		e.hash,
 		e.explorerUrl,
-		on ? 'ja' : 'nein',
+		on ? yes : en ? 'no' : 'nein',
 		why
 	];
 	for (const p of doc.positions) rows.push(line(p.entry, p.pos, true, ''));
@@ -85,7 +120,7 @@ export function eigenbelegCsv(doc) {
 	rows.push([]);
 	rows.push([
 		doc.layout === 'single' ? '' : doc.number,
-		'Summe',
+		en ? 'Total' : 'Summe',
 		'',
 		'',
 		doc.chain,
@@ -98,11 +133,13 @@ export function eigenbelegCsv(doc) {
 		'',
 		'',
 		'',
-		num(round(`-${doc.totals.eurExact}`, places)),
-		`${currency === 'EUR' ? 'gerundet auf Cent' : places ? `gerundet auf ${places} Nachkommastellen` : 'gerundet auf ganze Beträge'}, ungerundet ${doc.totals.eurExact === '0' ? '0' : '-' + num(doc.totals.eurExact)}`,
+		n(round(`-${doc.totals.eurExact}`, places)),
+		en
+			? `${currency === 'EUR' ? 'rounded to cents' : places ? `rounded to ${places} decimals` : 'rounded to whole amounts'}, unrounded ${doc.totals.eurExact === '0' ? '0' : '-' + doc.totals.eurExact}`
+			: `${currency === 'EUR' ? 'gerundet auf Cent' : places ? `gerundet auf ${places} Nachkommastellen` : 'gerundet auf ganze Beträge'}, ungerundet ${doc.totals.eurExact === '0' ? '0' : '-' + num(doc.totals.eurExact)}`,
 		'',
 		'',
-		'ja',
+		yes,
 		''
 	]);
 	return '\uFEFF' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';

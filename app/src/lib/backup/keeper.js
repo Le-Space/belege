@@ -26,6 +26,8 @@
 // After Le-Space/invoice (app/src/lib/backup.js), by the same author. The
 // storage bridge and the curve code are loaded only here, when they are used.
 
+import { toHex } from '@le-space/ledger/bytes';
+
 import { getSetting, setSetting } from '../store/settings.js';
 import { isAlephKey, newAlephKey } from './aleph-key.js';
 import { ingestUrlOf } from './history.js';
@@ -78,8 +80,6 @@ export function alephEndpoints(named) {
 export const isAddress = (value) =>
 	typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value.trim());
 
-/** @param {Uint8Array} bytes */
-const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 /** @param {string} hex */
 const fromHex = (hex) => Uint8Array.from(hex.match(/../g) ?? [], (h) => parseInt(h, 16));
 

@@ -75,7 +75,7 @@ Die CID der Datei berechnet die Storage Bridge vorher selbst, so wie Alephs Knot
 - Dazu erscheint eine Medienanzeige („Belege stellt wieder her …“), die zurück in die App führt.
 - Der Ton entsteht im Browser und wird nicht geladen. Er läuft über die Medienlautstärke des Telefons.
 
-Ob der Ton eine Wiederherstellung über einen echten App-Wechsel trägt, und in welchen Browsern, wird noch gemessen (#525). Ohne Häkchen bleib in Belege, bis es fertig ist.
+Ohne Häkchen bleib in Belege, bis es fertig ist (#525).
 
 **Nicht gesichert, und automatisch.** Fehlt dem letzten Backup etwas, steht im Kopf „Nicht gesichert“. Das kann eine Zahlung sein, ein Beleg, eine Zuordnung, ein KI-Ergebnis oder Einträge von einem anderen Gerät. Der Tooltip nennt die Bereiche. Belege vergleicht dafür die Heads jeder Datenbank mit denen, die die Kette zuletzt gesichert hat. Das kostet fast nichts.
 

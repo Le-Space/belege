@@ -1,25 +1,30 @@
 # Phase 0 findings
 
-Before phase 1, a few spikes answered whether the plan could work at all. What became of each:
+Before phase 1, a few spikes answered whether the plan could work at all. Every question is
+answered and built into the bridge or the app, so the spikes were removed after 0.53.0; they live
+in git history (the last commit that has them is `c9bad4b`). What became of each:
 
 | Spike               | Question                                                                    | Outcome                                                                                     |
 | ------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `spikes/hibiscus`   | Can we read accounts and transactions from a local Hibiscus over XML-RPC?   | yes: the bridge does it ([bridge/README.md](../bridge/README.md))                           |
-| Revolut → Hibiscus  | Does Revolut's CSV/CAMT export import into a Hibiscus offline account?      | not needed: CAMT.053 statements import straight into the app                                |
+| Bank A → Hibiscus   | Does Bank A's CSV/CAMT export import into a Hibiscus offline account?       | not needed: CAMT.053 statements import straight into the app                                |
 | `spikes/imap`       | Can the bridge list receipt mails, and what do their attachments look like? | yes, with a Mailu auth token; many PDFs come as `application/octet-stream` (below)          |
 | `spikes/llm`        | How well does DeepSeek extract amount, date, invoice number from receipts?  | well: vendor, gross and currency right; a faster model with a stronger one as retry (below) |
 | DATEV → bookkeeping | Which EXTF fields and receipt links does a bookkeeping import take?         | built in phase 1 ([export.md](export.md)); not yet tried with a real import                 |
 
-The spikes still run (made-up values in the examples):
+To run a spike again, check it out from that commit (made-up values in the examples):
 
 ```bash
+git worktree add ../belege-phase0 c9bad4b && cd ../belege-phase0 && pnpm install
+cp .env.example .env   # fill in IMAP_*
 read -s HIBISCUS_PASSWORD && export HIBISCUS_PASSWORD
 pnpm spike:hibiscus
-
-cp .env.example .env   # fill in IMAP_*
 pnpm spike:imap -- --month 2026-08 --accounting                          # the accounting alias only
 pnpm spike:imap -- --find Beispiel --amount 12,34 --around 2026-08-15   # one missing receipt
 ```
+
+Today the bridge does the same: `pnpm setup:hibiscus` and `pnpm setup:mail` in `bridge/`
+([bridge/README.md](../bridge/README.md)).
 
 ## IMAP (one month of a mixed personal/business mailbox)
 
@@ -99,14 +104,14 @@ payment reminder, a receipt, a bus and two train tickets, a credit-card statemen
   date outside the mail's date ± 60 days, missing gross). Extraction runs in the background,
   so 10–30 s per document is acceptable.
 
-## Revolut and Hibiscus
+## Bank A and Hibiscus
 
-- Revolut offers no FinTS/HBCI, so Hibiscus cannot fetch Revolut itself.
-- Revolut Business exports an "accounting export" as CAMT.053 or MT940; Hibiscus imports MT940
+- Bank A offers no FinTS/HBCI, so Hibiscus cannot fetch Bank A itself.
+- Bank A's business account exports an "accounting export" as CAMT.053 or MT940; Hibiscus imports MT940
   into an offline account. That is the phase 0 path.
-- An experimental Hibiscus plugin for the Revolut Business API exists (UB-GH/HibiscusRevolut,
-  June 2026, untested, one star). It would hold API credentials for a bank account; do not use
-  it without a review. The Revolut Business API can later be called by the bridge directly.
+- An experimental third-party Hibiscus plugin for Bank A's business API exists (June 2026,
+  untested). It would hold API credentials for a bank account; do not use it without a review.
+  Bank A's business API can later be called by the bridge directly.
 
 ## Hibiscus (a bank via FinTS)
 
@@ -122,7 +127,7 @@ payment reminder, a receipt, a bus and two train tickets, a credit-card statemen
 - `zweck_raw` carries what matching needs: invoice numbers, customer numbers, `EREF`, `MREF`,
   `CRED` (creditor id) and the counterparty `IBAN`; `endtoendid` separately.
 
-## Matching (first try, spikes/matching)
+## Matching (first try, the matching spike)
 
 Score: amount 40, invoice number in the purpose text 50, customer number 20, vendor IBAN 15,
 vendor name 20, date window 10; penalties for far-off dates and for incoming money.

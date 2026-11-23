@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { cleanDatevSettings, privateAccounts } from '../booking/settings.js';
 import { suggestBooking } from '../booking/suggest.js';
-import { isCovered } from '../matching/engine.js';
 import { privateKind } from '../matching/private-kind.js';
+import { isTxCovered } from '../matching/view.js';
 import { bookOutlay, undoOutlay } from './outlays.js';
 import {
 	linkOutlayRepayment,
@@ -77,6 +77,12 @@ describe('suggestOutlays', () => {
 		expect(suggestOutlays(120, open([100, 50, 30]))).toEqual(['O0', 'O1']);
 		expect(suggestOutlays(1000, open([100, 50]))).toEqual(['O0', 'O1']);
 	});
+
+	it('the exact search is capped (#539): past the cap, the oldest until used up', () => {
+		// 13 powers of two reach 8,192 partial sums, more than the cap keeps.
+		const powers = Array.from({ length: 13 }, (_, i) => 2 ** i);
+		expect(suggestOutlays(2 ** 12, open(powers))).toEqual(powers.map((_, i) => `O${i}`));
+	});
 });
 
 describe('linking a payout', () => {
@@ -101,7 +107,7 @@ describe('linking a payout', () => {
 		});
 
 		expect(privateKind(paid)).toBe('outlay-repayment');
-		expect(isCovered(paid, null)).toBe(true);
+		expect(isTxCovered(paid, {})).toBe(true);
 		expect(mayRepayOutlays(paid, [], null)).toBe(false);
 		expect(suggestBooking(paid, { privateAccounts: privateAccounts(corporation) }).account).toBe(
 			'1755'

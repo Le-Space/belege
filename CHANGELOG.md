@@ -8,12 +8,17 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
-- **"Kopplung lösen" forgets the pairing too.** An unpaired bridge – no key, no devices – now drops the UCEP grants and invitations of its last pairing when its node starts, so only a new invitation from its own screen pairs it again; that includes a bridge unpaired before this version. A bridge whose keychain did not answer at start, with its devices still listed, keeps its pairing. The handover that brings the bridge's key is taken only sealed with the invitation's key, as every app since sealing sends it; an app from before sealing cannot pair a bridge of this version.
+- **"Kopplung lösen" forgets the pairing too** (#1014). An unpaired bridge – no key, no devices – now drops the UCEP grants and invitations of its last pairing when its node starts, so only a new invitation from its own screen pairs it again; that includes a bridge unpaired before this version. A bridge whose keychain did not answer at start, with its devices still listed, keeps its pairing. The handover that brings the bridge's key is taken only sealed with the invitation's key, as every app since sealing sends it; an app from before sealing cannot pair a bridge of this version.
+- **The bridge on this computer can be paired while the books' bridge is a stopped hosted one.** Integrationen → Bridge said only that the books' bridge is the hosted one and offered nothing to pair: the hosted bridge's node counted as "paired". When a bridge answers on this computer and no token of it is kept, the panel now offers "Stattdessen die Bridge auf diesem Rechner nutzen" with its pairing code (and its invitation while device sync is on); paired, it becomes the books' bridge. The hosted bridge's records, its settings and its VM stay, and unlocking the VM again makes it the books' bridge again. The status line says "nicht gekoppelt" for the bridge here instead of "dieses Gerät ist gekoppelt". Pairing by code keeps the generation of the bridge's key the books reached, and no longer drops the rest of the pairing record.
+- **A call while the hosted bridge is stopped says that its node does not answer, not "Ihr Token stammt von einer früheren Kopplung".** With device sync on, a call (a wallet's sync, say) went on to the bridge on this computer without a token when the books' bridge's node was not connected, and its 401 was shown as an old token, with "Neu koppeln" leading to a page with nothing to pair. It now gets the text for the hosted bridge that does not answer, and its link to the card that starts and unlocks it; only when another own device serves a bridge is that one asked. A 401 without a token says that this device is not paired with the bridge here.
 - **A long PDF is read over the bridge's node too** (#975). "Belege auslesen" sent the whole text of a statement or a contract of many pages, or a long OCR text. Over the bridge's own node a bridge from before takes 64 KiB, so such a receipt ended in "zu groß für den Knoten der Bridge" and was not read. Now the app sends at most what the request takes (the limit the bridge states since #976, sealing counted, at most the bridge's body limit) and at most the 30 000 characters the bridge hands the model. A longer text goes as its start (two thirds) and its end, with `[…]` where the middle was left out: the vendor and the number stand at the top, the totals at the bottom. "Wie ausgelesen" says how many of how many characters were sent. Since the app sends no more than 30 000 characters, a bridge from before passes the start and the end on too. The bridge itself now cuts a longer text it gets (from an older app, or over HTTP from elsewhere) the same way, instead of keeping only the start.
+- **The Ollama guide names the page by its title.** Its last step said to set the concurrent AI requests "unter Statistik"; it now names the page "Speicher und KI" ("Storage and AI"), as its heading says.
 
 ### Changed
 
+- **The app no longer pulls in packages it does not use.** `datastore-core` and a second listing of `playwright` (the tests run it through `@playwright/test`) are gone from the app's dependencies, and `@libp2p/peer-id`, which the bridge connections load at runtime, is now a runtime dependency instead of a dev dependency.
 - **The bridge's node takes requests of up to 1 MiB, and the app reads that instead of cutting at 64 KiB** (#976; Le-Space/ucep-spec#7, Le-Space/ucep-js#13). Armed, the bridge's own node states `limits: { request: 1 MiB }` in its UCEP manifest, an optional field the UCEP spec now defines; only a device that proved the bridge's key at the gate reaches the stream, so no stranger can make the bridge buffer that much. The app reads the stated limit and checks a call against it, with the seal's third counted, instead of a fixed 64 KiB. "✦ Konto vorschlagen" sizes its account list by it: with such a bridge a read-in chart goes with all 600 accounts (up to the bridge's body limit of 256 KiB), with a bridge from before as cut down as by #972. A bridge from before (a hosted VM on an older image) states nothing and keeps 64 KiB; so does a connection through a relay that grants less than 32 MiB. A call too large for the node is still answered 413 `BRIDGE_STREAM_TOO_LARGE` and never handed to HTTP on this machine or to another device. A limit read during pairing, before the bridge was armed, is read again before a call is refused. No new host is contacted.
+- **The phase-0 spikes are gone.** `spikes/` with its `pnpm spike:*` scripts and the three root dev dependencies only the spikes used (`fast-xml-parser`, `imapflow`, `unpdf`) are removed; every question they answered is built into the bridge and the app, and the spikes live on in git history ([docs/phase-0.md](docs/phase-0.md)).
 
 ### Fixed
 
@@ -26,6 +31,8 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **The hosted bridge on Aleph boots the bridge of v0.52.0, and the books' own image is built from it** (#968, #966). The shared image (STORE `db43f996…`) and the plain image an own image is sealed from (`e3e2cd56…`, published for the attested builder in NiKrause/relay-button) were built from the tag v0.52.0; before, both held the bridge of v0.50.0, without the NEAR storage deposits tied to their swap and without the Bitcoin reading by extended key. An own image built before says so on the card: "Neu bauen", then start a new VM – a running VM keeps the image it started with.
+- **One exact-sum search for travel payouts and outlay repayments, with a bound** (#539). "Zahlt Reisekosten aus" and "Erstattet Auslagen" suggested the open amounts that add up to the payout with two copies of one search, which could keep millions of partial sums. Both now use `matching/exact-sum.js`: the oldest 24 amounts, at most 4,096 partial sums, and past that the oldest until the payout is used up, as before when nothing adds up.
+- **A rate kept on a booking re-reads only that booking** (#539). `fillFx` read the whole transaction table for each rate it kept; it now reads the one booking by its id, and leaves a booking deleted in the meantime.
 
 ### Fixed
 
@@ -33,6 +40,9 @@ All notable changes to Le Space Belege. The format follows
 - **A mute device is no longer hung up where it cannot be dialled again** (#554). A device that stays connected while gossipsub opens no stream to it is hung up after 45 s and dialled again through the relays (#393). In the mode "Ohne Relay, per QR" there is nothing to dial: the connection two scanned codes built was hung up, and the device was gone until both codes were scanned again. Without a relay or an own address of the device, the connection now stays, and gossipsub is put back on it each round.
 - **A device that comes back gets the settling time of a new connection** (#554). The moment a device was first seen mute stayed after it disconnected, so a device back minutes later was hung up in the first round, before gossipsub had opened its stream. It is forgotten once the device has no connection left.
 - **Pings no longer redraw the devices' state once each** (#554). Every round trip the connection monitor measured to an own device rebuilt and replaced the whole sync state; the pulse still comes at once, the state once for all pings within a second. The devices card makes its date and number formats once per language instead of once per log line (`sync/log-text.js`).
+- **Ist-Versteuerung: a share paid in another fiscal year is no longer "noch nicht bezahlt"** (#539). An invoice paid partly in one fiscal year and partly in the next showed the other year's share in the Umsatzsteuer card as output VAT on invoices not paid yet. "Offen" now names only what is not paid at all; a new line names the output VAT of shares paid in another fiscal year (an advance payment in the year before as well), which counts in the year the money came in. "Rechnungen ohne Steuerangabe" leaves that share out too, instead of the invoice's full gross; under Soll nothing changes.
+- **A card statement whose slash dates are month first** (#539). `02/01/2026` was always read as the 2nd of January. Now the file's dates settle the order: a value above 12 on one side says day first or month first. A file where none does, or one that writes both, is not read in, and Integrationen → Firmenkreditkarten says why, rather than swapping January and February in silence. Dates with dots stay day first.
+- **An own invoice marked exempt stays exempt** (#539). A receipt with the category `exempt` (§4 UStG) to a customer in another EU country was sorted as an intra-EU supply, and one to a customer outside the EU as a third-country one. The explicit category now wins over what the customer's country suggests, unless another explicit category (intra-EU, §13b, export, not taxable) says otherwise.
 
 ### Security
 
@@ -282,7 +292,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
-- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
+- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Bank A Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
 - Where no ledger account could be taken over, the settings offer the free chart accounts that share most with the account's name and bank as buttons – for a wallet's "ETH (Ethereum)" account the chart's "… - ETH (Ethereum)" accounts. One click fills the field in; it is saved with the rest.
 
 ### Fixed
@@ -703,7 +713,9 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 - **The E2E suite's local relay has room for every browser** (#634): it keeps a reservation until it expires, not until its peer leaves, and with the specs of several devices its 32 places ran out before the UCEP spec asked for one – which stopped 0.28.0's deploy. Test code only.
 
-## [0.28.0] – 2026-11-04 (not deployed)
+## [0.28.0] – 2026-11-04
+
+Tagged, but not deployed: its deploy stopped at its own tests. [0.28.1](#0281--2026-11-04) brought it to belege.le-space.de.
 
 ### Added
 
@@ -1253,7 +1265,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
     - how many other bookings have this address, with a jump to them;
     - "Adresse benennen" gives the address a name, which every booking with it then carries.
 
-- **"Ist das ein eigenes Konto?"** (#256). An IBAN that sends money under the company's own name is very likely an own account, a Wise account for example, whose statements never name its IBAN. Payments back from it were own transfers already, by the name; payments to it asked for a receipt, because the bank names the payee "Wise Europe SA".
+- **"Ist das ein eigenes Konto?"** (#256). An IBAN that sends money under the company's own name is very likely an own account, for example one at a bank whose statements never name its IBAN. Payments back from it were own transfers already, by the name; payments to it asked for a receipt, because the bank names the payee "Wise Europe SA".
   - Home and the payment's detail now offer such an IBAN, with how many open payments it would explain. "Ja, eigenes Konto" saves it under the own IBANs, and every payment to it becomes an own transfer (1360). "Nein, nicht unseres" stops the offer for good.
   - Nothing is saved without the click: a customer whose name only looks like the company's is offered too, and refused there.
   - [docs/banking.md](docs/banking.md) explains it under Wise.
@@ -1275,7 +1287,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 ### Added
 
-- **Bank accounts through Enable Banking** (#224), for banks Hibiscus does not reach (Revolut, Wise, most banks outside Germany), with your own Enable Banking application – a production one in restricted mode, active once your own accounts are linked in its Control Panel; no contract needed.
+- **Bank accounts through Enable Banking** (#224), for banks Hibiscus does not reach (some online banks, most banks outside Germany), with your own Enable Banking application – a production one in restricted mode, active once your own accounts are linked in its Control Panel; no contract needed.
   - `pnpm setup:enablebanking` checks the application id and its key (the panel's `.pem`, or the `-keyout` file of an own certificate), says whether the application is active and the redirect URL registered, and seals the key beside the bridge's configuration; the key to it is in the keychain or the Windows Credential Manager. Requests are signed (RS256), go to one host, follow no redirect and are limited in time and size.
   - Integrationen → Bank → "Über Enable Banking": choose country and bank, consent on the bank's own page, come back to `/integrationen/bank/verbunden`. The bank's one-time code leaves the address before the passkey is asked for; the bridge takes it only for a link it started, once, within 30 minutes.
   - Only accounts released in the bridge leave it (`pnpm setup:enablebanking -- --accounts`, by IBAN ending). "Umsätze holen" fetches on a click: 90 days the first time, then from a week before the last fetch; booked transactions only. An account a statement file brought is continued from the day after its last booking.
@@ -1444,9 +1456,9 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 - **How each receipt was linked, in the receipts overview (#31).** Every linked receipt carries _Automatisch · 120 P._, _Automatisch (gelernt) · 90 P._, _Bestätigt_ or _Von Hand_, with the reasons on hover (the words of _Warum diese Zuordnung?_); a receipt that _Mit KI weitersuchen_ found carries _✦ KI-Fund_ with the model's reason. Filters by origin with counts, and per month _1 automatisch · 2 bestätigt · 0 von Hand · 0 KI-Fund · 4 offen_. Receipts taken from the private mailbox keep `foundBy` (`mail-search` or `mail-assist`).
 
-- **Transfers between our own accounts by their counter-booking (#29).** A booking with exactly one booking of the opposite amount on another of our accounts within 4 days, and a sign on either side (_Umbuchung_, _Übertrag_, _Transfer_, _Top-up_, _Aufladung_, _Einzahlung_, or our company as counterparty), is an own transfer (1360) on both sides – without a company name set up and without IBANs (Revolut CAMT gives names only). Two candidates, no sign, too far apart: nothing is guessed. _Warum kein Beleg nötig?_ names the other side and links it (_Gegenbuchung öffnen_); _Keine Umbuchung – Beleg nötig_ keeps the pair apart for good.
+- **Transfers between our own accounts by their counter-booking (#29).** A booking with exactly one booking of the opposite amount on another of our accounts within 4 days, and a sign on either side (_Umbuchung_, _Übertrag_, _Transfer_, _Top-up_, _Aufladung_, _Einzahlung_, or our company as counterparty), is an own transfer (1360) on both sides – without a company name set up and without IBANs (one bank's CAMT gives names only). Two candidates, no sign, too far apart: nothing is guessed. _Warum kein Beleg nötig?_ names the other side and links it (_Gegenbuchung öffnen_); _Keine Umbuchung – Beleg nötig_ keeps the pair apart for good.
 
-- **Bank fees on every account (#32, rules part).** Besides the booking type (GLS _Abschluss_, _Entgelt_), a booking is a bank fee when its CAMT bank transaction code is a charge (`BkTxCd` family or sub-family `CHRG`, `FEES`, `COMM`, now kept as `bankCode`), or when its purpose names a fee (_Gebühr_, _Entgelt_, _Kontoführung_, _fee_, _charge_) and nobody but the bank is on the other side (the Revolut plan fee). _Bankgebühr – kein Beleg nötig_ on a booking teaches the account and the purpose words without digits; the next one like it needs no receipt either. _Eigene Anweisungen → Gelernte Bankgebühren_ lists them with _Vergessen_. _Warum kein Beleg nötig?_ names the rule that fired.
+- **Bank fees on every account (#32, rules part).** Besides the booking type (_Abschluss_, _Entgelt_), a booking is a bank fee when its CAMT bank transaction code is a charge (`BkTxCd` family or sub-family `CHRG`, `FEES`, `COMM`, now kept as `bankCode`), or when its purpose names a fee (_Gebühr_, _Entgelt_, _Kontoführung_, _fee_, _charge_) and nobody but the bank is on the other side (a bank's plan fee). _Bankgebühr – kein Beleg nötig_ on a booking teaches the account and the purpose words without digits; the next one like it needs no receipt either. _Eigene Anweisungen → Gelernte Bankgebühren_ lists them with _Vergessen_. _Warum kein Beleg nötig?_ names the rule that fired.
 
 - **Where AI is used, said everywhere.** Every button that calls the language model carries the ✦ mark with a hover of what goes out (_Auslesen_, _Alle neuen auslesen_, upload to a booking, _Als Beleg übernehmen_, _Rechnungen holen_, _Mit KI weitersuchen_). The consent screen has a section _KI: wo ein Sprachmodell hilft_: Le Space runs no AI, each installation sets up its own model, public or local; what uses it and what runs on fixed rules (version 4, so it opens once more). README section _AI_ and `docs/ai.md` / `docs/ai.de.md`.
 
@@ -1513,7 +1525,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
   kept in the browser (OrbitDB + Helia on IndexedDB). No private key at rest. Consent screen first,
   Le Space look, light and dark.
 - **Phase 1, step 2 – bank transactions.** A bridge on `127.0.0.1` reads the allowed accounts from
-  Hibiscus (pinned certificate, IBAN-suffix filter); CAMT.053 statements (Revolut) import in the
+  Hibiscus (pinned certificate, IBAN-suffix filter); CAMT.053 statements (Bank A) import in the
   browser; no duplicates; Zahlungen by month and day with search. Sync from a chosen date.
 - **Phase 1, step 3 – receipts.** Mails to the accounting address over IMAP (read-only), uploads
   and a shared folder; every file sealed before it is stored; "Auslesen" sends the PDF's text,
@@ -1548,5 +1560,5 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 ### Changed
 
-- The purpose shown for a booking drops the TAN method GLS appends ("SecureGo plus", "pushTAN",
+- The purpose shown for a booking drops the TAN method a bank appends ("SecureGo plus", "pushTAN",
   "chipTAN").

@@ -236,6 +236,18 @@ test('a token that leaves in a transaction this wallet did not send: moved by so
 		normal: [],
 		internal: [],
 		tokens: [
+			// What the project burns, the wallet held: it got it first.
+			{
+				...base,
+				hash: hash('cc'),
+				from: PROJECT,
+				to: ME,
+				value: '1000000000000000000000000',
+				contractAddress: XYZ,
+				tokenSymbol: 'XYZ',
+				tokenDecimal: '18',
+				logIndex: '2'
+			},
 			{
 				...base,
 				hash: burn,
@@ -251,10 +263,18 @@ test('a token that leaves in a transaction this wallet did not send: moved by so
 		senders: { [burn]: PROJECT }
 	};
 	const { entries } = normalizeEvm(lists, { address: ME, chain: CHAINS.ethereum });
-	assert.equal(entries.length, 1);
-	assert.equal(entries[0].type, 'sent');
-	assert.equal(entries[0].byOther, true);
-	assert.equal(entries[0].txFrom, PROJECT);
+	assert.deepEqual(
+		entries.map((e) => e.type),
+		['received', 'sent']
+	);
+	assert.equal(entries[1].byOther, true);
+	assert.equal(entries[1].txFrom, PROJECT);
+	// Never held, yet "sent" in someone else's transaction: a spam contract's fake transfer.
+	const poisoned = normalizeEvm(
+		{ ...lists, tokens: lists.tokens.slice(1) },
+		{ address: ME, chain: CHAINS.ethereum }
+	);
+	assert.deepEqual(poisoned.entries, []);
 	// Sent by the wallet itself: neither.
 	const own = swapLists();
 	const mine = normalizeEvm(own, { address: ME, chain: CHAINS.ethereum }).entries.find(

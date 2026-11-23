@@ -22,6 +22,10 @@
 // (backup/vault-index.js). The message shapes are relay-button's
 // (@le-space/core), which paperless-anywhere starts its VMs with.
 
+import { sha256Hex } from '../hash.js';
+
+export { sha256Hex };
+
 /** The VM: 2 vCPU, 2 GiB memory, 10 GiB disk, as "Bridge on a confidential node" runs it. */
 export const HOSTED_VM = Object.freeze({ vcpus: 2, memoryMiB: 2048, rootfsSizeMiB: 10 * 1024 });
 
@@ -47,12 +51,6 @@ const NO_SSH_KEY =
 const HASH = /^[0-9a-f]{64}$/;
 const REFUSED = ['rejected', 'forgotten'];
 const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
-
-/** @param {string} text */
-export async function sha256Hex(text) {
-	const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-	return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 /**
  * A node's base URL, if it is one to talk to: https, a name, no path. An
@@ -127,9 +125,6 @@ export async function loadNodes({ url = CRN_LIST, fetch: f = fetch, loopback = f
 	if (!res.ok) throw new Error(`Aleph's node list answered ${res.status}`);
 	return confidentialNodes(await res.json(), { loopback });
 }
-
-/** Who pays the VM: Le Space from the books' package, or the books' key itself. */
-export const PAYERS = Object.freeze(['lespace', 'books']);
 
 /**
  * The INSTANCE's content: the published image, confidential with the pins

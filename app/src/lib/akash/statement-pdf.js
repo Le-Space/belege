@@ -10,12 +10,11 @@
 import { formatDate } from '../bank/format.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { amount } from '../export/datev.js';
+import { euro } from '../export/pdf-format.js';
 import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 
 /** `0.123456` → `0,123456`. @param {string} d */
 const num = (d) => String(d).replace('.', ',');
-/** @param {number | null} cents */
-const euro = (cents) => (cents === null ? '—' : `${amount(cents)} EUR`);
 /** @param {string} iso */
 const day = (iso) => formatDate(String(iso).slice(0, 10), DOCUMENT_LOCALE);
 /** @param {string} iso */

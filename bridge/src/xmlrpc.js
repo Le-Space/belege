@@ -1,7 +1,6 @@
 // XML-RPC encoding and decoding, the subset Hibiscus speaks.
 //
-// Moved here from spikes/hibiscus/probe.mjs; the spike keeps its own copy so
-// it stays a single file.
+// Moved here from the phase-0 Hibiscus spike (in git history).
 
 import { XMLParser } from 'fast-xml-parser';
 

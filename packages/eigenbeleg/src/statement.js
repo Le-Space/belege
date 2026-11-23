@@ -31,6 +31,7 @@ import {
 	kindText,
 	sourceName
 } from './document.js';
+import { documentLanguage, localizeLabel, say } from './language.js';
 
 /** Smaller than the twelve decimals the documents print (and not zero). @param {string} difference */
 export const isDust = (difference) => /^-?0\.0{12}\d*$/.test(difference);
@@ -64,14 +65,39 @@ export const USAGE_NOTES = /** @type {Record<string, string>} */ ({
 	'filecoin-pay': FILECOIN_PAY_USAGE_NOTE
 });
 
+/** The same notes in English (language.js). */
+export const USAGE_NOTES_EN = /** @type {Record<string, string>} */ ({
+	aleph:
+		'Usage statement of an Aleph Cloud account (credits), made by the account holder from the public Aleph API. ' +
+		'No document of a bank and no invoice of Aleph. Usage per day and resource; value: the USD price per credit ' +
+		"(the last purchase on or before the day, else Aleph's list price of 1 USD per 1,000,000 credits) at the ECB reference rate of the day.",
+	'filecoin-pay':
+		'Usage statement of a balance in the Filecoin Pay payment contract (Filecoin Onchain Cloud), made by the payer from public chain data. ' +
+		'No document of a bank and no invoice of a storage provider. Usage is every settlement of a rail to its provider; ' +
+		'it pays up to the time it names, so it does not cover the month exactly. Only USDFC is read; what the payer takes in through rails is missing. ' +
+		'Value: USDFC is pegged to the US dollar and valued at the rate of USDC of the day.'
+});
+
 /**
  * The note of a Verbrauchsauszug in the document's currency: what its values
  * are, said for that currency. EUR: the notes above, as they were.
  *
  * @param {string} chain from USAGE_NOTES
  * @param {string} currency
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export function usageNote(chain, currency) {
+export function usageNote(chain, currency, language = 'de') {
+	if (language === 'en') {
+		const note = USAGE_NOTES_EN[chain];
+		if (currency === 'EUR') return note;
+		const head = note.slice(0, note.indexOf('Value:'));
+		if (chain === 'aleph') {
+			const price =
+				"the USD price per credit (the last purchase on or before the day, else Aleph's list price of 1 USD per 1,000,000 credits)";
+			return `${head}Value in ${currency}: ${price}${currency === 'USD' ? '' : `, ${conversionText(currency, 'en')}`}.`;
+		}
+		return `${head}Value in ${currency}: USDFC is pegged to the US dollar and valued at the rate of USDC of the day, ${conversionText(currency, 'en')}.`;
+	}
 	const note = USAGE_NOTES[chain];
 	if (currency === 'EUR') return note;
 	const head = note.slice(0, note.indexOf('Euro-Wert:'));
@@ -113,6 +139,10 @@ export const STATEMENT_NOTE =
 	'Kontoauszug eines Blockchain-Kontos, erstellt vom Kontoinhaber aus öffentlichen Chain-Daten. ' +
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
 
+export const STATEMENT_NOTE_EN =
+	'Account statement of a blockchain account, made by the account holder from public chain data. ' +
+	'No document of a bank. Every booking can be checked by its transaction hash in a public block explorer.';
+
 /**
  * @typedef {object} StatementRow
  * @property {string} date YYYY-MM-DD
@@ -147,8 +177,11 @@ export const STATEMENT_NOTE =
  * credits bought, transfers in and out, fees. One booking each instead of the day's rows below.
  *
  * @param {StatementRow[]} rows
+ * @param {import('./language.js').DocumentLanguage} [language]
  */
-export function monthly(rows) {
+export function monthly(rows, language = 'de') {
+	/** @param {string} de @param {string} en */
+	const t = (de, en) => say(language, de, en);
 	/** @param {StatementRow[]} rs @param {string} label @param {'debit' | 'credit'} side @returns {MonthlyLine} */
 	const line = (rs, label, side) => ({
 		label,
@@ -160,7 +193,7 @@ export function monthly(rows) {
 	const byResource = [...new Set(rows.filter((r) => r.usage).map((r) => r.label))].map((label) =>
 		line(
 			rows.filter((r) => r.usage && r.label === label),
-			`Verbrauch ${label.replace(/^Aleph Cloud \((.*)\)$/, '$1').replace(/^storage$/, 'Speicher (storage)')}`,
+			`${t('Verbrauch', 'Usage')} ${label.replace(/^Aleph Cloud \((.*)\)$/, '$1').replace(/^storage$/, t('Speicher (storage)', 'storage'))}`,
 			'debit'
 		)
 	);
@@ -171,17 +204,32 @@ export function monthly(rows) {
 	const fees = rows.filter((r) => r.fee);
 	return {
 		usage: byResource,
-		usageTotal: usage.length ? line(usage, 'Verbrauch gesamt (Aufwand)', 'debit') : null,
+		usageTotal: usage.length
+			? line(usage, t('Verbrauch gesamt (Aufwand)', 'Usage in all (expense)'), 'debit')
+			: null,
 		purchases: purchases.length
-			? line(purchases, 'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)', 'credit')
+			? line(
+					purchases,
+					t(
+						'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)',
+						'Purchases of credits (prepayment; a self-issued receipt per purchase)'
+					),
+					'credit'
+				)
 			: null,
 		transfersIn: transfersIn.length
-			? line(transfersIn, 'Eingänge von anderen Konten', 'credit')
+			? line(
+					transfersIn,
+					t('Eingänge von anderen Konten', 'Incoming from other accounts'),
+					'credit'
+				)
 			: null,
 		transfersOut: transfersOut.length
-			? line(transfersOut, 'Ausgänge an andere Konten', 'debit')
+			? line(transfersOut, t('Ausgänge an andere Konten', 'Outgoing to other accounts'), 'debit')
 			: null,
-		fees: fees.length ? line(fees, 'Netzwerkgebühren (Aufwand)', 'debit') : null
+		fees: fees.length
+			? line(fees, t('Netzwerkgebühren (Aufwand)', 'Network fees (expense)'), 'debit')
+			: null
 	};
 }
 
@@ -206,6 +254,7 @@ export function monthly(rows) {
  * @param {Record<string, string>} [p.contracts] asset → contract of a token not in the
  *   chain's list whose balance is in `opening`/`closing` (the reader's balances, #93);
  *   for one that moved in the period its entries name it already
+ * @param {import('./language.js').DocumentLanguage} [p.language] `de` (the default) or `en` (language.js)
  */
 export function buildStatement({
 	payer,
@@ -223,9 +272,11 @@ export function buildStatement({
 	issuedAt,
 	dataSource,
 	currency: asked,
-	contracts = {}
+	contracts = {},
+	language: askedLanguage
 }) {
 	const currency = documentCurrency(asked);
+	const L = documentLanguage(askedLanguage);
 	checkValued(entries, currency);
 	// An Aleph credit purchase (kind `swap`) is the payment on another chain; the
 	// credits it bought are the incoming row. Only that row belongs on the statement.
@@ -254,9 +305,9 @@ export function buildStatement({
 				date: e.date,
 				time: e.time.slice(11, 19),
 				// Filecoin Pay: up to when a settlement paid its rail (the entry's memo).
-				text: `${kindText(e)}${e.type === 'received' ? ' (Eingang)' : ''}${e.chain === 'filecoin-pay' && e.kind === 'usage' && e.memo ? `, ${e.memo}` : ''}`,
+				text: `${kindText(e, L)}${e.type === 'received' ? say(L, ' (Eingang)', ' (incoming)') : ''}${e.chain === 'filecoin-pay' && e.kind === 'usage' && e.memo ? `, ${localizeLabel(e.memo, L)}` : ''}`,
 				counterparty: e.counterpartyLabel
-					? `${e.counterpartyLabel} · ${e.counterparty}`
+					? `${localizeLabel(e.counterpartyLabel, L)} · ${e.counterparty}`
 					: e.counterparty,
 				hash: e.hash,
 				explorerUrl: e.explorerUrl,
@@ -271,7 +322,8 @@ export function buildStatement({
 				purchase: e.type === 'received' && e.counterparty === 'aleph',
 				label: e.counterpartyLabel,
 				// Aleph's usage names a resource; a Filecoin Pay settlement is a transaction.
-				hashLabel: e.kind === 'usage' && e.chain === 'aleph' ? 'Ressource' : 'Tx'
+				hashLabel:
+					e.kind === 'usage' && e.chain === 'aleph' ? say(L, 'Ressource', 'Resource') : 'Tx'
 			});
 		}
 		const debit = sum(rows.map((r) => r.debit || '0'));
@@ -291,7 +343,7 @@ export function buildStatement({
 			debit,
 			credit,
 			rows,
-			monthly: monthly(rows),
+			monthly: monthly(rows, L),
 			eurOut: sum(rows.filter((r) => r.debit && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurIn: sum(rows.filter((r) => r.credit && r.eur).map((r) => r.eur)),
 			eurFees: sum(rows.filter((r) => r.fee && r.eur).map((r) => r.eur.replace(/^-/, ''))),
@@ -313,7 +365,12 @@ export function buildStatement({
 	const usage = Object.hasOwn(USAGE_NOTES, chain);
 	return {
 		kind: 'kontoauszug',
-		title: usage ? 'Verbrauchsauszug' : 'Kontoauszug',
+		// The German name stays the document's name; an English one adds what it is.
+		title: usage
+			? say(L, 'Verbrauchsauszug', 'Usage Statement')
+			: say(L, 'Kontoauszug', 'Account Statement'),
+		usage,
+		language: L,
 		number: number || `KA-${period.from}`,
 		issuedAt: issuedAt ?? new Date().toISOString(),
 		holder: { name: payer.name.trim(), address: payer.address.trim() },
@@ -323,7 +380,8 @@ export function buildStatement({
 		dataSource: dataSourceOf(
 			chain,
 			CHAIN_NAMES[/** @type {keyof typeof CHAIN_NAMES} */ (chain)] ?? chain,
-			dataSource
+			dataSource,
+			L
 		),
 		network,
 		testnet: network !== 'mainnet',
@@ -333,7 +391,7 @@ export function buildStatement({
 		at,
 		sections,
 		unlisted: mine.filter((e) => !e.priceAs && !assets.includes(e.asset)).length,
-		note: usage ? usageNote(chain, currency) : STATEMENT_NOTE
+		note: usage ? usageNote(chain, currency, L) : L === 'en' ? STATEMENT_NOTE_EN : STATEMENT_NOTE
 	};
 }
 

@@ -5,7 +5,8 @@ import {
 	hostedBridgeOf,
 	hostedNotUp,
 	hostedVmRunning,
-	llmAttested
+	llmAttested,
+	offersLocalBesideHosted
 } from './bridge-status.js';
 
 const HASH = 'a'.repeat(64);
@@ -257,5 +258,30 @@ describe('hostedNotUp', () => {
 		).toBe(false);
 		expect(hostedNotUp({ kept: null, vm, reached: false, now: at(9) })).toBe(false);
 		expect(hostedNotUp({ kept: { instance: HASH }, vm, reached: false, now: at(9) })).toBe(false);
+	});
+});
+
+describe('offersLocalBesideHosted', () => {
+	const stopped = { hosted: 'aleph', token: null, state: 'online', route: 'local', here: true };
+
+	it('a stopped hosted bridge and one answering on this computer: offered', () => {
+		expect(offersLocalBesideHosted(stopped)).toBe(true);
+		expect(offersLocalBesideHosted({ ...stopped, hosted: 'near' })).toBe(true);
+	});
+
+	it('not when the books’ bridge is the one here, or one is paired here by code already', () => {
+		expect(offersLocalBesideHosted({ ...stopped, hosted: null })).toBe(false);
+		expect(offersLocalBesideHosted({ ...stopped, token: 'tok' })).toBe(false);
+	});
+
+	it('not when what answers is the hosted bridge over its stream, or another device’s', () => {
+		expect(offersLocalBesideHosted({ ...stopped, route: 'stream' })).toBe(false);
+		expect(offersLocalBesideHosted({ ...stopped, route: 'device' })).toBe(false);
+	});
+
+	it('not when nothing answers here, or on a phone', () => {
+		expect(offersLocalBesideHosted({ ...stopped, state: 'offline' })).toBe(false);
+		expect(offersLocalBesideHosted({ ...stopped, state: 'checking' })).toBe(false);
+		expect(offersLocalBesideHosted({ ...stopped, here: false })).toBe(false);
 	});
 });

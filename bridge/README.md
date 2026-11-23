@@ -132,6 +132,21 @@ addressed to the accounting alias, and sends only redacted text to the LLM.
     _My Profile_ → _API Auth Token_; hidden prompt, into the keychain; `PAPERLESS_API_TOKEN` from
     `.env` is offered). One test call prints how many documents Paperless holds. The bridge then
     lists what Paperless added, with its OCR text, and hands out each document's original file.
+15. **Kraken** (optional, read only): on kraken.com create an API key with only _Query Funds_ and
+    _Query Ledger Entries_ – nothing that can trade, deposit or withdraw. `pnpm setup:kraken` asks
+    for the API key and the private key in hidden prompts (`KRAKEN_API_KEY` and
+    `KRAKEN_PRIVATE_KEY` from `.env` are offered), stores both in the keychain (account `kraken`)
+    and makes one test call that prints how many assets have a balance, never an amount.
+16. **Bitcoin wallet** (optional, read only): `pnpm setup:bitcoin` asks for the wallet's extended
+    public key – a zpub (`bc1q…`), ypub (`3…`) or xpub, from the wallet app's settings – in a
+    hidden prompt, and for an xpub which kind of address the wallet shows. It can show every
+    address and payment but spend nothing. The key goes into the keychain (account `bitcoin`;
+    `BITCOIN_XPUB` from `.env` is offered); the app knows the wallet by the fingerprint this
+    prints (`btc-` and eight hex digits).
+17. **CoinGecko** (optional, for the daily rates): `pnpm setup:coingecko` asks for a CoinGecko demo
+    key in a hidden prompt (`COINGECKO_API_KEY` from `.env` is offered) and stores it in the
+    keychain (account `coingecko`). Without it CoinGecko answers fewer requests. The bridge sends it
+    as a header, never in a URL.
 
 ## On Windows
 
@@ -813,13 +828,37 @@ pnpm --filter @belege/bridge exec playwright install chromium   # once, for the 
 pnpm --filter @belege/bridge lint
 ```
 
-`--test-mode` (used by the app's E2E suite) takes the secrets from `BELEGE_BRIDGE_TEST_PASSWORD`,
-`BELEGE_BRIDGE_TEST_IMAP_PASSWORD`, `BELEGE_BRIDGE_TEST_LLM_KEY` and
-`BELEGE_BRIDGE_TEST_PORTAL_PASSWORD` (and the Kraken, CoinGecko and Alchemy keys from
-`BELEGE_BRIDGE_TEST_KRAKEN_KEY`, `…_COINGECKO_KEY`, `…_ALCHEMY_KEY`) instead of the keychain, sends
-an Alchemy key only to the fake at `BELEGE_BRIDGE_TEST_ALCHEMY_URL` (`http://127.0.0.1:<port>`;
-without it the key is refused), takes the Aleph backup key from `BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY`
-and points the backup's upload at the fake Aleph at `BELEGE_BRIDGE_TEST_ALEPH_URL`, never opens a
-portal window (headless only), and refuses the real config file. No test talks to a real mail server, Hibiscus, LLM, portal, chain node or Alchemy
+`--test-mode` (used by the app's E2E suite) takes the secrets from these variables instead of the
+keychain, never opens a portal window (headless only), and refuses the real config file:
+
+- `BELEGE_BRIDGE_TEST_PASSWORD`: the Jameica master password for Hibiscus.
+- `BELEGE_BRIDGE_TEST_IMAP_PASSWORD`: the mailbox's password.
+- `BELEGE_BRIDGE_TEST_LLM_KEY`: the language model's API key.
+- `BELEGE_BRIDGE_TEST_PORTAL_PASSWORD`: a customer portal's password.
+- `BELEGE_BRIDGE_TEST_PORTAL_DIALOG`: what the portal password dialog answers; without it the
+  dialog is cancelled.
+- `BELEGE_BRIDGE_TEST_KRAKEN_KEY`: the Kraken key, as the keychain's JSON.
+- `BELEGE_BRIDGE_TEST_PAPERLESS_TOKEN`: the Paperless API token.
+- `BELEGE_BRIDGE_TEST_ENABLEBANKING_KEY`: the key to the sealed Enable Banking file.
+- `BELEGE_BRIDGE_TEST_COINGECKO_KEY`: the CoinGecko key.
+- `BELEGE_BRIDGE_TEST_BITCOIN_KEY`: the Bitcoin wallet's extended public key, as the keychain's
+  JSON.
+- `BELEGE_BRIDGE_TEST_ALCHEMY_KEY`: the Alchemy key; refused without
+  `BELEGE_BRIDGE_TEST_ALCHEMY_URL`.
+- `BELEGE_BRIDGE_TEST_ALCHEMY_URL`: the fake Alchemy (`http://127.0.0.1:<port>`), the only place
+  the Alchemy key is sent.
+- `BELEGE_BRIDGE_TEST_BLOCKSCOUT_KEY`: the Blockscout key; refused without
+  `BELEGE_BRIDGE_TEST_FILECOINPAY_URL`.
+- `BELEGE_BRIDGE_TEST_FILECOINPAY_URL`: the fake Blockscout for the Filecoin Pay statement
+  (`http://127.0.0.1:<port>`), the only place the Blockscout key is sent.
+- `BELEGE_BRIDGE_TEST_ALEPH_BACKUP_KEY`: the bridge's Aleph backup key.
+- `BELEGE_BRIDGE_TEST_ALEPH_URL`: the fake Aleph the backup is uploaded to
+  (`http://127.0.0.1:<port>`).
+- `BELEGE_BRIDGE_TEST_FIXED_RATES`: exchange rates as JSON (EUR per unit by symbol, or
+  `{ rate, source, at }`) instead of asking a rate source.
+- `BELEGE_BRIDGE_TEST_LEGACY_ROUTES=1`: the bridge's own tests may still call over HTTP the
+  commands that go over the bridge's node now; only together with `--test-mode`.
+
+No test talks to a real mail server, Hibiscus, LLM, portal, chain node or Alchemy
 (`test/support/fake-alchemy.js` is as strict as Alchemy about methods, parameter types and error
 shapes).

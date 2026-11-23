@@ -1,6 +1,6 @@
 # @le-space/eigenbeleg
 
-The Eigenbeleg and the Kontoauszug of Le Space's tools – [Belege](https://github.com/Le-Space/belege) and the [Eigenbeleg](https://github.com/Le-Space/eigenbeleg-agent) API and web UI: what they say, drawn as PDF/A-2b ([`@le-space/pdf`](../pdf), text in any script) and written as CSV. Runs in a browser and in Node; the same document is the same file in both. The documents are German, for German bookkeeping.
+The Eigenbeleg and the Kontoauszug of Le Space's tools – [Belege](https://github.com/Le-Space/belege) and the [Eigenbeleg](https://github.com/Le-Space/eigenbeleg-agent) API and web UI: what they say, drawn as PDF/A-2b ([`@le-space/pdf`](../pdf), text in any script) and written as CSV. Runs in a browser and in Node; the same document is the same file in both. The documents are German, for German bookkeeping, or English when asked for (below).
 
 An Eigenbeleg is a receipt the payer writes for a payment that has no receipt from the other side. It is never an invoice, and never one written for somebody else.
 
@@ -11,6 +11,12 @@ An Eigenbeleg is a receipt the payer writes for a payment that has no receipt fr
 - **A statement Eigenbeleg** (Belege's Aleph, Akash and travel statements, `@le-space/eigenbeleg/statement-layout`): `statementLayout({ title, created, continuation })` → `head`, `field`, `rule`, `heading`, `table` (the header repeats on a new page), `signature`, `save`.
 
 Every PDF has Eigenbeleg's look (`layout.js`, [#951](https://github.com/Le-Space/belege/issues/951)): A4 with 48 pt margins, the title first and a strong rule under the head, small grey labels, rules in two weights and no fills or boxes, a total between two rules, colour for a warning only, page numbers at the foot, a line to sign. The sizes, colours and rule weights are tokens (`TYPE`, `INK`, `GREY`, `RULE`, `WARN`, `STROKE`); nothing is set outside them. `creator` names the program in the metadata (`eigenbeleg` for the period's documents, `Belege` for a booking's and a statement's unless given).
+
+## English documents
+
+`buildDocument({ …, language: 'en' })` and `buildStatement({ …, language: 'en' })` make the same documents in English (`language.js`; `de` is the default, and a German document is the same file as before). The PDF and the CSV read the language from the document (`doc.language`, `st.language`): English words, a decimal point and thousands commas (`1,234.5`), the currency's code after an amount (`12.34 EUR`) and ISO dates (`2026-10-05`). The documents are English throughout, their names too: _Self-Issued Receipt_ (Eigenbeleg), _Account Statement_ (Kontoauszug), _Usage Statement_ (Verbrauchsauszug). The CSV keeps its semicolons (texts hold commas) and takes decimal points.
+
+The rates' sources and the readers' labels come as German text (the caller's rates, [`@le-space/rates`](../rates)' reference value, [`@le-space/chains`](../chains)' counterparty labels); an English document names them in English through `localizeSource` and `localizeLabel`, rule by known wording – what no rule knows, such as an account's own name, stays as it is. A German tax office may ask for a translation of a document in another language (§ 87 AO): English documents are for books kept in English and for readers who need them.
 
 ## The issuer's own logo
 
