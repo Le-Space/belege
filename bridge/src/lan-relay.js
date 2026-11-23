@@ -5,7 +5,7 @@
 // address of this Mac in the local network – never 0.0.0.0, never port
 // forwarded. A browser dials it by the certificate's hash in the address, so
 // it needs no CA, no DNS name and nothing installed on a phone, and an https
-// page may dial it: WebRTC is no mixed content (spike: spikes/lan-relay).
+// page may dial it: WebRTC is no mixed content (phase-0 spike, in git history).
 //
 // The certificate is the relay's own, made once, valid for ten years:
 // @libp2p/webrtc renews the one it makes itself every 14 days, and then the

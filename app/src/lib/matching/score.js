@@ -1,6 +1,6 @@
 // Scoring receipts against bank transactions, and deciding which pairs are
 // sure. Pure: no store, no clock, no network. Ported from
-// spikes/matching/match.mjs (phase 0) and hardened:
+// the phase-0 matching spike (in git history) and hardened:
 //
 //   amount            40  same absolute amount in cents, same currency – or,
 //                         paid from another currency, the bank's original

@@ -1,6 +1,6 @@
 // Receipt data from a receipt's text, by an OpenAI-compatible chat API
-// (DeepSeek by default). Moved here from the phase-0 spike
-// (spikes/llm/extract.mjs): the same prompt and schema, the same budget.
+// (DeepSeek by default). Moved here from the phase-0 LLM spike (in git
+// history): the same prompt and schema, the same budget.
 //
 // Findings that shape it (docs/phase-0.md):
 //   - both DeepSeek models reason before they answer, and the reasoning counts

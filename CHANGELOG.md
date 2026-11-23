@@ -13,6 +13,7 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **The bridge's node takes requests of up to 1 MiB, and the app reads that instead of cutting at 64 KiB** (#976; Le-Space/ucep-spec#7, Le-Space/ucep-js#13). Armed, the bridge's own node states `limits: { request: 1 MiB }` in its UCEP manifest, an optional field the UCEP spec now defines; only a device that proved the bridge's key at the gate reaches the stream, so no stranger can make the bridge buffer that much. The app reads the stated limit and checks a call against it, with the seal's third counted, instead of a fixed 64 KiB. "✦ Konto vorschlagen" sizes its account list by it: with such a bridge a read-in chart goes with all 600 accounts (up to the bridge's body limit of 256 KiB), with a bridge from before as cut down as by #972. A bridge from before (a hosted VM on an older image) states nothing and keeps 64 KiB; so does a connection through a relay that grants less than 32 MiB. A call too large for the node is still answered 413 `BRIDGE_STREAM_TOO_LARGE` and never handed to HTTP on this machine or to another device. A limit read during pairing, before the bridge was armed, is read again before a call is refused. No new host is contacted.
+- **The phase-0 spikes are gone.** `spikes/` with its `pnpm spike:*` scripts and the three root dev dependencies only the spikes used (`fast-xml-parser`, `imapflow`, `unpdf`) are removed; every question they answered is built into the bridge and the app, and the spikes live on in git history ([docs/phase-0.md](docs/phase-0.md)).
 
 ### Fixed
 
@@ -281,7 +282,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Added
 
-- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Revolut Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
+- A bank account is found in the chart of accounts by its bank. A CAMT statement and Enable Banking name the bank that keeps an account; Belege keeps that name on the account and takes the chart account that names the bank ("Bank A Business" for an account called "Main") when exactly one does. An account read before this learns its bank at the next import or sync. Hibiscus names no bank; such an account is still given its ledger account by hand.
 - Where no ledger account could be taken over, the settings offer the free chart accounts that share most with the account's name and bank as buttons – for a wallet's "ETH (Ethereum)" account the chart's "… - ETH (Ethereum)" accounts. One click fills the field in; it is saved with the rest.
 
 ### Fixed
@@ -1274,7 +1275,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 ### Added
 
-- **Bank accounts through Enable Banking** (#224), for banks Hibiscus does not reach (Revolut, Wise, most banks outside Germany), with your own Enable Banking application – a production one in restricted mode, active once your own accounts are linked in its Control Panel; no contract needed.
+- **Bank accounts through Enable Banking** (#224), for banks Hibiscus does not reach (some online banks, most banks outside Germany), with your own Enable Banking application – a production one in restricted mode, active once your own accounts are linked in its Control Panel; no contract needed.
   - `pnpm setup:enablebanking` checks the application id and its key (the panel's `.pem`, or the `-keyout` file of an own certificate), says whether the application is active and the redirect URL registered, and seals the key beside the bridge's configuration; the key to it is in the keychain or the Windows Credential Manager. Requests are signed (RS256), go to one host, follow no redirect and are limited in time and size.
   - Integrationen → Bank → "Über Enable Banking": choose country and bank, consent on the bank's own page, come back to `/integrationen/bank/verbunden`. The bank's one-time code leaves the address before the passkey is asked for; the bridge takes it only for a link it started, once, within 30 minutes.
   - Only accounts released in the bridge leave it (`pnpm setup:enablebanking -- --accounts`, by IBAN ending). "Umsätze holen" fetches on a click: 90 days the first time, then from a week before the last fetch; booked transactions only. An account a statement file brought is continued from the day after its last booking.
@@ -1443,9 +1444,9 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 - **How each receipt was linked, in the receipts overview (#31).** Every linked receipt carries _Automatisch · 120 P._, _Automatisch (gelernt) · 90 P._, _Bestätigt_ or _Von Hand_, with the reasons on hover (the words of _Warum diese Zuordnung?_); a receipt that _Mit KI weitersuchen_ found carries _✦ KI-Fund_ with the model's reason. Filters by origin with counts, and per month _1 automatisch · 2 bestätigt · 0 von Hand · 0 KI-Fund · 4 offen_. Receipts taken from the private mailbox keep `foundBy` (`mail-search` or `mail-assist`).
 
-- **Transfers between our own accounts by their counter-booking (#29).** A booking with exactly one booking of the opposite amount on another of our accounts within 4 days, and a sign on either side (_Umbuchung_, _Übertrag_, _Transfer_, _Top-up_, _Aufladung_, _Einzahlung_, or our company as counterparty), is an own transfer (1360) on both sides – without a company name set up and without IBANs (Revolut CAMT gives names only). Two candidates, no sign, too far apart: nothing is guessed. _Warum kein Beleg nötig?_ names the other side and links it (_Gegenbuchung öffnen_); _Keine Umbuchung – Beleg nötig_ keeps the pair apart for good.
+- **Transfers between our own accounts by their counter-booking (#29).** A booking with exactly one booking of the opposite amount on another of our accounts within 4 days, and a sign on either side (_Umbuchung_, _Übertrag_, _Transfer_, _Top-up_, _Aufladung_, _Einzahlung_, or our company as counterparty), is an own transfer (1360) on both sides – without a company name set up and without IBANs (one bank's CAMT gives names only). Two candidates, no sign, too far apart: nothing is guessed. _Warum kein Beleg nötig?_ names the other side and links it (_Gegenbuchung öffnen_); _Keine Umbuchung – Beleg nötig_ keeps the pair apart for good.
 
-- **Bank fees on every account (#32, rules part).** Besides the booking type (GLS _Abschluss_, _Entgelt_), a booking is a bank fee when its CAMT bank transaction code is a charge (`BkTxCd` family or sub-family `CHRG`, `FEES`, `COMM`, now kept as `bankCode`), or when its purpose names a fee (_Gebühr_, _Entgelt_, _Kontoführung_, _fee_, _charge_) and nobody but the bank is on the other side (the Revolut plan fee). _Bankgebühr – kein Beleg nötig_ on a booking teaches the account and the purpose words without digits; the next one like it needs no receipt either. _Eigene Anweisungen → Gelernte Bankgebühren_ lists them with _Vergessen_. _Warum kein Beleg nötig?_ names the rule that fired.
+- **Bank fees on every account (#32, rules part).** Besides the booking type (_Abschluss_, _Entgelt_), a booking is a bank fee when its CAMT bank transaction code is a charge (`BkTxCd` family or sub-family `CHRG`, `FEES`, `COMM`, now kept as `bankCode`), or when its purpose names a fee (_Gebühr_, _Entgelt_, _Kontoführung_, _fee_, _charge_) and nobody but the bank is on the other side (a bank's plan fee). _Bankgebühr – kein Beleg nötig_ on a booking teaches the account and the purpose words without digits; the next one like it needs no receipt either. _Eigene Anweisungen → Gelernte Bankgebühren_ lists them with _Vergessen_. _Warum kein Beleg nötig?_ names the rule that fired.
 
 - **Where AI is used, said everywhere.** Every button that calls the language model carries the ✦ mark with a hover of what goes out (_Auslesen_, _Alle neuen auslesen_, upload to a booking, _Als Beleg übernehmen_, _Rechnungen holen_, _Mit KI weitersuchen_). The consent screen has a section _KI: wo ein Sprachmodell hilft_: Le Space runs no AI, each installation sets up its own model, public or local; what uses it and what runs on fixed rules (version 4, so it opens once more). README section _AI_ and `docs/ai.md` / `docs/ai.de.md`.
 
@@ -1512,7 +1513,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
   kept in the browser (OrbitDB + Helia on IndexedDB). No private key at rest. Consent screen first,
   Le Space look, light and dark.
 - **Phase 1, step 2 – bank transactions.** A bridge on `127.0.0.1` reads the allowed accounts from
-  Hibiscus (pinned certificate, IBAN-suffix filter); CAMT.053 statements (Revolut) import in the
+  Hibiscus (pinned certificate, IBAN-suffix filter); CAMT.053 statements (Bank A) import in the
   browser; no duplicates; Zahlungen by month and day with search. Sync from a chosen date.
 - **Phase 1, step 3 – receipts.** Mails to the accounting address over IMAP (read-only), uploads
   and a shared folder; every file sealed before it is stored; "Auslesen" sends the PDF's text,
@@ -1547,5 +1548,5 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 ### Changed
 
-- The purpose shown for a booking drops the TAN method GLS appends ("SecureGo plus", "pushTAN",
+- The purpose shown for a booking drops the TAN method a bank appends ("SecureGo plus", "pushTAN",
   "chipTAN").
