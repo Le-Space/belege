@@ -1286,7 +1286,6 @@ export default {
 			'No gateway: the browser fetches the backup itself over IPFS, from Aleph’s nodes and from whoever holds it according to the public routing. Aleph’s nodes are reachable over IPv6 only; the routing (cid.contact, delegated-ipfs.dev) sees the CID and this IP address.',
 		opening: 'Opening the backup …',
 		database: 'Database {index} of {total}: {name} …',
-		increments: '+ {count} increments',
 		fetchingIncrements: 'Fetching increments: {done} of {total} …',
 		doneIncrements: 'With {count} increments to the full backup.',
 		isIncrement:
@@ -1660,7 +1659,6 @@ export default {
 	},
 	uploadPanel: {
 		open: 'Upload receipts',
-		openShort: 'Upload',
 		title: 'Upload receipts',
 		zone: 'Upload receipts',
 		zoneHint: 'or drop files here – on any page',
@@ -1679,7 +1677,6 @@ export default {
 		exists: 'Statement {number} is under Belege.',
 		made: 'Eigenbeleg {number} for {month} created: {fees} network fees linked, usage {act} ACT.',
 		act: {
-			title: 'ACT account (credit for deployments)',
 			what: 'ACT is minted by burning AKT and pays the deployments. Here: what was topped up, used and is left, valued at cost.',
 			open: 'Show ACT account',
 			loading: 'Reading balance and deployments …',
@@ -2565,8 +2562,7 @@ export default {
 		savePrices: 'Save prices',
 		resetPrices: 'Reset to the vendor’s prices',
 		home: 'Storage and AI',
-		homeLine: '{storage} used · AI this month {cost}',
-		homeOpen: 'Details'
+		homeLine: '{storage} used · AI this month {cost}'
 	},
 	rueckfragen: {
 		ai: {
@@ -2623,7 +2619,6 @@ export default {
 		ignore: 'Ignore',
 		confirmSender: 'Sender checked – approve',
 		openTx: 'Open payment',
-		auto: 'resolved itself',
 		answer: {
 			candidate: 'linked',
 			none: 'none of these',
@@ -4256,7 +4251,6 @@ export default {
 		noneForSelection: 'No payments for this selection.',
 		open: 'Open payment',
 		trade: 'Swap {arrow} {what}',
-		tradeTitle: 'Swapped',
 		tradeOpen: 'open the other side',
 		time: '{time}',
 		detail: {
@@ -4373,8 +4367,6 @@ export default {
 				'The sender address {address} starts and ends like {known}, which you have dealt with, but it is a different one. An address like this is planted in your history with a tiny amount so that you copy it by mistake the next time you send. Never send to this address; always compare the recipient address in full.',
 			title: 'Payment',
 			close: 'Close',
-			date: 'Booking date',
-			quantity: 'Quantity',
 			valuation: 'Rate',
 			original: 'Paid in',
 			originalAmount: '{amount} {currency}',
@@ -4432,17 +4424,11 @@ export default {
 			explorer: 'View in block explorer',
 			explorerQr: 'QR code',
 			valueDate: 'Value date',
-			amount: 'Amount',
-			account: 'Account',
-			bookingType: 'Booking type',
 			iban: 'IBAN of the other side',
 			purpose: 'Payment reference (full)',
 			receipts: 'Receipt',
 			noReceipt: 'No receipt linked yet.',
 			unlink: 'Unlink',
-			assign: 'Link receipt',
-			suggestions: 'Suggestions',
-			allReceipts: 'All other receipts',
 			choose: 'Link',
 			peek: {
 				label: 'Preview: {name}',
@@ -4457,7 +4443,6 @@ export default {
 			reason: 'Reason',
 			reasonPlaceholder: 'e.g. entertainment, receipt lost',
 			save: 'Save',
-			cancel: 'Cancel',
 			needsReceipt: 'Link a receipt after all',
 			bankFee: 'Bank fee – no receipt needed',
 			counterOpen: 'Open counter-booking',
@@ -4594,7 +4579,6 @@ export default {
 			othersOut: 'More payments to {name}',
 			othersIn: 'More payments from {name}',
 			othersNone: 'No other payments with this counterparty.',
-			withReceipt: 'with receipt',
 			withoutReceipt: 'without receipt',
 			privateSearch: 'Search the private mailbox',
 			privateHint:
@@ -4676,7 +4660,6 @@ export default {
 				taking: 'Taking over …'
 			},
 			vendor: {
-				title: 'Fetch from the vendor',
 				income:
 					'An incoming payment: its receipt is your own outgoing invoice, not a vendor’s invoice. Upload it above or link it.',
 				noBridge: 'For this, pair the bridge under Integrations.',
@@ -5167,7 +5150,6 @@ export default {
 					store: 'Your image on Aleph (STORE)'
 				}
 			},
-			startTitle: 'Start a new VM',
 			startHint:
 				'The VM belongs to the books’ Aleph key: the measurement names it, and only it unlocks the VM. Aleph takes it only with a day in reserve.',
 			payer: {

@@ -1317,7 +1317,6 @@ export default {
 			'Ohne Gateway: Der Browser holt das Backup selbst über IPFS, von Alephs Knoten und von jedem, der es laut öffentlichem Routing hält. Alephs Knoten sind nur über IPv6 erreichbar; das Routing (cid.contact, delegated-ipfs.dev) sieht die CID und diese IP-Adresse.',
 		opening: 'Backup wird geöffnet …',
 		database: 'Datenbank {index} von {total}: {name} …',
-		increments: '+ {count} Zuwächse',
 		fetchingIncrements: 'Zuwächse werden geladen: {done} von {total} …',
 		doneIncrements: 'Mit {count} Zuwächsen zum Vollbackup.',
 		isIncrement:
@@ -1786,7 +1785,6 @@ export default {
 	},
 	uploadPanel: {
 		open: 'Belege hochladen',
-		openShort: 'Hochladen',
 		title: 'Belege hochladen',
 		zone: 'Belege hochladen',
 		zoneHint: 'oder Dateien hierher ziehen – auf jeder Seite',
@@ -1805,7 +1803,6 @@ export default {
 		exists: 'Nachweis {number} liegt unter Belege.',
 		made: 'Eigenbeleg {number} für {month} erstellt: {fees} Netzwerkgebühren verknüpft, Verbrauch {act} ACT.',
 		act: {
-			title: 'ACT-Konto (Guthaben für Deployments)',
 			what: 'ACT entsteht durch Verbrennen von AKT und bezahlt die Deployments. Hier: was aufgeladen, verbraucht und übrig ist, zu Anschaffungskosten bewertet.',
 			open: 'ACT-Konto anzeigen',
 			loading: 'Lese Bestand und Deployments …',
@@ -2605,8 +2602,7 @@ export default {
 		savePrices: 'Preise speichern',
 		resetPrices: 'Auf die Preise des Anbieters zurücksetzen',
 		home: 'Speicher und KI',
-		homeLine: '{storage} belegt · KI diesen Monat {cost}',
-		homeOpen: 'Details'
+		homeLine: '{storage} belegt · KI diesen Monat {cost}'
 	},
 	rueckfragen: {
 		ai: {
@@ -2664,7 +2660,6 @@ export default {
 		ignore: 'Ignorieren',
 		confirmSender: 'Absender geprüft – freigeben',
 		openTx: 'Zahlung öffnen',
-		auto: 'hat sich erledigt',
 		answer: {
 			candidate: 'zugeordnet',
 			none: 'keiner davon',
@@ -4317,7 +4312,6 @@ export default {
 		noneForSelection: 'Keine Zahlungen für diese Auswahl.',
 		open: 'Zahlung öffnen',
 		trade: 'Tausch {arrow} {what}',
-		tradeTitle: 'Getauscht',
 		tradeOpen: 'andere Seite öffnen',
 		time: '{time} Uhr',
 		detail: {
@@ -4430,8 +4424,6 @@ export default {
 				'Die Absenderadresse {address} beginnt und endet wie {known}, mit der du zu tun hattest, ist aber eine andere. So eine Adresse wird mit einem winzigen Betrag in deine Historie gelegt, damit du sie beim nächsten Senden versehentlich kopierst. Nie an diese Adresse senden; die Empfängeradresse immer vollständig vergleichen.',
 			title: 'Zahlung',
 			close: 'Schließen',
-			date: 'Buchungstag',
-			quantity: 'Menge',
 			valuation: 'Kurs',
 			original: 'Bezahlt in',
 			originalAmount: '{amount} {currency}',
@@ -4488,17 +4480,11 @@ export default {
 			explorer: 'Im Block-Explorer ansehen',
 			explorerQr: 'QR-Code',
 			valueDate: 'Wertstellung',
-			amount: 'Betrag',
-			account: 'Konto',
-			bookingType: 'Buchungsart',
 			iban: 'IBAN der Gegenseite',
 			purpose: 'Verwendungszweck (vollständig)',
 			receipts: 'Beleg',
 			noReceipt: 'Noch kein Beleg zugeordnet.',
 			unlink: 'Zuordnung lösen',
-			assign: 'Beleg zuordnen',
-			suggestions: 'Vorschläge',
-			allReceipts: 'Alle anderen Belege',
 			choose: 'Zuordnen',
 			peek: {
 				label: 'Vorschau: {name}',
@@ -4513,7 +4499,6 @@ export default {
 			reason: 'Grund',
 			reasonPlaceholder: 'z. B. Bewirtung, Beleg verloren',
 			save: 'Speichern',
-			cancel: 'Abbrechen',
 			needsReceipt: 'Doch einen Beleg zuordnen',
 			bankFee: 'Bankgebühr – kein Beleg nötig',
 			counterOpen: 'Gegenbuchung öffnen',
@@ -4652,7 +4637,6 @@ export default {
 			othersOut: 'Weitere Zahlungen an {name}',
 			othersIn: 'Weitere Zahlungen von {name}',
 			othersNone: 'Keine weiteren Zahlungen mit dieser Gegenpartei.',
-			withReceipt: 'mit Beleg',
 			withoutReceipt: 'ohne Beleg',
 			privateSearch: 'Im privaten Postfach suchen',
 			privateHint:
@@ -4734,7 +4718,6 @@ export default {
 				taking: 'Übernehme …'
 			},
 			vendor: {
-				title: 'Beim Anbieter holen',
 				income:
 					'Ein Zahlungseingang: Der Beleg dazu ist deine eigene Ausgangsrechnung, nicht die Rechnung eines Anbieters. Lade sie oben hoch oder ordne sie zu.',
 				noBridge: 'Dafür die Bridge unter Integrationen koppeln.',
@@ -5232,7 +5215,6 @@ export default {
 					store: 'Dein Image bei Aleph (STORE)'
 				}
 			},
-			startTitle: 'Neue VM starten',
 			startHint:
 				'Die VM gehört dem Aleph-Schlüssel der Bücher: Die Messung nennt ihn, und nur er entsperrt sie. Aleph nimmt sie erst mit einem Tag Reserve an.',
 			payer: {
