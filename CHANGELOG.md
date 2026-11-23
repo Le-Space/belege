@@ -710,7 +710,9 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
 
 - **The E2E suite's local relay has room for every browser** (#634): it keeps a reservation until it expires, not until its peer leaves, and with the specs of several devices its 32 places ran out before the UCEP spec asked for one – which stopped 0.28.0's deploy. Test code only.
 
-## [0.28.0] – 2026-11-04 (not deployed)
+## [0.28.0] – 2026-11-04
+
+Tagged, but not deployed: its deploy stopped at its own tests. [0.28.1](#0281--2026-11-04) brought it to belege.le-space.de.
 
 ### Added
 
