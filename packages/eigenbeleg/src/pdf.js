@@ -46,8 +46,8 @@ export async function eigenbelegPdf(
 	// The same, where `t` is a transaction.
 	const tr = t;
 	const { number: deNumber, rate: deRate, money: fmtMoney, date: deDate } = formats(L);
-	const title = `Eigenbeleg ${doc.number}`;
-	const subject = `${doc.layout === 'single' ? 'Eigenbelege' : t('Sammel-Eigenbeleg', 'Collective Eigenbeleg')} ${doc.chainName}, ${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
+	const title = `${t('Eigenbeleg', 'Self-Issued Receipt')} ${doc.number}`;
+	const subject = `${doc.layout === 'single' ? t('Eigenbelege', 'Self-issued receipts') : t('Sammel-Eigenbeleg', 'Collective self-issued receipt')} ${doc.chainName}, ${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
 	const { pdf, fonts } = await createPdfA();
 	const { regular, bold, mono } = fonts;
 	const mark =
@@ -98,7 +98,7 @@ export async function eigenbelegPdf(
 			gap(6);
 		}
 		// The chain's mark only small: the document is the issuer's, not the network's.
-		l.head(t('Eigenbeleg', 'Eigenbeleg (self-issued receipt)'), {
+		l.head(t('Eigenbeleg', 'Self-Issued Receipt'), {
 			number,
 			subtitle,
 			image: mark,
@@ -212,7 +212,7 @@ export async function eigenbelegPdf(
 			});
 		gap(8);
 		if (excluded.length) {
-			label(t('Nicht auf diesem Eigenbeleg', 'Not on this Eigenbeleg'));
+			label(t('Nicht auf diesem Eigenbeleg', 'Not on this receipt'));
 			/** @type {Record<string, number>} */
 			const why = {};
 			for (const x of excluded) why[x.why] = (why[x.why] ?? 0) + 1;
@@ -220,7 +220,7 @@ export async function eigenbelegPdf(
 			text(
 				t(
 					'Alle Bewegungen des Zeitraums stehen in der CSV-Datei zu diesem Eigenbeleg.',
-					'Every movement of the period is in the CSV file of this Eigenbeleg.'
+					'Every movement of the period is in the CSV file of this receipt.'
 				),
 				{
 					size: TYPE.table,
@@ -261,7 +261,7 @@ export async function eigenbelegPdf(
 				t.number,
 				tr(
 					`Eigenbeleg für eine Zahlung auf ${doc.chainName} (${doc.network}) am ${deDate(t.time)}`,
-					`Eigenbeleg for a payment on ${doc.chainName} (${doc.network}) on ${deDate(t.time)}`
+					`Self-issued receipt for a payment on ${doc.chainName} (${doc.network}) on ${deDate(t.time)}`
 				)
 			);
 			transaction(t, { big: true });
@@ -289,7 +289,7 @@ export async function eigenbelegPdf(
 			doc.number,
 			t(
 				`Sammel-Eigenbeleg für Zahlungen auf ${doc.chainName} (${doc.network}), Zeitraum ${period}`,
-				`Collective Eigenbeleg for payments on ${doc.chainName} (${doc.network}), period ${period}`
+				`Collective self-issued receipt for payments on ${doc.chainName} (${doc.network}), period ${period}`
 			)
 		);
 		if (doc.transactions.length === 0) {

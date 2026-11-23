@@ -49,11 +49,11 @@ export const ALEPH_NOTE =
 
 /** The notes in English (language.js). */
 export const NOTE_EN =
-	'Eigenbeleg (self-issued receipt). There is no receipt from the other side for this payment: the recipient is a peer-to-peer network without an organisation that issues invoices. ' +
+	'Self-issued receipt. There is no receipt from the other side for this payment: the recipient is a peer-to-peer network without an organisation that issues invoices. ' +
 	'Issued by the payer from the public transaction; every position can be checked by its transaction hash in a public block explorer.';
 
 export const ALEPH_NOTE_EN =
-	'Eigenbeleg (self-issued receipt). There is no receipt from the other side for this payment: Aleph Cloud credits are bought by a token payment to the Aleph network; Aleph issues no invoice for it. ' +
+	'Self-issued receipt. There is no receipt from the other side for this payment: Aleph Cloud credits are bought by a token payment to the Aleph network; Aleph issues no invoice for it. ' +
 	'Issued by the payer from the public transaction; every position can be checked by its transaction hash in a public block explorer.';
 
 /**

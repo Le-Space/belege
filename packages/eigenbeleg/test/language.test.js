@@ -98,7 +98,7 @@ test('the rates’ sources in English; German text stays as it is', () => {
 	}
 });
 
-test('an Eigenbeleg in English: English words, decimal points and ISO dates; the German name stays beside the English one', async () => {
+test('an Eigenbeleg in English: English words, decimal points and ISO dates; no German names', async () => {
 	const entries = await nearEntries();
 	const doc = buildDocument({
 		payer,
@@ -120,14 +120,14 @@ test('an Eigenbeleg in English: English words, decimal points and ISO dates; the
 	);
 	const pdf = await text(await eigenbelegPdf(doc));
 	for (const words of [
-		'Eigenbeleg (self-issued receipt)',
+		'Self-Issued Receipt',
 		'No. EB-2026-007',
 		'Payer and issuer',
 		'Issued on',
 		'Recipient',
 		'Rate source',
 		'Place, date, signature of the payer',
-		'Collective Eigenbeleg for payments on NEAR Protocol (mainnet), period 2026-10-01 – 2026-10-31',
+		'Collective self-issued receipt for payments on NEAR Protocol (mainnet), period 2026-10-01 – 2026-10-31',
 		'Page 1'
 	])
 		assert.ok(pdf.includes(words), words);
@@ -156,7 +156,7 @@ test('an Eigenbeleg in English: English words, decimal points and ISO dates; the
 	});
 	const one = await text(await eigenbelegPdf(single));
 	assert.ok(
-		one.includes('Eigenbeleg for a payment on NEAR Protocol (mainnet) on 2026-'),
+		one.includes('Self-issued receipt for a payment on NEAR Protocol (mainnet) on 2026-'),
 		'the single layout'
 	);
 	assert.ok(one.includes('Why no invoice'));
@@ -229,12 +229,12 @@ test('a Kontoauszug in English: account statement, debit and credit, the check i
 		issuedAt,
 		language: 'en'
 	});
-	assert.equal(st.title, 'Account statement (Kontoauszug)');
+	assert.equal(st.title, 'Account Statement');
 	assert.equal(st.language, 'en');
 	assert.equal(st.usage, false);
 	const pdf = await text(await statementPdf(st));
 	for (const words of [
-		'Account statement (Kontoauszug)',
+		'Account Statement',
 		'Account holder',
 		'Period',
 		'2026-10-01 – 2026-10-31',
@@ -250,7 +250,15 @@ test('a Kontoauszug in English: account statement, debit and credit, the check i
 	])
 		assert.ok(pdf.includes(words), words);
 	assert.match(pdf, /Reconciled: |Not reconciled: /);
-	for (const german of ['Kontoinhaber', 'Kontostand', 'Soll', 'Haben', 'Seite', 'Abgestimmt'])
+	for (const german of [
+		'Kontoauszug',
+		'Kontoinhaber',
+		'Kontostand',
+		'Soll',
+		'Haben',
+		'Seite',
+		'Abgestimmt'
+	])
 		assert.ok(!pdf.includes(german), german);
 });
 
@@ -269,18 +277,18 @@ test('a Verbrauchsauszug in English: usage statement, the month in sums, the cha
 		issuedAt,
 		language: 'en'
 	});
-	assert.equal(st.title, 'Usage statement (Verbrauchsauszug)');
+	assert.equal(st.title, 'Usage Statement');
 	assert.equal(st.usage, true);
 	assert.equal(st.note, USAGE_NOTES_EN.aleph);
 	assert.ok(st.sections[0].monthly.usageTotal?.label === 'Usage in all (expense)');
 	const pdf = await text(await statementPdf(st));
 	for (const words of [
-		'Usage statement (Verbrauchsauszug)',
+		'Usage Statement',
 		'Statement no.',
 		'The month in sums',
 		'Usage per day',
 		'Opening and closing balance derived'
 	])
 		assert.ok(pdf.includes(words), words);
-	assert.ok(!pdf.includes('Monatsübersicht'));
+	assert.ok(!pdf.includes('Monatsübersicht') && !pdf.includes('Verbrauchsauszug'));
 });
