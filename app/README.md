@@ -140,7 +140,7 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 
 ## Matching
 
-`src/lib/matching/`, pure except `engine.js` and `actions.js`. Ported from `spikes/matching`.
+`src/lib/matching/`, pure except `engine.js` and `actions.js`. It began as a phase-0 spike (in git history, [docs/phase-0.md](../docs/phase-0.md)).
 
 - **Score** (`score.js`) of a receipt against a booking: amount 40 (absolute cents, same
   currency), invoice number in the purpose or end-to-end id 50, customer number 20 (both with

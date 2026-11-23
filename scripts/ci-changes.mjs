@@ -27,7 +27,7 @@ const E2E_RANK = { none: 0, bridge: 1, full: 2 };
  */
 export function needsOf(file) {
 	// Not part of the workspace or of these three workflows.
-	if (/^(spikes|e2e-remote)\//.test(file)) return {};
+	if (/^e2e-remote\//.test(file)) return {};
 	if (file === 'LICENSE' || /^\.github\/ISSUE_TEMPLATE\//.test(file)) return {};
 
 	// The workflows: each runs itself; the bridge job checks every workflow's shell.

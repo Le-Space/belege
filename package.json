@@ -33,19 +33,7 @@
     "test:e2e": "pnpm --filter @belege/app test:e2e",
     "test:e2e:stream": "pnpm --filter @belege/app test:e2e:stream",
     "test:bridge": "pnpm --filter @belege/bridge test",
-    "test:skills": "node --test --test-reporter=spec skills/test/skills.test.js",
-    "spike:hibiscus": "node spikes/hibiscus/probe.mjs",
-    "spike:imap": "node spikes/imap/probe.mjs",
-    "spike:llm-key": "node spikes/llm/check-key.mjs",
-    "spike:llm-samples": "node spikes/llm/fetch-samples.mjs",
-    "spike:llm-extract": "node spikes/llm/extract.mjs",
-    "spike:match": "node spikes/matching/match.mjs",
-    "spike:lan-relay": "pnpm -C spikes/lan-relay install && pnpm -C spikes/lan-relay spike"
-  },
-  "devDependencies": {
-    "fast-xml-parser": "^5.2.5",
-    "imapflow": "^2.0.6",
-    "unpdf": "^1.8.1"
+    "test:skills": "node --test --test-reporter=spec skills/test/skills.test.js"
   },
   "version": "0.53.0"
 }

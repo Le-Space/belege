@@ -1,5 +1,5 @@
 // What is blacked out before any text goes to the LLM. Moved here from the
-// phase-0 spike (spikes/llm/extract.mjs), unchanged in its rules:
+// phase-0 LLM spike (in git history), unchanged in its rules:
 //
 //   - every term in `terms` (own name, family names on tickets), any spacing
 //   - IBANs, with or without spaces; the last four characters stay, because
