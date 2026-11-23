@@ -51,7 +51,7 @@
 	"filecoin-pay": 5,
 	"filecoin-swap": 5,
 	"filecoin-wallet": 6,
-	"find-year": 3,
+	"find-period": 4,
 	"hash-chain": 4,
 	"help": 2,
 	"hosted-bridge": 211,
