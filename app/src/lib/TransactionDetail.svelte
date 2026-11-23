@@ -136,6 +136,14 @@
 		migrationCandidates
 	} from './matching/view.js';
 	import {
+		assignedElsewhere,
+		findPeriod,
+		findsAll,
+		inFindPeriod,
+		receiptSearchText,
+		searchWords
+	} from './matching/finder.js';
+	import {
 		candidateLine,
 		classificationLine,
 		matchLine,
@@ -587,6 +595,7 @@
 		altOpen = false;
 		othersOpen = false;
 		findQuery = '';
+		findText = '';
 		findTab = null;
 		askingReason = false;
 		reason = '';
@@ -1109,8 +1118,20 @@
 
 	// "Beleg finden": one search text for the lists and the private mailbox.
 	let findQuery = $state('');
-	/** @type {'passend' | 'jahr' | 'alle' | 'postfach' | 'paperless' | 'portal' | null} null: the default for this booking */
+	/** @type {'passend' | 'zeitraum' | 'alle' | 'postfach' | 'paperless' | 'portal' | null} null: the default for this booking */
 	let findTab = $state(null);
+	// The search text the receipt lists filter by: a moment after the last key,
+	// so ~2000 receipts are not filtered on every key.
+	let findText = $state('');
+	$effect(() => {
+		const q = findQuery;
+		const timer = setTimeout(() => (findText = q), 150);
+		return () => clearTimeout(timer);
+	});
+	/** Typing leaves the period for every receipt; a source picked by hand stays. */
+	const onFindInput = () => {
+		if (findTab === 'passend' || findTab === 'zeitraum') findTab = null;
+	};
 	/** The search text, when the bridge takes it as its text (3–100 plain characters). */
 	let freeText = $derived.by(() => {
 		const q = findQuery.replace(/\s+/g, ' ').trim();
@@ -1468,24 +1489,15 @@
 
 	// "Beleg finden": the search text filters the lists (every word somewhere in
 	// vendor, amount, date, number, sender, subject or file name).
+	let searchTexts = $derived(
+		new Map(
+			app.receipts.map((r) => [r.id, receiptSearchText(r, [receiptAmount(r), receiptDay(r)])])
+		)
+	);
+	let findWords = $derived(searchWords(findText));
 	/** @param {import('$lib/store/repository.js').StoredRecord} r */
-	function findsReceipt(r) {
-		const words = findQuery.toLowerCase().split(/\s+/).filter(Boolean);
-		if (!words.length) return true;
-		const hay = [
-			receiptVendor(r),
-			receiptAmount(r),
-			receiptDay(r),
-			r.invoiceNumber,
-			r.from,
-			r.subject,
-			r.fileName
-		]
-			.filter(Boolean)
-			.join(' ')
-			.toLowerCase();
-		return words.every((w) => hay.includes(w));
-	}
+	const findsReceipt = (r) =>
+		!findWords.length || findsAll(searchTexts.get(r.id) ?? receiptSearchText(r), findWords);
 	/** How far a receipt is from this booking: `Betrag gleich · 0 Tage`, `+1,86 € · +37 Tage`. @param {import('$lib/store/repository.js').StoredRecord} r */
 	function receiptDiff(r) {
 		if (!tx) return '';
@@ -1514,19 +1526,36 @@
 		scamContext({ partners: app.partners, transactions: app.transactions, accounts: app.accounts })
 	);
 	let foundSuggestions = $derived(suggestions.filter((c) => findsReceipt(c.receipt)));
-	let foundAll = $derived(choices.filter((c) => findsReceipt(c.receipt)));
-	// "Gleiches Jahr": the receipts placed in the payment's calendar year (by their date, else when they came in).
-	let foundYear = $derived(
-		foundAll.filter((c) => receiptPlacedOn(c.receipt)?.slice(0, 4) === tx?.bookedOn?.slice(0, 4))
+	// A search text looks through every receipt of the books, all years, and also
+	// through those assigned to another payment; with none, "Alle Belege" lists
+	// the open ones only.
+	let assignedOthers = $derived(
+		tx && findWords.length
+			? assignedElsewhere(tx, app.receipts, app.matches, app.transactions, choices)
+			: []
 	);
-	// No suggestion: the payment's own year first, not every receipt ever kept –
-	// one from 2019 is no answer for a payment in 2025.
-	let tab = $derived(findTab ?? (suggestions.length ? 'passend' : 'jahr'));
+	/** @typedef {{ receipt: Receipt, score: number, reasons: string[], suggested?: boolean, alongside?: any, assignedTo?: Record<string, any>[] }} FindRow */
+	/** @type {FindRow[]} */
+	let foundAll = $derived([
+		...choices.filter((c) => findsReceipt(c.receipt)),
+		...assignedOthers.filter((c) => findsReceipt(c.receipt))
+	]);
+	// The payment's period: open receipts at most FIND_PERIOD_DAYS from its day.
+	let period = $derived(findPeriod(tx?.bookedOn));
+	let foundPeriod = $derived(
+		choices.filter((c) => findsReceipt(c.receipt) && inFindPeriod(c.receipt, tx?.bookedOn))
+	);
+	// No suggestion: the receipts from around the payment, not every receipt ever
+	// kept – one from half a year away is no answer for a direct debit. A search
+	// text goes to every receipt.
+	let tab = $derived(
+		findTab ?? (findQuery.trim() ? 'alle' : suggestions.length ? 'passend' : 'zeitraum')
+	);
 	/** @param {string | number | null} id */
 	const pickTab = (id) => {
 		if (
 			id === 'passend' ||
-			id === 'jahr' ||
+			id === 'zeitraum' ||
 			id === 'alle' ||
 			id === 'postfach' ||
 			id === 'paperless' ||
@@ -1534,20 +1563,51 @@
 		)
 			findTab = id;
 	};
-	let rows = $derived(tab === 'passend' ? foundSuggestions : tab === 'jahr' ? foundYear : foundAll);
-	// An empty list says why: nothing from this year, but some from other years.
-	let emptyText = $derived(
-		tab === 'jahr' && foundAll.length
-			? t('zahlungen.detail.find.noneThisYear', {
-					year: tx?.bookedOn?.slice(0, 4) ?? '',
-					count: foundAll.length
-				})
-			: findQuery.trim()
-				? t('zahlungen.detail.find.noMatch')
-				: tab === 'passend'
-					? t('zahlungen.detail.find.noSuggestion')
-					: t('zahlungen.detail.noChoices')
+	/** @type {FindRow[]} */
+	let rows = $derived(
+		tab === 'passend' ? foundSuggestions : tab === 'zeitraum' ? foundPeriod : foundAll
 	);
+	// An empty list says why, and where to look on.
+	let emptyText = $derived(
+		tab === 'zeitraum' && findWords.length && foundAll.length
+			? t('zahlungen.detail.find.noneInPeriodSearch', { count: foundAll.length })
+			: tab === 'zeitraum' && !findWords.length
+				? t('zahlungen.detail.find.noneInPeriod', {
+						from: period ? formatDate(period.from) : '',
+						to: period ? formatDate(period.to) : ''
+					})
+				: findWords.length
+					? t('zahlungen.detail.find.noMatch')
+					: tab === 'passend'
+						? t('zahlungen.detail.find.noSuggestion')
+						: t('zahlungen.detail.noChoices')
+	);
+	/** "zugeordnet zu 01.02.2025 · −12,34 € · Wolkenfabrik": where an assigned receipt is. @param {Record<string, any>[]} txs */
+	const assignedText = (txs) =>
+		txs
+			.map((o) =>
+				[
+					o.bookedOn ? formatDate(o.bookedOn) : '',
+					formatMoney(Number(o.amountCents ?? 0), o.currency ?? 'EUR'),
+					String(o.counterparty ?? '').trim()
+				]
+					.filter(Boolean)
+					.join(' · ')
+			)
+			.join('; ');
+	/** "Hierher umhängen" from the list: the other payment needs a receipt again. @param {Receipt} receipt @param {Record<string, any>[]} from */
+	const moveChoice = (receipt, from) =>
+		act(async () => {
+			if (!tx) return;
+			await moveReceipt({
+				store: /** @type {any} */ (currentStore()),
+				receiptId: receipt.id,
+				tx,
+				fromTransactionId: from[0]?.id ?? '',
+				ctx: { companyNames: app.matchingSettings?.companyNames ?? [] }
+			});
+			assigning = false;
+		});
 
 	/** @param {Record<string, any>} c */
 	function coverageText(c) {
@@ -2951,6 +3011,7 @@
 							type="search"
 							class="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-heading"
 							bind:value={findQuery}
+							oninput={onFindInput}
 							placeholder={t('zahlungen.detail.find.placeholder')}
 							autocomplete="off"
 							data-testid="tx-find-query"
@@ -2960,7 +3021,7 @@
 							role="group"
 							aria-label={t('zahlungen.detail.find.sources')}
 						>
-							{#each [['passend', foundSuggestions.length], ['jahr', foundYear.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ...(paperlessOn ? [['paperless', paperlessHits ? paperlessHits.length : null]] : []), ['portal', null]] as [id, count] (id)}
+							{#each [['passend', foundSuggestions.length], ['zeitraum', foundPeriod.length], ['alle', foundAll.length], ['postfach', hits ? hits.length : null], ...(paperlessOn ? [['paperless', paperlessHits ? paperlessHits.length : null]] : []), ['portal', null]] as [id, count] (id)}
 								<button
 									type="button"
 									class="rounded-full border px-3 py-1 text-sm {tab === id
@@ -2969,8 +3030,14 @@
 									aria-pressed={tab === id}
 									onclick={() => pickTab(id)}
 									data-testid={`tx-find-tab-${id}`}
+									title={id === 'zeitraum' && period
+										? t('zahlungen.detail.find.periodTitle', {
+												from: formatDate(period.from),
+												to: formatDate(period.to)
+											})
+										: undefined}
 									>{t(`zahlungen.detail.find.tab.${id}`, {
-										year: tx?.bookedOn?.slice(0, 4) ?? ''
+										date: tx?.bookedOn ? formatDate(tx.bookedOn) : ''
 									})}{#if count !== null}
 										<span class="ml-1 font-mono text-xs opacity-80">{count}</span>{/if}</button
 								>
@@ -2981,7 +3048,7 @@
 							{@render uploadControls()}
 						</div>
 
-						{#if tab === 'passend' || tab === 'jahr' || tab === 'alle'}
+						{#if tab === 'passend' || tab === 'zeitraum' || tab === 'alle'}
 							<div class="mt-3" data-testid="tx-choices">
 								{#if client && choices.length}
 									<div class="mb-2" data-testid="tx-ai-choice">
@@ -3090,6 +3157,7 @@
 										{...peekHandlers(peek, c.receipt, { focusAtOnce: true })}
 										data-testid="tx-choice"
 										data-suggested={c.suggested ? 'true' : 'false'}
+										data-assigned={c.assignedTo ? 'true' : 'false'}
 									>
 										<span class="min-w-0 flex-1">
 											<span class="block truncate text-sm font-medium text-heading"
@@ -3108,6 +3176,17 @@
 															.filter(Boolean)
 															.join(' · ')}</span
 											>
+											{#if c.assignedTo}
+												<span
+													class="block truncate text-xs font-medium text-amber-800 dark:text-amber-200"
+													data-testid="tx-choice-assigned"
+													>{t('zahlungen.detail.find.assignedTo', {
+														payment:
+															assignedText(c.assignedTo) ||
+															t('zahlungen.detail.uploadElsewhereUnknown')
+													})}</span
+												>
+											{/if}
 											{#if c.alongside}
 												<span
 													class="block truncate text-xs text-heading"
@@ -3145,19 +3224,46 @@
 												data-testid="tx-choice-scam">{t('belege.scam.badge')}</span
 											>
 										{/if}
-										<button
-											type="button"
-											class={c.score >= 90 && !scam ? primary : button}
-											onclick={() => {
-												peek.close();
-												assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside));
-											}}
-											disabled={busy}
-											data-testid="tx-choose"
-											>{c.alongside
-												? t('zahlungen.detail.instalment.choose')
-												: t('zahlungen.detail.choose')}</button
-										>
+										{#if c.assignedTo}
+											{@const from = c.assignedTo}
+											<span class="flex flex-col items-end gap-1">
+												<button
+													type="button"
+													class={button}
+													onclick={() => {
+														peek.close();
+														moveChoice(c.receipt, from);
+													}}
+													disabled={busy}
+													data-testid="tx-choose-move">{t('zahlungen.detail.uploadMove')}</button
+												>
+												<button
+													type="button"
+													class={button}
+													onclick={() => {
+														peek.close();
+														assign(c.receipt.id, c.score, c.reasons, true);
+													}}
+													disabled={busy}
+													data-testid="tx-choose-alongside"
+													>{t('zahlungen.detail.find.alsoHere')}</button
+												>
+											</span>
+										{:else}
+											<button
+												type="button"
+												class={c.score >= 90 && !scam ? primary : button}
+												onclick={() => {
+													peek.close();
+													assign(c.receipt.id, c.score, c.reasons, Boolean(c.alongside));
+												}}
+												disabled={busy}
+												data-testid="tx-choose"
+												>{c.alongside
+													? t('zahlungen.detail.instalment.choose')
+													: t('zahlungen.detail.choose')}</button
+											>
+										{/if}
 									</div>
 								{:else}
 									<p class="mt-2 text-sm text-faint" data-testid="tx-find-none">

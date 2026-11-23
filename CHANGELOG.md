@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **"Beleg finden" proposes receipts from around the payment, and a search text finds every receipt.** A payment without a scored match opened on "Aus <year>": every open receipt of its calendar year, sorted by date, so a direct debit without its invoice listed receipts from months away. It now opens on "Um den <day>": the open receipts at most 30 days before or after its booking day (by the receipt's date, else the day it came in); the chip's tooltip names the days. "Passend" is unchanged. A search text switches to "Alle Belege" and looks through every receipt of the books, all years, including those already assigned to another payment; such a receipt says "schon zugeordnet zu <day · amount · counterparty>" and offers "Hierher umhängen – dort fehlt er dann" (the other payment needs a receipt again, as with a moved upload) or "Auch hier zuordnen (Teilzahlung)" (its other links stay), never a plain assign. The amount is found as typed (`12,34`, `12.34`), and the lists are filtered a moment after the last key. The empty texts point to the search instead of to other years.
+
 ### Fixed
 
 - **A relay found on Aleph counts only when its registration is signed** by Le Space's account and by the key that account authorised for that relay – for its peer ID, its addresses and its instance – as `@le-space/aleph-bootstrap` signs it (`app/src/lib/ucep/relay-proof.js`, checked with the curves the app already carries). The newest registration per relay is the one signed last, and a relay found is dialled on port 443 only. The relays last known now always follow the ones found, not only when none was found. "Technische Details" of the relays says so. No new host is contacted.
