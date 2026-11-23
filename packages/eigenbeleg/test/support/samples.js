@@ -18,6 +18,7 @@ import {
 	statementPdf,
 	valueEntries
 } from '../../src/index.js';
+import { WALLET, XYZ, tokenEntries } from './token-entries.js';
 
 export const payer = {
 	name: 'Wolkenfabrik Hosting GmbH',
@@ -444,6 +445,20 @@ export async function samples() {
 		issuedAt,
 		currency: 'USD'
 	});
+	// An Ethereum wallet with a token not in the list (#93): its section named by its contract.
+	const token = buildStatement({
+		payer,
+		account: WALLET,
+		chain: 'ethereum',
+		network: 'mainnet',
+		period,
+		entries: await valueEntries(tokenEntries(), fixedRates({ ETH: '3000', [XYZ]: '0.02' })),
+		opening: { ETH: '1', XYZ: '100' },
+		closing: { ETH: '0.5', XYZ: '40' },
+		method: 'derived',
+		number: 'KA-2026-10-TOKEN',
+		issuedAt
+	});
 	return {
 		/** @type {Record<string, Uint8Array>} */
 		pdfs: {
@@ -463,7 +478,8 @@ export async function samples() {
 			'statement-sheet.pdf': await sheet(),
 			'eigenbeleg-collective-chf.pdf': await eigenbelegPdf(chf),
 			'kontoauszug-rub.pdf': await statementPdf(rub),
-			'verbrauchsauszug-usd.pdf': await statementPdf(usd)
+			'verbrauchsauszug-usd.pdf': await statementPdf(usd),
+			'kontoauszug-token.pdf': await statementPdf(token)
 		},
 		csv: eigenbelegCsv(single),
 		csvChf: eigenbelegCsv(chf)
