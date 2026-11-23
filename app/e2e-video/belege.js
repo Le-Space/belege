@@ -84,7 +84,7 @@ export const BRAND = {
 			tagline: 'Payments and receipts, sealed on your devices.',
 			introSay: 'Le Space Belege. Payments and receipts, sealed on your devices.',
 			scene: 'Scene',
-			facts: ['no subscription, €0', 'open source, AGPL-3.0', 'no cloud, no server'],
+			facts: ['open source, AGPL-3.0', 'local-first and peer to peer', 'no cloud, no server'],
 			outroSay:
 				'Le Space Belege. Open source, no cloud, no server. Try it at belege dot le-space dot de.',
 			scan: 'Scan to open the app'
@@ -93,7 +93,7 @@ export const BRAND = {
 			tagline: 'Zahlungen und Belege, versiegelt auf deinen Geräten.',
 			introSay: 'Le Space Belege. Zahlungen und Belege, versiegelt auf deinen Geräten.',
 			scene: 'Szene',
-			facts: ['kein Abo, 0 €', 'Open Source, AGPL-3.0', 'keine Cloud, kein Server'],
+			facts: ['Open Source, AGPL-3.0', 'Local-first und Peer-to-Peer', 'keine Cloud, kein Server'],
 			outroSay:
 				'Le Space Belege. Open Source, keine Cloud, kein Server. Zu finden unter belege Punkt le-space Punkt de.',
 			scan: 'Scannen und die App öffnen'
