@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.54.0] – 2026-11-23
+
 ### Fixed
 
 - **"Kopplung lösen" forgets the pairing too** (#1014). An unpaired bridge – no key, no devices – now drops the UCEP grants and invitations of its last pairing when its node starts, so only a new invitation from its own screen pairs it again; that includes a bridge unpaired before this version. A bridge whose keychain did not answer at start, with its devices still listed, keeps its pairing. The handover that brings the bridge's key is taken only sealed with the invitation's key, as every app since sealing sends it; an app from before sealing cannot pair a bridge of this version.
