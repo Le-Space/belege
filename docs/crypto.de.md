@@ -327,7 +327,7 @@ Jede Buchung hat eine Kennung (`sourceId`), damit sie nicht doppelt gebucht wird
 
 **Ausgelassen, und Belege sagt es:**
 
-- Denoms und Token, die nicht in der Liste der Chain stehen. Dazu gehören IBC-Gutscheine `ibc/…`, Factory-Denoms und jedes ERC-20 außer dem gelisteten USDC und, auf Ethereum und Base, ALEPH. Ein Vertrag kann sich nämlich „USDC“ nennen, ohne es zu sein.
+- Denoms und Token, die nicht in der Liste der Chain stehen. Dazu gehören IBC-Gutscheine `ibc/…`, Factory-Denoms und ein ERC-20 außer dem gelisteten USDC und, auf Ethereum und Base, ALEPH, das die Wallet nie angefasst hat: ein Airdrop, Spam. Ein Vertrag kann sich nämlich „USDC“ nennen, ohne es zu sein.
 - Einträge ohne Kurs. NYX zum Beispiel hat bei CoinGecko und Kraken keinen. Sie werden beim nächsten Abruf erneut versucht.
 - Die ältere Geschichte eines gekürzten Knotens. Der Abruf sagt, ab welchem Tag der Knoten die Chain kennt. Belege ermittelt das, indem es nach Block 1 fragt. Ein Knoten, der aus einem Snapshot gestartet wurde, meldet in `/status` nämlich 0. Trag dann einen Archivknoten ein.
 
@@ -370,10 +370,11 @@ Ein Tausch sieht so aus: In einer Transaktion gibt eine eigene EVM-Wallet ein As
 **Ein Token, der nicht in der Liste der Chain steht:**
 
 - Er wird mit seiner eigenen Angabe benannt und markiert.
-- Er wird **auf einem eigenen Konto gebucht**, sobald die Wallet ihn selbst gesendet hat. Ein nur empfangener Token (ein Airdrop) wird nicht gebucht.
+- Er wird **auf einem eigenen Konto gebucht**, sobald die Wallet ihn selbst gesendet hat oder der Aufrufer seinen Vertrag nennt. Ein nur empfangener Token (ein Airdrop) wird nicht gebucht.
 - Bewertet wird er über seinen **Vertrag** bei CoinGecko, sonst über seinen Uniswap-Pool (siehe [Der Kurs eines Tages](#der-kurs-eines-tages)). Nie über das Symbol, das er sich gibt.
 - Unter dem Symbol eines gelisteten Assets (ETH, USDC, USDT, DAI, WBTC, …) oder eines schon gebuchten Tokens wird er nie gebucht.
-- Sein Bestand wird nicht gelesen. Sein Konto zeigt deshalb keinen.
+- Sein Bestand wird mit den anderen gelesen (Alchemy `alchemy_getTokenBalances`, Blockscout `tokenbalance`).
+- Der Monatsauszug gibt ihm einen eigenen Abschnitt mit der Überschrift „XYZ (laut Token-Vertrag)“, darunter sein Vertrag. Bewertet wird er über diesen Vertrag.
 - Ohne Kurs wartet er als „ohne Kurs“. Beim nächsten Abruf wird er erneut versucht.
 
 Steuerlich ist ein Tausch Veräußerung und Anschaffung zum Tageswert. Das klärst du mit dem Steuerberater.
@@ -445,7 +446,7 @@ Eine Wallet mit eigenem `api`-Endpunkt wird dort gelesen, nie über Alchemy. _In
    - Der Wert wird nicht gebucht.
    - Das Ergebnis zählt solche Transaktionen (`unknownStatus`, im Protokoll der Bridge als _without a receipt status_).
    - Für so alte Geschichte rufst du über Blockscout ab (eigener `api`-Endpunkt).
-7. `eth_getBalance` und `alchemy_getTokenBalances`, nur für die gelisteten Verträge.
+7. `eth_getBalance` und `alchemy_getTokenBalances` für die gelisteten Verträge und die nicht gelisteten, die gebucht werden (100 Verträge je Aufruf). Nach einem nie angefassten Token wird nicht gefragt.
 
 **Compute Units.** Alchemy berechnet jedem Aufruf Compute Units, im Batch jedem einzeln:
 

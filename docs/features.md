@@ -51,18 +51,21 @@ What Le Space Belege does today, by category. The app shows the same list, short
 
 ## AI – only on a click (✦)
 
-- **Five places:**
+- **Seven places:**
   1. reading a receipt's text;
   2. _Mit KI weitersuchen_ in the private mailbox;
   3. _KI-Vorschlag_ for a receipt;
   4. _KI-Vorschlag_ for the other side of an own transfer;
-  5. _Ungereimtheiten erklären_ in a vendor account.
+  5. _Ungereimtheiten erklären_ in a vendor account;
+  6. _Reise prüfen_ on a trip;
+  7. _Konto vorschlagen_ for a payment's account.
+- **Bulk runs:** _Alle neuen auslesen_ and _KI-Vorschläge für alle offenen Rückfragen_.
 - **Your own model**, set up in the bridge: by default Ollama on your computer; a provider on the internet such as DeepSeek (China) only if you choose it. Text is redacted before it is sent – that limits what leaves, it does not make it anonymous; a local model sends nothing. Le Space runs no AI.
 - **Usage in view:** tokens and cost per day, week, month and receipt. See [ai.md](ai.md).
 
 ## Crypto
 
-- **Sources:** Kraken, and own wallets on Cosmos chains (Nym, Akash, including Akash's older history), EVM chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; Blockscout or Alchemy) Bitcoin (xpub/ypub/zpub) and Filecoin (by address, through Filfox; with USDFC and swaps on SushiSwap).
+- **Sources:** Kraken, and own wallets on Cosmos chains (Nym, Akash, including Akash's older history), EVM chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon; Blockscout or Alchemy) Bitcoin (xpub/ypub/zpub), Filecoin (by address, through Filfox; with USDFC and swaps on SushiSwap), NEAR (by account id, through NearBlocks; with USDC and wNEAR) and Monero (by importing the wallet's export).
 - **Every booking in euros**, with the exact quantity and the rate of its day with its source:
   - CoinGecko, Kraken or the ECB (for the ruble, the Bank of Russia; for the tenge, the National Bank of Kazakhstan; else a cross rate through the ruble);
   - a DEX pool at the booking's block (Uniswap V2, V3 and V4, against ETH or USDC);

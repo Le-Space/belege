@@ -68,12 +68,15 @@ Was Le Space Belege heute kann, nach Themen geordnet. Eine kürzere Fassung dies
 
 ## KI, nur auf Klick (✦)
 
-- **An fünf Stellen:**
+- **An sieben Stellen:**
   1. den Text eines Belegs auslesen;
   2. _Mit KI weitersuchen_ im privaten Postfach;
   3. _KI-Vorschlag_ für einen Beleg;
   4. _KI-Vorschlag_ für die Gegenbuchung einer Umbuchung;
-  5. _Ungereimtheiten erklären_ in einem Lieferantenkonto.
+  5. _Ungereimtheiten erklären_ in einem Lieferantenkonto;
+  6. _Reise prüfen_ auf einer Reise;
+  7. _Konto vorschlagen_ für das Konto einer Zahlung.
+- **Sammelläufe:** _Alle neuen auslesen_ und _KI-Vorschläge für alle offenen Rückfragen_.
 - **Dein eigenes Modell**, eingerichtet in der Bridge: voreingestellt Ollama auf deinem Rechner; ein Anbieter im Internet wie DeepSeek (China) nur, wenn du ihn wählst. Vor dem Senden wird geschwärzt. Das begrenzt, was hinausgeht, anonym macht es den Text aber nicht. Ein lokales Modell schickt nichts hinaus. Le Space betreibt keine KI.
 - **Verbrauch im Blick:** Tokens und Kosten je Tag, Woche, Monat und Beleg. Siehe [ai.de.md](ai.de.md).
 
@@ -84,7 +87,9 @@ Was Le Space Belege heute kann, nach Themen geordnet. Eine kürzere Fassung dies
   - eigene Wallets auf Cosmos-Chains (Nym, Akash, samt älterer Akash-Geschichte);
   - EVM-Chains (Ethereum, Base, Arbitrum, OP Mainnet, Polygon), über Blockscout oder Alchemy;
   - Bitcoin (xpub/ypub/zpub);
-  - Filecoin per Adresse, über Filfox, mit USDFC und Tausch über SushiSwap.
+  - Filecoin per Adresse, über Filfox, mit USDFC und Tausch über SushiSwap;
+  - NEAR per Account-ID, über NearBlocks, mit USDC und wNEAR;
+  - Monero über den Import des Wallet-Exports.
 - **Jede Buchung in Euro**, mit genauer Menge und dem Tageskurs samt Quelle:
   - CoinGecko, Kraken oder EZB (für den Rubel die Bank of Russia, für den Tenge die Nationalbank Kasachstans, sonst ein Kreuzkurs über den Rubel);
   - ein DEX-Pool im Block der Buchung (Uniswap V2, V3 und V4, gegen ETH oder USDC);

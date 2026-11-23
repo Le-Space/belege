@@ -106,7 +106,7 @@ Auf einem **Automatikkonto** gibt es nie einen Schlüssel. Bei einem Automatikko
 
 Hat eine Buchung keinen Beleg, nimmt die App den Schlüssel, den sie für diesen Anbieter gelernt hat. Die Schlüssel lassen sich unter _Einstellungen → Buchhaltung (DATEV)_ ändern. Code: `app/src/lib/booking/suggest.js`, `tax-keys.js`.
 
-### Ein Privatanteil
+### Ein Privatanteil (#935)
 
 Eine Zahlung, die zum Teil privat ist – eine Telefon- oder Internetrechnung –, bekommt unter _Konto_ einen Prozentsatz und ein Konto („Privatanteil … % auf Konto …"). Der Export schreibt dann **zwei Buchungen, die zusammen die Zahlung ergeben**:
 

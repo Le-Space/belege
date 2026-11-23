@@ -193,4 +193,4 @@ Dieselben 108 232 Bytes von beiden: Die Domain liefert genau den CID, den die Re
 
 ## Früher: wie die Bücher sich beim Wachsen verhalten
 
-Der Bücher-Benchmark (`pnpm bench:books`, [performance.de.md](performance.de.md)) hat am 26. September 2026 den Store selbst gemessen: Nach den ersten Fixes von #78 schreiben sich 1 000 Buchungen in 9 s, `refresh()` braucht 24 ms, der erste Matching-Lauf 24 s, Entsperren bis Home 3,0 s, 11 MB in IndexedDB.
+Der Bücher-Benchmark (`pnpm --filter @belege/app bench:books`, [performance.de.md](performance.de.md)) hat am 26. September 2026 den Store selbst gemessen: Nach den ersten Fixes von #78 schreiben sich 1 000 Buchungen in 9 s, `refresh()` braucht 24 ms, der erste Matching-Lauf 24 s, Entsperren bis Home 3,0 s, 11 MB in IndexedDB.
