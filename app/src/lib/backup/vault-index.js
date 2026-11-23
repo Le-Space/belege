@@ -30,6 +30,9 @@
 // (pwa/src/lib/keys/index-keys.js), by the same author. Written only when the
 // person adds a passkey or backs up, and never while the network is paused.
 
+import { toHex } from '@le-space/ledger/bytes';
+
+import { sha256Hex } from '../hash.js';
 import { alephEndpoints } from './keeper.js';
 
 /** The aggregate key the vault is kept under, at every index address. */
@@ -103,8 +106,6 @@ async function pointerKey(root) {
 	);
 }
 
-/** @param {Uint8Array} b */
-const toHex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 /** @param {string} h */
 const fromHex = (h) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
 
@@ -150,13 +151,6 @@ export async function openPointer(root, sealed) {
 	} catch {
 		return null;
 	}
-}
-
-/** @param {string} text @returns {Promise<string>} */
-async function sha256Hex(text) {
-	return toHex(
-		new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
-	);
 }
 
 const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));

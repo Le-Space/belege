@@ -15,6 +15,8 @@
 // It is public and checked against its manifest anyway; nothing secret is
 // kept there.
 
+import { sha256Hex } from '../hash.js';
+
 /** The hosts tried, in order, after the one asked (both named in the consent screen). */
 export const ALEPH_API_HOSTS = Object.freeze(['https://api2.aleph.im', 'https://api.aleph.im']);
 
@@ -35,15 +37,6 @@ export class AlephUnavailable extends Error {
 		this.path = path;
 		this.tried = tried;
 	}
-}
-
-/** @param {Uint8Array} bytes */
-async function sha256Hex(bytes) {
-	const digest = await globalThis.crypto.subtle.digest(
-		'SHA-256',
-		/** @type {BufferSource} */ (bytes)
-	);
-	return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** Where a signed message is broadcast. */

@@ -24,6 +24,7 @@
 // change both together.
 
 import { pinsOf, unlockInstance } from '@le-space/attest-wasm/instance';
+import { toBase64, toHex } from '@le-space/ledger/bytes';
 
 /**
  * The bridge image every hosted bridge boots: the STORE of the "Bridge image"
@@ -124,11 +125,6 @@ export function attestUrlOf(relays) {
 	}
 	return null;
 }
-
-/** @param {Uint8Array} bytes */
-const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-/** @param {Uint8Array} bytes */
-const toBase64 = (bytes) => btoa(String.fromCharCode(...bytes));
 
 /**
  * What the bridge starts with, as the image reads it (bridge/rootfs/files/

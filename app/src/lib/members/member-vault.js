@@ -40,6 +40,7 @@ import {
 	openVault,
 	slotIdFor
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
+import { toHex } from '@le-space/ledger/bytes';
 
 import { COLLECTIONS } from '../store/repository.js';
 
@@ -90,8 +91,6 @@ export class MemberBundleError extends Error {
  * @property {Record<string, string>} addresses by collection, the check of each name
  */
 
-/** @param {Uint8Array} bytes */
-const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 /** @param {unknown} hex @param {number} length @param {string} what */
 function fromHex(hex, length, what) {
 	if (typeof hex !== 'string' || !new RegExp(`^[0-9a-f]{${length * 2}}$`).test(hex)) {

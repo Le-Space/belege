@@ -200,8 +200,5 @@ export async function createBlobStore({ blockstore, key, online = false }) {
 
 /** @typedef {Awaited<ReturnType<typeof createBlobStore>>} BlobStore */
 
-/** @param {Uint8Array} bytes @returns {Promise<string>} lower-case hex */
-export async function sha256Hex(bytes) {
-	const digest = await crypto.subtle.digest('SHA-256', /** @type {BufferSource} */ (bytes));
-	return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
+/** The plain SHA-256 of the bytes, lowercase hex. */
+export { sha256Hex } from '../hash.js';
