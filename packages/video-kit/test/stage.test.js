@@ -22,6 +22,21 @@ test('the stage page frames each device at its place, scaled, its name escaped',
 	assert.match(html, /id="device-laptop" style="left:80px;top:180px;width:2200px;height:1440px"/);
 	assert.match(html, /<div class="label">Phone &lt;b&gt;<\/div>/);
 	assert.match(html, /background: #101010/);
+	assert.match(html, /<div id="chapter">/);
+	assert.doesNotMatch(html, /@font-face/);
+});
+
+test('the stage takes the brand’s font for its chapter and captions, as the cards do', () => {
+	const html = stageHtml({
+		width: 1920,
+		height: 1080,
+		night: '#101010',
+		scale: 1,
+		spots: [],
+		font: { family: 'Brand', src: 'data:font/woff2;base64,AAAA' }
+	});
+	assert.match(html, /@font-face \{ font-family: Brand; src: url\(data:font\/woff2;base64,AAAA\)/);
+	assert.match(html, /#chapter \{[^}]*font-family: Brand, system-ui/);
 });
 
 /** A video that is white for `white` s, then night for `dark` s. */
