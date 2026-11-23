@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **"Beleg finden" proposes receipts from around the payment, and a search text finds every receipt.** A payment without a scored match opened on "Aus <year>": every open receipt of its calendar year, sorted by date, so a direct debit without its invoice listed receipts from months away. It now opens on "Um den <day>": the open receipts from 60 days before to 30 days after its booking day (by the receipt's date, else the day it came in; an invoice comes before its payment – the window [#617](https://github.com/Le-Space/belege/issues/617) is to use for Paperless too); the chip's tooltip names the days. "Passend" is unchanged. A search text switches to "Alle Belege" and looks through every receipt of the books, all years, including those already assigned to another payment; such a receipt says "schon zugeordnet zu <day · amount · counterparty>" and offers "Hierher umhängen – dort fehlt er dann" (the other payment needs a receipt again, as with a moved upload) or "Auch hier zuordnen (Teilzahlung)" (its other links stay), never a plain assign. The amount is found as typed (`12,34`, `12.34`), and the lists are filtered a moment after the last key. The empty texts point to the search instead of to other years.
+
 ### Fixed
 
 - **A QR code counts as "met in the room" only when it was made in the own network** (#1018). A scanned code, or one opened by link (`#qr=`), lets a device the books do not know yet in without asking only when every address it offers is a host in the own network: an mDNS name, a private or link-local address – what two browsers in one room give. A code that offers any other address – a public one, or one a STUN server saw – still connects, but an unknown device behind it is let in by the person ("möchte dazukommen"), as over a public relay. The same holds for the new device's node during the vault handover (#962). `docs/device-proof.md` says so.

@@ -4355,7 +4355,7 @@ export default {
 				sources: 'Source',
 				tab: {
 					passend: 'Matching',
-					jahr: 'From {year}',
+					zeitraum: 'Around {date}',
 					alle: 'All receipts',
 					postfach: 'Private mailbox',
 					paperless: 'Paperless',
@@ -4367,11 +4367,16 @@ export default {
 				sameAmount: 'Same amount',
 				otherCurrency: 'other currency',
 				days: '{days} days',
-				noneThisYear:
-					'None from {year}. {count} from other years are under “All receipts” – otherwise search the mailbox or the provider.',
+				periodTitle: 'Open receipts from {from} to {to}',
+				noneInPeriod:
+					'No open receipt from {from} to {to}. A search text looks through every receipt of all years, assigned ones too – otherwise search the mailbox or the provider.',
+				noneInPeriodSearch:
+					'None in this period. {count} from other times are under “All receipts”.',
+				assignedTo: 'already assigned to {payment}',
+				alsoHere: 'Assign here too (instalment)',
 				noMatch: 'Nothing found – change the search text or pick another source.',
 				noSuggestion:
-					'No receipt scores enough points. “All receipts” lists all open ones; you can keep searching in the mailbox and at the vendor.'
+					'No receipt scores enough points. A search text looks through every receipt of all years, assigned ones too; you can keep searching in the mailbox and at the vendor.'
 			},
 			poisonTitle: 'Warning: possible address poisoning',
 			spamText:

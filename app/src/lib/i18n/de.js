@@ -4412,7 +4412,7 @@ export default {
 				sources: 'Quelle',
 				tab: {
 					passend: 'Passend',
-					jahr: 'Aus {year}',
+					zeitraum: 'Um den {date}',
 					alle: 'Alle Belege',
 					postfach: 'Privates Postfach',
 					paperless: 'Paperless',
@@ -4424,11 +4424,16 @@ export default {
 				sameAmount: 'Betrag gleich',
 				otherCurrency: 'andere Währung',
 				days: '{days} Tage',
-				noneThisYear:
-					'Aus {year} keiner. {count} aus anderen Jahren stehen unter „Alle Belege“ – sonst im Postfach oder beim Anbieter weitersuchen.',
+				periodTitle: 'Offene Belege vom {from} bis {to}',
+				noneInPeriod:
+					'Vom {from} bis {to} kein offener Beleg. Ein Suchtext durchsucht alle Belege aller Jahre, auch zugeordnete – sonst im Postfach oder beim Anbieter weitersuchen.',
+				noneInPeriodSearch:
+					'In diesem Zeitraum keiner. {count} aus anderen Zeiten stehen unter „Alle Belege“.',
+				assignedTo: 'schon zugeordnet zu {payment}',
+				alsoHere: 'Auch hier zuordnen (Teilzahlung)',
 				noMatch: 'Nichts gefunden – Suchtext ändern oder eine andere Quelle wählen.',
 				noSuggestion:
-					'Kein Beleg erreicht genug Punkte. Unter „Alle Belege“ stehen alle offenen, im Postfach und beim Anbieter lässt sich weitersuchen.'
+					'Kein Beleg erreicht genug Punkte. Ein Suchtext durchsucht alle Belege aller Jahre, auch zugeordnete; im Postfach und beim Anbieter lässt sich weitersuchen.'
 			},
 			poisonTitle: 'Achtung: mögliche Adressvergiftung',
 			spamText:

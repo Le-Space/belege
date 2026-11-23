@@ -30,6 +30,7 @@ An invoice can be paid in parts: a customer pays our 10.000 € invoice as 3.500
   - a payment of exactly what is open counts as its rest ("Restbetrag", the amount's points);
   - a late date is no sign against an instalment;
   - a paid invoice takes no further payment by itself.
+- **"Beleg finden":** with no search text, a payment without a scored match opens on _Um den <day>_: the open receipts from 60 days before to 30 days after its booking day (by the receipt's date, else the day it came in; `FIND_PERIOD` in `matching/finder.js`, the window #617 is to use for Paperless too), not its whole year. A search text (vendor, amount as `12,34` or `12.34`, invoice number, sender …) goes to _Alle Belege_ and looks through every receipt of the books, all years, including those already assigned to another payment: they say "schon zugeordnet zu <day · amount · counterparty>" and offer "Hierher umhängen – dort fehlt er dann" or "Auch hier zuordnen (Teilzahlung)", never a plain assign. The mailbox and Paperless take the same search text.
 - **By hand:** under "Beleg finden" a partly paid invoice linked elsewhere is offered again ("teilweise bezahlt · … offen") with "Als weitere Teilzahlung zuordnen"; its other links stay. Linking an invoice the usual way still moves it from another payment.
 - **What you see:**
   - the payment's detail says "Teilzahlung 2 von 3 · 2025-017 · 3.000,00 € offen", then "bezahlt" (or "überzahlt um …");
