@@ -814,12 +814,20 @@ export function evmReader(chain, { baseUrl } = {}) {
 		/**
 		 * For a Kontoauszug: balances derived from today's balance less the movements since, as for
 		 * Akash; one per asset – the native coin, the listed tokens, then each unlisted token
-		 * booked, by its own balance (#93).
+		 * booked, by its own balance (#93). `contracts`: the contract of each unlisted token in the
+		 * balances, by its asset – also of one without a booking in the period, whose entries are not
+		 * in the answer.
 		 * @param {{ account: string, from: string, to: string, fetch?: typeof fetch, alchemyKey?: string, tokens?: string[] }} p
 		 */
 		statement: async (p) => {
 			const { all, balances } = await history(p);
-			return derivedStatement(all, balances, p.from, p.to);
+			/** @type {Record<string, string>} */
+			const contracts = {};
+			for (const b of /** @type {{ asset: string, contract?: string, listed?: false }[]} */ (
+				balances
+			))
+				if (b.listed === false && b.contract) contracts[b.asset] = b.contract;
+			return { ...derivedStatement(all, balances, p.from, p.to), contracts };
 		},
 		/** Alchemy answers for the chain with this key. @param {{ fetch?: typeof fetch, alchemyKey?: string }} [p] */
 		probe: async ({ fetch: f = globalThis.fetch, alchemyKey } = {}) => {

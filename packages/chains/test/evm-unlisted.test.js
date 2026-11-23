@@ -48,6 +48,7 @@ test('an unlisted token the wallet sent on: booked by its contract, its balance 
 
 	assert.ok(!st.entries.some((e) => e.asset === 'DROP'), 'an airdrop never touched stays out');
 	assert.ok(!('DROP' in st.closing));
+	assert.deepEqual(st.contracts, { XYZ }, 'only unlisted tokens, by their contract');
 	assert.ok(
 		!st.entries.some((e) => e.contract === FAKE_USDC) && st.closing.USDC === '0',
 		'a token calling itself USDC is not USDC'
@@ -73,6 +74,7 @@ test('a contract the caller names is booked although only received; a lookalike 
 		[['5', DROP]]
 	);
 	assert.deepEqual([st.opening.DROP, st.closing.DROP], ['0', '5']);
+	assert.deepEqual(st.contracts, { XYZ, DROP }, 'the contract of each unlisted balance');
 	assert.deepEqual(
 		Object.keys(st.closing),
 		['ETH', 'USDC', 'ALEPH', 'XYZ', 'DROP'],
@@ -91,4 +93,19 @@ test('the gas of the wallet’s own transaction is booked; ETH reconciles', asyn
 		['-0.00012']
 	);
 	assert.deepEqual([st.opening.ETH, st.closing.ETH], ['0', '0.49988']);
+});
+
+test('a token without a booking in the period keeps its contract in the answer', async () => {
+	const fake = fakeAlchemyFetch();
+	// The XYZ movements are in October; November has none of them.
+	const st = await reader.statement({
+		account: TOKENS_WALLET,
+		from: '2026-11-01',
+		to: '2026-11-30',
+		alchemyKey: FAKE_ALCHEMY_KEY,
+		fetch: fake.fetch
+	});
+	assert.ok(!st.entries.some((e) => e.asset === 'XYZ'));
+	assert.deepEqual([st.opening.XYZ, st.closing.XYZ], ['200', '200']);
+	assert.deepEqual(st.contracts, { XYZ });
 });
