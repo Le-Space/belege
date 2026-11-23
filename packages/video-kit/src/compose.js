@@ -188,6 +188,22 @@ export function composeResults({ results, out }) {
 }
 
 /**
+ * Cues with the cut stretches left out: a cue inside one goes, a later one
+ * moves up by what was cut before it.
+ * @template {{ t: number }} C
+ * @param {C[]} cues @param {{ from: number, to: number }[]} cuts sorted
+ * @returns {C[]}
+ */
+export function cutCues(cues, cuts) {
+	return cues
+		.filter((c) => !cuts.some((x) => c.t >= x.from && c.t < x.to))
+		.map((c) => ({
+			...c,
+			t: c.t - cuts.filter((x) => x.to <= c.t).reduce((sum, x) => sum + (x.to - x.from), 0)
+		}));
+}
+
+/**
  * One stage (stage.js) → <out>/<name>.mp4 and .srt: every device's video laid
  * onto the stage's at its place, all on the cues' clock, the voice under it.
  * @param {{ name: string, marker: number, start: number | null,
@@ -208,7 +224,12 @@ export function composeStage(meta, out) {
 	};
 	const trim = meta.start != null ? meta.start : Math.max(0, (meta.cues[0]?.t ?? 0) - 800);
 	const cues = meta.cues.map((c) => ({ ...c, t: c.t - trim }));
-	writeFileSync(join(out, `${name}.srt`), cuesToSrt(cues));
+	// Stretches left out (stage.cutWhile), on the film's clock, in order.
+	const cuts = (meta.cuts ?? [])
+		.map((c) => ({ from: Math.max(0, c.from - trim), to: c.to - trim }))
+		.filter((c) => c.to > c.from)
+		.sort((a, b) => a.from - b.from);
+	writeFileSync(join(out, `${name}.srt`), cuesToSrt(cutCues(cues, cuts)));
 
 	const videos = [{ video: stage.video, marker: meta.marker }, ...stage.devices];
 	const inputs = [];
@@ -216,14 +237,21 @@ export function composeStage(meta, out) {
 		const at = Math.max(0, trim + offsetOf(v.video, v.marker));
 		inputs.push('-ss', (at / 1000).toFixed(3), '-i', v.video);
 	}
+	// Left out of picture and voice alike; what follows moves up.
+	const keep = cuts.length
+		? `not(${cuts.map((c) => `between(t,${(c.from / 1000).toFixed(3)},${(c.to / 1000).toFixed(3)})`).join('+')})`
+		: null;
 	const chains = [];
 	let last = '0:v';
 	stage.devices.forEach((d, i) => {
 		const next = i === stage.devices.length - 1 ? 'picture' : `p${i}`;
-		chains.push(`[${last}][${i + 1}:v]overlay=x=${d.x}:y=${d.y}:eof_action=repeat[${next}]`);
+		const out = keep && next === 'picture' ? 'whole' : next;
+		chains.push(`[${last}][${i + 1}:v]overlay=x=${d.x}:y=${d.y}:eof_action=repeat[${out}]`);
 		last = next;
 	});
-	if (!stage.devices.length) chains.push('[0:v]null[picture]');
+	if (!stage.devices.length) chains.push(`[0:v]null[${keep ? 'whole' : 'picture'}]`);
+	// A constant rate first: the recordings' own is variable, and the frames are counted.
+	if (keep) chains.push(`[whole]fps=25,select='${keep}',setpts=N/25/TB[picture]`);
 	const spoken = cues.filter((c) => c.file);
 	const audio = [];
 	spoken.forEach((c, i) => {
@@ -233,7 +261,7 @@ export function composeStage(meta, out) {
 	// Padded with silence: the picture, not the last line, sets the length.
 	if (spoken.length)
 		audio.push(
-			`${spoken.map((_, i) => `[v${i}]`).join('')}amix=inputs=${spoken.length}:normalize=0:dropout_transition=0,apad[voice]`
+			`${spoken.map((_, i) => `[v${i}]`).join('')}amix=inputs=${spoken.length}:normalize=0:dropout_transition=0,apad${keep ? `,aselect='${keep}',asetpts=N/SR/TB` : ''}[voice]`
 		);
 	ffmpeg([
 		...inputs,

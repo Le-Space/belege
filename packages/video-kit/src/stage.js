@@ -53,12 +53,17 @@ const esc = (s) =>
 
 /**
  * The stage's page: night, one framed hole per device (the device's video goes
- * there), its name above it, and a place for notes.
+ * there), its name above it, a place for notes and one for the chapter.
  * @param {{ width: number, height: number, night: string, scale: number,
- *   spots: (DeviceSpot & { name: string })[] }} o
+ *   spots: (DeviceSpot & { name: string })[], font?: { family: string, src: string } | null }} o
+ *   font: the brand's (a data URI, as on the cards), for the chapter
  */
-export function stageHtml({ width, height, night, scale, spots }) {
+export function stageHtml({ width, height, night, scale, spots, font = null }) {
 	const s = scale;
+	const face = font
+		? `@font-face { font-family: ${font.family}; src: url(${font.src}) format('woff2'); font-weight: 100 900; font-display: block; }\n`
+		: '';
+	const family = `${font ? `${font.family}, ` : ''}system-ui, -apple-system, "Segoe UI", sans-serif`;
 	const frames = spots
 		.map(
 			(
@@ -69,8 +74,8 @@ export function stageHtml({ width, height, night, scale, spots }) {
 		)
 		.join('\n');
 	return `<!doctype html><html><head><meta charset="utf-8"><title>stage</title><style>
-html, body { margin: 0; width: ${width}px; height: ${height}px; background: ${night}; overflow: hidden; }
-body { font: 600 ${20 * s}px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+${face}html, body { margin: 0; width: ${width}px; height: ${height}px; background: ${night}; overflow: hidden; }
+body { font: 600 ${20 * s}px/1.3 ${family}; color: #fff; -webkit-font-smoothing: antialiased; }
 .device { position: absolute; box-sizing: content-box; outline: ${2 * s}px solid rgba(255,255,255,0.16);
   border-radius: ${6 * s}px; transition: outline-color 300ms, opacity 300ms; }
 .device.on { outline: ${3 * s}px solid var(--accent, #c6f432); }
@@ -84,13 +89,28 @@ body { font: 600 ${20 * s}px/1.3 system-ui, -apple-system, "Segoe UI", sans-seri
 .note.ok { background: #1f6f43; }
 #caption { position: absolute; left: 0; right: 0; bottom: 0; display: none; text-align: center;
   padding: ${16 * s}px ${28 * s}px; background: rgba(17, 24, 39, 0.86);
-  font: 600 ${22 * s}px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.01em; }
+  font: 600 ${22 * s}px/1.35 ${family}; letter-spacing: 0.01em; }
 #caption.on { display: block; }
 #overlay { position: absolute; inset: auto ${60 * s}px ${130 * s}px ${60 * s}px; display: none;
   padding: ${18 * s}px ${24 * s}px; border-radius: ${10 * s}px; background: rgba(10,14,22,0.94);
+  border-left: ${4 * s}px solid var(--accent, #c6f432);
   font: 500 ${18 * s}px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; z-index: 2; }
-#overlay.on { display: block; }
+#overlay.on { display: block; animation: rise 420ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(${16 * s}px); } }
+/* The chapter: a number in the accent, a rule that draws itself, the title sliding in. */
+#chapter { position: absolute; left: ${40 * s}px; top: ${22 * s}px; display: flex; align-items: center;
+  gap: ${16 * s}px; font-family: ${family}; }
+#chapter .n { color: var(--accent, #c6f432); font-size: ${22 * s}px; font-weight: 600; letter-spacing: .18em;
+  opacity: 0; transition: opacity 300ms; }
+#chapter .rule { width: 0; height: ${3 * s}px; background: var(--accent, #c6f432); border-radius: ${2 * s}px;
+  transition: width 500ms cubic-bezier(.2,.8,.2,1) 120ms; }
+#chapter .title { font-size: ${34 * s}px; font-weight: 700; letter-spacing: -.01em; opacity: 0;
+  transform: translateX(${-18 * s}px); transition: opacity 450ms 320ms, transform 600ms cubic-bezier(.2,.8,.2,1) 320ms; }
+#chapter.on .n { opacity: 1; }
+#chapter.on .rule { width: ${56 * s}px; }
+#chapter.on .title { opacity: 1; transform: none; }
 </style></head><body>
+<div id="chapter"><span class="n"></span><span class="rule"></span><span class="title"></span></div>
 ${frames}
 <div id="notes"></div>
 <div id="overlay"></div>
@@ -104,8 +124,10 @@ ${frames}
  * @param {Record<string, string> | string[]} lines every sentence the stage will say
  * @param {{ devices: Record<string, DeviceSpot>, lang?: string, captions?: boolean,
  *   voice?: import('./voice.js').Voice | null, night?: string, accent?: string,
+ *   font?: { family: string, src: string } | null,
  *   size?: { width: number, height: number } }} options size: the frame
- *   (default: the test's viewport, else 1920×1080)
+ *   (default: the test's viewport, else 1920×1080); font: the brand's, for the
+ *   chapter titles and captions (as on the cards)
  */
 export async function startStage(
 	browser,
@@ -118,6 +140,7 @@ export async function startStage(
 		voice = null,
 		night = '#0b0e15',
 		accent = '#c6f432',
+		font = null,
 		size
 	}
 ) {
@@ -178,7 +201,7 @@ export async function startStage(
 		...spots.map((d) => turnNight(made[d.name].page, d.name))
 	]);
 	await stagePage.setContent(
-		stageHtml({ width: viewport.width, height: viewport.height, night, scale, spots })
+		stageHtml({ width: viewport.width, height: viewport.height, night, scale, spots, font })
 	);
 	await stagePage.evaluate(
 		(a) => document.documentElement.style.setProperty('--accent', a),
@@ -189,6 +212,8 @@ export async function startStage(
 	const cues = [];
 	/** @type {number | null} */
 	let start = null;
+	/** Stretches compose.js leaves out (cue clock, ms). @type {{ from: number, to: number }[]} */
+	const cuts = [];
 	const painted = (/** @type {import('@playwright/test').Page} */ page) =>
 		page.evaluate(
 			() =>
@@ -259,6 +284,29 @@ export async function startStage(
 				{ id, text, kind }
 			);
 		},
+		/**
+		 * The chapter, top left: its number, a rule and the title, animated in;
+		 * the next chapter takes its place, `null` takes it away.
+		 * @param {string | null} title @param {{ n?: number | string }} [o]
+		 */
+		async chapter(title, { n = '' } = {}) {
+			await stagePage.evaluate(
+				async ({ title, n }) => {
+					const el = /** @type {HTMLElement} */ (document.getElementById('chapter'));
+					if (el.classList.contains('on')) {
+						el.classList.remove('on');
+						await new Promise((r) => setTimeout(r, 380));
+					}
+					if (title == null) return;
+					const number = /** @type {HTMLElement} */ (el.querySelector('.n'));
+					number.textContent = n === '' ? '' : String(n).padStart(2, '0');
+					/** @type {HTMLElement} */ (el.querySelector('.title')).textContent = title;
+					void el.offsetWidth;
+					el.classList.add('on');
+				},
+				{ title, n }
+			);
+		},
 		/** A panel of text over the frame (a log, a proof); `null` hides it. @param {string | null} text */
 		async overlay(text) {
 			await stagePage.evaluate((text) => {
@@ -266,6 +314,22 @@ export async function startStage(
 				el.textContent = text ?? '';
 				el.classList.toggle('on', text != null);
 			}, text);
+		},
+		/**
+		 * Run `act` and leave its time out of the film: a wait the viewer need
+		 * not sit through (an answer that takes a while). Nothing should be said
+		 * meanwhile – a line in a cut is cut with it.
+		 * @template T @param {() => Promise<T>} act @returns {Promise<T>}
+		 */
+		async cutWhile(act) {
+			const from = Date.now() - t0;
+			try {
+				return await act();
+			} finally {
+				// A moment of the result stays in: the cut ends just before it shows.
+				const to = Date.now() - t0 - 300;
+				if (to > from) cuts.push({ from, to });
+			}
 		},
 		/** Silence for a moment. */
 		beat: (ms = 1200) => stagePage.waitForTimeout(ms),
@@ -314,6 +378,7 @@ export async function startStage(
 						stage: { video: stageVideo, ...viewport, devices: placed },
 						marker: markers.stage,
 						start,
+						cuts,
 						cues
 					},
 					null,
