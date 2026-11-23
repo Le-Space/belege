@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A fake Alchemy as a fetch, without a server, so it runs in a browser too
 // (test/browser/scenario.js): a short made-up Ethereum history of one wallet
-// with a token the chain does not list (#93). It answers only what the
+// with a token the chain does not list (#93), and a poisoning contract's
+// fake transfer "from" the wallet. It answers only what the
 // reader asks for such a history; every address, hash and amount is made up.
 
 const hex = (/** @type {number | bigint} */ n) => `0x${n.toString(16)}`;
@@ -16,6 +17,12 @@ export const XYZ = `0x${pad('5e')}`;
 export const DROP = `0x${pad('d7')}`;
 /** A token calling itself USDC: never booked, named or not. */
 export const FAKE_USDC = `0x${pad('fa')}`;
+/**
+ * Address poisoning: a contract that emits a transfer "from" the wallet in a
+ * transaction someone else sent. The wallet never sent it: not booked.
+ */
+export const POISON = `0x${pad('9e')}`;
+const SPAMMER = `0x${pad('e4')}`;
 
 const T0 = Date.parse('2026-10-01T10:00:00Z') / 1000;
 const time = (/** @type {number} */ block) => new Date((T0 + block * 3600) * 1000).toISOString();
@@ -99,6 +106,26 @@ const TXS = [
 				from: FRIEND,
 				to: TOKENS_WALLET,
 				value: 9_000_000n
+			}
+		]
+	},
+	{
+		hash: txHash('05'),
+		block: 45,
+		from: SPAMMER,
+		to: POISON,
+		value: 0n,
+		gasUsed: 70000n,
+		gasPrice: 1_000_000_000n,
+		logs: [
+			{
+				i: 0,
+				contract: POISON,
+				symbol: 'ERC',
+				decimals: 18,
+				from: TOKENS_WALLET,
+				to: SPAMMER,
+				value: 1400n * 10n ** 18n
 			}
 		]
 	}
