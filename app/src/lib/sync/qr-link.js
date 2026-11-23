@@ -92,3 +92,67 @@ export async function payloadKind(text) {
 		return null;
 	}
 }
+
+/** An mDNS-masked host address, as browsers give their own: `<uuid>.local`. */
+const MDNS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.local$/i;
+
+/**
+ * Whether an address is one of the own network: mDNS-masked, a private,
+ * link-local or loopback IPv4, or a unique-local, link-local or loopback IPv6.
+ * A loopback address reaches only the same machine.
+ *
+ * @param {string} address
+ */
+export function ownNetworkAddress(address) {
+	const a = String(address ?? '').toLowerCase();
+	if (MDNS.test(a)) return true;
+	const v4 = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(a);
+	if (v4) {
+		const [x, y] = [Number(v4[1]), Number(v4[2])];
+		return (
+			x === 10 ||
+			x === 127 ||
+			(x === 172 && y >= 16 && y <= 31) ||
+			(x === 192 && y === 168) ||
+			(x === 169 && y === 254)
+		);
+	}
+	return a === '::1' || (a.includes(':') && /^(f[cd][0-9a-f]{0,2}|fe[89ab][0-9a-f]?):/.test(a));
+}
+
+/**
+ * Whether an ICE candidate line names a host in the own network – no address
+ * a STUN server saw (srflx, prflx), no relay.
+ *
+ * @param {string} line `candidate:…`, with or without `a=`
+ */
+export function ownNetworkCandidate(line) {
+	const parts = String(line ?? '')
+		.replace(/^(a=)?candidate:/, '')
+		.trim()
+		.split(/\s+/);
+	return (
+		parts.length >= 8 && parts[6] === 'typ' && parts[7] === 'host' && ownNetworkAddress(parts[4])
+	);
+}
+
+/**
+ * Whether a code was made in the own network: every address it offers is a
+ * host there. Only then does the peer count as met in the room
+ * (first-contact.js); a code with an address from elsewhere – one that came
+ * by link from far away – still connects, but a device the books do not know
+ * is then let in by the person, not by itself.
+ *
+ * @param {string} text the scanned or linked code
+ */
+export async function madeInOwnNetwork(text) {
+	try {
+		const payload = /** @type {any} */ (await parsePayload(String(text ?? '').trim()));
+		const lines = Array.isArray(payload?.candidates)
+			? payload.candidates.map(String)
+			: [...String(payload?.sdp ?? '').matchAll(/^a=candidate:(.+)$/gm)].map((m) => m[1]);
+		return lines.length > 0 && lines.every(ownNetworkCandidate);
+	} catch {
+		return false;
+	}
+}
