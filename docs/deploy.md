@@ -88,8 +88,8 @@ Repository secret `ALEPH_PRIVATE_KEY` in Le-Space/belege: the key of that accoun
 ## The bridge
 
 `https://belege.le-space.de` is in the bridge's default app origins. An existing
-`~/.config/belege/bridge.json` keeps its own list: add it with `pnpm setup:hibiscus`
-(question "App origins"). The bridge answers Chrome's Private Network Access preflight,
+`~/.config/belege/bridge.json` keeps its own list: add it with
+`pnpm setup:origins -- --add https://belege.le-space.de` and restart the bridge. The bridge answers Chrome's Private Network Access preflight,
 which a public HTTPS page needs to reach `http://127.0.0.1`.
 
 ## Version numbers

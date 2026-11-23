@@ -62,6 +62,7 @@ What Belege is built from is usable on its own:
 | [`@le-space/ledger`](packages/ledger), [`@le-space/rates`](packages/rates)                                               | One booking format for chain readers, and the euro rate of a day with its source               |
 | [`@le-space/eigenbeleg`](packages/eigenbeleg), [`@le-space/pdf`](packages/pdf)                                           | A payer's own receipt as PDF/A                                                                 |
 | [`@le-space/charts`](packages/charts)                                                                                    | Charts as series and plain shapes, drawn the same as SVG and in a PDF                          |
+| [`@le-space/video-kit`](packages/video-kit)                                                                              | Narrated demo films of a web app, recorded by Playwright from sample data                      |
 | [`@le-space/ucep`](https://github.com/Le-Space/ucep-js)                                                                  | Extensions between peers: pairing, grants and calls over libp2p                                |
 | [`@le-space/orbitdb-storage-bridge`](https://github.com/NiKrause/orbitdb-storage-bridge)                                 | OrbitDB databases backed up to and restored from decentralised storage                         |
 | [`@le-space/orbitdb-identity-provider-webauthn-did`](https://github.com/Le-Space/orbitdb-identity-provider-webauthn-did) | A passkey as an OrbitDB identity                                                               |
@@ -70,7 +71,7 @@ The packages in this repository are AGPL-3.0-or-later; the crypto-ledger schema 
 
 ## Getting started
 
-The app runs at [belege.le-space.de](https://belege.le-space.de/) or locally. Without the bridge you can already import CAMT.053 statements. Everything else goes through the bridge, which runs on your own computer, from a checkout of this repository:
+The app runs at [belege.le-space.de](https://belege.le-space.de/) or locally. Without the bridge you can already import CAMT.053 statements. Everything else goes through the bridge, which runs on your own computer, from a checkout of this repository. It needs Node.js 22 or newer and pnpm 10 (the version in `package.json`, e.g. through `corepack enable`):
 
 ```bash
 pnpm install
@@ -89,9 +90,12 @@ Each source is set up once, in the terminal; secrets go into the macOS keychain,
 | `pnpm setup:kraken`        | Kraken, read only                                                                                                                                                                         |
 | `pnpm setup:alchemy`       | optional: EVM wallets through Alchemy                                                                                                                                                     |
 | `pnpm setup:bitcoin`       | a Bitcoin wallet by its extended public key (xpub, ypub, zpub)                                                                                                                            |
+| `pnpm setup:paperless`     | optional: Paperless-ngx as a receipt source, its address and API token                                                                                                                    |
+| `pnpm setup:blockscout`    | optional: a Blockscout key for the Filecoin Pay statement                                                                                                                                 |
 | `pnpm setup:coingecko`     | optional: a CoinGecko key for rates                                                                                                                                                       |
 | `pnpm setup:relay`         | optional: a relay for your own devices in your own network                                                                                                                                |
 | `pnpm setup:aleph`         | optional: the bridge's own key for the backup on Aleph Cloud                                                                                                                              |
+| `pnpm setup:origins`       | the pages allowed to call the bridge, e.g. `-- --add https://belege.le-space.de`                                                                                                          |
 
 Own Cosmos and EVM wallets are added in the app (_Integrationen → Eigene Wallets_) and need no setup.
 
@@ -115,10 +119,10 @@ Any other agent takes the folders under `skills/` into its skills directory. Eac
 
 ```bash
 pnpm dev               # the app on http://localhost:5173
-pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:e2e
+pnpm lint && pnpm check && pnpm test:unit && pnpm test:bridge && pnpm test:packages && pnpm test:e2e
 ```
 
-Every push and pull request runs them as three workflows (unit, E2E, bridge), the badges above. A pull request runs only what its files can affect ([`scripts/ci-changes.mjs`](scripts/ci-changes.mjs): docs skip the browser specs, the bridge alone runs only the specs that pair a bridge), and the browser specs run in shards side by side; a push to `main` runs everything, and a release runs all three again, in full, before anything is published.
+Every push and pull request runs them as four workflows: unit, E2E and bridge (the badges above) and the package tests ([`packages.yml`](.github/workflows/packages.yml)). A pull request runs only what its files can affect ([`scripts/ci-changes.mjs`](scripts/ci-changes.mjs): docs skip the browser specs, the bridge alone runs only the specs that pair a bridge), and the browser specs run in shards side by side; a push to `main` runs everything, and a release runs all four again, in full, before anything is published.
 
 The app is in [`app/`](app/README.md), the bridge in [`bridge/`](bridge/README.md). A release deploys to belege.le-space.de ([docs/deploy.md](docs/deploy.md)).
 

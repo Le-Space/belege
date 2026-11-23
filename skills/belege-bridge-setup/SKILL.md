@@ -72,6 +72,7 @@ from them.
    | `pnpm setup:llm`                 | the person's own language model: by default Ollama on this computer (1), LibertAI's attested enclave (2), or by choice another OpenAI-compatible URL, such as DeepSeek – China (3); the terms to black out; the key | `llm`                           |
    | `pnpm setup:kraken`              | Kraken, read only: a key with *Query Funds* and *Query Ledger Entries* only, nothing that trades or withdraws | `kraken`                        |
    | `pnpm setup:alchemy`             | optional: own EVM wallets through Alchemy instead of rate-limited Blockscout; `-` deletes the key          | `alchemy`                       |
+   | `pnpm setup:blockscout`          | optional: a Blockscout key for the Filecoin Pay statement; without it Blockscout answers only a few requests; `-` deletes the key | `blockscout`                    |
    | `pnpm setup:bitcoin`             | a Bitcoin wallet by its xpub/ypub/zpub (shows every address, spends nothing)                              | `bitcoin`                       |
    | `pnpm setup:coingecko`           | optional: a CoinGecko demo key for more rate requests                                                     | `coingecko`                     |
    | `pnpm setup:paperless`           | optional: a Paperless-ngx on this machine (or https), its API token                                       | `paperless`                     |

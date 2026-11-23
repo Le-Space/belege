@@ -8,7 +8,11 @@ pnpm test:unit    # vitest, Node
 pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 ```
 
-## Architecture (phase 1, steps 1 to 4)
+This README covers the architecture, the interface, bank import, receipts and matching. The
+other areas – crypto wallets, travel, export, sharing, the phone – are in
+[docs/features.md](../docs/features.md).
+
+## Architecture
 
 - **Identity = passkey.** A WebAuthn passkey is the identity: its P-256 key gives the DID
   (`did:key:…`, via `@le-space/orbitdb-identity-provider-webauthn-did`). Create a passkey, or
@@ -33,7 +37,7 @@ pnpm test:e2e     # Playwright, Chromium with a virtual passkey (PRF)
 - **Persistent storage.** Helia on `LevelBlockstore`/`LevelDatastore` (IndexedDB
   `belege/helia-blocks`, `belege/helia-data`), OrbitDB logs under `belege/orbitdb`; no keystore.
 - **Data layer** (`src/lib/store/`): sealed OrbitDB documents databases `transactions`,
-  `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, `events`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
+  `receipts`, `partners`, `accounts`, `settings`, `matches`, `questions`, `events`, `travel`, indexed by a ULID `id`; every record has `createdAt`, `updatedAt`,
   `deleted` (soft delete) and `author` (DID); money in integer cents. `sealed-documents.js` exists
   because `@orbitdb/core` 4.0.0 drops the `encryption` option for documents databases.
 - **Offline unless device sync is on.** By default libp2p runs with gossipsub for OrbitDB but
@@ -89,7 +93,7 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - **Footer**: "Gebaut mit Le Space", the build commit and its instant (from `git log`, in the
   reader's zone, UTC on hover) and "Quellcode" linking to this repository.
 
-## Bank import (step 2)
+## Bank import
 
 - **Hibiscus through the bridge** (`src/lib/bridge/`, `src/lib/bank/hibiscus-sync.js`): pair on
   Integrationen with the code the bridge prints; the token goes into the sealed `settings`
@@ -104,7 +108,7 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
   "Nur ohne Beleg"/"Alle".
 - The E2E spec `e2e/bank-import.spec.js` runs a fake Hibiscus and the real bridge in test mode.
 
-## Receipts (step 3)
+## Receipts
 
 - **Sources** (Belege page): "E-Mails abrufen" asks the bridge for the mails to the accounting
   address in the chosen months (default: this month and the last) and imports every PDF or image
@@ -134,7 +138,7 @@ Several files are ported from [Le-Space/simple-todo](https://github.com/Le-Space
 - The E2E spec `e2e/receipts.spec.js` runs a fake IMAP server with a synthetic mailbox, a fake LLM
   and the real bridge in test mode.
 
-## Matching (step 4)
+## Matching
 
 `src/lib/matching/`, pure except `engine.js` and `actions.js`. Ported from `spikes/matching`.
 
@@ -232,8 +236,10 @@ Two things happen that a person should be able to follow, and they are different
 
 ### Gaps
 
-- **Images**: no OCR yet; photographed receipts are stored and shown ("Bild – Auslesen folgt").
-  Scanned PDFs without a text layer are marked the same way.
+- **Images**: the app itself has no OCR. A scan or photo that comes from Paperless-ngx is read
+  from Paperless' OCR text (`receipts/extract.js`); one uploaded, mailed or taken from a folder is
+  stored and shown, but not read ("Bild – Auslesen folgt"). Scanned PDFs without a text layer and
+  without Paperless' text are marked the same way.
 - **HTML-only invoices**: a mail without an attachment is read from its first 2 KB of text only;
   longer HTML invoices lose their tail, and tables lose their layout.
 - **Portal downloads**: "your invoice is online" mails only link to a vendor portal. Vodafone
@@ -242,9 +248,10 @@ Two things happen that a person should be able to follow, and they are different
   has to be downloaded by hand ("Portal öffnen") and uploaded onto the booking.
 - **Tables**: pdf.js glues table rows together (docs/phase-0.md); dates in tables can be read
   wrong.
-- **Matching**: one receipt pays one booking (instalments need a link by hand per booking); a
-  booking can carry several receipts, the list shows the first. Card payments on another bank's
-  statement (Revolut) match once that statement is imported. Four digits of a Hibiscus account
+- **Matching**: an invoice paid in instalments carries several payments until they add up to it
+  (`matching/instalments.js`, [docs/matching.md](../docs/matching.md)); a booking can carry
+  several receipts, the list shows the first. Card payments on a card statement from a second bank
+  match once that statement is imported. Four digits of a Hibiscus account
   count as ours only with the counter-booking; enter full IBANs under "Eigene Anweisungen"
   otherwise. Private-mailbox hits are imported only by hand.
 - The folder watch skips a path it imported before, so a file replaced under the same name is not
