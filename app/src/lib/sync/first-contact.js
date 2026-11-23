@@ -1,7 +1,8 @@
 // "Beides" (issue #148, step 2d): own devices meet at the public relays, at
 // the relay in the own bridge and by QR – but a device the books do not know
 // yet is let in only over the own network: a connection built by two scanned
-// codes, or one through the bridge's relay. Once its record is in the books
+// codes that offer hosts in the own network only (qr-link.js), or one through
+// the bridge's relay. Once its record is in the books
 // (it replicates), it may come over the public relays too. A device someone
 // adds from far away, with a passkey that leaked, gets nothing.
 //

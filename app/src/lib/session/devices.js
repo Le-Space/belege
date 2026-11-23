@@ -112,16 +112,19 @@ export async function qrInvite() {
  * @returns {Promise<{ answer: string } | { connected: string }>}
  */
 export async function qrScanned(text) {
-	const { qrSession, payloadKind, payloadPeer, qrPeers } = await import('../sync/qr-link.js');
+	const { qrSession, payloadKind, payloadPeer, qrPeers, madeInOwnNetwork } = await import(
+		'../sync/qr-link.js'
+	);
 	const qr = qrSession();
 	if (!qr) throw new Error(t('messages.sync.noQrSession'));
 	const kind = await payloadKind(text);
 	if (kind !== 'offer' && kind !== 'answer') {
 		throw new Error(t('messages.sync.notQrCode'));
 	}
-	// Met in the room: a path in the own network ("Beides", sync/first-contact.js).
-	// Noted before the connection opens; dropped when the signature fails.
-	const peer = await payloadPeer(text);
+	// Met in the room: a path in the own network ("Beides", sync/first-contact.js),
+	// when every address the code offers is a host there. Noted before the
+	// connection opens; dropped when the signature fails.
+	const peer = (await madeInOwnNetwork(text)) ? await payloadPeer(text) : null;
 	if (peer) qrPeers.add(peer);
 	/** @type {string} */
 	let peerId;
@@ -190,8 +193,9 @@ async function handOverIfAsked(peerId) {
 		answerOffer: async (offer) => {
 			const qr = qrLink.qrSession();
 			if (!qr) throw new Error(t('messages.sync.noQrSession'));
-			// The new device's books' node: met through the one met in the room.
-			const next = await qrLink.payloadPeer(offer);
+			// The new device's books' node: met through the one met in the room,
+			// when its code too offers hosts in the own network only.
+			const next = (await qrLink.madeInOwnNetwork(offer)) ? await qrLink.payloadPeer(offer) : null;
 			if (next) qrLink.qrPeers.add(next);
 			return qr.acceptOffer(offer.trim());
 		}
