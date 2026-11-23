@@ -42,7 +42,7 @@ Hibiscus (in Jameica) fetches your German bank accounts via FinTS. The bridge re
 
 ## Enable Banking
 
-[Enable Banking](https://enablebanking.com) is an account information service (AIS) under PSD2. After you consent at your bank, it reads your accounts and transactions and passes them on. It reaches banks Hibiscus does not, for example Revolut, Wise and most banks outside Germany.
+[Enable Banking](https://enablebanking.com) is an account information service (AIS) under PSD2. After you consent at your bank, it reads your accounts and transactions and passes them on. It reaches banks Hibiscus does not, for example some online banks and most banks outside Germany.
 
 ### Your own application
 
