@@ -96,6 +96,9 @@ importers:
       '@libp2p/interface':
         specifier: 3.3.0
         version: 3.3.0
+      '@libp2p/peer-id':
+        specifier: 6.0.15
+        version: 6.0.15
       '@libp2p/utils':
         specifier: 7.4.1
         version: 7.4.1
@@ -129,9 +132,6 @@ importers:
       blockstore-level:
         specifier: 4.0.1
         version: 4.0.1
-      datastore-core:
-        specifier: ^11.0.0
-        version: 11.0.4
       datastore-level:
         specifier: 13.0.1
         version: 13.0.1
@@ -172,9 +172,6 @@ importers:
       '@libp2p/memory':
         specifier: 2.0.28
         version: 2.0.28
-      '@libp2p/peer-id':
-        specifier: 6.0.15
-        version: 6.0.15
       '@playwright/test':
         specifier: 1.61.1
         version: 1.61.1
@@ -211,9 +208,6 @@ importers:
       globals:
         specifier: 16.3.0
         version: 16.3.0
-      playwright:
-        specifier: 1.61.1
-        version: 1.61.1
       prettier:
         specifier: 3.6.2
         version: 3.6.2
@@ -2569,9 +2563,6 @@ packages:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
     engines: {node: '>=4'}
     hasBin: true
-
-  datastore-core@11.0.4:
-    resolution: {integrity: sha512-k755ayqP66Q8NuzvVKTZiaTgcTJU1/EMmQAQ0OtZNA13JX1pFw+aCu42Db6/Q7LuyJUcBtqAJdfOjM7zA8/8Lw==}
 
   datastore-core@12.0.1:
     resolution: {integrity: sha512-pfgIE5LG0Z5oyc6TxiLaF/0j4Gh1Yrs2+Ck/qssf9Oxw4s4YKC3zpqifuzThnKakAFWONr/vRv+66Koc0yJvyA==}
@@ -8431,19 +8422,6 @@ snapshots:
       randomfill: 1.0.4
 
   cssesc@3.0.0: {}
-
-  datastore-core@11.0.4:
-    dependencies:
-      '@libp2p/logger': 6.2.13
-      interface-datastore: 9.0.3
-      interface-store: 7.0.2
-      it-drain: 3.0.12
-      it-filter: 3.1.6
-      it-map: 3.1.6
-      it-merge: 3.0.15
-      it-pipe: 3.0.1
-      it-sort: 3.0.11
-      it-take: 3.0.11
 
   datastore-core@12.0.1:
     dependencies:

@@ -23,9 +23,6 @@ import { sealedFile } from './sealed-file.js';
 
 export const API = 'https://api.enablebanking.com';
 
-/** Where the bank sends the browser back to: the app's own page. */
-export const DEFAULT_REDIRECT_URL = 'https://belege.le-space.de/integrationen/bank/verbunden';
-
 /**
  * The application key and, later, the sessions: sealed beside the
  * configuration, opened by the keychain's `enablebanking` entry.

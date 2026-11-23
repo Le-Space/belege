@@ -20,7 +20,7 @@
 //   - gas: every transaction this address sent costs gasUsed × gasPrice,
 //     also a failed one; an entry of its own (type fee). On rollups
 //     (Optimism, Base, Arbitrum) the L1 data fee is not in this API and is
-//     missing – see docs/wallets.md.
+//     missing – see docs/crypto.md#own-wallets.
 //   - a failed transaction (isError 1 or txreceipt_status 0) moved nothing
 //     but its gas.
 //   - value out or in: an entry sent or received; to itself: none.
