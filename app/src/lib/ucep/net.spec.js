@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	FALLBACK_RELAYS,
-	TRUSTED_RELAY_OWNERS,
 	TRUSTED_RELAY_SENDERS,
 	RELAY_REGISTRATION,
 	browserDialable,
@@ -13,6 +12,7 @@ import {
 	relaysFromPosts,
 	twoN6Host
 } from './net.js';
+import { signedContent, testKey } from './relay-proof.fixtures.js';
 
 const A = '0x000000000000000000000000000000000000000a';
 const B = '0x000000000000000000000000000000000000000b';
@@ -112,7 +112,6 @@ describe('relayAddrs', () => {
 	});
 
 	it('puts a relay of a trusted account first, once Aleph confirms its instance', async () => {
-		const owner = TRUSTED_RELAY_OWNERS[0];
 		const sender = '0x0000000000000000000000000000000000000001';
 		const relay = `/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_B}`;
 		const wallet = `/dns4/a.example.com/tcp/443/tls/ws/p2p/${PEER_A}`;
@@ -132,16 +131,39 @@ describe('relayAddrs', () => {
 						);
 					if (url.searchParams.get('addresses'))
 						return new Response(JSON.stringify({ posts: [post(sender, 1, [wallet])] }));
-					return new Response(JSON.stringify({ posts: [ownerPost(owner, INSTANCE, 2, [relay])] }));
+					return new Response(
+						JSON.stringify({ posts: [ownerPost(OWNER_KEY, INSTANCE, 2, [relay])] })
+					);
 				}
 			);
-		const senders = [sender];
-		expect(await relayAddrs({ configured: '', fetch: fetchWith(owner), senders })).toEqual([
+		const options = { configured: '', senders: [sender], owners: [OWNER] };
+		expect(await relayAddrs({ ...options, fetch: fetchWith(OWNER) })).toEqual([
 			relay,
-			wallet
+			wallet,
+			...FALLBACK_RELAYS
 		]);
-		expect(await relayAddrs({ configured: '', fetch: fetchWith(STRANGER), senders })).toEqual([
-			wallet
+		expect(await relayAddrs({ ...options, fetch: fetchWith(STRANGER) })).toEqual([
+			wallet,
+			...FALLBACK_RELAYS
+		]);
+	});
+
+	it('keeps the relays last known after the ones found, once per host', async () => {
+		const [first] = FALLBACK_RELAYS;
+		const host = first.split('/')[2];
+		const found = /** @type {any} */ (
+			async (/** @type {URL} */ url) =>
+				new Response(
+					JSON.stringify({
+						posts: url.searchParams.get('addresses')
+							? [post(A, 1, [`/dns4/${host}/tcp/443/tls/ws/p2p/${PEER_A}`])]
+							: []
+					})
+				)
+		);
+		expect(await relayAddrs({ configured: '', fetch: found, senders: [A] })).toEqual([
+			`/dns4/${host}/tcp/443/tls/ws/p2p/${PEER_A}`,
+			...FALLBACK_RELAYS.slice(1)
 		]);
 	});
 
@@ -156,23 +178,34 @@ describe('relayAddrs', () => {
 	});
 });
 
-// A relay registered by a trusted account: made-up instance hashes whose
-// 2n6.me names follow from their first 44 bits.
-const OWNER = '0x00000000000000000000000000000000000000c1';
+// A relay registered by a trusted account: made-up keys, and instance hashes
+// whose 2n6.me names follow from their first 44 bits.
+const OWNER_KEY = testKey(1);
+const OWNER = OWNER_KEY.address;
+const PUBLISHER = testKey(2);
+const STRANGER_KEY = testKey(3);
 const INSTANCE = '0'.repeat(64);
 const HOST = 'abandon-abandon-abandon-abandon.2n6.me';
 const OTHER_INSTANCE = 'f'.repeat(64);
 
-/** @param {string} owner @param {string} instance @param {number} time @param {string[]} multiaddrs */
-const ownerPost = (owner, instance, time, multiaddrs) => ({
-	sender: '0x00000000000000000000000000000000000000d1',
+/**
+ * A registration as the relay posts it, signed by `owner` and the publisher.
+ *
+ * @param {ReturnType<typeof testKey>} owner @param {string} instance @param {number} time
+ * @param {string[]} multiaddrs @param {{ peerId?: string, updatedAt?: number }} [over]
+ */
+const ownerPost = (owner, instance, time, multiaddrs, over = {}) => ({
+	sender: PUBLISHER.address,
 	time,
 	item_content: JSON.stringify({
-		content: {
-			registrationId: `relay:orbitdb-relay:relay-main:${instance}`,
-			ownerAddress: owner,
-			multiaddrs
-		}
+		content: signedContent({
+			owner,
+			publisher: PUBLISHER,
+			instance,
+			peerId: over.peerId ?? /\/p2p\/([^/]+)$/.exec(multiaddrs[0])?.[1] ?? '',
+			multiaddrs,
+			updatedAt: over.updatedAt ?? time
+		})
 	})
 });
 
@@ -187,21 +220,21 @@ describe('twoN6Host', () => {
 });
 
 describe('ownerRegistrations', () => {
-	it('takes a trusted account’s newest registration per instance, on its own 2n6 name only', () => {
+	it('takes a trusted account’s newest signed registration per instance, on its own 2n6 name only', () => {
 		const payload = {
 			posts: [
-				ownerPost(OWNER, INSTANCE, 100, [`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_A}`]),
-				ownerPost(OWNER.toUpperCase().replace('0X', '0x'), INSTANCE, 200, [
-					`/dns4/evil.example.com/tcp/443/tls/ws/p2p/${PEER_A}`,
+				ownerPost(OWNER_KEY, INSTANCE, 100, [`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_A}`]),
+				ownerPost(OWNER_KEY, INSTANCE, 200, [
+					`/dns4/evil.example.com/tcp/443/tls/ws/p2p/${PEER_B}`,
 					`/dns6/${HOST}/tcp/443/tls/ws/p2p/${PEER_B}`,
 					`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_B}`
 				]),
-				ownerPost(STRANGER, OTHER_INSTANCE, 300, [
+				ownerPost(STRANGER_KEY, OTHER_INSTANCE, 300, [
 					`/dns4/zoo-zoo-zoo-zoo.2n6.me/tcp/443/tls/ws/p2p/${PEER_A}`
 				])
 			]
 		};
-		expect(ownerRegistrations(payload, [OWNER])).toEqual([
+		expect(ownerRegistrations(payload, [OWNER.toUpperCase().replace('0X', '0x')])).toEqual([
 			{
 				instance: INSTANCE,
 				owner: OWNER,
@@ -214,11 +247,56 @@ describe('ownerRegistrations', () => {
 	});
 
 	it('drops a registration that points elsewhere or names no instance', () => {
-		const elsewhere = ownerPost(OWNER, INSTANCE, 100, [
+		const elsewhere = ownerPost(OWNER_KEY, INSTANCE, 100, [
 			`/dns4/zoo-zoo-zoo-zoo.2n6.me/tcp/443/tls/ws/p2p/${PEER_A}`
 		]);
 		const noInstance = post(A, 100, [`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_A}`]);
 		expect(ownerRegistrations({ posts: [elsewhere, noInstance] }, [OWNER, A])).toEqual([]);
+	});
+
+	it('takes only what the account signed, newest by the time it was signed', () => {
+		const good = ownerPost(OWNER_KEY, INSTANCE, 100, [
+			`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_A}`
+		]);
+		const content = JSON.parse(good.item_content).content;
+		/** @param {any} c @param {number} time */
+		const as = (c, time) => ({
+			sender: STRANGER,
+			time,
+			item_content: JSON.stringify({ content: c })
+		});
+		const addr = `/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_B}`;
+		// Newer, naming the account, but unsigned or with another peer id than it signed.
+		const unsigned = { ...content, authorization: undefined, relayProof: undefined };
+		const posts = [
+			good,
+			as({ ...unsigned, peerId: PEER_B, multiaddrs: [addr] }, 500),
+			as({ ...content, peerId: PEER_B, multiaddrs: [addr] }, 600),
+			// Signed by a stranger in the account's name.
+			ownerPost(STRANGER_KEY, INSTANCE, 700, [addr])
+		].map((p, i) =>
+			i === 3
+				? {
+						...p,
+						item_content: p.item_content.replaceAll(STRANGER_KEY.address, OWNER)
+					}
+				: p
+		);
+		expect(ownerRegistrations({ posts }, [OWNER])).toEqual([
+			{ instance: INSTANCE, owner: OWNER, addrs: [`/dns4/${HOST}/tcp/443/tls/ws/p2p/${PEER_A}`] }
+		]);
+		// An older signed registration posted again later does not win over a newer one.
+		const newer = ownerPost(OWNER_KEY, INSTANCE, 200, [addr]);
+		expect(ownerRegistrations({ posts: [newer, as(content, 900)] }, [OWNER])).toEqual([
+			{ instance: INSTANCE, owner: OWNER, addrs: [addr] }
+		]);
+	});
+
+	it('dials a found relay on port 443 only', () => {
+		const other = ownerPost(OWNER_KEY, INSTANCE, 100, [
+			`/dns4/${HOST}/tcp/8443/tls/ws/p2p/${PEER_A}`
+		]);
+		expect(ownerRegistrations({ posts: [other] }, [OWNER])).toEqual([]);
 	});
 });
 
