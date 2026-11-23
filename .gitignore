@@ -3,3 +3,6 @@ node_modules/
 spikes/**/out/
 .DS_Store
 !.env.example
+# Playwright output wherever it runs (app/ has its own list; bridge/ and the root do not)
+test-results/
+playwright-report/
