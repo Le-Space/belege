@@ -89,15 +89,24 @@ research submission: the backup and back (`backup.en`), then the recovery
 words (`recovery-words.en`), each after its own card. Record both scenes,
 then compose it like any other film.
 
+`films/devices-de.json` and `films/devices-en.json` are the film of #961:
+working on through a cloud outage, on one stage (`devices-qr.de` / `.en`).
+The narrator is a voice of its own, so record the scene and the cards with
+`ELEVENLABS_VOICE_ID=Xb7hH8MSUJpSbSDYk0k2` (Alice); the other films keep
+George. With `DEMO_MODEL=ollama` the laptop's model is a local Ollama
+(`DEMO_OLLAMA_MODEL`; the film was made with `qwen3:4b-instruct-2507-q4_K_M`);
+without it a fake model answers.
+
 ## Scenes
 
-| Spec                     | Shows                                                                                                                                        | Length |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `belege-demo.spec.js`    | passkey, bank, receipts, matching, backup, wipe, restore (scene 1 of the Devcon 8 video)                                                     | 2:00   |
-| `qr-pairing.spec.js`     | two devices by QR, no relay (scene 2)                                                                                                        | 0:46   |
-| `recovery-words.spec.js` | 24 words made; every passkey gone; the words open the same books on an empty device                                                          | ~1:30  |
-| `intro.spec.js`          | what Belege is: passkey, sample books, Home, Payments, Receipts, questions, export, keys                                                     | ~1:20  |
-| `backup.spec.js`         | passkey, six bookings through the bridge, one sealed backup on Aleph, the browser forgets, the address finds the backup, the books come back | ~1:30  |
+| Spec                     | Shows                                                                                                                                                                                                           | Length |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `belege-demo.spec.js`    | passkey, bank, receipts, matching, backup, wipe, restore (scene 1 of the Devcon 8 video)                                                                                                                        | 2:00   |
+| `qr-pairing.spec.js`     | two devices by QR, no relay (scene 2)                                                                                                                                                                           | 0:46   |
+| `recovery-words.spec.js` | 24 words made; every passkey gone; the words open the same books on an empty device                                                                                                                             | ~1:30  |
+| `intro.spec.js`          | what Belege is: passkey, sample books, Home, Payments, Receipts, questions, export, keys                                                                                                                        | ~1:20  |
+| `backup.spec.js`         | passkey, six bookings through the bridge, one sealed backup on Aleph, the browser forgets, the address finds the backup, the books come back                                                                    | ~1:30  |
+| `devices-qr.spec.js`     | a cloud outage on one stage: laptop, phone and office laptop with three passkeys by QR; the phone books an account the laptop's model suggests, the office laptop matches a receipt; no host beyond the machine | ~2:30  |
 
 The two older scenes bake their captions and have no narrator yet
 (`compose.sh` handles them; their captions come from the kit's

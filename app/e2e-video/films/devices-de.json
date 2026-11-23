@@ -1,0 +1,21 @@
+{
+	"lang": "de",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "Cloud-Ausfall",
+			"title": "Die Cloud fällt aus, die Arbeit geht weiter",
+			"sub": "Drei Geräte, drei Passkeys, ein Tresor per QR – Peer-to-Peer, ohne Server."
+		},
+		{
+			"scene": "devices-qr.de"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}

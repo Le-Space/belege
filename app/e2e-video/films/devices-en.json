@@ -1,0 +1,21 @@
+{
+	"lang": "en",
+	"parts": [
+		{
+			"card": "intro"
+		},
+		{
+			"card": "scene",
+			"n": 1,
+			"eyebrow": "Cloud outage",
+			"title": "The cloud goes down, work goes on",
+			"sub": "Three devices, three passkeys, one vault by QR – peer to peer, no server."
+		},
+		{
+			"scene": "devices-qr.en"
+		},
+		{
+			"card": "outro"
+		}
+	]
+}
