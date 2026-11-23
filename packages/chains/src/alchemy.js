@@ -109,6 +109,45 @@ const lowerAddress = (v) => (typeof v === 'string' ? v.toLowerCase() : '');
  * @param {number} [options.computeUnitsPerSecond] spent at most (Alchemy free: 300)
  * @param {() => number} [options.now] milliseconds (tests: a clock that `sleep` moves)
  */
+/**
+ * The token contracts this address moved itself (#93): a transfer from it in a transaction it
+ * sent, or – a token taken from it in someone else's transaction, a burn by the token's project
+ * (#162) – one it held: it got at least what left. A contract can emit a transfer "from" any
+ * address (address poisoning: a spam token the wallet never held); that is not the wallet's.
+ *
+ * @param {{ contractAddress?: unknown, from?: unknown, to?: unknown, value?: unknown, hash?: unknown, transactionHash?: unknown }[]} tokens
+ *   token transfers to or from the address, in the tokentx shape
+ * @param {string} address lower case
+ * @param {(hash: string) => boolean} sentByIt whether this address sent the transaction
+ * @returns {Set<string>} contracts, lower case
+ */
+export function tokensMovedBy(tokens, address, sentByIt) {
+	/** @type {Map<string, { in: bigint, out: bigint, own: boolean }>} */
+	const flows = new Map();
+	const units = (/** @type {unknown} */ v) => {
+		try {
+			return BigInt(String(v ?? '0'));
+		} catch {
+			return 0n;
+		}
+	};
+	for (const t of tokens) {
+		const contract = String(t.contractAddress ?? '').toLowerCase();
+		const f = flows.get(contract) ?? { in: 0n, out: 0n, own: false };
+		if (String(t.to ?? '').toLowerCase() === address) f.in += units(t.value);
+		if (String(t.from ?? '').toLowerCase() === address) {
+			f.out += units(t.value);
+			if (sentByIt(String(t.hash ?? t.transactionHash ?? '').toLowerCase())) f.own = true;
+		}
+		flows.set(contract, f);
+	}
+	return new Set(
+		[...flows]
+			.filter(([, f]) => f.own || (f.out > 0n && f.in > 0n && f.out <= f.in))
+			.map(([c]) => c)
+	);
+}
+
 export function createAlchemyReader({
 	fetch: f = fetch,
 	timeoutMs,
@@ -519,7 +558,8 @@ export function createAlchemyReader({
 		const contracts = [
 			...new Set([
 				...Object.keys(chain.tokens),
-				...tokens.filter((t) => t.from === address).map((t) => t.contractAddress),
+				// …itself: a spam contract can emit a transfer in its name (tokensMovedBy).
+				...tokensMovedBy(tokens, address, (h) => sent.has(h)),
 				...wanted
 			])
 		].filter((c) => /^0x[0-9a-f]{40}$/.test(c));

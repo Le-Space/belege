@@ -12,6 +12,7 @@ import { FAKE_ALCHEMY_KEY } from './support/fake-alchemy.js';
 import {
 	DROP,
 	FAKE_USDC,
+	POISON,
 	TOKENS_WALLET,
 	XYZ,
 	fakeAlchemyFetch
@@ -108,4 +109,28 @@ test('a token without a booking in the period keeps its contract in the answer',
 	assert.ok(!st.entries.some((e) => e.asset === 'XYZ'));
 	assert.deepEqual([st.opening.XYZ, st.closing.XYZ], ['200', '200']);
 	assert.deepEqual(st.contracts, { XYZ });
+});
+
+test('a transfer a spam contract emits "from" the wallet, in a transaction someone else sent, is not the wallet’s', async () => {
+	const fake = fakeAlchemyFetch();
+	const st = await reader.statement({ ...period, alchemyKey: FAKE_ALCHEMY_KEY, fetch: fake.fetch });
+	assert.ok(!st.entries.some((e) => e.contract === POISON), 'no entry of the poisoning token');
+	assert.ok(!('ERC' in st.closing) && !('ERC' in st.contracts), 'no section, no contract');
+	assert.ok(!fake.asked.flat().includes(POISON), 'its balance is not asked for');
+	assert.deepEqual(
+		[st.opening.ETH, st.closing.ETH],
+		['0', '0.49988'],
+		'the wallet paid no gas for it'
+	);
+	// Named by the caller, it is on the statement all the same: the caller's choice.
+	const named = await reader.statement({
+		...period,
+		alchemyKey: FAKE_ALCHEMY_KEY,
+		fetch: fakeAlchemyFetch().fetch,
+		tokens: [POISON]
+	});
+	assert.deepEqual(
+		named.entries.filter((e) => e.contract === POISON).map((e) => e.amount),
+		['-1400']
+	);
 });
