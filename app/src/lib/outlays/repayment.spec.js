@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryCollection } from '../bank/test-support.js';
 import { cleanDatevSettings, privateAccounts } from '../booking/settings.js';
 import { suggestBooking } from '../booking/suggest.js';
-import { isCovered } from '../matching/engine.js';
 import { privateKind } from '../matching/private-kind.js';
+import { isTxCovered } from '../matching/view.js';
 import { bookOutlay, undoOutlay } from './outlays.js';
 import {
 	linkOutlayRepayment,
@@ -107,7 +107,7 @@ describe('linking a payout', () => {
 		});
 
 		expect(privateKind(paid)).toBe('outlay-repayment');
-		expect(isCovered(paid, null)).toBe(true);
+		expect(isTxCovered(paid, {})).toBe(true);
 		expect(mayRepayOutlays(paid, [], null)).toBe(false);
 		expect(suggestBooking(paid, { privateAccounts: privateAccounts(corporation) }).account).toBe(
 			'1755'
