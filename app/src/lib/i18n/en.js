@@ -1800,6 +1800,10 @@ export default {
 		fee: 'Network fee',
 		feeFailed: 'Network fee (failed transaction)',
 		storageDeposit: 'Storage deposit',
+		storageForTransfer: 'for the transfer to {to}, tx {tx}',
+		storageForTransferAnyone: 'for the transfer, tx {tx}',
+		storageForReceipt: 'for the first receipt of the token, tx {tx}',
+		storageAlone: 'registration at {contract}',
 		burned: 'Burned by the project',
 		byOther: 'Moved by a third party',
 		stakingReward: 'Staking reward',
@@ -2442,6 +2446,14 @@ export default {
 			exchangeFee:
 				'Exchange fee: Kraken charged it for this booking – the exchange’s statement is the receipt',
 			networkFee: 'Blockchain network fee: the transaction in the block explorer is the receipt',
+			storageSwap:
+				'Storage deposit for a swap: a token’s contract registered the account before the swap could hold the token there. A cost of the swap like its gas, paid to the contract, without an invoice. The transaction in the block explorer is the receipt. No receipt needed.',
+			storageTransfer:
+				'Storage deposit for a transfer: the token’s contract registered the receiving account so that the transfer could go there. A cost of the transfer like its gas, without an invoice. The transaction in the block explorer is the receipt. No receipt needed.',
+			storageReceipt:
+				'Storage deposit for a receipt: the token’s contract registered this wallet so that it could receive the token for the first time. A cost of the receipt, without an invoice. The transaction in the block explorer is the receipt. No receipt needed.',
+			storageAlone:
+				'Storage deposit: NEAR a contract on the blockchain keeps for an account’s storage – no payment for a service and without an invoice, like a network fee. The transaction in the block explorer is the receipt. No receipt needed.',
 			ownAddress:
 				'Own transfer: the counterparty address {address} is your wallet {account}. No receipt needed (account 1360).',
 			ownIbc:

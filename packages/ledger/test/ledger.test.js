@@ -165,3 +165,37 @@ test('balances derived from today less every movement since', () => {
 		['8', '6', ['b'], 'derived']
 	);
 });
+
+test('a NEAR storage deposit keeps what it was for, as a WalletEntry and as a LedgerEntry', () => {
+	const w = /** @type {import('../src/wallet-entry.js').WalletEntry} */ ({
+		id: 'Reg1:deposit',
+		hash: 'Reg1',
+		height: 7,
+		time: '2026-11-20T14:00:00Z',
+		date: '2026-11-20',
+		type: 'fee',
+		kind: 'fee',
+		asset: 'NEAR',
+		amount: '-0.00125',
+		decimals: 24,
+		counterparty: 'token.example.near',
+		counterpartyLabel: '',
+		memo: '',
+		success: true,
+		explorerUrl: '',
+		purpose: 'storage',
+		enables: { hash: 'Pay1', kind: 'transfer' },
+		registration: { account: 'konto-b.near' }
+	});
+	const e = fromWalletEntry(w, { chain: 'near', account: 'wolkenfabrik.near', priceAs: 'NEAR' });
+	assert.deepEqual(
+		[e.purpose, e.enables, e.registration, e.partOf],
+		['storage', { hash: 'Pay1', kind: 'transfer' }, { account: 'konto-b.near' }, undefined]
+	);
+	const swap = fromWalletEntry(
+		{ ...w, enables: undefined, partOf: 'Swap1' },
+		{ chain: 'near', account: 'wolkenfabrik.near' }
+	);
+	assert.equal(swap.partOf, 'Swap1');
+	assert.equal('enables' in swap, false);
+});

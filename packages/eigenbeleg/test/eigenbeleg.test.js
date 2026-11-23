@@ -475,3 +475,89 @@ test('the Kontoauszug: running balance, sums, and the check against the chain', 
 	assert.equal(ok.unlisted, 1, 'the spam token is not a section');
 	assert.ok((await statementPdf(ok)).length > 10_000);
 });
+
+test('a NEAR storage deposit says what it was for, on the Eigenbeleg and the statement, in German and English', async () => {
+	const { buildStatement, storagePurposeText } = await import('../src/index.js');
+	const swap = 'SwapAAAAbbbbCCCCddddEEEEffff1111';
+	const pay = 'PayAAAAbbbbCCCCddddEEEEffff2222';
+	const got = 'GotAAAAbbbbCCCCddddEEEEffff3333';
+	const deposit = (/** @type {string} */ id, /** @type {any} */ over) =>
+		e({
+			id,
+			type: 'sent',
+			kind: 'storage',
+			purpose: 'storage',
+			amount: '-0.00125',
+			counterparty: 'usdc.fakes.testnet',
+			...over
+		});
+	const valued = await valueEntries(
+		[
+			deposit('d1', { partOf: swap }),
+			deposit('d2', {
+				enables: { hash: pay, kind: 'transfer' },
+				registration: { account: 'konto-b.testnet' }
+			}),
+			deposit('d3', { enables: { hash: got, kind: 'receipt' } }),
+			deposit('d4', {}),
+			e({
+				id: 'd2:fee',
+				hash: 'd2',
+				type: 'fee',
+				kind: 'fee',
+				amount: '-0.0003',
+				counterparty: 'near',
+				enables: { hash: pay, kind: 'transfer' }
+			})
+		],
+		fixedRates({ NEAR: '2' })
+	);
+	const lines = (/** @type {'de' | 'en'} */ language) =>
+		buildDocument({
+			payer,
+			chain: 'near',
+			network: 'testnet',
+			period: { from: '2026-10-01', to: '2026-10-31' },
+			entries: valued,
+			language
+		}).transactions.flatMap((t) => t.movements.map((m) => m.what));
+	assert.deepEqual(lines('de'), [
+		'Speicherhinterlegung (Storage Deposit) für den Tausch in Tx SwapAAAA…1111',
+		'Speicherhinterlegung (Storage Deposit) für die Überweisung an konto-b.testnet in Tx PayAAAAb…2222',
+		// The gas has no call of its own to name whom the deposit registered.
+		'Netzwerkgebühr (Gas) für die Überweisung in Tx PayAAAAb…2222',
+		'Speicherhinterlegung (Storage Deposit) für den ersten Eingang des Tokens in Tx GotAAAAb…3333',
+		'Speicherhinterlegung (Storage Deposit)'
+	]);
+	assert.deepEqual(lines('en'), [
+		'Storage deposit for the swap in tx SwapAAAA…1111',
+		'Storage deposit for the transfer to konto-b.testnet in tx PayAAAAb…2222',
+		'Network fee (gas) for the transfer in tx PayAAAAb…2222',
+		'Storage deposit for the first receipt of the token in tx GotAAAAb…3333',
+		'Storage deposit'
+	]);
+	// On the Eigenbeleg all of them: storage deposits and gas are paid to the network.
+	const doc = buildDocument({
+		payer,
+		chain: 'near',
+		network: 'testnet',
+		period: { from: '2026-10-01', to: '2026-10-31' },
+		entries: valued
+	});
+	assert.equal(doc.excluded.length, 0);
+	const st = buildStatement({
+		payer,
+		account: 'wolkenfabrik.testnet',
+		chain: 'near',
+		network: 'testnet',
+		period: { from: '2026-10-01', to: '2026-10-31' },
+		entries: valued,
+		opening: { NEAR: '1' },
+		closing: { NEAR: '0.9947' },
+		method: 'archive',
+		language: 'en'
+	});
+	const texts = st.sections.flatMap((s) => s.rows.map((r) => r.text));
+	assert.ok(texts.includes('Storage deposit for the swap in tx SwapAAAA…1111'), texts.join('\n'));
+	assert.equal(storagePurposeText({}), '');
+});

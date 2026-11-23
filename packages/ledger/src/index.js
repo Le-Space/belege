@@ -81,6 +81,12 @@ export const KINDS = Object.freeze([
  * @property {string} priceAs the market asset that values it (`NEAR`, `USDC`, …), '' for a token
  *   without a trusted price (an unknown token, often spam): such an entry is listed, never valued
  * @property {WalletEntry['swap']} [swap] what the wallet gave and got in a swap
+ * @property {'storage'} [purpose] NEAR: a storage deposit (kind `storage`), whatever it was for
+ * @property {WalletEntry['registration']} [registration] NEAR: whom a storage deposit registered, read from its call
+ * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction, and that
+ *   transaction's gas: the swap's hash
+ * @property {WalletEntry['enables']} [enables] NEAR: a storage deposit that let a transfer or a receipt
+ *   of the token happen, and its transaction's gas: that transaction
  * @property {string} [ibcMemo] Cosmos: an IBC transfer's own memo
  * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send
  * @property {string} [txFrom] EVM: who sent that transaction
@@ -92,6 +98,10 @@ export const KINDS = Object.freeze([
 const DECIMAL = /^-?\d+(\.\d+)?$/;
 const OPTIONAL = /** @type {const} */ ([
 	'swap',
+	'purpose',
+	'registration',
+	'partOf',
+	'enables',
 	'ibcMemo',
 	'byOther',
 	'txFrom',
@@ -186,6 +196,10 @@ export function fromWalletEntry(
 		explorerUrl: e.explorerUrl,
 		priceAs: listed ? priceAs : '',
 		swap: e.swap,
+		purpose: e.purpose,
+		registration: e.registration,
+		partOf: e.partOf,
+		enables: e.enables,
 		ibcMemo: e.ibcMemo,
 		byOther: e.byOther,
 		txFrom: e.txFrom,

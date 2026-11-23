@@ -10,6 +10,7 @@ export {
 	DEFAULT_KINDS,
 	KIND_TEXT,
 	kindText,
+	storagePurposeText,
 	ALEPH_NOTE,
 	noInvoice,
 	CHAIN_NAMES,

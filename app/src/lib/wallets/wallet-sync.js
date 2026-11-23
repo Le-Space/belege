@@ -136,9 +136,9 @@ export function describeWalletEntry(e) {
 	}
 	if (e.type === 'fee') {
 		return {
-			// A NEAR storage deposit made for a swap (#968) is one of its costs, as its gas.
+			// A NEAR storage deposit (#968) – for a swap, a transfer, a receipt or of its own – is a cost, as gas is.
 			label: t(
-				e.partOf && !e.id.endsWith(':fee')
+				e.purpose === 'storage' || (e.partOf && !e.id.endsWith(':fee'))
 					? 'walletBooks.storageDeposit'
 					: e.success
 						? 'walletBooks.fee'
@@ -204,6 +204,52 @@ export function swapText(swap) {
 		? ` · ${t('walletBooks.storageDeposit')} ${deDecimal(swap.storage.amount)} ${swap.storage.asset}`
 		: '';
 	return `${t('walletBooks.swap')}: ${side(swap.gave)} → ${side(swap.got)}${via}${gas}${storage}`;
+}
+
+/** A hash, as the wallet's reader names another transaction. @param {unknown} h */
+const isTxHash = (h) => typeof h === 'string' && /^\S{1,128}$/.test(h);
+
+/**
+ * What a NEAR storage deposit, or its transaction's gas, was for, as the
+ * purpose says it after its label: the transfer or receipt it let happen, or
+ * where it registered when it was for nothing else. A swap's says the swap
+ * (swapText). '' for any other entry.
+ *
+ * @param {Entry} e
+ */
+export function storagePurpose(e) {
+	if (e.enables && isTxHash(e.enables.hash)) {
+		const tx = shortHash(e.enables.hash);
+		const to = e.purpose === 'storage' ? e.registration?.account : undefined;
+		if (e.enables.kind === 'receipt') return t('walletBooks.storageForReceipt', { tx });
+		return to
+			? t('walletBooks.storageForTransfer', { to, tx })
+			: t('walletBooks.storageForTransferAnyone', { tx });
+	}
+	if (e.purpose === 'storage' && !e.partOf && e.counterparty)
+		return t('walletBooks.storageAlone', { contract: e.counterparty });
+	return '';
+}
+
+/**
+ * What a NEAR storage deposit was for, kept on its booking: `for` the swap
+ * (`partOf`), the transfer or receipt it let happen (`enables`), or `own`;
+ * `registers` the account its call registered. Undefined for any other entry.
+ *
+ * @param {Entry} e
+ * @returns {{ for: 'swap' | 'transfer' | 'receipt' | 'own', registers?: string } | undefined}
+ */
+export function storageOf(e) {
+	if (e.purpose !== 'storage') return undefined;
+	const registers = e.registration?.account;
+	return {
+		for: isTxHash(e.partOf)
+			? 'swap'
+			: e.enables?.kind === 'transfer' || e.enables?.kind === 'receipt'
+				? e.enables.kind
+				: 'own',
+		...(typeof registers === 'string' && /^[a-z0-9._-]{2,64}$/.test(registers) ? { registers } : {})
+	};
 }
 
 /** `AB12…9F3C`: a hash short enough for a purpose. @param {string} hash */
@@ -373,9 +419,16 @@ export async function walletTransactions(entries, getRate) {
 			const value = p.value ?? unpricedFields(e, p.units, p.error);
 			const { label, movement } = describeWalletEntry(e);
 			const other = e.counterpartyLabel || e.counterparty;
+			const storage = storagePurpose(e);
 			const purpose = [
 				// A swap's gas names the swap it paid for.
-				e.swap ? (e.type === 'fee' ? `${label} für ${swapText(e.swap)}` : swapText(e.swap)) : label,
+				e.swap
+					? e.type === 'fee'
+						? `${label} für ${swapText(e.swap)}`
+						: swapText(e.swap)
+					: storage
+						? `${label} ${storage}`
+						: label,
 				e.memo ? `Memo: ${e.memo}` : '',
 				`Tx ${shortHash(e.hash)}`
 			]
@@ -398,9 +451,12 @@ export async function walletTransactions(entries, getRate) {
 				explorerUrl: safeExplorerUrl(e.explorerUrl) ?? '',
 				...(e.swap ? { swap: e.swap } : {}),
 				// A NEAR storage deposit made for a swap: the swap's transaction (#968).
-				...(e.type === 'fee' && typeof e.partOf === 'string' && /^\S{1,128}$/.test(e.partOf)
-					? { partOf: e.partOf }
+				...(e.type === 'fee' && isTxHash(e.partOf) ? { partOf: e.partOf } : {}),
+				// …or the transfer or receipt it let happen (a NEAR storage deposit, and its gas).
+				...(e.type === 'fee' && !isTxHash(e.partOf) && e.enables && isTxHash(e.enables.hash)
+					? { enables: e.enables.hash }
 					: {}),
+				...(e.type === 'fee' && storageOf(e) ? { storageDeposit: storageOf(e) } : {}),
 				...(e.byOther ? { movedByOther: { by: e.txFrom ?? '' } } : {}),
 				...(value.rateMissing ? { rateMissing: value.rateMissing } : {}),
 				// A swap to another chain, planned in the IBC memo (issue #170).

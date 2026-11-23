@@ -21,6 +21,13 @@
  * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap'} kind
  * @property {{ gave: { asset: string, amount: string, listed: boolean }[], got: { asset: string, amount: string, listed: boolean }[], via: string, fee?: { asset: string, amount: string }, storage?: { asset: string, amount: string } }} [swap] EVM: what the wallet gave and got in a swap, and its gas (evm.js markSwaps); NEAR: also what the storage deposits made for it kept
  * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction (and that transaction's gas), type `fee`: the swap's hash
+ * @property {{ hash: string, kind: 'transfer' | 'receipt' }} [enables] NEAR: a storage deposit (and its transaction's gas), type `fee`,
+ *   that registered an account at a token so that a transfer of it (to the account registered) or the wallet's first
+ *   receipt of it could happen: that transaction's hash, and which of the two it was
+ * @property {'storage'} [purpose] NEAR: a storage deposit, type `fee`, whatever it was for; one with neither `partOf`
+ *   nor `enables` is a storage deposit of its own – a cost to the network's contracts, no payment for a service
+ * @property {{ account: string, only?: boolean, tokens?: string[] }} [registration] NEAR: whom a storage deposit
+ *   registered (`account_id`, the signer when not given), `registration_only` and a DEX's token list, as the call said
  * @property {string} asset symbol
  * @property {string} amount signed decimal: negative when it left the wallet
  * @property {number} decimals

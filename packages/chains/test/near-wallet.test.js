@@ -328,15 +328,18 @@ test('a storage deposit made shortly before a swap, at a contract it involves, i
 	}
 	for (const hash of Object.values(left)) {
 		const e = byId.get(`${hash}:deposit`);
-		assert.equal(e?.type, 'sent', hash);
+		// A storage deposit of its own is a fee all the same; a refund asked for stays a payment.
+		assert.equal(e?.type, hash === left.unregister ? 'sent' : 'fee', hash);
+		assert.equal(e?.purpose, hash === left.unregister ? undefined : 'storage', hash);
 		assert.equal(e?.partOf, undefined, hash);
+		assert.equal(e?.enables, undefined, hash);
 		assert.equal(e?.swap, undefined, hash);
 		assert.equal(byId.get(`${hash}:fee`)?.partOf, undefined, hash);
 	}
 	assert.deepEqual(result.superseded, []);
 });
 
-test('a storage deposit with no swap after it stays a payment of its own', async () => {
+test('a storage deposit with nothing after it is a storage deposit of its own: a fee', async () => {
 	const hash = hashOf('Alone');
 	const { fetch } = fakeNear({
 		txns: [registration(hash, NEAR.usdc, 0n)],
@@ -345,10 +348,10 @@ test('a storage deposit with no swap after it stays a payment of its own', async
 	});
 	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
 	assert.deepEqual(
-		result.entries.map((e) => [e.id, e.type, e.amount, e.counterparty, e.partOf]),
+		result.entries.map((e) => [e.id, e.type, e.kind, e.amount, e.counterparty, e.purpose]),
 		[
-			[`${hash}:deposit`, 'sent', '-0.00125', NEAR.usdc, undefined],
-			[`${hash}:fee`, 'fee', '-0.000446365125', '', undefined]
+			[`${hash}:deposit`, 'fee', 'fee', '-0.00125', NEAR.usdc, 'storage'],
+			[`${hash}:fee`, 'fee', 'fee', '-0.000446365125', '', undefined]
 		]
 	);
 });

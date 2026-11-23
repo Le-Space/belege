@@ -55,6 +55,9 @@ const FIELDS = /** @type {const} */ ([
 	'swap',
 	// a NEAR storage deposit made for a swap: the swap's transaction hash (#968)
 	'partOf',
+	// …for a transfer or a receipt: that transaction's hash; and what it was for
+	'enables',
+	'storageDeposit',
 	// a swap to another chain, from an IBC transfer's memo (wallets/cross-swap.js)
 	'crossSwap',
 	// moved out in someone else's transaction, and a booking without a rate (#162)
@@ -66,6 +69,9 @@ const FIELDS = /** @type {const} */ ([
 	'decimals',
 	'valuation'
 ]);
+
+/** A cost of another transaction a wallet's reader names; set anew by every sync. */
+const TIED = /** @type {const} */ (['partOf', 'enables', 'storageDeposit']);
 
 /**
  * @typedef {object} IncomingTransaction normalised, from the bridge or the CAMT parser
@@ -96,6 +102,10 @@ const FIELDS = /** @type {const} */ ([
  * @property {import('../bridge/client.js').SwapSides} [swap] a wallet's swap: what went each way
  * @property {string} [partOf] a cost of a wallet's swap made in a transaction of its own (a NEAR
  *   storage deposit, #968): the swap's hash, as its legs' `txRef`
+ * @property {string} [enables] a cost of a wallet's transfer or receipt made in a transaction of its own
+ *   (a NEAR storage deposit that registered the account, and its gas): that transaction's hash
+ * @property {{ for: 'swap' | 'transfer' | 'receipt' | 'own', registers?: string }} [storageDeposit] a NEAR
+ *   storage deposit booked as a network fee: what it was for, and whom it registered
  * @property {import('../wallets/cross-swap.js').CrossSwap} [crossSwap] a swap to another chain (IBC memo)
  * @property {{ by: string }} [movedByOther] moved out in someone else's transaction (#162)
  * @property {{ reason: string } | null} [rateMissing] no rate found: kept with its quantity, amount open (#162)
@@ -249,6 +259,8 @@ export async function importTransactions({
 			...(tx.explorerUrl ? { explorerUrl: tx.explorerUrl } : {}),
 			...(tx.swap ? { swap: tx.swap } : {}),
 			...(tx.partOf ? { partOf: tx.partOf } : {}),
+			...(tx.enables ? { enables: tx.enables } : {}),
+			...(tx.storageDeposit ? { storageDeposit: tx.storageDeposit } : {}),
 			...(tx.crossSwap ? { crossSwap: tx.crossSwap } : {}),
 			...(tx.movedByOther ? { movedByOther: tx.movedByOther } : {}),
 			...(tx.crypto ? { rateMissing: tx.rateMissing ?? null } : {}),
@@ -309,6 +321,10 @@ export async function importTransactions({
 		if (changed && !match.deleted) {
 			/** @type {Record<string, any>} */
 			const record = { ...match, ...next };
+			// What a wallet's reader no longer says of a booking goes: a NEAR storage
+			// deposit tied to a swap before may be a transfer's cost now, or its own.
+			// Null, not left out: the store merges a record with what it held.
+			for (const f of TIED) if (next[f] === undefined && record[f] != null) record[f] = null;
 			if (movedDifferently(match, next)) {
 				// Measured from what a person last saw: a second change keeps the first "before".
 				const fromCents = Number(match.importChange?.fromCents ?? match.amountCents);

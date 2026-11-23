@@ -26,6 +26,7 @@
 
 import { entry, fromUnits, fromUtf8, sortEntries, toBase64, toUnits, utf8 } from '@le-space/ledger';
 import { markSwaps } from './swaps.js';
+import { registrationOf, routeReader, storagePurposes } from './near-storage.js';
 
 export const NETWORKS = {
 	mainnet: {
@@ -292,17 +293,20 @@ export function mapRaw({
 				deposit === 1n && methods.some((/** @type {string} */ m) => FT_METHODS.has(m));
 			if (deposit > 0n && success && receiver !== account && !tokenMechanic) {
 				const wrap = wraps(network, receiver, methods);
+				const kind = wrap ? 'transfer' : kindOf(actions, methods);
 				const paid = entry({
 					...common,
 					id: `near:${account}:${hash}:deposit`,
 					type: 'sent',
-					kind: wrap ? 'transfer' : kindOf(actions, methods),
+					kind,
 					amount: fromUnits(-deposit, NEAR_DECIMALS),
 					counterparty: receiver,
 					counterpartyLabel: '',
 					method,
 					memo: '',
-					success
+					success,
+					// What it was for is read later (near-storage.js).
+					...(kind === 'storage' ? { purpose: /** @type {const} */ ('storage') } : {})
 				});
 				out.push(paid);
 				if (wrap) wrapped.push(paid);
@@ -424,7 +428,13 @@ function kindOf(actions, methods) {
  * @param {Parameters<typeof fetchRaw>[0]} p
  */
 export async function readNear(p) {
-	return storageKept(mapRaw(await fetchRaw(p)), p);
+	const network = p.network ?? 'mainnet';
+	const fetch = p.fetch ?? globalThis.fetch;
+	const url = endpointsOf(network, p.endpoints).rpc;
+	return storagePurposes(await storageKept(mapRaw(await fetchRaw(p)), p), {
+		network,
+		routeOf: routeReader((method, params) => rpc(fetch, url, method, params))
+	});
 }
 
 /**
@@ -432,7 +442,8 @@ export async function readNear(p) {
  * was registered already: the contract sends the rest back in an inner
  * receipt. The entry becomes what was kept; one fully refunded goes.
  * Read from an archival RPC (EXPERIMENTAL_tx_status); if that cannot be
- * read, the whole read fails rather than overstate a payment.
+ * read, the whole read fails rather than overstate a payment. The same
+ * answer names whom the deposit registered (`registration`, near-storage.js).
  *
  * @param {import('@le-space/ledger').LedgerEntry[]} entries
  * @param {{ network?: 'mainnet' | 'testnet', fetch?: typeof fetch, endpoints?: Partial<{ rpc: string }> }} p
@@ -469,9 +480,28 @@ export async function storageKept(
 		}
 		const kept = -toUnits(e.amount, NEAR_DECIMALS) - refund;
 		if (kept <= 0n) continue;
-		out.push(refund ? entry({ ...e, amount: fromUnits(-kept, NEAR_DECIMALS) }) : e);
+		const registration = registrationOf(body.result.transaction, e.account);
+		out.push(
+			refund || registration
+				? entry({
+						...e,
+						amount: fromUnits(-kept, NEAR_DECIMALS),
+						...(registration ? { registration } : {})
+					})
+				: e
+		);
 	}
 	return out;
+}
+
+/**
+ * One call to the RPC, asked again after a rate limit or a hiccup. An error
+ * the RPC answers carries its name as `cause` (`UNKNOWN_BLOCK`, …).
+ *
+ * @param {typeof fetch} fetch @param {string} url @param {string} method @param {any} params
+ */
+export async function rpcCall(fetch, url, method, params) {
+	return rpc(fetch, url, method, params);
 }
 
 /** @param {typeof fetch} fetch @param {string} url @param {string} method @param {any} params */

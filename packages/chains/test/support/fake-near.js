@@ -81,16 +81,20 @@ export const NEAR_FT_TXNS = [
  * @param {{ amount: string, locked: string }} [o.account] yoctoNEAR, as view_account answers
  * @param {string} [o.usdc] the wallet's USDC in base units
  * @param {string} [o.wnear] the wallet's wNEAR in base units
+ * @param {Record<string, { transaction?: any, receipts?: any[] }>} [o.txStatus] what
+ *   EXPERIMENTAL_tx_status answers per hash: the call (with its arguments, see `storageCall`)
+ *   and the receipts; a hash not named here has neither, nothing sent back
  */
 export function fakeNear({
 	txns = NEAR_TXNS,
 	ftTxns = NEAR_FT_TXNS,
 	account = { amount: yocto('19.5'), locked: yocto('0.25') },
 	usdc = '12340000',
-	wnear = '0'
+	wnear = '0',
+	txStatus = {}
 } = {}) {
 	const state = {
-		/** @type {{ url: string, method: string }[]} */
+		/** @type {{ url: string, method: string, rpc?: string, tx?: string }[]} what was asked, an RPC call by its method and hash */
 		asked: [],
 		/** NearBlocks' answer to everything, when not 200. */
 		nearBlocksStatus: 200
@@ -113,8 +117,15 @@ export function fakeNear({
 			return json({ data: u.pathname.endsWith('/ft-txns') ? ftTxns : txns, meta: {} });
 		}
 		const call = JSON.parse(String(init?.body));
-		// What a storage deposit kept (near.js storageKept): all of it, nothing sent back.
-		if (call.method === 'EXPERIMENTAL_tx_status') return json({ result: { receipts: [] } });
+		Object.assign(state.asked[state.asked.length - 1], {
+			rpc: call.method,
+			...(call.params?.tx_hash ? { tx: call.params.tx_hash } : {})
+		});
+		// What a storage deposit kept (near.js storageKept), whom it registered, where a swap went.
+		if (call.method === 'EXPERIMENTAL_tx_status') {
+			const known = txStatus[call.params?.tx_hash];
+			return json({ result: { receipts: [], ...known } });
+		}
 		if (call.params?.request_type === 'view_account') return json({ result: account });
 		if (call.params?.request_type === 'call_function' && call.params.account_id === NEAR.usdc) {
 			return json({ result: { result: [...new TextEncoder().encode(`"${usdc}"`)] } });
@@ -126,6 +137,26 @@ export function fakeNear({
 	};
 	return { fetch: /** @type {typeof fetch} */ (answer), state };
 }
+
+/**
+ * A storage deposit's call as the RPC gives it (EXPERIMENTAL_tx_status `transaction`):
+ * `account_id` the account it registers (left out: the signer).
+ *
+ * @param {{ account_id?: string, registration_only?: boolean, token_ids?: string[] }} args
+ * @param {string} [method]
+ */
+export const storageCall = (args, method = 'storage_deposit') => ({
+	actions: [
+		{
+			FunctionCall: {
+				method_name: method,
+				args: btoa(JSON.stringify(args)),
+				gas: 30_000_000_000_000,
+				deposit: yocto('0.00125')
+			}
+		}
+	]
+});
 
 /**
  * A swap of 2 NEAR (as wNEAR) for 5.67 USDC at a made-up DEX, and the two
@@ -181,4 +212,79 @@ export function storageBeforeSwap() {
 		usdc: '5670000'
 	});
 	return { fetch, dex, hashes };
+}
+
+/**
+ * Three storage deposits that are no swap's (near-storage.js): one registering
+ * another own account at the USDC contract a minute before 12.34 USDC go to it
+ * (`forTransfer`), one registering the wallet itself two hours before an
+ * exchange pays 50 USDC out to it (`forReceipt`), and one at a made-up token
+ * with nothing after it (`alone`). Each in a transaction of its own.
+ */
+export function storageWithoutSwap() {
+	const other = 'konto-b.near';
+	const token = 'token-a.example.near';
+	const hashes = {
+		forTransfer: 'RegT111111111111111111111111111111111111111',
+		transfer: 'PayT111111111111111111111111111111111111111',
+		forReceipt: 'RegR111111111111111111111111111111111111111',
+		receipt: 'GotR111111111111111111111111111111111111111',
+		alone: 'RegA111111111111111111111111111111111111111'
+	};
+	const t0 = Date.parse('2026-11-20T09:00:00Z');
+	const time = (/** @type {number} */ ms) => (BigInt(t0 + ms) * 1_000_000n).toString();
+	const signed = (
+		/** @type {string} */ hash,
+		/** @type {string} */ receiver,
+		/** @type {number} */ ms,
+		method = 'storage_deposit',
+		deposit = yocto('0.00125')
+	) => ({
+		transaction_hash: hash,
+		block_timestamp: time(ms),
+		block: { block_height: String(400 + ms / 60_000) },
+		signer_account_id: NEAR.wallet,
+		receiver_account_id: receiver,
+		actions: [{ action: 'FUNCTION_CALL', method }],
+		actions_agg: { deposit },
+		outcomes: { status: true },
+		outcomes_agg: { transaction_fee: '446365125000000000000' }
+	});
+	const usdc = (
+		/** @type {string} */ hash,
+		/** @type {string} */ delta,
+		/** @type {string} */ other,
+		/** @type {number} */ ms
+	) => ({
+		transaction_hash: hash,
+		block_timestamp: time(ms),
+		block: { block_height: String(400 + ms / 60_000) },
+		affected_account_id: NEAR.wallet,
+		involved_account_id: other,
+		contract_account_id: NEAR.usdc,
+		delta_amount: delta,
+		cause: 'TRANSFER',
+		receipt_id: 'r0',
+		event_index: '0'
+	});
+	const { fetch } = fakeNear({
+		txns: [
+			signed(hashes.alone, token, 600 * 60_000),
+			signed(hashes.transfer, NEAR.usdc, 181 * 60_000, 'ft_transfer', '1'),
+			signed(hashes.forTransfer, NEAR.usdc, 180 * 60_000),
+			signed(hashes.forReceipt, NEAR.usdc, 0)
+		],
+		ftTxns: [
+			usdc(hashes.transfer, '-12340000', other, 181 * 60_000),
+			usdc(hashes.receipt, '50000000', NEAR.exchange, 120 * 60_000)
+		],
+		txStatus: {
+			[hashes.forTransfer]: { transaction: storageCall({ account_id: other }) },
+			[hashes.forReceipt]: { transaction: storageCall({ registration_only: true }) },
+			[hashes.alone]: { transaction: storageCall({}) }
+		},
+		account: { amount: yocto('7'), locked: '0' },
+		usdc: '37660000'
+	});
+	return { fetch, other, token, hashes };
 }

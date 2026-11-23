@@ -303,6 +303,16 @@ export function classificationLine(c, { accounts = [], noReceipt = null } = {}) 
 		}
 		case 'bank-fee':
 			if (c.via === 'exchange-fee') return t('explain.rule.exchangeFee');
+			if (c.via === 'network-fee' && c.storage)
+				return t(
+					c.storage === 'swap'
+						? 'explain.rule.storageSwap'
+						: c.storage === 'transfer'
+							? 'explain.rule.storageTransfer'
+							: c.storage === 'receipt'
+								? 'explain.rule.storageReceipt'
+								: 'explain.rule.storageAlone'
+				);
 			if (c.via === 'network-fee') return t('explain.rule.networkFee');
 			if (c.via === 'bank-code') return t('explain.rule.bankFeeCode', { code: c.bankCode ?? '' });
 			if (c.via === 'fee-words') return t('explain.rule.bankFeeWords', { word: c.feeWord ?? '' });

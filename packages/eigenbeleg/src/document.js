@@ -215,19 +215,66 @@ export const KIND_TEXT_EN = {
 	usage: 'Usage (billed from the balance)'
 };
 
+/** `AB12CD34…9F3C`: a transaction hash short enough for a line. @param {string} hash */
+const shortHash = (hash) => (hash.length > 14 ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : hash);
+
+/**
+ * What a NEAR storage deposit was for (@le-space/chains near-storage.js), after
+ * its kind: the swap it was made for, the transfer to the account it registered,
+ * the first receipt of the token – or nothing, a storage deposit of its own.
+ *
+ * @param {{ partOf?: string, enables?: { hash: string, kind: string }, registration?: { account: string } }} e
+ * @param {import('./language.js').DocumentLanguage} language
+ */
+export function storagePurposeText(e, language = 'de') {
+	if (typeof e.partOf === 'string' && e.partOf)
+		return say(
+			language,
+			` für den Tausch in Tx ${shortHash(e.partOf)}`,
+			` for the swap in tx ${shortHash(e.partOf)}`
+		);
+	const to = e.registration?.account;
+	if (e.enables?.kind === 'transfer')
+		return to
+			? say(
+					language,
+					` für die Überweisung an ${to} in Tx ${shortHash(e.enables.hash)}`,
+					` for the transfer to ${to} in tx ${shortHash(e.enables.hash)}`
+				)
+			: say(
+					language,
+					` für die Überweisung in Tx ${shortHash(e.enables.hash)}`,
+					` for the transfer in tx ${shortHash(e.enables.hash)}`
+				);
+	if (e.enables?.kind === 'receipt')
+		return say(
+			language,
+			` für den ersten Eingang des Tokens in Tx ${shortHash(e.enables.hash)}`,
+			` for the first receipt of the token in tx ${shortHash(e.enables.hash)}`
+		);
+	return '';
+}
+
 /**
  * What an entry's kind is called on the documents. An Aleph credit purchase is a swap
  * of a token for credits in the ledger; for the books it is the purchase of a balance.
+ * A NEAR storage deposit says what it was for (storagePurposeText), and so does the gas
+ * of its transaction; one read as a fee (`purpose: 'storage'`) is a storage deposit all
+ * the same.
  *
- * @param {{ chain: string, kind: string }} e
+ * @param {{ chain: string, kind: string, type?: string, purpose?: string, partOf?: string, enables?: { hash: string, kind: string }, registration?: { account: string } }} e
  * @param {import('./language.js').DocumentLanguage} [language]
  */
-export const kindText = (e, language = 'de') =>
-	e.chain === 'aleph' && e.kind === 'swap'
-		? say(language, 'Kauf von Guthaben (Credits)', 'Purchase of credits')
-		: ((language === 'en' ? KIND_TEXT_EN : KIND_TEXT)[
-				/** @type {keyof typeof KIND_TEXT} */ (e.kind)
-			] ?? e.kind);
+export const kindText = (e, language = 'de') => {
+	if (e.chain === 'aleph' && e.kind === 'swap')
+		return say(language, 'Kauf von Guthaben (Credits)', 'Purchase of credits');
+	const texts = language === 'en' ? KIND_TEXT_EN : KIND_TEXT;
+	if (e.kind === 'storage' || e.purpose === 'storage')
+		return texts.storage + storagePurposeText(e, language);
+	// The gas of a storage deposit's transaction names what the deposit was for.
+	if (e.kind === 'fee') return texts.fee + storagePurposeText(e, language);
+	return texts[/** @type {keyof typeof KIND_TEXT} */ (e.kind)] ?? e.kind;
+};
 
 /** The chains Eigenbeleg makes documents for, by id (as @le-space/chains names them). */
 export const CHAIN_NAMES = {
