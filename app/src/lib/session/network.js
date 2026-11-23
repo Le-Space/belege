@@ -2,7 +2,6 @@
 // the header's network menu – pause, resume, own devices on or off – and where
 // devices meet. Moved out of session.svelte.js unchanged.
 import { networkPause } from '$lib/network-pause.js';
-import { getSetting } from '$lib/store/settings.js';
 import { readBridgeRecord } from '$lib/bridge-connection/record.js';
 import { pairedClient } from '$lib/bridge-connection/paired-client.js';
 import { t } from '$lib/i18n/index.js';
@@ -142,18 +141,16 @@ export async function setDevicesNetwork(on) {
 
 /**
  * The books' mode, when they name one: a newer choice from another device
- * becomes this browser's too, and applies at the next unlock.
+ * becomes this browser's too, and applies at the next unlock. Only as the
+ * books themselves wrote it – the owner's devices –, never a member's.
  */
 export async function applyStoredMode() {
 	if (!ctx.session) return;
 	const { NETWORK_MODE_SETTING, modeOfSetting, setNetworkModeMirror } = await import(
 		'../sync/network-mode.js'
 	);
-	// Two devices may choose at once: the newest choice counts.
-	const [newest] = (
-		await ctx.session.store.settings.list({ where: (r) => r.key === NETWORK_MODE_SETTING })
-	).sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
-	const stored = modeOfSetting(newest?.value);
+	// Two devices may choose at once: the newest choice the books wrote counts.
+	const stored = modeOfSetting(await ctx.session.booksSetting(NETWORK_MODE_SETTING));
 	if (stored) {
 		setNetworkModeMirror(stored);
 		ctx.app.network.modeWanted = stored;
@@ -161,14 +158,16 @@ export async function applyStoredMode() {
 	await applyStoredLanRelay();
 }
 
-/** The own bridge's relay as the books know it, copied into this browser for the next unlock. */
+/**
+ * The own bridge's relay as the books know it – written by the books
+ * themselves, never by a member –, copied into this browser for the next unlock.
+ */
 async function applyStoredLanRelay() {
 	if (!ctx.session) return;
 	const { LAN_RELAY_SETTING, isLanRelayAddr, lanRelayAddr, setLanRelayMirror } = await import(
 		'../sync/network-mode.js'
 	);
-	const addr = /** @type {any} */ (await getSetting(ctx.session.store.settings, LAN_RELAY_SETTING))
-		?.addr;
+	const addr = /** @type {any} */ (await ctx.session.booksSetting(LAN_RELAY_SETTING))?.addr;
 	if (isLanRelayAddr(addr)) setLanRelayMirror(addr);
 	ctx.app.network.lanRelay = lanRelayAddr();
 	// Not awaited: the books open whatever the bridge answers.

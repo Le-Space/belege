@@ -8,6 +8,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Fixed
 
+- **How devices meet is the owner's to set.** The network mode ("Wo sich Geräte treffen") and the relay in the own network are taken from the books only as the books themselves wrote them – on the owner's devices –, like the books' successor (#627). A member's entry for either is passed over on every device, a member's own too, however new it is. The newest such value is read with `settingWrittenBy` (`store/settings.js`), which the successor now uses as well.
 - **A relay found on Aleph counts only when its registration is signed** by Le Space's account and by the key that account authorised for that relay – for its peer ID, its addresses and its instance – as `@le-space/aleph-bootstrap` signs it (`app/src/lib/ucep/relay-proof.js`, checked with the curves the app already carries). The newest registration per relay is the one signed last, and a relay found is dialled on port 443 only. The relays last known now always follow the ones found, not only when none was found. "Technische Details" of the relays says so. No new host is contacted.
 
 ## [0.54.0] – 2026-11-23

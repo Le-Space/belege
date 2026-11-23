@@ -208,6 +208,7 @@ export class ReadOnlyError extends Error {
  * @property {(writer: string) => Promise<void>} grantWriter a member's write identity may write to every collection
  * @property {(writer: string) => Promise<{ devices: string[], settings: string[] }>} removeWriter a member taken out of every collection's access list (#614): the devices only they wrote, the settings whose newest value is theirs
  * @property {(keys: string[]) => Promise<string[]>} settingsByOthers the settings among these whose newest value a member wrote
+ * @property {(key: string) => Promise<any>} booksSetting a setting's newest value as the books themselves wrote it; a member's is passed over
  * @property {{ peerId: string | null, key: Uint8Array | null }} bridgeAuth the books' bridge and its key for this generation: the gate proves with it toward that peer only
  * @property {() => Promise<void>} stop
  * @property {{ signingKey?: Uint8Array, booksSecret: Uint8Array | null, databaseKey: Uint8Array, replicationKey: Uint8Array, blobKey: Uint8Array, peerKey: Uint8Array }} [secretsForE2E]
@@ -1213,6 +1214,20 @@ export async function startSession(
 						.filter(([k, by]) => by === writer && !/^(device|member):/.test(k))
 						.map(([k]) => k)
 				};
+			},
+			/**
+			 * A setting's newest value as the books themselves wrote it: on a
+			 * member's device too, a member's own entry is passed over.
+			 *
+			 * @param {string} key
+			 */
+			async booksSetting(key) {
+				const { settingWrittenBy } = await import('./store/settings.js');
+				return settingWrittenBy(
+					/** @type {any} */ (store.databases().settings),
+					key,
+					membership ? membership.bundle.books.did : booksIdentity.id
+				);
 			},
 			/**
 			 * The settings among `keys` whose newest value the books did not write
