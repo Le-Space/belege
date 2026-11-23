@@ -68,11 +68,11 @@ export const USAGE_NOTES = /** @type {Record<string, string>} */ ({
 /** The same notes in English (language.js). */
 export const USAGE_NOTES_EN = /** @type {Record<string, string>} */ ({
 	aleph:
-		'Verbrauchsauszug (usage statement) of an Aleph Cloud account (credits), made by the account holder from the public Aleph API. ' +
+		'Usage statement of an Aleph Cloud account (credits), made by the account holder from the public Aleph API. ' +
 		'No document of a bank and no invoice of Aleph. Usage per day and resource; value: the USD price per credit ' +
 		"(the last purchase on or before the day, else Aleph's list price of 1 USD per 1,000,000 credits) at the ECB reference rate of the day.",
 	'filecoin-pay':
-		'Verbrauchsauszug (usage statement) of a balance in the Filecoin Pay payment contract (Filecoin Onchain Cloud), made by the payer from public chain data. ' +
+		'Usage statement of a balance in the Filecoin Pay payment contract (Filecoin Onchain Cloud), made by the payer from public chain data. ' +
 		'No document of a bank and no invoice of a storage provider. Usage is every settlement of a rail to its provider; ' +
 		'it pays up to the time it names, so it does not cover the month exactly. Only USDFC is read; what the payer takes in through rails is missing. ' +
 		'Value: USDFC is pegged to the US dollar and valued at the rate of USDC of the day.'
@@ -140,7 +140,7 @@ export const STATEMENT_NOTE =
 	'Kein Dokument eines Kreditinstituts. Jede Buchung ist über ihren Transaktions-Hash in einem öffentlichen Block-Explorer nachprüfbar.';
 
 export const STATEMENT_NOTE_EN =
-	'Kontoauszug (account statement) of a blockchain account, made by the account holder from public chain data. ' +
+	'Account statement of a blockchain account, made by the account holder from public chain data. ' +
 	'No document of a bank. Every booking can be checked by its transaction hash in a public block explorer.';
 
 /**
@@ -212,7 +212,7 @@ export function monthly(rows, language = 'de') {
 					purchases,
 					t(
 						'Käufe von Guthaben (Vorauszahlung; Eigenbeleg je Kauf)',
-						'Purchases of credits (prepayment; an Eigenbeleg per purchase)'
+						'Purchases of credits (prepayment; a self-issued receipt per purchase)'
 					),
 					'credit'
 				)
@@ -367,8 +367,8 @@ export function buildStatement({
 		kind: 'kontoauszug',
 		// The German name stays the document's name; an English one adds what it is.
 		title: usage
-			? say(L, 'Verbrauchsauszug', 'Usage statement (Verbrauchsauszug)')
-			: say(L, 'Kontoauszug', 'Account statement (Kontoauszug)'),
+			? say(L, 'Verbrauchsauszug', 'Usage Statement')
+			: say(L, 'Kontoauszug', 'Account Statement'),
 		usage,
 		language: L,
 		number: number || `KA-${period.from}`,

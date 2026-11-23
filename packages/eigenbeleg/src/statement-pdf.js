@@ -178,7 +178,7 @@ export async function statementPdf(
 		const detail = [
 			r.counterparty && `${r.debit ? t('an', 'to') : t('von', 'from')} ${r.counterparty}`,
 			r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
-			r.beleg && `Eigenbeleg ${r.beleg}`
+			r.beleg && `${t('Eigenbeleg', 'Receipt')} ${r.beleg}`
 		]
 			.filter(Boolean)
 			.join(' · ');

@@ -7,9 +7,9 @@
 // tax office may ask for a translation of a document in another language
 // (§ 87 AO).
 //
-// English documents keep the German names of the document types beside the
-// English ones (Eigenbeleg, Kontoauszug, Verbrauchsauszug): they are what the
-// documents are, and what a German bookkeeper looks for.
+// English documents are English throughout, their names too: Self-Issued
+// Receipt (Eigenbeleg), Account Statement (Kontoauszug), Usage Statement
+// (Verbrauchsauszug).
 //
 // Numbers in English: a decimal point and thousands commas (`1,234.5`), the
 // currency's code after the amount (`12.34 EUR`); dates as ISO (`2026-10-05`),

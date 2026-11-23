@@ -58,7 +58,7 @@ const headerEn = (currency) => [
 	'Rate source',
 	'Transaction hash',
 	'Explorer',
-	'On Eigenbeleg',
+	'On receipt',
 	'Note'
 ];
 
