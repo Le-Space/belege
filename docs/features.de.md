@@ -23,7 +23,7 @@ Was Le Space Belege heute kann, nach Themen geordnet. Eine kürzere Fassung dies
 - **Woher die Zahlungen kommen:**
   - Bankumsätze aus [Hibiscus](https://github.com/willuhn/hibiscus) über die Bridge, nur freigegebene Konten;
   - Banken in Europa über **Enable Banking**, mit eigener Anwendung, über die Bridge, nur freigegebene Konten ([banking.de.md](banking.de.md));
-  - Kontoauszüge als **CAMT.053** (Revolut, GLS, …), im Browser eingelesen;
+  - Kontoauszüge als **CAMT.053**, im Browser eingelesen;
   - **Firmenkreditkarten** als eigene Konten, ihre Abrechnungen aus der CSV des Herausgebers.
 - **Ein Geschäftsjahr nach dem anderen**, mit Jahresumschalter. Zusammengehörige Buchungen sind einen Klick entfernt: beide Seiten einer Umbuchung, die Seiten eines Handels, eine Gebühr.
 - **Private Zahlungen** vom Geschäftskonto werden markiert, dokumentiert und verrechnet ([#172](https://github.com/Le-Space/belege/issues/172)).

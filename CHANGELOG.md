@@ -1260,7 +1260,7 @@ What 0.28.0 brought, now on belege.le-space.de: 0.28.0 was tagged, but its deplo
     - how many other bookings have this address, with a jump to them;
     - "Adresse benennen" gives the address a name, which every booking with it then carries.
 
-- **"Ist das ein eigenes Konto?"** (#256). An IBAN that sends money under the company's own name is very likely an own account, a Wise account for example, whose statements never name its IBAN. Payments back from it were own transfers already, by the name; payments to it asked for a receipt, because the bank names the payee "Wise Europe SA".
+- **"Ist das ein eigenes Konto?"** (#256). An IBAN that sends money under the company's own name is very likely an own account, for example one at a bank whose statements never name its IBAN. Payments back from it were own transfers already, by the name; payments to it asked for a receipt, because the bank names the payee "Wise Europe SA".
   - Home and the payment's detail now offer such an IBAN, with how many open payments it would explain. "Ja, eigenes Konto" saves it under the own IBANs, and every payment to it becomes an own transfer (1360). "Nein, nicht unseres" stops the offer for good.
   - Nothing is saved without the click: a customer whose name only looks like the company's is offered too, and refused there.
   - [docs/banking.md](docs/banking.md) explains it under Wise.
