@@ -1,7 +1,7 @@
 {
 	"name": "@le-space/chains",
 	"version": "0.8.0",
-	"description": "Own wallets on public chains, read only, by their address \u2013 Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks), Doichain (ElectrumX), Aleph Cloud credits \u2013 as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
+	"description": "Own wallets on public chains, read only, by their address – Cosmos (Nyx, Akash), EVM (Blockscout, Alchemy), Bitcoin (Esplora, zpub), Filecoin (Filfox), NEAR (NearBlocks), Doichain (ElectrumX), Aleph Cloud credits – as @le-space/ledger entries. Browser and Node; fetch, endpoints and keys handed in.",
 	"license": "AGPL-3.0-or-later",
 	"type": "module",
 	"repository": {
@@ -44,6 +44,7 @@
 		"./testing/near": "./test/support/fake-near.js",
 		"./testing/blockscout": "./test/support/fake-blockscout.js",
 		"./testing/alchemy": "./test/support/fake-alchemy.js",
+		"./testing/alchemy-tokens": "./test/support/fake-alchemy-fetch.js",
 		"./testing/aleph": "./test/support/aleph.js",
 		"./testing/filecoin-pay": "./test/support/filecoin-pay-fetch.js",
 		"./testing/doichain": "./test/support/fake-electrum.js",
