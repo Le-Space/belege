@@ -54,7 +54,7 @@
 // proved devices only (quiet identify); a relay or a stranger is told
 // identify and the relay protocols, nothing else.
 
-import { chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { noise } from '@chainsafe/libp2p-noise';
@@ -345,6 +345,14 @@ export async function startBridgeNode({
 			}
 		};
 
+	// Unpaired ("Kopplung lösen" empties the device list), the bridge holds no
+	// pairing from before: the grants and invitations of the last one go, so
+	// only a new invitation pairs it again. Unarmed with devices listed is a
+	// keychain that did not answer, and the pairing stays for when it does.
+	if (!armed && devices.length === 0) {
+		await rm(join(dir, 'grants.json'), { force: true });
+		await rm(join(dir, 'invitations.json'), { force: true });
+	}
 	const grants = fileStore(join(dir, 'grants.json'));
 	/**
 	 * The device that paired this bridge by invitation: it holds the pairing
@@ -383,8 +391,8 @@ export async function startBridgeNode({
 	// What a call carries is sealed above the connection when the device seals
 	// it (@le-space/bridge-protocol/seal): with the bridge's own key, which the
 	// device proved at the gate; a handover, which brings that key, with one
-	// from the invitation it pairs by. A device from before sends its
-	// arguments as they are and gets its answer the same way.
+	// from the invitation it pairs by, and never unsealed. Any other call
+	// from a device from before goes as it is and is answered the same way.
 	/** @type {Map<string, { key: Uint8Array, until: number }>} invitation id → the key a handover by it is sealed with */
 	const handoverKeys = new Map();
 	/**
@@ -392,7 +400,16 @@ export async function startBridgeNode({
 	 * @param {(ctx: any) => unknown} handler
 	 */
 	const sealing = (name, handler) => async (/** @type {any} */ ctx) => {
-		if (!isSealed(ctx.argsJson)) return handler(ctx);
+		if (!isSealed(ctx.argsJson)) {
+			// The key a handover brings goes sealed by the invitation, always.
+			if (name === 'handover') {
+				throw new UcepError(
+					'INVALID_ARGUMENTS',
+					'the handover goes sealed: pair with a new invitation'
+				);
+			}
+			return handler(ctx);
+		}
 		/** @type {Uint8Array | null | undefined} */
 		let secret = authKey;
 		if (name === 'handover') {
