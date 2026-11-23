@@ -30,6 +30,7 @@ import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { FaultTolerance } from '@libp2p/interface';
 import { wordlist } from '@scure/bip39/wordlists/english';
+import { signedRegistration } from './relay-proof.js';
 
 /**
  * Where the relays come from: the Le-Space relays register their current
@@ -159,9 +160,11 @@ export function relaysFromPosts(payload, senders = TRUSTED_RELAY_SENDERS) {
 }
 
 /**
- * The registrations that name a trusted account and their instance, newest per
- * instance, with the addresses on that instance's own 2n6.me name only. Still
- * to be checked against the instance itself (`ownedInstance`).
+ * The registrations that name a trusted account and their instance, signed by
+ * that account and the publisher it authorised (relay-proof.js), newest per
+ * instance by the time the publisher signed, with the addresses on that
+ * instance's own 2n6.me name, port 443 and the signed peer id only. Still to
+ * be checked against the instance itself (`ownedInstance`).
  *
  * @param {any} payload the answer of `/api/v0/posts.json`
  * @param {readonly string[]} [owners]
@@ -185,12 +188,16 @@ export function ownerRegistrations(payload, owners = TRUSTED_RELAY_OWNERS) {
 			String(content?.registrationId ?? '')
 		)?.[1];
 		if (!instance || !trusted.has(owner)) continue;
+		if (!signedRegistration(content, { instance })) continue;
 		const host = twoN6Host(instance);
-		const time = Number(post?.time ?? 0);
+		const time = Number(content.updatedAt);
 		const addrs = (Array.isArray(content?.multiaddrs) ? content.multiaddrs : [])
 			.map(String)
 			.filter(browserDialable)
-			.filter((/** @type {string} */ addr) => addr.split('/')[2] === host)
+			.filter((/** @type {string} */ addr) => {
+				const parts = addr.split('/');
+				return parts[2] === host && parts[4] === '443' && parts.at(-1) === content.peerId;
+			})
 			.sort(
 				(/** @type {string} */ a, /** @type {string} */ b) =>
 					Number(b.startsWith('/dns4/')) - Number(a.startsWith('/dns4/'))
@@ -232,17 +239,19 @@ export async function ownedInstance(instance, owner, fetchImpl, timeoutMs) {
 /**
  * The relays to use: the configured ones (VITE_RELAY_ADDRS, comma-separated;
  * the browser specs set it), else the relays of the trusted accounts and
- * wallets as Aleph knows them now, else the fallback.
+ * wallets as Aleph knows them now, followed by the fallback.
  *
- * @param {{ configured?: string, fetch?: typeof fetch, timeoutMs?: number, senders?: readonly string[] }} [options]
- *   `senders`: the guest wallets trusted one by one (TRUSTED_RELAY_SENDERS); none: not asked
+ * @param {{ configured?: string, fetch?: typeof fetch, timeoutMs?: number, senders?: readonly string[], owners?: readonly string[] }} [options]
+ *   `senders`: the guest wallets trusted one by one (TRUSTED_RELAY_SENDERS); none: not asked;
+ *   `owners`: the accounts (TRUSTED_RELAY_OWNERS)
  * @returns {Promise<string[]>}
  */
 export async function relayAddrs({
 	configured = import.meta.env?.VITE_RELAY_ADDRS,
 	fetch: fetchImpl = globalThis.fetch,
 	timeoutMs = 5000,
-	senders = TRUSTED_RELAY_SENDERS
+	senders = TRUSTED_RELAY_SENDERS,
+	owners = TRUSTED_RELAY_OWNERS
 } = {}) {
 	const list = String(configured ?? '')
 		.split(',')
@@ -264,12 +273,12 @@ export async function relayAddrs({
 		return response.json();
 	};
 	const [byOwner, bySender] = await Promise.all([
-		// Anybody can post with any ownerAddress, so every candidate is checked
-		// against its instance before it counts.
+		// Anybody can post with any ownerAddress, so every candidate counts only
+		// signed by that account and checked against its instance.
 		posts({ pagination: '200' })
 			.then((payload) =>
 				Promise.all(
-					ownerRegistrations(payload).map(async (entry) =>
+					ownerRegistrations(payload, owners).map(async (entry) =>
 						(await ownedInstance(entry.instance, entry.owner, fetchImpl, timeoutMs))
 							? entry.addrs[0]
 							: null
@@ -291,8 +300,10 @@ export async function relayAddrs({
 			)
 		)
 	];
-	// Aleph not reachable or no relay registered: the relays as they were last known.
-	return found.length > 0 ? found : [...FALLBACK_RELAYS];
+	// The relays as they were last known always come after the ones found: when
+	// Aleph cannot be asked, knows none, or a relay found does not answer.
+	const hosts = new Set(found.map((addr) => addr.split('/')[2]));
+	return [...found, ...FALLBACK_RELAYS.filter((addr) => !hosts.has(addr.split('/')[2]))];
 }
 
 /**
