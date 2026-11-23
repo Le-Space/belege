@@ -1038,9 +1038,11 @@ export function bridgeFetch({
 			let gone = null;
 			try {
 				const res = await local(input, init);
+				// Not this device the bridge here refuses, but a call without its token:
+				// another device's bridge may still answer, else the node is missing.
 				if (nodeMissing && res.status === 401 && !remote()) return nodeUnreachable();
 				// A bridge since #580 serves this over its node only: another device's may still.
-				if (res.status !== 410) {
+				if (res.status !== 410 && !(nodeMissing && res.status === 401)) {
 					onRoute('local');
 					return res;
 				}
@@ -1062,6 +1064,9 @@ export function bridgeFetch({
 				return res;
 			} catch (error) {
 				if (error instanceof StreamTooLarge) return tooLarge();
+				// No own device serves one either: the books' bridge's node is
+				// what is missing – a hosted one stopped, say –, not this device's pairing.
+				if (nodeMissing) return nodeUnreachable();
 				throw error;
 			}
 		}

@@ -140,3 +140,24 @@ export function recordAfterUnpair(saved, url, hosted) {
 				: {})
 	};
 }
+
+/**
+ * The pairing after a pairing by code. The generation of the bridge's key the
+ * books reached stays: a code does not take them back to a key handed out
+ * before. With `fromHosted` the books' bridge moves from the hosted one to
+ * the bridge on this computer: the hosted bridge's node and when it
+ * was paired go from this record – its own records (`bridge/hosted`,
+ * `bridge/hosted-near`) and its settings stay –, so the node of the bridge on
+ * this computer is paired by its invitation next (local.js `pairNodeByCode`).
+ * Otherwise what the record holds besides stays.
+ *
+ * @param {BridgeRecord | null | undefined} saved
+ * @param {{ url: string, token: string, pairedAt: string }} paired
+ * @param {{ fromHosted?: boolean }} [options]
+ * @returns {BridgeRecord}
+ */
+export function recordAfterCodePairing(saved, paired, { fromHosted = false } = {}) {
+	const generation = saved?.keyGeneration ? { keyGeneration: keyGenerationOf(saved) } : {};
+	if (fromHosted) return { ...paired, ...generation };
+	return { ...(saved ?? {}), ...paired, ...generation };
+}
