@@ -34,8 +34,8 @@
 		walletHoldings
 	} from './value-chart.js';
 
-	/** @type {{ wallets: import('./wallet-sync.js').Wallet[], client: Pick<ReturnType<typeof import('$lib/bridge/client.js').createBridgeClient>, 'rate' | 'rateRange'>, busy?: boolean }} `busy`: a sync is running; rates are asked for after it */
-	let { wallets, client, busy = false } = $props();
+	/** @type {{ wallets: import('./wallet-sync.js').Wallet[], client: Pick<ReturnType<typeof import('$lib/bridge/client.js').createBridgeClient>, 'rate' | 'rateRange'>, busy?: boolean, onsummary?: (summary: Map<string, { color: string, value: string | null }>) => void }} `busy`: a sync is running; rates are asked for after it. `onsummary`: per chain its colour and last value, for the list's groups (#1019) */
+	let { wallets, client, busy = false, onsummary } = $props();
 
 	// What is hidden and opened is a convenience of this device, not of the
 	// books: in localStorage, and as hashes, so no address is written there.
@@ -147,6 +147,10 @@
 			)
 		})
 	);
+
+	$effect(() => {
+		onsummary?.(new Map(model.chains.map((c) => [c.chain, { color: c.color, value: c.value }])));
+	});
 
 	/** @param {string} chain */
 	const chainName = (chain) => walletChain(chain)?.name ?? chain;

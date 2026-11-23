@@ -165,6 +165,13 @@ Kein Explorer wird gefragt. Ein Link öffnet erst auf deinen Klick (`app/src/lib
 
 Tokens, die von einer Börse auf eine eigene Wallet gehen, gehören weiter der Firma. Eine solche Wallet nimmst du unter _Integrationen → Eigene Wallets_ auf, mit **Chain und Adresse**. Belege liest nur. Es fragt nie nach einem Schlüssel oder einer Seed-Phrase. Die Liste der Wallets liegt versiegelt in den Büchern (Einstellung `wallets`). Die Bridge behält nichts davon.
 
+**Die Seite** hat drei Reiter; den zuletzt gewählten merkt sich der Browser (localStorage `belege.walletsTab`, eine Einstellung der Ansicht, keine Daten der Bücher).
+
+- _Wallets_ zeigt die Wallets nach Chain gruppiert. Jede Gruppe trägt die Farbe, die ihre Chain im Wertdiagramm hat: Die vier wertvollsten Chains haben eine eigene Farbe, die übrigen sind grau. Zuerst kommen Chains, bei denen das Synchronisieren fehlschlug, dann solche, deren Buchungen den Bestand nicht ergeben, dann nach Wert und nach Name. Eine Gruppe lässt sich zuklappen; auf dem Handy sind alle zuerst zugeklappt. Sie nennt die Zahl ihrer Wallets, und _Kette synchronisieren_ holt nur die Wallets dieser Chain, so wie _Alle … synchronisieren_ alle. Das Suchfeld darüber findet eine Wallet nach Name, Adresse, Chain oder Asset.
+- Jede Wallet ist eine Zeile: ein Status-Symbol, Name und Adresse (Klick kopiert), die Bestände rechtsbündig, gerundet auf höchstens vier Nachkommastellen – unter 1 auf vier gültige Stellen, unter 0,0001 als „< 0,0001“; die genaue Zahl steht im Tooltip und in den Details –, wann zuletzt synchronisiert, ein Symbol zum Synchronisieren, ein ⋯-Menü (Bezeichnung, Konto und Kostenstelle · Block-Explorer · Entfernen) und die Details. Die Details nennen die ganze Adresse, die Endpunkte mit dem Dienst dahinter (Blockscout für EVM-Chains, Esplora bei mempool.space für Bitcoin, Filfox für Filecoin, NearBlocks für NEAR), Konto und Kostenstelle, jedes Asset-Konto mit genauem Bestand und dem Bestandsabgleich, das letzte Synchronisieren und bei einem Fehler die ganze Meldung mit ihrem Ausweg. Einen Fehler sagt die Gruppe einmal, mit den Wallets, die er betrifft.
+- _Übersicht_ zeigt das Wertdiagramm und je Chain die Wallets, ihren Bestand und den Wert am letzten Tag mit Kurs.
+- _Nachweise_ zeigt die monatlichen Nachweise: den von Akash je Akash-Wallet, den von Filecoin Pay und einen Link zu den Aleph-Nachweisen, die zur Aleph-Integration gehören (#1019).
+
 **Chains:**
 
 - Cosmos SDK: Nym (Nyx) und Akash;
@@ -178,7 +185,7 @@ Die Tabelle der Chains steht in `packages/chains/src/registry.js`, die Namen in 
 
 ### Abrufen
 
-**Eine Wallet** (_Synchronisieren_): Die App schickt die Adresse an die Bridge, im Rumpf von `POST /<chain>/wallet`. Die Bridge fragt einen öffentlichen Knoten (siehe unten). Eine Wallet kann stattdessen einen eigenen https-Endpunkt nennen. Gelesen wird jedes Mal die ganze Geschichte. Was schon bekannt ist, wird übersprungen.
+**Eine Wallet** (_Synchronisieren_, das Symbol in ihrer Zeile): Die App schickt die Adresse an die Bridge, im Rumpf von `POST /<chain>/wallet`. Die Bridge fragt einen öffentlichen Knoten (siehe unten). Eine Wallet kann stattdessen einen eigenen https-Endpunkt nennen. Gelesen wird jedes Mal die ganze Geschichte. Was schon bekannt ist, wird übersprungen.
 
 **Alle Wallets auf einmal** (_Alle … Wallets synchronisieren_):
 
@@ -243,7 +250,7 @@ Die Bridge fragt den Indexer nach jedem dieser Hashes. Bewegt die Transaktion et
 
 ### Akash: monatlicher Verbrauchsnachweis (#305)
 
-Bei Akash stellt kein Lieferant eine Rechnung. Auf der Karte einer Akash-Wallet erstellt _Verbrauchsnachweis erstellen_ deshalb je Monat einen Eigenbeleg (EB-JJJJ-NNN, wie bei Aleph). Ein Eigenbeleg ist ein Beleg, den du selbst ausstellst, wo kein fremder existiert.
+Bei Akash stellt kein Lieferant eine Rechnung. Im Reiter _Nachweise_, auf der Karte einer Akash-Wallet, erstellt _Verbrauchsnachweis erstellen_ deshalb je Monat einen Eigenbeleg (EB-JJJJ-NNN, wie bei Aleph). Ein Eigenbeleg ist ein Beleg, den du selbst ausstellst, wo kein fremder existiert.
 
 Er führt auf:
 
@@ -596,7 +603,7 @@ Hast du die Adresse unter „Was war diese Zahlung?“ selbst benannt, gilt dein
 
 Für Speicher in der Filecoin Onchain Cloud stellt niemand eine Rechnung aus. Der Vertrag rechnet aus deinem Guthaben von Zeit zu Zeit mit den Speicheranbietern ab. Eine solche Abrechnung heißt Settlement, der Zahlungsweg zu einem Anbieter heißt Rail.
 
-**Wo:** Integrationen → Eigene Wallets, Karte „Filecoin Pay“. Die Karte erscheint, sobald die Bücher eine Filecoin-Wallet mit einer Adresse der Form `f410f…` führen. Nur für eine solche Adresse kann ein Vertrag ein Guthaben führen.
+**Wo:** Integrationen → Eigene Wallets, Reiter _Nachweise_, Karte „Filecoin Pay“. Die Karte erscheint, sobald die Bücher eine Filecoin-Wallet mit einer Adresse der Form `f410f…` führen. Nur für eine solche Adresse kann ein Vertrag ein Guthaben führen.
 
 **Ablauf:**
 

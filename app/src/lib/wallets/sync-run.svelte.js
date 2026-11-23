@@ -121,13 +121,17 @@ async function alephPurchases({ client = bridgeClient() } = {}) {
  * after the other; the matching once at the end; a note, and a system
  * notification when Belege is in the background and new bookings came.
  *
- * @param {{ client?: ReturnType<typeof bridgeClient> }} [p]
+ * "Kette synchronisieren" (#1019) is the same turn over one chain's wallets.
+ *
+ * @param {{ client?: ReturnType<typeof bridgeClient>, chain?: string }} [options]
  */
-export async function syncAllWallets(p = {}) {
+export async function syncAllWallets({ chain, ...p } = {}) {
 	if (walletRun.syncing || walletRun.progress) return;
 	const store = currentStore();
 	if (!store) return;
-	const wallets = (await loadWallets(store.settings)).filter(syncable);
+	const wallets = (await loadWallets(store.settings)).filter(
+		(w) => syncable(w) && (!chain || w.chain === chain)
+	);
 	if (!wallets.length) return;
 	walletRun.summary = null;
 	walletRun.progress = { done: 0, count: wallets.length, current: null };

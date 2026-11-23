@@ -144,6 +144,7 @@ test('a Filecoin wallet is read, and its withdrawal pairs with the Kraken deposi
 	await page.reload();
 	await page.getByTestId('passkey-unlock').click();
 	await page.getByTestId('tab-zahlungen').click();
+	await expect(page).toHaveURL(/\/zahlungen\/?$/);
 	// Paired as an own transfer, it needs no receipt: not under "Nur ohne Beleg".
 	await page.getByRole('button', { name: /^Alle/ }).click();
 	await page.getByTestId('transaction').filter({ hasText: 'Kraken FIL Einzahlung' }).click();

@@ -136,6 +136,7 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	);
 
 	// A name, a ledger account and a cost centre: on every asset account at once.
+	await wallet.getByTestId('wallet-menu').click();
 	await wallet.getByTestId('wallet-edit').click();
 	const form = wallet.getByTestId('wallet-edit-form');
 	await form.getByTestId('wallet-edit-name').fill('Projekt Nord');

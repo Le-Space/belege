@@ -5764,7 +5764,13 @@ export default {
 				rpc: 'RPC',
 				rest: 'REST',
 				indexer: 'Indexer (ältere Geschichte)',
-				api: 'API (Blockscout)',
+				api: 'API',
+				apiService: {
+					blockscout: 'API (Blockscout)',
+					esplora: 'API (Esplora, mempool.space)',
+					filfox: 'API (Filfox)',
+					nearblocks: 'API (NearBlocks)'
+				},
 				apiOwn: 'Eigener API-Endpunkt (optional; leer lassen: Alchemy liest diese Wallet)'
 			},
 			meta: {
@@ -5811,6 +5817,78 @@ export default {
 			indexerFailed: 'Der Akash-Indexer war nicht erreichbar; der nächste Abruf fragt ihn wieder.',
 			balanceGap:
 				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus dem Unbonding, die keine Transaktion sind.',
+			// The page in tabs, the list grouped by chain, one row per wallet (#1019).
+			tabs: {
+				label: 'Ansicht der Wallets',
+				wallets: 'Wallets',
+				overview: 'Übersicht',
+				statements: 'Nachweise',
+				problems: 'Chains mit Problem: {count}'
+			},
+			search: {
+				label: 'Wallets durchsuchen',
+				placeholder: 'Suchen: Name, Adresse, Asset',
+				none: 'Keine Wallet passt zu „{query}“.',
+				expandAll: 'Alle aufklappen',
+				collapseAll: 'Alle zuklappen'
+			},
+			group: {
+				count: '{count} Wallets',
+				countOne: '1 Wallet',
+				found: '{found} von {count} Wallets',
+				errors: 'Fehler: {count}',
+				gaps: 'Saldo weicht ab: {count}',
+				sync: 'Kette synchronisieren',
+				syncLabel: 'Alle Wallets auf {chain} synchronisieren',
+				errorOf: 'Wallets mit diesem Fehler: {names}'
+			},
+			row: {
+				ok: 'In Ordnung',
+				gap: 'Saldo weicht von den Buchungen ab',
+				error: 'Synchronisieren fehlgeschlagen',
+				syncOne: '{name} synchronisieren',
+				more: 'Mehr zu {name}',
+				details: 'Details zu {name}',
+				moreTokens: '{count} weitere Token ohne Bestand',
+				synced: 'Zuletzt synchronisiert',
+				ago: {
+					never: 'noch nie',
+					now: 'gerade eben',
+					hours: 'vor {count} Std.',
+					yesterday: 'gestern',
+					days: 'vor {count} Tagen',
+					date: 'am {date}'
+				}
+			},
+			details: {
+				address: 'Adresse',
+				source: 'Datenquelle',
+				endpoints: 'Endpunkte',
+				booking: 'Buchung',
+				accounts: 'Konten und Bestand',
+				check: 'Saldenprüfung',
+				checkOk: 'Die Buchungen ergeben den Bestand.',
+				lastSync: 'Zuletzt',
+				error: 'Fehler'
+			},
+			overview: {
+				perChain: 'Je Chain',
+				chain: 'Chain',
+				wallets: 'Wallets',
+				holdings: 'Bestand',
+				value: 'Wert (letzter Tag mit Kurs)',
+				total: 'Zusammen',
+				noRate: 'kein Kurs'
+			},
+			statements: {
+				intro:
+					'Monatliche Nachweise aus deinen Wallets. Ein Nachweis ist ein Eigenbeleg und liegt nach dem Erstellen bei den Belegen.',
+				alephTitle: 'Aleph',
+				alephText:
+					'Die Aleph-Nachweise gehören zum Aleph-Konto, nicht zu einer Wallet: Sie stehen bei der Aleph-Integration.',
+				alephLink: 'Zu Integrationen → Aleph'
+			},
+			explorerMenu: 'Im Block-Explorer ({name})',
 			// The chart of the wallets' value per day (#908).
 			chart: {
 				title: 'Wert der Wallets in Euro',

@@ -14,7 +14,6 @@
 	import KrakenCard from '$lib/exchanges/KrakenCard.svelte';
 	import WalletsCard from '$lib/wallets/WalletsCard.svelte';
 	import AlephCard from '$lib/aleph/AlephCard.svelte';
-	import FilecoinPayCard from '$lib/filecoin-pay/FilecoinPayCard.svelte';
 	import CreditsCard from '$lib/credits/CreditsCard.svelte';
 	import BackupCard from '$lib/backup/BackupCard.svelte';
 	import MoveCard from '$lib/move/MoveCard.svelte';
@@ -102,8 +101,8 @@
 				configured={bridge.health.kraken}
 			/>
 		{:else if id === 'wallets'}
+			<!-- Filecoin Pay is in the card's "Nachweise" tab (#1019). -->
 			<WalletsCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
-			<FilecoinPayCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />
 		{:else if id === 'aleph'}
 			<CreditsCard />
 			<AlephCard url={bridge.url} token={bridge.token} paired={bridgePaired()} />

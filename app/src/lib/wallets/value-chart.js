@@ -233,8 +233,10 @@ export function neededRates({ holdings, books, fetched = new Map(), from, to }) 
 /**
  * @typedef {object} ChartModel
  * @property {string[]} buckets
- * @property {{ chain: string, accounts: { key: string, wallet: string, visible: boolean }[], visible: boolean, open: boolean }[]} chains
- *   what the checkboxes show: every chain, its accounts where it has several
+ * @property {{ chain: string, accounts: { key: string, wallet: string, visible: boolean }[], visible: boolean, open: boolean, color: ChartLine['color'], value: string | null }[]} chains
+ *   what the checkboxes show: every chain, its accounts where it has several;
+ *   `color` is that of the chain's largest line and `value` what the whole chain
+ *   was worth on the last day with a rate, for the list's groups (#1019)
  * @property {ChartLine[]} lines one per chain, or per account of an opened chain; the largest first
  * @property {(string | null)[] | null} rest the visible lines beyond the fourth, as one; null: none
  * @property {(string | null)[]} total everything visible together
@@ -244,6 +246,8 @@ export function neededRates({ holdings, books, fetched = new Map(), from, to }) 
 
 /** @param {(string | null)[]} values the last value there is, as a number */
 const lastValue = (values) => Number(values.findLast((v) => v !== null) ?? 0);
+/** @param {(string | null)[]} values the last value there is; null: none */
+const lastValueOrNull = (values) => values.findLast((v) => v !== null) ?? null;
 
 /**
  * The lines of the chart from the series: which there are, which are
@@ -330,6 +334,8 @@ export function chartModel({ series, holdings, hidden, open }) {
 			chain: c.chain,
 			visible: c.visible,
 			open: c.open,
+			color: lines.find((l) => l.chain === c.chain)?.color ?? 'other',
+			value: lastValueOrNull(series.groups.find((g) => g.key === c.chain)?.values ?? []),
 			accounts: c.accounts.map(({ key, wallet, visible }) => ({ key, wallet, visible }))
 		})),
 		lines: lines.map(({ key, kind, chain, values, missing, visible, color }) => ({

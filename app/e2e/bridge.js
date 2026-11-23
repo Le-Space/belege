@@ -48,6 +48,7 @@ export const BRIDGE_SPECS = [
 	'travel-rates',
 	'travel-reread',
 	'upload-to-booking',
+	'wallet-groups',
 	'wallets',
 	'wallets-alchemy'
 ];
