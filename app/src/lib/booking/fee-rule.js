@@ -8,7 +8,9 @@
 //
 // A cost of a swap made in a transaction of its own (a NEAR storage deposit,
 // `partOf` the swap's hash, #968) takes the account its swap's gas has, before
-// the rule, marked `booking.via: 'swap'`, and follows it when it changes.
+// the rule, marked `booking.via: 'swap'`, and follows it when it changes. So
+// does a storage deposit for a transfer (`enables`) with the transfer's gas;
+// one for a receipt has no gas of the wallet's to follow and takes the rule's.
 
 import { recordEvent } from '../activity/events.js';
 import { cleanMatchingSettings } from '../matching/classify.js';
@@ -71,11 +73,11 @@ async function followSwapGas(store, at) {
 	const costs = await store.transactions.list({
 		where: (/** @type {Rec} */ t) =>
 			isNetworkFee(t) &&
-			typeof t.partOf === 'string' &&
+			typeof costOf(t) === 'string' &&
 			(!isBookingConfirmed(t) || t.booking?.via === 'swap' || t.booking?.via === 'rule')
 	});
 	if (!costs.length) return 0;
-	const wanted = new Set(costs.map((/** @type {Rec} */ t) => `${t.source}|${t.partOf}:fee`));
+	const wanted = new Set(costs.map((/** @type {Rec} */ t) => `${t.source}|${costOf(t)}:fee`));
 	/** @type {Map<string, Rec>} */
 	const gasOf = new Map();
 	for (const g of await store.transactions.list({
@@ -85,7 +87,7 @@ async function followSwapGas(store, at) {
 		gasOf.set(`${g.source}|${g.sourceId}`, g);
 	let changed = 0;
 	for (const tx of costs) {
-		const gas = gasOf.get(`${tx.source}|${tx.partOf}:fee`);
+		const gas = gasOf.get(`${tx.source}|${costOf(tx)}:fee`);
 		if (!gas) {
 			if (tx.booking?.via !== 'swap') continue;
 			await store.transactions.put({ ...tx, booking: null });
@@ -102,6 +104,9 @@ async function followSwapGas(store, at) {
 	}
 	return changed;
 }
+
+/** The transaction a cost made apart belongs to: a swap's, or a transfer's or receipt's. @param {Rec} t */
+const costOf = (t) => (typeof t.partOf === 'string' ? t.partOf : t.enables);
 
 /**
  * Set the rule (an account) or lift it (null).

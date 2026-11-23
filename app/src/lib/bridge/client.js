@@ -184,6 +184,9 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {'transfer' | 'reward' | 'stake' | 'ibc' | 'fee' | 'swap' | 'mining'} kind `mining`: a mined block (Monero export)
  * @property {SwapSides} [swap] EVM: what the wallet gave and got in a swap (issue #115)
  * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction, or that transaction's gas (type `fee`): the swap's hash (#968)
+ * @property {{ hash: string, kind: 'transfer' | 'receipt' }} [enables] NEAR: a storage deposit, or its transaction's gas (type `fee`), that let a transfer of the token to the account it registered, or the wallet's first receipt of it, happen: that transaction
+ * @property {'storage'} [purpose] NEAR: a storage deposit (type `fee`), whatever it was for; with neither `partOf` nor `enables` one of its own
+ * @property {{ account: string, only?: boolean, tokens?: string[] }} [registration] NEAR: whom a storage deposit registered, as its call said
  * @property {string} asset symbol
  * @property {string} amount signed decimal
  * @property {number} decimals

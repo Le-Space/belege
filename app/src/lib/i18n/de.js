@@ -1835,6 +1835,10 @@ export default {
 		fee: 'Netzwerkgebühr',
 		feeFailed: 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
 		storageDeposit: 'Storage-Deposit',
+		storageForTransfer: 'für die Überweisung an {to}, Tx {tx}',
+		storageForTransferAnyone: 'für die Überweisung, Tx {tx}',
+		storageForReceipt: 'für den ersten Eingang des Tokens, Tx {tx}',
+		storageAlone: 'Registrierung bei {contract}',
 		burned: 'Vom Projekt verbrannt',
 		byOther: 'Von Dritten bewegt',
 		stakingReward: 'Staking-Ertrag',
@@ -2484,6 +2488,14 @@ export default {
 			exchangeFee:
 				'Gebühr der Börse: Kraken hat sie zu dieser Buchung berechnet – der Kontoauszug der Börse ist der Beleg',
 			networkFee: 'Netzwerkgebühr der Blockchain: die Transaktion im Block-Explorer ist der Beleg',
+			storageSwap:
+				'Storage-Deposit für einen Tausch: Der Vertrag eines Tokens hat das Konto registriert, bevor der Tausch es dort führen konnte. Eine Kostenposition des Tauschs wie sein Gas, an den Vertrag gezahlt, ohne Rechnung. Die Transaktion im Block-Explorer ist der Beleg. Kein Beleg nötig.',
+			storageTransfer:
+				'Storage-Deposit für eine Überweisung: Der Vertrag des Tokens hat das empfangende Konto registriert, damit die Überweisung dorthin gehen konnte. Eine Kostenposition der Überweisung wie ihr Gas, ohne Rechnung. Die Transaktion im Block-Explorer ist der Beleg. Kein Beleg nötig.',
+			storageReceipt:
+				'Storage-Deposit für einen Eingang: Der Vertrag des Tokens hat diese Wallet registriert, damit sie den Token zum ersten Mal empfangen konnte. Eine Kostenposition des Eingangs, ohne Rechnung. Die Transaktion im Block-Explorer ist der Beleg. Kein Beleg nötig.',
+			storageAlone:
+				'Storage-Deposit: NEAR, das ein Vertrag der Blockchain für den Speicher eines Kontos einbehält – keine Zahlung für eine Leistung und ohne Rechnung, wie eine Netzwerkgebühr. Die Transaktion im Block-Explorer ist der Beleg. Kein Beleg nötig.',
 			ownAddress:
 				'Eigene Übertragung: Die Gegenadresse {address} ist deine Wallet {account}. Kein Beleg nötig (Konto 1360).',
 			ownIbc:

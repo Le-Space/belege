@@ -307,6 +307,8 @@ export function feeKey(tx) {
  * @property {string} [ruleId]
  * @property {'counterparty' | 'purpose' | 'any'} [ruleField] what the rule looked at
  * @property {string} [ruleContains] the rule's text
+ * @property {'swap' | 'transfer' | 'receipt' | 'own'} [storage] a wallet's network fee that is a NEAR storage
+ *   deposit: what it was for (the explanation says so)
  * @property {'iban' | 'mirrored' | 'company' | 'counter-booking' | 'reference' | 'own-address' | 'address' | 'custodian' | 'payment-contract' | 'aleph-purchase' | 'bridge' | 'cross-chain' | 'manual' | 'card' | 'card-settlement' | 'booking-type' | 'bank-code' | 'fee-words' | 'learned' | 'exchange-fee' | 'network-fee' | 'employee' | 'wage-words' | 'tax-office' | 'tax-number' | 'municipality' | 'insurer'} [via] how an own transfer or a bank fee was recognised
  * @property {string} [address] our own wallet's address, for via 'own-address'
  * @property {string} [vendor] the prepaid vendor, for kind 'prepaid-topup'
@@ -530,7 +532,13 @@ export function classifyTransaction(tx, ctx) {
 	if (prepaid) return { kind: 'prepaid-topup', vendor: prepaid };
 	const wallet = walletChain(tx.source);
 	if (tx.movement === 'fee') {
-		return { kind: 'bank-fee', via: wallet ? 'network-fee' : 'exchange-fee' };
+		// A NEAR storage deposit says what it was for (wallets/wallet-sync.js storageOf).
+		const storage = wallet ? storageFor(tx) : null;
+		return {
+			kind: 'bank-fee',
+			via: wallet ? 'network-fee' : 'exchange-fee',
+			...(storage ? { storage } : {})
+		};
 	}
 	// The payment of a purchase of Aleph credits, known by the transaction Aleph
 	// names for it. Aleph issues no invoice: the account's monthly statement
@@ -780,4 +788,16 @@ export function classifyTransaction(tx, ctx) {
 		}
 	}
 	return null;
+}
+
+/**
+ * What a NEAR storage deposit booked as a network fee was for, as the wallet
+ * sync stored it (`storageDeposit.for`); null for any other fee.
+ *
+ * @param {Record<string, any>} tx
+ * @returns {'swap' | 'transfer' | 'receipt' | 'own' | null}
+ */
+function storageFor(tx) {
+	const f = tx?.storageDeposit?.for;
+	return f === 'swap' || f === 'transfer' || f === 'receipt' || f === 'own' ? f : null;
 }

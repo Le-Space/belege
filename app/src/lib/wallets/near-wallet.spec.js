@@ -5,14 +5,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { createWalletService } from '@le-space/chains';
-import { NEAR, fakeNear, storageBeforeSwap } from '@le-space/chains/testing/near';
+import {
+	NEAR,
+	fakeNear,
+	storageBeforeSwap,
+	storageWithoutSwap
+} from '@le-space/chains/testing/near';
 import { memoryCollection } from '../bank/test-support.js';
 import { chainOfHash } from '../assets/hash-chain.js';
 import { assetOf } from '../assets/registry.js';
 import { txRefsOf } from '../matching/context.js';
 import { classifyTransaction } from '../matching/classify.js';
 import { relatedIndex } from '../matching/related.js';
-import { applyFeeRule } from '../booking/fee-rule.js';
+import { classificationLine } from '../matching/explain.js';
+import { applyFeeRule, setFeeRule } from '../booking/fee-rule.js';
+import { planMonth } from '../export/plan.js';
 import {
 	WALLET_CHAINS,
 	addressExplorerUrl,
@@ -362,5 +369,151 @@ describe('a NEAR account as a wallet', () => {
 		// Once more: nothing changes.
 		const third = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
 		expect(third.totals).toMatchObject({ new: 0, updated: 0 });
+	});
+
+	it('a storage deposit for a transfer, for a receipt, or of its own: a network fee with its reason', async () => {
+		const s = store();
+		const wallet = await addWallet(s.settings, { chain: 'near', address: NEAR.wallet });
+		const now = new Date('2026-11-21T08:00:00Z');
+		const { fetch, other, token, hashes } = storageWithoutSwap();
+		const after = await createWalletService({ fetch }).sync({
+			chain: 'near',
+			address: NEAR.wallet
+		});
+		const c = client();
+		// As a reader before gave it: each deposit a payment of its own that waits for a receipt.
+		const before = {
+			...after,
+			entries: after.entries.map((/** @type {any} */ e) => {
+				const rest = { ...e };
+				for (const k of ['enables', 'purpose', 'registration']) delete rest[k];
+				return e.purpose === 'storage' ? { ...rest, type: 'sent', kind: 'transfer' } : rest;
+			})
+		};
+		await bookWalletHistory({ client: c, store: s, wallet, result: before, now });
+		const of = async (/** @type {string} */ sourceId) =>
+			/** @type {Record<string, any>} */ (
+				(await s.transactions.list()).find((t) => t.sourceId === sourceId)
+			);
+		expect(await of(`${hashes.alone}:deposit`)).toMatchObject({ movement: 'transfer' });
+		const ids = (await s.transactions.list()).map((t) => t.id).sort();
+
+		const second = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(second.totals.new).toBe(0);
+		// Updated in place: the same bookings, none twice.
+		expect((await s.transactions.list()).map((t) => t.id).sort()).toEqual(ids);
+
+		const forTransfer = await of(`${hashes.forTransfer}:deposit`);
+		expect(forTransfer).toMatchObject({
+			movement: 'fee',
+			enables: hashes.transfer,
+			storageDeposit: { for: 'transfer', registers: other },
+			counterpartyAddress: NEAR.usdc,
+			quantity: '-1250000000000000000000'
+		});
+		expect(forTransfer.partOf).toBeUndefined();
+		expect(forTransfer.purpose).toMatch(
+			new RegExp(`^Storage-Deposit für die Überweisung an ${other}, Tx PayT1111…1111`)
+		);
+		const forReceipt = await of(`${hashes.forReceipt}:deposit`);
+		expect(forReceipt).toMatchObject({
+			movement: 'fee',
+			enables: hashes.receipt,
+			storageDeposit: { for: 'receipt', registers: NEAR.wallet }
+		});
+		expect(forReceipt.purpose).toMatch(/^Storage-Deposit für den ersten Eingang des Tokens, Tx /);
+		const alone = await of(`${hashes.alone}:deposit`);
+		expect(alone).toMatchObject({ movement: 'fee', storageDeposit: { for: 'own' } });
+		expect(alone.enables).toBeUndefined();
+		expect(alone.purpose).toMatch(new RegExp(`^Storage-Deposit Registrierung bei ${token}`));
+		// Its gas names the same transfer, and is a plain network fee.
+		const gas = await of(`${hashes.forTransfer}:fee`);
+		expect(gas).toMatchObject({ movement: 'fee', enables: hashes.transfer });
+		expect(gas.storageDeposit).toBeUndefined();
+
+		// No receipt of its own, each with its reason.
+		const ctx = /** @type {any} */ ({ rules: [] });
+		for (const [tx, storage, words] of /** @type {const} */ ([
+			[forTransfer, 'transfer', 'Storage-Deposit für eine Überweisung'],
+			[forReceipt, 'receipt', 'Storage-Deposit für einen Eingang'],
+			[alone, 'own', 'Storage-Deposit: NEAR, das ein Vertrag']
+		])) {
+			const classified = classifyTransaction(tx, ctx);
+			expect(classified).toMatchObject({ kind: 'bank-fee', via: 'network-fee', storage });
+			expect(classificationLine(/** @type {any} */ (classified))).toContain(words);
+		}
+		expect(classifyTransaction(gas, ctx)).not.toHaveProperty('storage');
+
+		// Shown with the transfer and with the receipt, as a swap's gas is.
+		const related = relatedIndex(await s.transactions.list());
+		const payment = await of(`${hashes.transfer}:ft:r0:0`);
+		expect(
+			(related.get(String(payment.id)) ?? [])
+				.filter((r) => r.kind === 'fee')
+				.map((r) => r.other.sourceId)
+				.sort()
+		).toEqual(
+			[
+				`${hashes.forTransfer}:deposit`,
+				`${hashes.forTransfer}:fee`,
+				`${hashes.transfer}:fee`
+			].sort()
+		);
+		const receipt = await of(`${hashes.receipt}:ft:r0:0`);
+		expect(
+			(related.get(String(receipt.id)) ?? [])
+				.filter((r) => r.kind === 'fee')
+				.map((r) => r.other.sourceId)
+				.sort()
+		).toEqual([`${hashes.forReceipt}:deposit`, `${hashes.forReceipt}:fee`].sort());
+		expect((related.get(String(alone.id)) ?? []).filter((r) => r.kind === 'fee-of')).toEqual([]);
+
+		// The transfer's deposit takes the account its gas is booked on; the others the rule's.
+		const transferGas = await of(`${hashes.transfer}:fee`);
+		await s.transactions.put({
+			...transferGas,
+			booking: { account: '4970', taxKey: '', confirmedAt: '2026-11-21T09:00:00Z' }
+		});
+		await applyFeeRule(/** @type {any} */ (s));
+		expect((await of(`${hashes.forTransfer}:deposit`)).booking).toMatchObject({
+			account: '4970',
+			via: 'swap'
+		});
+		expect((await of(`${hashes.forReceipt}:deposit`)).booking ?? null).toBeNull();
+
+		// With the network fee rule, each goes into the DATEV export as a fee line of its own.
+		await setFeeRule(/** @type {any} */ (s), '4970');
+		const plan = planMonth({
+			month: '2026-11',
+			transactions: await s.transactions.list(),
+			// The wallet's accounts on a made-up ledger account.
+			accounts: (await s.accounts.list()).map((a) => ({ ...a, ledgerAccount: '1550' })),
+			receipts: [],
+			matches: [],
+			classifications: {},
+			collectFees: false
+		});
+		for (const hash of [hashes.forTransfer, hashes.forReceipt, hashes.alone]) {
+			const line = plan.lines.find((l) => l.tx.sourceId === `${hash}:deposit`)?.line;
+			expect(line, hash).toBeDefined();
+			expect([line?.account, line?.contra], hash).toContain('4970');
+		}
+
+		// Once more: nothing changes.
+		const third = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(third.totals).toMatchObject({ new: 0, updated: 0 });
+
+		// Tied to a swap by an earlier reader, a transfer's cost now: the swap goes.
+		const tied = await of(`${hashes.forTransfer}:deposit`);
+		await s.transactions.put({ ...tied, partOf: 'OldSwap1111111111111111111111111111111111111' });
+		const fourth = await bookWalletHistory({ client: c, store: s, wallet, result: after, now });
+		expect(fourth.totals).toMatchObject({ new: 0, updated: 1 });
+		const retied = await of(`${hashes.forTransfer}:deposit`);
+		expect(retied.partOf ?? null).toBeNull();
+		// Settled: the next sync finds nothing to change.
+		expect(
+			(await bookWalletHistory({ client: c, store: s, wallet, result: after, now })).totals.updated
+		).toBe(0);
+		expect(retied.enables).toBe(hashes.transfer);
 	});
 });
