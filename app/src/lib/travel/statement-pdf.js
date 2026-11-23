@@ -9,11 +9,9 @@
 
 import { formatDate } from '../bank/format.js';
 import { amount } from '../export/datev.js';
+import { euro } from '../export/pdf-format.js';
 import { statementLayout } from '@le-space/eigenbeleg/statement-layout';
 import { tripTimes } from './statement.js';
-
-/** @param {number | null} cents */
-const euro = (cents) => (cents === null ? '—' : `${amount(cents)} EUR`);
 
 const KIND = /** @type {Record<string, string>} */ ({
 	full: 'ganzer Tag',

@@ -38,6 +38,7 @@ import {
 	addSlot as addVaultSlot,
 	slotIdFor
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
+import { toHex } from '@le-space/ledger/bytes';
 
 /** Bumping this gives every passkey a new slot key: no slot would open any more. */
 export const VAULT_SLOT_INFO = 'belege/vault-slot/v1';
@@ -129,9 +130,6 @@ export class RemovedWordsError extends Error {
 		this.name = 'RemovedWordsError';
 	}
 }
-
-/** @param {Uint8Array} bytes */
-const toHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 /** @param {string} hex @param {number} length */
 function fromHex(hex, length) {
