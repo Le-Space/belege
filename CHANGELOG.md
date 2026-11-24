@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.56.0] – 2026-11-24
+
 ## [0.55.0] – 2026-11-24
 
 ### Changed
