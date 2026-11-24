@@ -151,6 +151,21 @@ export async function createCreditsClient({
 		 */
 		choosePlan: (planId) => call('PUT', '/v1/package', { package: planId }),
 		/**
+		 * "Verträge hier kündigen" (§ 312k BGB): end the plan at its period's
+		 * end. Never waits for the terms; the service confirms it by mail when
+		 * Stripe has an address. 409 SUBSCRIBED for a Stripe subscription.
+		 * @returns {Promise<{ package: Balance['package'] }>}
+		 */
+		endPlan: () => call('PUT', '/v1/package', { package: null }),
+		/**
+		 * "Vertrag widerrufen" (§ 356a BGB): with `quote` only what can still be
+		 * withdrawn; without, the withdrawal itself (409 NOTHING_TO_WITHDRAW
+		 * once nothing can). Never gated by the terms; the service mails the
+		 * receipt when Stripe has an address.
+		 * @param {boolean} quote @returns {Promise<Withdrawal>}
+		 */
+		withdraw: async (quote) => withdrawalOf(await call('POST', '/v1/withdrawal', { quote })),
+		/**
 		 * Let `delegate` start, forget and forward the VM that Le Space's
 		 * sub-account for these books pays (Aleph's `security` aggregate).
 		 * 409 NO_PLAN without a running period.
@@ -169,7 +184,7 @@ export async function createCreditsClient({
  *   credits: number,
  *   reserved: number,
  *   lines_this_month: { ki: number, vm: number, transfer: number, refund?: number },
- *   package?: { id: string, state: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
+ *   package?: { id: string, state: string, billing?: string, period_start: string | null, period_end: string | null, hours_left: number | null } | null,
  *   refund?: { id: string, state: string, credits: number | null, created_at: string, done_at?: string | null } | null,
  *   mode?: 'test' | 'live' | null,
  *   terms?: unknown,
@@ -202,6 +217,41 @@ export async function createCreditsClient({
  */
 
 /**
+ * What the service says about a withdrawal (POST /v1/withdrawal): the
+ * contracts that can still be withdrawn (a quote) or were withdrawn, each with
+ * when it was concluded and until when it could be withdrawn; for a withdrawal
+ * when it was received, and the refund request it opened. Everything in it
+ * is the service's word, shown as text.
+ *
+ * @typedef {{ subject: string, what: string, concludedAt: string | null, until: string | null }} WithdrawalItem
+ * @typedef {{ quote: boolean, items: WithdrawalItem[], receivedAt: string | null, refund: boolean }} Withdrawal
+ *
+ * @param {any} body
+ * @returns {Withdrawal}
+ */
+export function withdrawalOf(body) {
+	const list = Array.isArray(body?.withdrawable)
+		? body.withdrawable
+		: Array.isArray(body?.withdrawn)
+			? body.withdrawn
+			: [];
+	const iso = (/** @type {unknown} */ v) => (typeof v === 'string' && v ? v : null);
+	return {
+		quote: body?.quote === true,
+		items: list
+			.filter((/** @type {any} */ i) => i && typeof i === 'object')
+			.map((/** @type {any} */ i) => ({
+				subject: String(i.subject ?? ''),
+				what: String(i.what ?? ''),
+				concludedAt: iso(i.concluded_at),
+				until: iso(i.until)
+			})),
+		receivedAt: iso(body?.received_at),
+		refund: Boolean(body?.refund)
+	};
+}
+
+/**
  * A page of the service the card may link to: https (or the E2E fake) on the
  * service's own origin, nothing else. Null for anything else.
  *
@@ -223,7 +273,7 @@ export function creditsPage(url, base = creditsUrl()) {
  * the card shows. Everything in it is the service's word: shown as text, a
  * link only to the service's own origin.
  *
- * @typedef {{ version: string, url: string | null, changes: string[], effectiveAt: string | null }} TermsVersion
+ * @typedef {{ version: string, url: string | null, changes: string[], effectiveAt: string | null, publishedAt: string | null }} TermsVersion
  * @typedef {{ current: TermsVersion | null, pending: TermsVersion | null, withdrawal: { version: string, de: string, en: string } | null }} PublishedTerms
  *
  * @param {any} body @param {string} [base]
@@ -238,7 +288,8 @@ export function publishedTerms(body, base = creditsUrl()) {
 					changes: (Array.isArray(v.changes) ? v.changes : v.changes ? [v.changes] : []).map(
 						String
 					),
-					effectiveAt: typeof v.effectiveAt === 'string' ? v.effectiveAt : null
+					effectiveAt: typeof v.effectiveAt === 'string' ? v.effectiveAt : null,
+					publishedAt: typeof v.publishedAt === 'string' ? v.publishedAt : null
 				}
 			: null;
 	const w = body?.withdrawal;
@@ -257,10 +308,14 @@ export function publishedTerms(body, base = creditsUrl()) {
 }
 
 /**
- * Where this account stands with the terms (`terms` of GET /v1/balance):
- * `due` when a version is in force that it has not agreed to (a purchase is
- * refused with 412 TERMS until it has), `announced` when a coming version is
- * not agreed to yet. Nothing is due while no version is published.
+ * Where this account stands with the terms (`terms` of GET /v1/balance).
+ * `dueVersion` is the version to agree to before a purchase (the service
+ * refuses one with 412 TERMS until then): the service says it (`due`, since
+ * le-space-credits#115) – a new customer is asked for the newest published
+ * version, one who agreed to the version in force only from the day the next
+ * takes effect. While it does not say, the version in force not agreed to yet.
+ * `announced` is a published, coming version not agreed to and not due: an
+ * existing customer may agree early; it binds them from `pendingEffectiveAt`.
  *
  * @param {any} t
  */
@@ -270,13 +325,21 @@ export function termsOf(t) {
 	const accepted = version(t?.accepted);
 	const current = version(t?.current);
 	const pending = version(t?.pending);
+	const told = Boolean(t && typeof t === 'object' && 'due' in t);
+	const dueVersion = told ? version(t.due) : current && accepted !== current ? current : null;
+	const date = (/** @type {unknown} */ v) => (typeof v === 'string' && v ? v : null);
 	return {
 		accepted,
-		acceptedAt: typeof t?.accepted?.accepted_at === 'string' ? t.accepted.accepted_at : null,
+		acceptedAt: date(t?.accepted?.accepted_at),
 		current,
 		pending,
-		due: Boolean(current && accepted !== current),
-		announced: Boolean(pending && accepted !== pending && pending !== current)
+		pendingEffectiveAt: date(t?.pending?.effectiveAt),
+		pendingPublishedAt: date(t?.pending?.publishedAt),
+		dueVersion,
+		due: Boolean(dueVersion),
+		announced: Boolean(
+			pending && accepted !== pending && pending !== current && pending !== dueVersion
+		)
 	};
 }
 

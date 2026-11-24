@@ -11,7 +11,8 @@ import {
 	isPaidMessage,
 	payUrl,
 	publishedTerms,
-	termsOf
+	termsOf,
+	withdrawalOf
 } from './credits.js';
 
 const KEY = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
@@ -134,7 +135,8 @@ describe('Le Space Credits client', () => {
 			version: '1',
 			url: `${BASE}/agb/belege`,
 			changes: ['first version'],
-			effectiveAt: null
+			effectiveAt: null,
+			publishedAt: null
 		});
 		expect(terms.pending).toBeNull();
 		expect(terms.withdrawal).toEqual({ version: 'w2', de: 'DE text', en: 'EN text' });
@@ -167,7 +169,7 @@ describe('Le Space Credits client', () => {
 		expect(publishedTerms({ withdrawal: { de: 'no version' } }, BASE).withdrawal).toBeNull();
 		expect(
 			publishedTerms({ current: { version: 2, url: 'https://evil.example.com/x' } }, BASE).current
-		).toEqual({ version: '2', url: null, changes: [], effectiveAt: null });
+		).toEqual({ version: '2', url: null, changes: [], effectiveAt: null, publishedAt: null });
 	});
 
 	it('knows when the terms are due', () => {
@@ -185,6 +187,100 @@ describe('Le Space Credits client', () => {
 		expect(
 			termsOf({ accepted: { version: '2' }, current: '1', pending: { version: '2' } }).announced
 		).toBe(false);
+	});
+
+	it('asks for exactly the version the service says is due', () => {
+		// A new customer: the newest published version, before it takes effect for earlier contracts.
+		const fresh = termsOf({
+			accepted: null,
+			current: '2',
+			pending: { version: '3', publishedAt: '2030-01-01T00:00:00Z', effectiveAt: '2030-02-12' },
+			due: '3'
+		});
+		expect(fresh).toMatchObject({ due: true, dueVersion: '3', announced: false });
+		// An existing customer of version 2: nothing due, version 3 announced from its effective date.
+		const existing = termsOf({
+			accepted: { version: '2', accepted_at: '2030-01-01T00:00:00Z' },
+			current: '2',
+			pending: { version: '3', publishedAt: '2030-01-01T00:00:00Z', effectiveAt: '2030-02-12' },
+			due: null
+		});
+		expect(existing).toMatchObject({
+			due: false,
+			dueVersion: null,
+			announced: true,
+			pendingEffectiveAt: '2030-02-12',
+			pendingPublishedAt: '2030-01-01T00:00:00Z'
+		});
+		// The service's null wins over the old computation.
+		expect(termsOf({ accepted: { version: '1' }, current: '2', due: null }).due).toBe(false);
+		// Agreed early: nothing due, nothing announced.
+		expect(
+			termsOf({ accepted: { version: '3' }, current: '2', pending: { version: '3' }, due: null })
+		).toMatchObject({ due: false, announced: false });
+		// While the service does not say (before le-space-credits#115): the version in force.
+		expect(termsOf({ accepted: null, current: '2', pending: { version: '3' } })).toMatchObject({
+			dueVersion: '2',
+			announced: true
+		});
+	});
+
+	it('withdraws only after a quote, and ends a plan with null', async () => {
+		/** @type {{ url: string, method: string, body: any }[]} */
+		const seen = [];
+		/** @type {typeof fetch} */
+		const f = async (url, init) => {
+			const body = init?.body ? JSON.parse(String(init.body)) : null;
+			seen.push({ url: String(url), method: String(init?.method), body });
+			const item = {
+				subject: 'credits',
+				what: 'topup-10',
+				concluded_at: '2030-01-01T00:00:00Z',
+				until: '2030-01-15T00:00:00Z'
+			};
+			if (String(url).endsWith('/v1/package'))
+				return new Response(JSON.stringify({ package: { id: 'bridge-s', state: 'ending' } }));
+			return new Response(
+				JSON.stringify(
+					body.quote
+						? { quote: true, withdrawable: [item] }
+						: { received_at: '2030-01-02T10:00:00Z', withdrawn: [item], refund: { id: 'r1' } }
+				)
+			);
+		};
+		const client = await createCreditsClient({ key: KEY, base: BASE, fetch: f });
+		expect(await client.withdraw(true)).toEqual({
+			quote: true,
+			items: [
+				{
+					subject: 'credits',
+					what: 'topup-10',
+					concludedAt: '2030-01-01T00:00:00Z',
+					until: '2030-01-15T00:00:00Z'
+				}
+			],
+			receivedAt: null,
+			refund: false
+		});
+		const done = await client.withdraw(false);
+		expect(done).toMatchObject({ quote: false, receivedAt: '2030-01-02T10:00:00Z', refund: true });
+		expect((await client.endPlan()).package?.state).toBe('ending');
+		expect(seen.map((r) => `${r.method} ${r.url}`)).toEqual([
+			`POST ${BASE}/v1/withdrawal`,
+			`POST ${BASE}/v1/withdrawal`,
+			`PUT ${BASE}/v1/package`
+		]);
+		expect(seen.map((r) => r.body)).toEqual([
+			{ product: 'belege', quote: true },
+			{ product: 'belege', quote: false },
+			{ product: 'belege', package: null }
+		]);
+		expect(withdrawalOf(null)).toEqual({
+			quote: false,
+			items: [],
+			receivedAt: null,
+			refund: false
+		});
 	});
 
 	it('reads the purchase list out of the service’s answer', async () => {

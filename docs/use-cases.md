@@ -109,4 +109,5 @@ own name. Passkeys, recovery words and inviting others stay with you.
 
 Not ready yet, but planned: the bridge as a machine of its own in the cloud, attested and paired
 like on your computer. An AI service from Le Space. Paying with Le Space Credits (the card is in the
-app, still in test operation).
+app, still in test operation; it also has "Verträge hier kündigen" to cancel a plan and "Vertrag
+widerrufen" to withdraw within 14 days, confirmed by Le Space by e-mail after a payment through Stripe).

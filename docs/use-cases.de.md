@@ -124,4 +124,4 @@ Noch nicht fertig, aber geplant:
 
 - die Bridge als eigene Maschine in der Cloud, geprüft und gekoppelt wie auf deinem Rechner;
 - ein KI-Dienst von Le Space;
-- Bezahlen mit Le Space Credits (die Karte dafür ist in der App, noch im Testbetrieb).
+- Bezahlen mit Le Space Credits (die Karte dafür ist in der App, noch im Testbetrieb; dort auch „Verträge hier kündigen“ für ein Paket und „Vertrag widerrufen“ innerhalb von 14 Tagen, nach einer Zahlung über Stripe von Le Space per E-Mail bestätigt).

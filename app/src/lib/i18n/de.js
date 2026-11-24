@@ -1043,7 +1043,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Erst wenn du es unter Integrationen → Aleph einschaltest: Guthaben für die Angebote von Le Space für Belege (heute die gehostete Bridge), aufgeladen mit Karte.',
 				leaves:
-					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe, deine Zustimmung zu den Geschäftsbedingungen und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsanschrift, wie Stripe sie für die Zahlung, die Rechnung und die Steuer braucht; Stripe führt dich als Kunden mit der Adresse des Aleph-Schlüssels. Nie deine Bücher, nie ein Beleg.',
+					'An credits.le-space.de (Le Space): die Adresse des Aleph-Schlüssels deiner Bücher, mit jeder Anfrage unterschrieben, und die IP-Adresse dieses Geräts – für Guthaben, Käufe, deine Zustimmung zu den Geschäftsbedingungen, Kündigungen, Widerrufe und Erstattungen. Beim Aufladen an Stripe, in einem Fenster von credits.le-space.de: Karte, E-Mail und Rechnungsanschrift, wie Stripe sie für die Zahlung, die Rechnung und die Steuer braucht; Stripe führt dich als Kunden mit der Adresse des Aleph-Schlüssels. Nie deine Bücher, nie ein Beleg.',
 				technical:
 					'Jede Anfrage trägt X-LS-Address, X-LS-Timestamp und eine personal_sign-Signatur (EIP-191) über ls-credits/v1, Methode, Pfad, Produkt belege, Adresse und Zeit; der Dienst nimmt jede Zeit nur einmal und nur fünf Minuten lang an. Der Schlüssel ist der secp256k1-Schlüssel, den Belege für das Backup macht und versiegelt in den Einstellungen hält; er verlässt den Browser nicht. Stripes Skript läuft nicht auf belege.le-space.de: Die Zahlungsseite liegt auf credits.le-space.de (/pay) und wird hier nur eingerahmt; das Client-Secret steht im Fragment der Adresse und erreicht kein Server-Log. Die Seite meldet „bezahlt“ per postMessage; Belege glaubt nur dem Guthaben, das es danach signiert abfragt. Bezahltes Guthaben verfällt nicht; das Restguthaben erstattet Le Space auf Anfrage.'
 			},
@@ -1123,7 +1123,7 @@ export default {
 				'Auf diesem Rechner, nur wenn du ein Kundenportal anmeldest: dessen Browserprofil mit der Sitzung, und ein Portal-Passwort nur, wenn du es im Schlüsselbund hinterlegst.',
 				'Bei Le Space: nie deine Bücher, nie ein Beleg, kein Schlüssel. Ohne Le Space Credits und ohne gehostete Bridge auch sonst nichts.',
 				'Bei Le Space, nur wenn du Le Space Credits nutzt: unter der Adresse des Aleph-Schlüssels deiner Bücher – ohne Namen, ohne E-Mail – Guthaben, Käufe, Pakete, Freigaben für eine gehostete Bridge und Erstattungen, auf einem Server von Le Space in Deutschland, dazu eine verschlüsselte Sicherung davon bei Aleph. Eine Frist, nach der das von selbst gelöscht wird, gibt es noch nicht.',
-				'Bei Stripe, nur wenn du mit Karte auflädst: Karte, E-Mail und Rechnungsanschrift, zusammen mit der Adresse des Aleph-Schlüssels deiner Bücher. Über Stripe lässt sich diese Adresse also einer Person zuordnen; Le Space erfährt die E-Mail nur, um dir zu deinem Kauf zu schreiben, und speichert sie nicht.',
+				'Bei Stripe, nur wenn du mit Karte auflädst: Karte, E-Mail und Rechnungsanschrift, zusammen mit der Adresse des Aleph-Schlüssels deiner Bücher. Über Stripe lässt sich diese Adresse also einer Person zuordnen; Le Space erfährt die E-Mail nur, um dir zu deinem Kauf, einer Kündigung oder einem Widerruf zu schreiben, und speichert sie nicht.',
 				'Beim ersten Kauf und bei einem Widerruf benachrichtigt der Dienst Le Space per Mail und Telegram: Produkt, Betrag und Zeit, nur in der Mail auch die Adresse des Aleph-Schlüssels.',
 				'Eine gehostete Bridge läuft in einer vertraulichen VM bei Aleph (mit einem Paket bezahlt von Le Space) oder, als Test, bei Phala in den USA, angelegt mit dem Konto von Le Space. Hinein sieht Le Space nicht; bei Aleph steht öffentlich, dass der Schlüssel deiner Bücher die VM starten darf.'
 			],
@@ -1666,7 +1666,9 @@ export default {
 		terms: {
 			label: 'Geschäftsbedingungen',
 			due: 'Bevor du auflädst oder ein Paket wählst: die Allgemeinen Geschäftsbedingungen von Le Space für Belege.',
-			announced: 'Ab {date} gelten neue Geschäftsbedingungen.',
+			announced:
+				'Neue Geschäftsbedingungen (Fassung {version}): Für dich gelten sie ab {date}, bis dahin die Fassung {accepted}, der du zugestimmt hast. Du kannst schon jetzt zustimmen.',
+			published: 'Fassung {version} veröffentlicht am {date}; für neue Verträge gilt sie seitdem.',
 			germanNote: 'Die Geschäftsbedingungen sind auf Deutsch; der deutsche Text gilt.',
 			read: 'AGB lesen (Fassung {version})',
 			consent: 'Ich habe die AGB in der Fassung {version} gelesen und stimme ihnen zu.',
@@ -1684,7 +1686,38 @@ export default {
 		lineKi: 'KI diesen Monat',
 		lineVm: 'Gehostete Bridge diesen Monat',
 		package: 'Paket {id}: noch etwa {hours} Stunden in dieser Periode',
-		topUp: '{amount} aufladen',
+		topUp: '{amount} kostenpflichtig aufladen',
+		withdraw: {
+			button: 'Vertrag widerrufen',
+			quoteTitle: 'Diese Verträge kannst du noch widerrufen (14 Tage ab Abschluss):',
+			none: 'Gerade kannst du nichts widerrufen: Die Widerrufsfrist von 14 Tagen ist für alle Verträge abgelaufen, oder es gibt keinen.',
+			item: '{what}, abgeschlossen am {date}, widerrufbar bis {until}',
+			credits: 'Aufladung {amount}',
+			subscription: 'Abonnement',
+			backup: 'Backup ({what})',
+			effect:
+				'Mit dem Widerruf beantragt Le Space die Erstattung des nicht genutzten Guthabens; ein widerrufenes Abonnement endet sofort.',
+			yes: 'Jetzt widerrufen',
+			done: 'Widerruf eingegangen am {date}. Widerrufen:',
+			refund: 'Die Erstattung des nicht genutzten Guthabens ist beantragt.',
+			mail: 'Hast du bei Stripe bezahlt, schickt Le Space eine Bestätigung per E-Mail an die Adresse, die du dort angegeben hast.',
+			ownerOnly: 'Widerrufen und kündigen kann nur, wem die Bücher gehören.'
+		},
+		end: {
+			button: 'Verträge hier kündigen',
+			title: 'Vertrag kündigen',
+			contract:
+				'Monatspaket „{plan}“ ({id}) der gehosteten Bridge, bezahlt aus dem Guthaben, laufende Periode bis {date}.',
+			effect:
+				'Die Kündigung gilt zum Ende der laufenden Periode; bis dahin läuft das Paket weiter, danach verlängert es sich nicht mehr.',
+			yes: 'Jetzt kündigen',
+			none: 'Gerade läuft kein Vertrag, den du kündigen kannst: Ein Aufladen ist ein einmaliger Kauf und endet von selbst.',
+			ending: 'Das Monatspaket „{plan}“ verlängert sich nicht mehr und endet am {date}.',
+			subscribed:
+				'Dieses Paket ist ein Abonnement bei Stripe: Kündige es im Kundenportal von Stripe.',
+			done: 'Kündigung eingegangen am {received}. Das Monatspaket „{plan}“ endet am {date}.',
+			mail: 'Hast du bei Stripe bezahlt, schickt Le Space eine Bestätigung per E-Mail an die Adresse, die du dort angegeben hast.'
+		},
 		payTitle: 'Aufladen mit Stripe',
 		withdrawal:
 			'Ich möchte, dass Le Space sofort mit der Leistung beginnt. Mir ist bekannt, dass ich mein Widerrufsrecht verliere, sobald die Leistung vollständig erbracht ist; bis dahin erstattet Le Space bei einem Widerruf das nicht genutzte Guthaben.',
@@ -5248,7 +5281,10 @@ export default {
 				creditsOff: 'Für ein Paket Le Space Credits einschalten (Integrationen → Aleph).',
 				plan: 'Paket {plan}: noch {hours} h.',
 				noPlan: 'Noch kein Paket. Guthaben: {balance}. Ein Paket wird vom Guthaben bezahlt:',
-				choose: '{plan} · {hours} h · {price}'
+				choose: '{plan} · {hours} h · {price}',
+				buyTitle:
+					'Monatspaket „{plan}“: {hours} Stunden VM je Monat für {price}, bezahlt aus dem Guthaben. Die erste Periode beginnt sofort; das Paket verlängert sich monatlich, solange das Guthaben reicht, und ist zum Ende der Periode kündbar (Integrationen → Aleph → Le Space Credits → „Verträge hier kündigen“).',
+				buy: 'Jetzt kostenpflichtig buchen'
 			},
 			plans: {
 				'bridge-s': 'Ab und zu',

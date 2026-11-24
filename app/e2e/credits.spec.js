@@ -38,10 +38,22 @@ const WITHDRAWAL = {
 };
 
 /**
- * @param {{ mode?: string, terms?: string | null }} [options] `terms`: the version
- *   in force; a purchase is refused (412 TERMS) until the account agreed to it
+ * @param {{ mode?: string, terms?: string | null, pending?: string | null, plan?: string | null }} [options]
+ *   `terms`: the version in force; `pending`: a published, coming version. As
+ *   the service since le-space-credits#115, the balance says which version is
+ *   `due` – a new customer the newest published one – and a purchase is
+ *   refused (412 TERMS) while one is. `plan`: a plan running from the balance.
  */
-async function startFakeCredits({ mode = 'live', terms = null } = {}) {
+async function startFakeCredits({ mode = 'live', terms = null, pending = null, plan = null } = {}) {
+	/** @type {string | null} */
+	let planState = plan ? 'active' : null;
+	const periodEnd = '2030-01-31T00:00:00.000Z';
+	/** @param {string} address */
+	const dueFor = (address) => {
+		const accepted = agreed.get(address);
+		if (accepted && (accepted === terms || accepted === pending)) return null;
+		return pending ?? terms;
+	};
 	/** @type {Map<string, string>} the version each address agreed to */
 	const agreed = new Map();
 	/** @type {any[]} the bodies of the Checkouts */
@@ -54,6 +66,10 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 	const purchases = new Map();
 	/** @type {string[]} */
 	const calls = [];
+	/** @type {any[]} the bodies of the withdrawals (not the quotes) */
+	const withdrawals = [];
+	/** @type {any[]} the bodies of PUT /v1/package */
+	const packages = [];
 	const cors = {
 		'access-control-allow-origin': APP_ORIGIN,
 		'access-control-allow-methods': 'GET, POST, PUT',
@@ -113,13 +129,29 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 				credits: balances.get(address) ?? 0,
 				reserved: 0,
 				lines_this_month: { ki: 0, vm: 0, transfer: 0, refund: 0 },
-				package: null,
+				package: plan
+					? {
+							id: plan,
+							state: planState,
+							billing: 'credits',
+							period_start: '2030-01-01T00:00:00.000Z',
+							period_end: periodEnd,
+							hours_left: 60
+						}
+					: null,
 				refund: null,
 				mode,
 				terms: {
 					accepted: agreed.has(address) ? { version: agreed.get(address) } : null,
 					current: terms,
-					pending: null
+					pending: pending
+						? {
+								version: pending,
+								publishedAt: '2030-01-01T00:00:00.000Z',
+								effectiveAt: '2030-02-12T00:00:00.000Z'
+							}
+						: null,
+					due: dueFor(address)
 				}
 			});
 		if (url.pathname === '/v1/terms')
@@ -127,7 +159,15 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 				current: terms
 					? { version: terms, url: `http://127.0.0.1:${port}/agb/belege`, changes: [] }
 					: null,
-				pending: null,
+				pending: pending
+					? {
+							version: pending,
+							url: `http://127.0.0.1:${port}/agb/belege/${pending}`,
+							changes: ['Eine erfundene Änderung.'],
+							publishedAt: '2030-01-01T00:00:00.000Z',
+							effectiveAt: '2030-02-12T00:00:00.000Z'
+						}
+					: null,
 				withdrawal: WITHDRAWAL
 			});
 		if (url.pathname === '/v1/terms/accept') {
@@ -138,7 +178,7 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 			return send(200, { purchases: purchases.get(address) ?? [] });
 		if (url.pathname === '/v1/checkout') {
 			const body = JSON.parse(raw);
-			if (terms && agreed.get(address) !== terms)
+			if (dueFor(address))
 				return send(412, { error: 'the terms are not agreed to', code: 'TERMS' });
 			if (body.waiver !== WITHDRAWAL.version)
 				return send(412, { error: 'the declaration is missing', code: 'WAIVER' });
@@ -146,6 +186,38 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 			const cs = `cs_test_${sessions.size + 1}`;
 			sessions.set(cs, { address, cents: Number(String(body.package).split('-')[1]) * 100 });
 			return send(200, { client_secret: cs });
+		}
+		if (url.pathname === '/v1/withdrawal') {
+			const body = JSON.parse(raw);
+			const items = (purchases.get(address) ?? []).map((p) => ({
+				subject: 'credits',
+				what: p.package,
+				concluded_at: p.created_at,
+				until: new Date(Date.parse(p.created_at) + 14 * 86400_000).toISOString()
+			}));
+			if (body.quote === true) return send(200, { quote: true, withdrawable: items });
+			if (!items.length)
+				return send(409, {
+					error: 'nothing can be withdrawn any more',
+					code: 'NOTHING_TO_WITHDRAW'
+				});
+			withdrawals.push(body);
+			purchases.set(address, []);
+			return send(200, {
+				received_at: new Date().toISOString(),
+				withdrawn: items,
+				refund: { id: 'r1', state: 'requested' }
+			});
+		}
+		if (url.pathname === '/v1/package' && req.method === 'PUT') {
+			const body = JSON.parse(raw);
+			packages.push(body);
+			if (body.package === null && planState) planState = 'ending';
+			return send(200, {
+				package: plan
+					? { id: plan, state: planState, billing: 'credits', period_end: periodEnd }
+					: null
+			});
 		}
 		return send(404, { error: 'not here', code: 'NOT_FOUND' });
 	});
@@ -155,6 +227,8 @@ async function startFakeCredits({ mode = 'live', terms = null } = {}) {
 		url: `http://127.0.0.1:${port}`,
 		calls,
 		checkouts,
+		withdrawals,
+		packages,
 		close: () => new Promise((r) => server.close(() => r(null)))
 	};
 }
@@ -212,6 +286,10 @@ test('a top-up through the service’s own payment page shows as balance', async
 	const address = await card.getByTestId('credits-address').textContent();
 	expect(address).toMatch(/^0x[0-9a-fA-F]{40}$/);
 
+	// The button that leads to the payment names the obligation to pay (§ 312j BGB).
+	await expect(card.getByTestId('credits-topup-25')).toHaveText(
+		/25,00\s€ kostenpflichtig aufladen/
+	);
 	await card.getByTestId('credits-topup-25').click();
 	// No terms are published: none are asked for. The declaration on withdrawal
 	// comes before the payment page, unticked, in the service's own words.
@@ -293,4 +371,106 @@ test('with terms in force, a top-up waits for the agreement', async ({ page }) =
 	} finally {
 		await gated.close();
 	}
+});
+
+test('a new customer is asked for the newest published terms at once', async ({ page }) => {
+	const gated = await startFakeCredits({ terms: '2', pending: '3' });
+	try {
+		const card = await openCreditsCard(page, gated.url);
+		await card.getByTestId('credits-on').click();
+		const terms = card.getByTestId('credits-terms');
+		await expect(terms).toHaveAttribute('data-due', 'true');
+		// The service says version 3 is due: that one, not the one in force for earlier contracts.
+		await expect(terms.getByTestId('credits-terms-link')).toHaveAttribute(
+			'href',
+			`${gated.url}/agb/belege/3`
+		);
+		await expect(terms.getByTestId('credits-terms-published')).toContainText('Fassung 3');
+		await expect(terms).toContainText('Eine erfundene Änderung.');
+		await terms.getByTestId('credits-terms-read').check();
+		await terms.getByTestId('credits-terms-accept').click();
+		await expect(card.getByTestId('credits-terms')).toHaveCount(0);
+		await expect(card.getByTestId('credits-terms-accepted')).toContainText('Fassung 3');
+		await expect(card.getByTestId('credits-topup-10')).toBeEnabled();
+	} finally {
+		await gated.close();
+	}
+});
+
+test('“Vertrag widerrufen” says what it concerns, then withdraws and confirms', async ({
+	page
+}) => {
+	const service = await startFakeCredits();
+	try {
+		const card = await openCreditsCard(page, service.url);
+		await card.getByTestId('credits-on').click();
+		await expect(card.getByTestId('credits-balance')).toHaveText(/0,00\s€/);
+
+		// Nothing bought yet: nothing to withdraw, and nothing withdrawn by asking.
+		await card.getByTestId('credits-withdraw').click();
+		await expect(card.getByTestId('credits-withdraw-none')).toBeVisible();
+		await expect(card.getByTestId('credits-withdraw-yes')).toHaveCount(0);
+		expect(service.withdrawals).toHaveLength(0);
+
+		await card.getByTestId('credits-topup-10').click();
+		await card.getByTestId('credits-agree').check();
+		await card.getByTestId('credits-checkout').click();
+		await page
+			.frameLocator('[data-testid="credits-frame"]')
+			.getByRole('button', { name: 'Testzahlung' })
+			.click();
+		await expect(card.getByTestId('credits-balance')).toHaveText(/10,00\s€/);
+
+		await card.getByTestId('credits-withdraw').click();
+		const quote = card.getByTestId('credits-withdraw-quote');
+		await expect(quote).toContainText('Aufladung 10,00');
+		expect(service.withdrawals).toHaveLength(0);
+		await quote.getByTestId('credits-withdraw-yes').click();
+		const done = card.getByTestId('credits-withdraw-done');
+		await expect(done).toContainText('Widerruf eingegangen am');
+		await expect(done).toContainText('Aufladung 10,00');
+		await expect(done).toContainText('Erstattung');
+		await expect(done).toContainText('E-Mail');
+		expect(service.withdrawals).toEqual([{ product: 'belege', quote: false }]);
+	} finally {
+		await service.close();
+	}
+});
+
+test('“Verträge hier kündigen” names the contract, then cancels it with “Jetzt kündigen”', async ({
+	page
+}) => {
+	const service = await startFakeCredits({ plan: 'bridge-s' });
+	try {
+		const card = await openCreditsCard(page, service.url);
+		await card.getByTestId('credits-on').click();
+		await expect(card.getByTestId('credits-package')).toContainText('Ab und zu');
+
+		await card.getByTestId('credits-end').click();
+		const confirm = card.getByTestId('credits-end-confirm');
+		await expect(confirm.getByTestId('credits-end-contract')).toContainText('bridge-s');
+		await expect(confirm.getByTestId('credits-end-contract')).toContainText('31.01.2030');
+		expect(service.packages).toHaveLength(0);
+		await confirm.getByTestId('credits-end-yes').click();
+
+		const done = card.getByTestId('credits-end-done');
+		await expect(done).toContainText('Kündigung eingegangen am');
+		await expect(done).toContainText('endet am 31.01.2030');
+		await expect(done).toContainText('E-Mail');
+		await expect(card.getByTestId('credits-package')).toContainText('endet am 31.01.2030');
+		expect(service.packages).toEqual([{ product: 'belege', package: null }]);
+	} finally {
+		await service.close();
+	}
+});
+
+test('without a plan, “Verträge hier kündigen” says there is nothing to cancel', async ({
+	page
+}) => {
+	const card = await openCreditsCard(page, credits.url);
+	await card.getByTestId('credits-on').click();
+	await expect(card.getByTestId('credits-balance')).toBeVisible();
+	await card.getByTestId('credits-end').click();
+	await expect(card.getByTestId('credits-end-none')).toBeVisible();
+	await expect(card.getByTestId('credits-end-yes')).toHaveCount(0);
 });

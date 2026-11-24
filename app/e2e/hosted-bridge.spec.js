@@ -678,6 +678,11 @@ test('Le Space pays the hosted bridge from a plan: its sub-account is the payer,
 		// 10 € buy the smallest plan only.
 		await expect(mac.page.getByTestId('hosted-bridge-plan-bridge-m')).toBeDisabled();
 		await mac.page.getByTestId('hosted-bridge-plan-bridge-s').click();
+		// Picking a plan buys nothing yet: the button that does names the obligation to pay.
+		const buy = mac.page.getByTestId('hosted-bridge-plan-buy');
+		await expect(buy).toHaveText('Jetzt kostenpflichtig buchen');
+		await expect(plan).toContainText('Noch kein Paket');
+		await buy.click();
 		await expect(plan).toContainText('Paket Ab und zu: noch 60 h.');
 
 		await mac.page.getByTestId('hosted-bridge-start-passphrase').fill('not-the-real-passphrase');

@@ -3,7 +3,10 @@
 	// own account, what the KI service and a hosted bridge drew this month, and
 	// "Aufladen": Stripe's embedded Checkout on the service's own page, framed
 	// in a dialog here, so Stripe's script never runs beside the books. Nothing
-	// is asked of the service until the person switches it on.
+	// is asked of the service until the person switches it on. For the owner of
+	// the books also "Vertrag widerrufen" (§ 356a BGB) and "Verträge hier
+	// kündigen" (§ 312k BGB): each first says what it concerns, then a button
+	// that does it, then what the service received.
 	import { onDestroy } from 'svelte';
 	import WayOut from '$lib/help/WayOut.svelte';
 	import TermsConsent from './TermsConsent.svelte';
@@ -15,6 +18,7 @@
 	import {
 		CreditsError,
 		TOPUPS,
+		BRIDGE_PLANS,
 		createCreditsClient,
 		creditsUrl,
 		euro,
@@ -47,8 +51,33 @@
 	let agreed = $state(false);
 	let waiting = $state(false);
 	let confirmRefund = $state(false);
+	/** @type {import('./credits.js').Withdrawal | null} what can be withdrawn, before the confirmation */
+	let withdrawQuote = $state(null);
+	/** @type {import('./credits.js').Withdrawal | null} the withdrawal the service received */
+	let withdrawn = $state(null);
+	let ending = $state(false);
+	/** @type {{ received: string, plan: string, endsAt: string | null } | null} */
+	let ended = $state(null);
 
 	const paused = $derived(app.network.paused);
+	// Withdrawing and cancelling are the owner's; a member's device only reads.
+	const owner = $derived(!app.member);
+	const plan = $derived(
+		/** @type {import('./credits.js').Balance | null} */ (balance)?.package ?? null
+	);
+	const planName = (/** @type {string} */ id) =>
+		BRIDGE_PLANS.some((p) => p.id === id) ? t(`integrationen.hostedBridge.plans.${id}`) : id;
+	const day = (/** @type {string | null | undefined} */ iso) =>
+		iso ? formatDate(iso.slice(0, 10)) : '—';
+	/** What a withdrawable contract is, in the person's words. @param {import('./credits.js').WithdrawalItem} item */
+	function withdrawable(item) {
+		const topup = TOPUPS.find((p) => p.id === item.what);
+		if (item.subject === 'credits' && topup)
+			return t('credits.withdraw.credits', { amount: money(topup.cents) });
+		if (item.subject === 'subscription') return t('credits.withdraw.subscription');
+		if (item.subject === 'backup') return t('credits.withdraw.backup', { what: item.what });
+		return item.what;
+	}
 	const terms = $derived.by(() => (balance ? termsOf(balance.terms) : null));
 	// The declaration on withdrawal in the service's own words, which it records
 	// by its version; the app's text only while the service sends none.
@@ -176,12 +205,69 @@
 		}
 	}
 
+	async function quoteWithdrawal() {
+		if (!client) return;
+		busy = true;
+		error = null;
+		withdrawn = null;
+		try {
+			withdrawQuote = await client.withdraw(true);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function confirmWithdrawal() {
+		if (!client) return;
+		busy = true;
+		error = null;
+		try {
+			withdrawn = await client.withdraw(false);
+			withdrawQuote = null;
+			await refresh();
+		} catch (e) {
+			if (e instanceof CreditsError && e.code === 'NOTHING_TO_WITHDRAW')
+				withdrawQuote = { quote: true, items: [], receivedAt: null, refund: false };
+			else error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function confirmEnd() {
+		if (!client || !plan) return;
+		busy = true;
+		error = null;
+		const id = plan.id;
+		try {
+			const out = await client.endPlan();
+			ending = false;
+			ended = {
+				received: new Date().toISOString(),
+				plan: id,
+				endsAt: out?.package?.period_end ?? plan.period_end ?? null
+			};
+			await refresh();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	const card = 'mt-6 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm';
 	const button =
 		'rounded-md border border-border px-3 py-1.5 text-sm text-text hover:bg-surface-2 hover:text-heading disabled:opacity-50';
 	const primary =
 		'rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50';
 	const money = (/** @type {number} */ n) => euro(n, intlLocale());
+	/** Date and time of a receipt, in the person's locale. @param {string} iso */
+	const when = (iso) =>
+		new Intl.DateTimeFormat(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(
+			new Date(iso)
+		);
 </script>
 
 <section class={card} aria-labelledby="credits-h" data-testid="credits-card">
@@ -220,10 +306,15 @@
 			</dl>
 			{#if balance.package}
 				<p class="mt-2 text-sm text-text" data-testid="credits-package">
-					{t('credits.package', {
-						id: balance.package.id,
-						hours: balance.package.hours_left ?? '—'
-					})}
+					{balance.package.state === 'ending'
+						? t('credits.end.ending', {
+								plan: planName(balance.package.id),
+								date: day(balance.package.period_end)
+							})
+						: t('credits.package', {
+								id: planName(balance.package.id),
+								hours: balance.package.hours_left ?? '—'
+							})}
 				</p>
 			{/if}
 			{#if balance.refund && balance.refund.state !== 'done'}
@@ -357,7 +448,161 @@
 			<WayOut message={error} />
 		{/if}
 
+		{#if withdrawQuote}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+				role="region"
+				aria-label={t('credits.withdraw.button')}
+				data-testid="credits-withdraw-quote"
+			>
+				{#if withdrawQuote.items.length}
+					<p class="font-medium text-heading">{t('credits.withdraw.quoteTitle')}</p>
+					<ul class="mt-1 list-disc pl-5 text-text">
+						{#each withdrawQuote.items as item, i (i)}
+							<li>
+								{t('credits.withdraw.item', {
+									what: withdrawable(item),
+									date: day(item.concludedAt),
+									until: day(item.until)
+								})}
+							</li>
+						{/each}
+					</ul>
+					<p class="mt-2 text-text">{t('credits.withdraw.effect')}</p>
+					<div class="mt-2 flex gap-2">
+						<button
+							type="button"
+							class={primary}
+							disabled={busy || paused}
+							onclick={confirmWithdrawal}
+							data-testid="credits-withdraw-yes">{t('credits.withdraw.yes')}</button
+						>
+						<button type="button" class={button} onclick={() => (withdrawQuote = null)}
+							>{t('credits.cancel')}</button
+						>
+					</div>
+				{:else}
+					<p class="text-text" data-testid="credits-withdraw-none">{t('credits.withdraw.none')}</p>
+					<button type="button" class="mt-2 {button}" onclick={() => (withdrawQuote = null)}
+						>{t('credits.cancel')}</button
+					>
+				{/if}
+			</div>
+		{/if}
+		{#if withdrawn}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+				role="status"
+				data-testid="credits-withdraw-done"
+			>
+				<p class="font-medium text-heading">
+					{t('credits.withdraw.done', {
+						date: withdrawn.receivedAt ? when(withdrawn.receivedAt) : '—'
+					})}
+				</p>
+				<ul class="mt-1 list-disc pl-5 text-text">
+					{#each withdrawn.items as item, i (i)}
+						<li>{withdrawable(item)}</li>
+					{/each}
+				</ul>
+				{#if withdrawn.refund}
+					<p class="mt-1 text-text">{t('credits.withdraw.refund')}</p>
+				{/if}
+				<p class="mt-1 text-faint">{t('credits.withdraw.mail')}</p>
+			</div>
+		{/if}
+		{#if ending}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+				role="region"
+				aria-label={t('credits.end.title')}
+				data-testid="credits-end-confirm"
+			>
+				<p class="font-medium text-heading">{t('credits.end.title')}</p>
+				{#if !plan}
+					<p class="mt-1 text-text" data-testid="credits-end-none">{t('credits.end.none')}</p>
+				{:else if plan.billing === 'stripe'}
+					<p class="mt-1 text-text">{t('credits.end.subscribed')}</p>
+				{:else if plan.state === 'ending'}
+					<p class="mt-1 text-text">
+						{t('credits.end.ending', { plan: planName(plan.id), date: day(plan.period_end) })}
+					</p>
+				{:else}
+					<p class="mt-1 text-text" data-testid="credits-end-contract">
+						{t('credits.end.contract', {
+							plan: planName(plan.id),
+							id: plan.id,
+							date: day(plan.period_end)
+						})}
+					</p>
+					<p class="mt-1 text-text">{t('credits.end.effect')}</p>
+					<p class="mt-1 text-xs text-faint">
+						{t('credits.account', { host: new URL(creditsUrl()).host })}
+						<span class="font-mono break-all">{client?.address}</span>
+					</p>
+				{/if}
+				<div class="mt-2 flex gap-2">
+					{#if plan && plan.state !== 'ending' && plan.billing !== 'stripe'}
+						<button
+							type="button"
+							class={primary}
+							disabled={busy || paused}
+							onclick={confirmEnd}
+							data-testid="credits-end-yes">{t('credits.end.yes')}</button
+						>
+					{/if}
+					<button type="button" class={button} onclick={() => (ending = false)}
+						>{t('credits.cancel')}</button
+					>
+				</div>
+			</div>
+		{/if}
+		{#if ended}
+			<div
+				class="mt-3 rounded-md border border-border bg-surface-2 p-3 text-sm"
+				role="status"
+				data-testid="credits-end-done"
+			>
+				<p class="font-medium text-heading">
+					{t('credits.end.done', {
+						received: when(ended.received),
+						plan: planName(ended.plan),
+						date: day(ended.endsAt)
+					})}
+				</p>
+				<p class="mt-1 text-faint">{t('credits.end.mail')}</p>
+			</div>
+		{/if}
+
 		<div class="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">
+			{#if owner && balance}
+				<button
+					type="button"
+					class={button}
+					disabled={busy || paused}
+					onclick={() => {
+						ended = null;
+						withdrawQuote = null;
+						ending = true;
+					}}
+					data-testid="credits-end">{t('credits.end.button')}</button
+				>
+				<button
+					type="button"
+					class={button}
+					disabled={busy || paused}
+					onclick={() => {
+						ending = false;
+						quoteWithdrawal();
+					}}
+					data-testid="credits-withdraw">{t('credits.withdraw.button')}</button
+				>
+			{/if}
+			{#if !owner && balance}
+				<span class="text-xs text-faint" data-testid="credits-owner-only"
+					>{t('credits.withdraw.ownerOnly')}</span
+				>
+			{/if}
 			{#if confirmRefund}
 				<span class="text-text">{t('credits.refundConfirm')}</span>
 				<button

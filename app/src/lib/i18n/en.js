@@ -1015,7 +1015,7 @@ export default {
 				name: 'Le Space Credits (credits.le-space.de, Stripe)',
 				text: 'Only once you switch it on under Integrations → Aleph: a balance for what Le Space offers for Belege (today the hosted bridge), topped up by card.',
 				leaves:
-					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases, your agreement to the terms and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing address, as Stripe needs them for the payment, the invoice and the tax; Stripe keeps you as a customer with the address of the Aleph key. Never your books, never a receipt.',
+					'To credits.le-space.de (Le Space): the address of your books’ Aleph key, signed with every request, and this device’s IP address – for the balance, purchases, your agreement to the terms, cancellations, withdrawals and refunds. When topping up, to Stripe, in a frame of credits.le-space.de: card, e-mail and billing address, as Stripe needs them for the payment, the invoice and the tax; Stripe keeps you as a customer with the address of the Aleph key. Never your books, never a receipt.',
 				technical:
 					'Every request carries X-LS-Address, X-LS-Timestamp and a personal_sign signature (EIP-191) over ls-credits/v1, method, path, product belege, address and time; the service accepts each time once and for five minutes only. The key is the secp256k1 key Belege makes for the backup and keeps sealed in the settings; it does not leave the browser. Stripe’s script does not run on belege.le-space.de: the payment page is on credits.le-space.de (/pay) and only framed here; the client secret is in the address’s fragment and reaches no server log. The page reports “paid” by postMessage; Belege believes only the balance it reads back, signed, afterwards. Paid credits do not expire; Le Space refunds the remaining balance on request.'
 			},
@@ -1095,7 +1095,7 @@ export default {
 				'On this computer, only if you sign in to a customer portal: its browser profile with the session, and a portal password only if you store it in the Keychain.',
 				'With Le Space: never your books, never a receipt, no key. Without Le Space Credits and without a hosted bridge, nothing else either.',
 				'With Le Space, only if you use Le Space Credits: under the address of your books’ Aleph key – no name, no e-mail – your balance, purchases, plans, grants for a hosted bridge and refunds, on a Le Space server in Germany, plus an encrypted backup of it on Aleph. There is no period yet after which this is deleted by itself.',
-				'With Stripe, only if you top up by card: card, e-mail and billing address, together with the address of your books’ Aleph key. Through Stripe this address can therefore be linked to a person; Le Space learns the e-mail only to write to you about your purchase, and does not store it.',
+				'With Stripe, only if you top up by card: card, e-mail and billing address, together with the address of your books’ Aleph key. Through Stripe this address can therefore be linked to a person; Le Space learns the e-mail only to write to you about your purchase, a cancellation or a withdrawal, and does not store it.',
 				'On the first purchase and on a withdrawal the service notifies Le Space by mail and Telegram: product, amount and time, only in the mail also the address of the Aleph key.',
 				'A hosted bridge runs in a confidential VM on Aleph (with a plan, paid by Le Space) or, as a test, at Phala in the USA, created with Le Space’s account. Le Space cannot look inside; on Aleph it is public that your books’ key may start the VM.'
 			],
@@ -1711,7 +1711,9 @@ export default {
 		terms: {
 			label: 'Terms',
 			due: 'Before you top up or choose a plan: Le Space’s terms (AGB) for Belege.',
-			announced: 'New terms apply from {date}.',
+			announced:
+				'New terms (version {version}): they apply to you from {date}, until then version {accepted}, which you agreed to. You can agree now already.',
+			published: 'Version {version} published on {date}; it applies to new contracts since then.',
 			germanNote: 'The terms are in German; the German text is the binding one.',
 			read: 'Read the terms (version {version})',
 			consent: 'I have read the terms in version {version} and agree to them.',
@@ -1729,7 +1731,37 @@ export default {
 		lineKi: 'AI this month',
 		lineVm: 'Hosted bridge this month',
 		package: 'Package {id}: about {hours} hours left this period',
-		topUp: 'Top up {amount}',
+		topUp: 'Top up {amount} (paid)',
+		withdraw: {
+			button: 'Withdraw from contract',
+			quoteTitle: 'You can still withdraw from these contracts (14 days from conclusion):',
+			none: 'There is nothing to withdraw from right now: the 14-day withdrawal period has passed for every contract, or there is none.',
+			item: '{what}, concluded on {date}, withdrawable until {until}',
+			credits: 'Top-up {amount}',
+			subscription: 'Subscription',
+			backup: 'Backup ({what})',
+			effect:
+				'With the withdrawal Le Space requests the refund of the unused balance; a withdrawn subscription ends at once.',
+			yes: 'Withdraw now',
+			done: 'Withdrawal received on {date}. Withdrawn:',
+			refund: 'The refund of the unused balance is requested.',
+			mail: 'If you paid through Stripe, Le Space sends a confirmation by e-mail to the address you gave there.',
+			ownerOnly: 'Only the owner of the books can withdraw or cancel.'
+		},
+		end: {
+			button: 'Cancel contracts here',
+			title: 'Cancel contract',
+			contract:
+				'Monthly plan “{plan}” ({id}) of the hosted bridge, paid from the balance, current period until {date}.',
+			effect:
+				'The cancellation takes effect at the end of the current period; the plan runs until then and does not renew afterwards.',
+			yes: 'Cancel now',
+			none: 'No contract you could cancel is running right now: a top-up is a one-time purchase and ends by itself.',
+			ending: 'The monthly plan “{plan}” no longer renews and ends on {date}.',
+			subscribed: 'This plan is a Stripe subscription: cancel it in Stripe’s customer portal.',
+			done: 'Cancellation received on {received}. The monthly plan “{plan}” ends on {date}.',
+			mail: 'If you paid through Stripe, Le Space sends a confirmation by e-mail to the address you gave there.'
+		},
 		payTitle: 'Top up with Stripe',
 		withdrawal:
 			'I want Le Space to start the service right away. I know that I lose my right of withdrawal once the service has been provided in full; until then, Le Space refunds the unused balance if I withdraw.',
@@ -5183,7 +5215,10 @@ export default {
 				creditsOff: 'For a plan, switch on Le Space Credits (Integrations → Aleph).',
 				plan: 'Plan {plan}: {hours} h left.',
 				noPlan: 'No plan yet. Balance: {balance}. A plan is paid from the balance:',
-				choose: '{plan} · {hours} h · {price}'
+				choose: '{plan} · {hours} h · {price}',
+				buyTitle:
+					'Monthly plan “{plan}”: {hours} hours of VM per month for {price}, paid from the balance. The first period starts at once; the plan renews every month while the balance lasts and can be cancelled at the end of the period (Integrations → Aleph → Le Space Credits → “Cancel contracts here”).',
+				buy: 'Book now (paid)'
 			},
 			plans: {
 				'bridge-s': 'Now and then',
