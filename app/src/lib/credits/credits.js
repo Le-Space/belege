@@ -220,11 +220,12 @@ export async function createCreditsClient({
  * What the service says about a withdrawal (POST /v1/withdrawal): the
  * contracts that can still be withdrawn (a quote) or were withdrawn, each with
  * when it was concluded and until when it could be withdrawn; for a withdrawal
- * when it was received, and the refund request it opened. Everything in it
+ * when it was received, the refund request it opened and the credits of a
+ * withdrawn plan booked back to the balance (`credited`, le-space-credits#116). Everything in it
  * is the service's word, shown as text.
  *
  * @typedef {{ subject: string, what: string, concludedAt: string | null, until: string | null }} WithdrawalItem
- * @typedef {{ quote: boolean, items: WithdrawalItem[], receivedAt: string | null, refund: boolean }} Withdrawal
+ * @typedef {{ quote: boolean, items: WithdrawalItem[], receivedAt: string | null, refund: boolean, credited: number | null }} Withdrawal
  *
  * @param {any} body
  * @returns {Withdrawal}
@@ -247,7 +248,8 @@ export function withdrawalOf(body) {
 				until: iso(i.until)
 			})),
 		receivedAt: iso(body?.received_at),
-		refund: Boolean(body?.refund)
+		refund: Boolean(body?.refund),
+		credited: Number.isFinite(body?.credited) && body.credited > 0 ? Number(body.credited) : null
 	};
 }
 

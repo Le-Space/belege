@@ -260,7 +260,8 @@ describe('Le Space Credits client', () => {
 				}
 			],
 			receivedAt: null,
-			refund: false
+			refund: false,
+			credited: null
 		});
 		const done = await client.withdraw(false);
 		expect(done).toMatchObject({ quote: false, receivedAt: '2030-01-02T10:00:00Z', refund: true });
@@ -279,7 +280,21 @@ describe('Le Space Credits client', () => {
 			quote: false,
 			items: [],
 			receivedAt: null,
-			refund: false
+			refund: false,
+			credited: null
+		});
+		// A plan bought from the balance (le-space-credits#116): its credits come back.
+		expect(
+			withdrawalOf({
+				received_at: '2030-01-02T10:00:00Z',
+				withdrawn: [{ subject: 'plan', what: 'bridge-s', concluded_at: '2030-01-01T00:00:00Z' }],
+				refund: null,
+				credited: 700
+			})
+		).toMatchObject({
+			credited: 700,
+			refund: false,
+			items: [{ subject: 'plan', what: 'bridge-s' }]
 		});
 	});
 

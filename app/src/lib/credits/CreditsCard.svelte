@@ -74,6 +74,7 @@
 		const topup = TOPUPS.find((p) => p.id === item.what);
 		if (item.subject === 'credits' && topup)
 			return t('credits.withdraw.credits', { amount: money(topup.cents) });
+		if (item.subject === 'plan') return t('credits.withdraw.plan', { plan: planName(item.what) });
 		if (item.subject === 'subscription') return t('credits.withdraw.subscription');
 		if (item.subject === 'backup') return t('credits.withdraw.backup', { what: item.what });
 		return item.what;
@@ -229,7 +230,7 @@
 			await refresh();
 		} catch (e) {
 			if (e instanceof CreditsError && e.code === 'NOTHING_TO_WITHDRAW')
-				withdrawQuote = { quote: true, items: [], receivedAt: null, refund: false };
+				withdrawQuote = { quote: true, items: [], receivedAt: null, refund: false, credited: null };
 			else error = e instanceof Error ? e.message : String(e);
 		} finally {
 			busy = false;
@@ -505,6 +506,11 @@
 						<li>{withdrawable(item)}</li>
 					{/each}
 				</ul>
+				{#if withdrawn.credited}
+					<p class="mt-1 text-text" data-testid="credits-withdraw-credited">
+						{t('credits.withdraw.credited', { amount: money(withdrawn.credited) })}
+					</p>
+				{/if}
 				{#if withdrawn.refund}
 					<p class="mt-1 text-text">{t('credits.withdraw.refund')}</p>
 				{/if}
