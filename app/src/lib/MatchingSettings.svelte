@@ -36,7 +36,12 @@
 		LEGAL_FORMS,
 		suggestedLedgerAccount
 	} from './booking/settings.js';
-	import { catalogueAccount, isAccountNumber } from './booking/skr03.js';
+	import {
+		CLOUD_CREDITS_ACCOUNT,
+		REWARD_ACCOUNT,
+		catalogueAccount,
+		isAccountNumber
+	} from './booking/skr03.js';
 	import { aliasLabel } from './matching/partners.js';
 	import { list, t } from './i18n/index.js';
 	import DataTable from './ui/DataTable.svelte';
@@ -269,6 +274,13 @@
 		}
 		if (String(paymentAccount).trim() && !/^\d{4,8}$/.test(String(paymentAccount).trim())) {
 			invalid = t('anweisungen.books.invalidPaymentAccount');
+			return;
+		}
+		const ruleAccounts = [datev.rewardAccount, datev.cloudCreditsAccount].map((v) =>
+			String(v ?? '').trim()
+		);
+		if (ruleAccounts.some((v) => v && !/^\d{4,8}$/.test(v))) {
+			invalid = t('anweisungen.books.invalidRuleAccount');
 			return;
 		}
 		saving = true;
@@ -797,6 +809,29 @@
 					/>
 				</label>
 				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.paymentAccountHint')}</p>
+				<div class="mt-3 flex flex-wrap items-end gap-3">
+					<label class="flex flex-col">
+						<span class="text-faint">{t('anweisungen.books.rewardAccount')}</span>
+						<input
+							class="{input} w-28 font-mono"
+							inputmode="numeric"
+							bind:value={datev.rewardAccount}
+							placeholder={REWARD_ACCOUNT}
+							data-testid="datev-reward-account"
+						/>
+					</label>
+					<label class="flex flex-col">
+						<span class="text-faint">{t('anweisungen.books.cloudCreditsAccount')}</span>
+						<input
+							class="{input} w-28 font-mono"
+							inputmode="numeric"
+							bind:value={datev.cloudCreditsAccount}
+							placeholder={CLOUD_CREDITS_ACCOUNT}
+							data-testid="datev-cloud-credits-account"
+						/>
+					</label>
+				</div>
+				<p class="mt-1 text-xs text-faint">{t('anweisungen.books.ruleAccountsHint')}</p>
 				<div class="mt-3 flex flex-wrap items-end gap-3">
 					<label class="flex flex-col">
 						<span class="text-faint">{t('anweisungen.books.vatPeriod')}</span>

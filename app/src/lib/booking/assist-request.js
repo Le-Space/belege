@@ -33,6 +33,8 @@ const plainMoney = (cents) => formatMoney(Math.abs(cents), 'EUR').replace(/\s*EU
  * @param {(vendors: string) => string} p.learnedName the name of a learned account outside the catalogue
  * @param {number} [p.requestLimit] what a request to the bridge may take now (sync/bridge-limit.js);
  *   UCEP's 64 KiB without it
+ * @param {Set<string>} [p.forbidden] accounts the model may not name (assist-guard.js): not offered
+ * @param {import('./assist-guard.js').Known | null} [p.known] what the app knows of the payment, told the model
  */
 export function assistBody({
 	tx,
@@ -42,14 +44,15 @@ export function assistBody({
 	catalogue,
 	chart,
 	learnedName,
-	requestLimit
+	requestLimit,
+	forbidden = new Set(),
+	known = null
 }) {
 	const ex = /** @type {Rec} */ (receipt?.extraction ?? {});
-	const learned = learnedForAssist(partners, [
-		tx.counterparty,
-		tx.purpose,
-		receipt?.vendor ?? ex.vendor
-	]);
+	const learned = learnedForAssist(
+		partners.filter((p) => !forbidden.has(String(p.account ?? '').trim())),
+		[tx.counterparty, tx.purpose, receipt?.vendor ?? ex.vendor]
+	);
 	const body = {
 		booking: {
 			direction: (tx.amountCents ?? 0) > 0 ? 'in' : 'out',
@@ -57,7 +60,9 @@ export function assistBody({
 			day: String(tx.bookedOn ?? '').slice(0, 10),
 			account: own ? String(own.name ?? '').slice(0, 200) : null,
 			counterparty: String(tx.counterparty ?? '').slice(0, 200),
-			purpose: String(tx.purpose ?? '').slice(0, 1000)
+			purpose: String(tx.purpose ?? '').slice(0, 1000),
+			// Only when there is something to say: a bridge before it knew the field refuses it.
+			...(known ? { known } : {})
 		},
 		receipt: receipt
 			? {
@@ -80,16 +85,22 @@ export function assistBody({
 		/** @type {{ number: string, name: string }[]} */
 		accounts: []
 	};
-	body.accounts = accountsForAssist(catalogue, learned, chart, learnedName, {
-		hints: [
-			body.booking.counterparty,
-			body.booking.purpose,
-			body.receipt?.vendor,
-			...(body.receipt?.items ?? [])
-		],
-		income: body.booking.direction === 'in',
-		budget: maxAssistBytes(requestLimit) - ASSIST_RESERVE - jsonBytes(body)
-	});
+	body.accounts = accountsForAssist(
+		catalogue.filter((a) => !forbidden.has(a.number)),
+		learned,
+		chart,
+		learnedName,
+		{
+			hints: [
+				body.booking.counterparty,
+				body.booking.purpose,
+				body.receipt?.vendor,
+				...(body.receipt?.items ?? [])
+			],
+			income: body.booking.direction === 'in',
+			budget: maxAssistBytes(requestLimit) - ASSIST_RESERVE - jsonBytes(body)
+		}
+	);
 	return body;
 }
 

@@ -10,7 +10,8 @@
 	import { isNetworkFee, setFeeRule } from './booking/fee-rule.js';
 	import { cleanMatchingSettings } from './matching/classify.js';
 	import { clearingAccountOf, travelSetOf } from '$lib/travel/accounts.js';
-	import { suggestBooking } from './booking/suggest.js';
+	import { accountRuleOf, suggestBooking } from './booking/suggest.js';
+	import { allowedPicks, forbiddenAccounts, knownOf } from './booking/assist-guard.js';
 	import { cleanPrivateShare, splitCents } from './booking/private-share.js';
 	import { offeredTaxKeys, taxKeyLabel, taxKeyName } from './booking/tax-key-names.js';
 	import { assistBody, assistEventData } from './booking/assist-request.js';
@@ -43,16 +44,21 @@
 			return r ? [r] : [];
 		})
 	);
+	let classification = $derived(app.classifications[tx.id] ?? null);
 	let suggestion = $derived(
 		suggestBooking(tx, {
-			classification: app.classifications[tx.id] ?? null,
+			classification,
 			receipts,
 			partners: app.partners ?? [],
 			keys,
 			privateAccounts: privateAccountsNow,
 			privateShareRule: cleanDatevSettings(app.datevSettings).privateShare,
 			travelSet: travelSetOf(cleanDatevSettings(app.datevSettings), app.travel),
-			travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
+			travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel),
+			ruleAccounts: {
+				reward: cleanDatevSettings(app.datevSettings).rewardAccount,
+				cloudCredits: cleanDatevSettings(app.datevSettings).cloudCreditsAccount
+			}
 		})
 	);
 	let income = $derived((tx.amountCents ?? 0) > 0);
@@ -138,6 +144,8 @@
 		aiBusy = true;
 		error = null;
 		aiResult = null;
+		// Never the payment's own account, nor another own one unless it is an own transfer (assist-guard.js).
+		const forbidden = forbiddenAccounts({ tx, accounts: app.accounts, classification });
 		try {
 			const r = await client.bookingAssist(
 				assistBody({
@@ -148,10 +156,12 @@
 					catalogue,
 					chart,
 					learnedName: (vendors) => t('booking.aiLearnedAccount', { vendors }),
-					requestLimit: bridgeRequestLimit()
+					requestLimit: bridgeRequestLimit(),
+					forbidden,
+					known: knownOf(tx, classification)
 				})
 			);
-			aiResult = { picks: r.picks ?? [], sent: r.llm?.sent ?? [] };
+			aiResult = { picks: allowedPicks(r.picks, forbidden), sent: r.llm?.sent ?? [] };
 			await recordEvent(currentStore()?.events, 'booking-assist', assistEventData(tx.id, r));
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -210,12 +220,18 @@
 		busy = true;
 		error = null;
 		try {
-			await confirmBooking(/** @type {any} */ (store), tx.id, {
-				account: number,
-				taxKey: keyText.trim(),
-				// null says "the whole payment": remembered for this vendor, too.
-				privateShare: share
-			});
+			await confirmBooking(
+				/** @type {any} */ (store),
+				tx.id,
+				{
+					account: number,
+					taxKey: keyText.trim(),
+					// null says "the whole payment": remembered for this vendor, too.
+					privateShare: share
+				},
+				// A reward or Aleph credits: the rule's account follows (actions.js).
+				{ rule: accountRuleOf(tx, classification) }
+			);
 			await refreshNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
