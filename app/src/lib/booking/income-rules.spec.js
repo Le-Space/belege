@@ -131,6 +131,53 @@ describe('suggestBooking: rewards and Aleph credits', () => {
 	});
 });
 
+describe('suggestBooking: swaps go through Geldtransit', () => {
+	it('each leg of a DEX swap, a swap across chains, two legs linked by hand', () => {
+		for (const c of [
+			{ kind: 'crypto-swap' },
+			{ kind: 'crypto-swap', via: 'cross-chain', role: 'send' },
+			{ kind: 'crypto-swap', via: 'cross-chain', role: 'arrival', targetMissing: true },
+			{ kind: 'crypto-swap', via: 'manual', counterBookingId: 't9' }
+		]) {
+			for (const amountCents of [-5000, 4990]) {
+				expect(
+					suggestBooking(tx({ amountCents, movement: 'trade' }), {
+						classification: /** @type {any} */ (c)
+					})
+				).toMatchObject({ account: '1360', taxKey: '', source: 'swap', taxVia: 'none' });
+			}
+		}
+	});
+
+	it('staking and a token migration stay without a suggestion (to be decided)', () => {
+		expect(
+			suggestBooking(tx({ amountCents: -100 }), { classification: { kind: 'crypto-stake' } })
+				.account
+		).toBeNull();
+		expect(
+			suggestBooking(tx({ amountCents: -100 }), { classification: { kind: 'token-migration' } })
+				.account
+		).toBeNull();
+	});
+
+	it('the list does not ask the model about a swap', () => {
+		const app = {
+			classifications: { t1: { kind: 'crypto-swap' } },
+			matches: [],
+			receipts: [],
+			partners: [],
+			accounts: ownAccounts,
+			datevSettings: null,
+			travel: [],
+			chart: null
+		};
+		expect(suggestFor(tx({ amountCents: -100 }), app)).toMatchObject({
+			account: '1360',
+			source: 'swap'
+		});
+	});
+});
+
 describe('assist-guard', () => {
 	it('never the payment’s own account, nor another own one', () => {
 		const forbidden = forbiddenAccounts({

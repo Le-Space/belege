@@ -4,7 +4,9 @@
 //
 // In this order:
 //   1. what the person confirmed (`tx.booking`)
-//   2. an own transfer (classify.js): 1360 Geldtransit, no BU key
+//   2. an own transfer (classify.js): 1360 Geldtransit, no BU key; a swap of
+//      one asset for another (`crypto-swap`: a DEX trade, a swap across chains,
+//      two legs linked by hand) too – each leg on 1360, the two offset there
 //   3. a bank fee: 4970 Nebenkosten des Geldverkehrs, no BU key
 //   3a. a reward that came in – staking or earn on an exchange, a staking or
 //      mining reward on an own wallet (classify.js `crypto-reward`): the
@@ -42,7 +44,7 @@ import { isStatementReceipt } from '../travel/payout.js';
 import { cleanPrivateShare, suggestedShare } from './private-share.js';
 
 /** @typedef {Record<string, any>} Rec */
-/** @typedef {'confirmed' | 'transfer' | 'fee' | 'reward' | 'cloud-credits' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
+/** @typedef {'confirmed' | 'transfer' | 'swap' | 'fee' | 'reward' | 'cloud-credits' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
 /** @typedef {'reward' | 'cloud-credits'} AccountRule a rule whose account the settings keep */
 
 /**
@@ -167,6 +169,10 @@ function suggestCore(
 			taxVia: 'none',
 			vendor: null
 		};
+	}
+	// A swap (#115, #170): our own value changes its form, as in an own transfer.
+	if (classification?.kind === 'crypto-swap') {
+		return { account: TRANSFER_ACCOUNT, taxKey: '', source: 'swap', taxVia: 'none', vendor: null };
 	}
 	// Wages, wage tax, contributions, tax payments (#233): the account the
 	// payroll or the tax office books them against, where one is known.

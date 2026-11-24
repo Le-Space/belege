@@ -177,7 +177,11 @@
 				travelClearing: clearingAccountOf(cleanDatevSettings(app.datevSettings), app.travel)
 			});
 			// A travel statement's lines carry their account (#213): taken over as these.
-			return s.account && (s.source === 'transfer' || s.source === 'fee' || s.source === 'travel')
+			return s.account &&
+				(s.source === 'transfer' ||
+					s.source === 'swap' ||
+					s.source === 'fee' ||
+					s.source === 'travel')
 				? [{ transactionId: tx.id, account: s.account, taxKey: s.taxKey }]
 				: [];
 		})

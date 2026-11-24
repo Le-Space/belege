@@ -3744,6 +3744,7 @@ export default {
 		source: {
 			payroll: 'nach der Art der Zahlung (Lohn, Lohnsteuer, Abgaben, Steuer)',
 			transfer: 'Umbuchung',
+			swap: 'Tausch, über Geldtransit',
 			fee: 'Bankgebühr',
 			reward:
 				'Staking- oder Earn-Ertrag, Konto aus den Einstellungen – mit der Steuerberatung klären',
@@ -3872,7 +3873,7 @@ export default {
 			autoConfirm:
 				'Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen ({count})',
 			autoConfirmHint:
-				'Übernimmt 1360 für eigene Umbuchungen, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
+				'Übernimmt 1360 für eigene Umbuchungen und Tausch, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
 			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
 			noLedger: 'Sachkonto fehlt für {list} – unter Einstellungen → Buchhaltung eintragen.',
 			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',

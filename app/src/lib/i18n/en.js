@@ -3688,6 +3688,7 @@ export default {
 		source: {
 			payroll: 'by the kind of payment (wage, wage tax, contributions, tax)',
 			transfer: 'Own transfer',
+			swap: 'Swap, through cash in transit',
 			fee: 'Bank fee',
 			reward: 'Staking or earn reward, account from the settings – check with the tax adviser',
 			'cloud-credits':
@@ -3813,7 +3814,7 @@ export default {
 				'{count} bookings go onto the suspense account {account} – they must be re-booked in the bookkeeping.',
 			autoConfirm: 'Confirm accounts for own transfers, bank fees and travel statements ({count})',
 			autoConfirmHint:
-				'Confirms 1360 for own transfers, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
+				'Confirms 1360 for own transfers and swaps, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
 			ledgerOk: 'Every bank account has its ledger account.',
 			noLedger: 'Ledger account missing for {list} – enter it under Settings → Bookkeeping.',
 			noBankAccount: '{count} bookings belong to no bank account in the books.',
