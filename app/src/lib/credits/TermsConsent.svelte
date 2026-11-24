@@ -1,12 +1,14 @@
 <script>
 	// The terms (AGB) of Le Space for Belege's paid offers: agree to the version
-	// in force before a purchase, and to an announced one before it takes
-	// effect. Shows nothing while the service has published none. The version,
+	// the service asks for before a purchase (a new customer the newest
+	// published one), and, as an existing customer, to an announced one before
+	// it takes effect for them. Shows nothing while the service has published none. The version,
 	// the changes and the link are the service's word: shown as text, the link
 	// only to the service's own origin (credits.js, publishedTerms).
 	import { formatDate } from '$lib/bank/format.js';
 	import { t } from '$lib/i18n/index.js';
 	import { locale } from '$lib/i18n/locale.svelte.js';
+	import { creditsPage, PRODUCT } from './credits.js';
 
 	/**
 	 * @type {{
@@ -23,9 +25,30 @@
 	/** @type {string | null} */
 	let error = $state(null);
 
+	/**
+	 * The published version of that number, or – while GET /v1/terms has not
+	 * answered or names another – its page on the service.
+	 * @param {string | null | undefined} version
+	 * @returns {import('./credits.js').TermsVersion | null}
+	 */
+	const versionOf = (version) =>
+		!version
+			? null
+			: ([published?.current, published?.pending].find((v) => v?.version === version) ?? {
+					version,
+					url: creditsPage(`/agb/${PRODUCT}/${encodeURIComponent(version)}`),
+					changes: [],
+					effectiveAt: null,
+					publishedAt: null
+				});
 	const target = $derived(
-		terms?.due ? published?.current : terms?.announced ? published?.pending : null
+		terms?.due ? versionOf(terms.dueVersion) : terms?.announced ? versionOf(terms.pending) : null
 	);
+	const day = (/** @type {string | null | undefined} */ iso) =>
+		iso ? formatDate(iso.slice(0, 10)) : '—';
+	// For an existing customer the announced version takes effect later than for new ones.
+	const effective = $derived(target?.effectiveAt ?? terms?.pendingEffectiveAt ?? null);
+	const publishedAt = $derived(target?.publishedAt ?? null);
 
 	async function agree() {
 		if (!target) return;
@@ -55,9 +78,16 @@
 			{terms?.due
 				? t('credits.terms.due')
 				: t('credits.terms.announced', {
-						date: target.effectiveAt ? formatDate(target.effectiveAt.slice(0, 10)) : '—'
+						version: target.version,
+						date: day(effective),
+						accepted: terms?.accepted ?? '—'
 					})}
 		</p>
+		{#if publishedAt && target.version !== terms?.current}
+			<p class="mt-1 text-xs text-faint" data-testid="credits-terms-published">
+				{t('credits.terms.published', { version: target.version, date: day(publishedAt) })}
+			</p>
+		{/if}
 		{#if locale.current !== 'de'}
 			<p class="mt-1 text-xs text-faint">{t('credits.terms.germanNote')}</p>
 		{/if}

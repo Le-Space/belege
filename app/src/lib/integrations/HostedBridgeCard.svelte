@@ -480,8 +480,13 @@
 		);
 	}
 
+	/** @type {string | null} the plan picked, before "Jetzt kostenpflichtig buchen" (§ 312j BGB) */
+	let picked = $state(null);
+	const pickedPlan = $derived(BRIDGE_PLANS.find((p) => p.id === picked) ?? null);
+
 	/** @param {string} planId */
 	function choosePlan(planId) {
+		picked = null;
 		step(async () => {
 			credits = await chooseHostedPlan(planId);
 		});
@@ -668,7 +673,8 @@
 										type="button"
 										class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-3 text-sm text-text disabled:opacity-50"
 										disabled={busy || credits.termsDue || (credits.credits ?? 0) < plan.credits}
-										onclick={() => choosePlan(plan.id)}
+										aria-pressed={picked === plan.id}
+										onclick={() => (picked = plan.id)}
 										data-testid="hosted-bridge-plan-{plan.id}"
 										>{t('integrationen.hostedBridge.payer.choose', {
 											plan: t(`integrationen.hostedBridge.plans.${plan.id}`),
@@ -678,6 +684,37 @@
 									>
 								{/each}
 							</div>
+							{#if pickedPlan}
+								<div
+									class="mt-2 rounded-md border border-border bg-surface-2 p-3"
+									data-testid="hosted-bridge-plan-confirm"
+								>
+									<p class="text-text">
+										{t('integrationen.hostedBridge.payer.buyTitle', {
+											plan: t(`integrationen.hostedBridge.plans.${pickedPlan.id}`),
+											hours: pickedPlan.hours,
+											price: euro(pickedPlan.credits, intlLocale())
+										})}
+									</p>
+									<div class="mt-2 flex flex-wrap gap-2">
+										<button
+											type="button"
+											class={primary}
+											disabled={busy ||
+												credits.termsDue ||
+												(credits.credits ?? 0) < pickedPlan.credits}
+											onclick={() => choosePlan(pickedPlan.id)}
+											data-testid="hosted-bridge-plan-buy"
+											>{t('integrationen.hostedBridge.payer.buy')}</button
+										>
+										<button
+											type="button"
+											class="hover:bg-surface-muted min-h-11 rounded-md border border-border px-3 text-sm text-text"
+											onclick={() => (picked = null)}>{t('credits.cancel')}</button
+										>
+									</div>
+								</div>
+							{/if}
 						{/if}
 					</div>
 				{/if}

@@ -151,7 +151,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 61: in "Ohne Relay, per QR" the node also has a WebSocket, which reaches only
 //     the own bridge's node on this computer (127.0.0.1 or ::1), so the bridge
 //     serves the own devices without the internet too (#961).
-export const CONSENT_VERSION = '61';
+// 62: Le Space Credits also receives cancellations ("Verträge hier kündigen")
+//     and withdrawals ("Vertrag widerrufen") from the app, and uses the e-mail
+//     Stripe has to confirm them too, not only a purchase.
+export const CONSENT_VERSION = '62';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 
