@@ -35,5 +35,5 @@
     "test:bridge": "pnpm --filter @belege/bridge test",
     "test:skills": "node --test --test-reporter=spec skills/test/skills.test.js"
   },
-  "version": "0.54.0"
+  "version": "0.55.0"
 }

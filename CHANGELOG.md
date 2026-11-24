@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.55.0] – 2026-11-24
+
 ### Changed
 
 - **Le Space Credits: the terms the service asks for, a cancel and a withdrawal button, and purchase buttons that say they cost money.** The terms block asks for exactly the version the service names as due (`terms.due` of the balance since le-space-credits#115): a new customer agrees to the newest published version (now version 3) at once; an existing customer sees it announced with the date it applies to them, the version they agreed to until then, and when it was published, and may agree early. While the service does not send `due`, the version in force is asked for, as before. The card has **"Verträge hier kündigen"** (§ 312k BGB), which names the running plan of the hosted bridge and its period and ends it with **"Jetzt kündigen"** at the period's end, and **"Vertrag widerrufen"** (§ 356a BGB), which first lists what can still be withdrawn (14 days from conclusion), then withdraws with "Jetzt widerrufen" and shows when the withdrawal was received; Le Space confirms either by e-mail to the address given to Stripe, when there is one (an account with only a voucher gets none); the app shows the time of receipt. Both are the owner's, not a member's. A plan of the hosted bridge is no longer bought by clicking it: the click shows what it costs and how it renews, and **"Jetzt kostenpflichtig buchen"** buys it; the top-up buttons read "{amount} kostenpflichtig aufladen" (§ 312j Abs. 3 BGB). The consent screen says that cancellations and withdrawals go to credits.le-space.de and that Le Space writes to the e-mail Stripe has about them too (consent version 62).
