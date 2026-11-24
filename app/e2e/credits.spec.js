@@ -457,7 +457,7 @@ test('“Verträge hier kündigen” names the contract, then cancels it with �
 		await expect(done).toContainText('Kündigung eingegangen am');
 		await expect(done).toContainText('endet am 31.01.2030');
 		await expect(done).toContainText('E-Mail');
-		await expect(card.getByTestId('credits-package')).toContainText('gekündigt');
+		await expect(card.getByTestId('credits-package')).toContainText('endet am 31.01.2030');
 		expect(service.packages).toEqual([{ product: 'belege', package: null }]);
 	} finally {
 		await service.close();

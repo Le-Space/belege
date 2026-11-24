@@ -1700,7 +1700,7 @@ export default {
 			yes: 'Jetzt widerrufen',
 			done: 'Widerruf eingegangen am {date}. Widerrufen:',
 			refund: 'Die Erstattung des nicht genutzten Guthabens ist beantragt.',
-			mail: 'Eine Bestätigung schickt Le Space per E-Mail an die Adresse, die du bei Stripe angegeben hast.',
+			mail: 'Hast du bei Stripe bezahlt, schickt Le Space eine Bestätigung per E-Mail an die Adresse, die du dort angegeben hast.',
 			ownerOnly: 'Widerrufen und kündigen kann nur, wem die Bücher gehören.'
 		},
 		end: {
@@ -1712,11 +1712,11 @@ export default {
 				'Die Kündigung gilt zum Ende der laufenden Periode; bis dahin läuft das Paket weiter, danach verlängert es sich nicht mehr.',
 			yes: 'Jetzt kündigen',
 			none: 'Gerade läuft kein Vertrag, den du kündigen kannst: Ein Aufladen ist ein einmaliger Kauf und endet von selbst.',
-			ending: 'Das Monatspaket „{plan}“ ist gekündigt und endet am {date}.',
+			ending: 'Das Monatspaket „{plan}“ verlängert sich nicht mehr und endet am {date}.',
 			subscribed:
 				'Dieses Paket ist ein Abonnement bei Stripe: Kündige es im Kundenportal von Stripe.',
 			done: 'Kündigung eingegangen am {received}. Das Monatspaket „{plan}“ endet am {date}.',
-			mail: 'Eine Bestätigung schickt Le Space per E-Mail an die Adresse, die du bei Stripe angegeben hast.'
+			mail: 'Hast du bei Stripe bezahlt, schickt Le Space eine Bestätigung per E-Mail an die Adresse, die du dort angegeben hast.'
 		},
 		payTitle: 'Aufladen mit Stripe',
 		withdrawal:

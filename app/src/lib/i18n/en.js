@@ -1745,7 +1745,7 @@ export default {
 			yes: 'Withdraw now',
 			done: 'Withdrawal received on {date}. Withdrawn:',
 			refund: 'The refund of the unused balance is requested.',
-			mail: 'Le Space sends a confirmation by e-mail to the address you gave Stripe.',
+			mail: 'If you paid through Stripe, Le Space sends a confirmation by e-mail to the address you gave there.',
 			ownerOnly: 'Only the owner of the books can withdraw or cancel.'
 		},
 		end: {
@@ -1757,10 +1757,10 @@ export default {
 				'The cancellation takes effect at the end of the current period; the plan runs until then and does not renew afterwards.',
 			yes: 'Cancel now',
 			none: 'No contract you could cancel is running right now: a top-up is a one-time purchase and ends by itself.',
-			ending: 'The monthly plan “{plan}” is cancelled and ends on {date}.',
+			ending: 'The monthly plan “{plan}” no longer renews and ends on {date}.',
 			subscribed: 'This plan is a Stripe subscription: cancel it in Stripe’s customer portal.',
 			done: 'Cancellation received on {received}. The monthly plan “{plan}” ends on {date}.',
-			mail: 'Le Space sends a confirmation by e-mail to the address you gave Stripe.'
+			mail: 'If you paid through Stripe, Le Space sends a confirmation by e-mail to the address you gave there.'
 		},
 		payTitle: 'Top up with Stripe',
 		withdrawal:
