@@ -12,6 +12,7 @@
 	import { confirmBooking } from './actions.js';
 	import { listAssist, suggestFor } from './list-assist.svelte.js';
 	import { catalogueAccount, isAccountNumber } from './skr03.js';
+	import { accountRuleOf } from './suggest.js';
 
 	/** @type {{ tx: Record<string, any> & { id: string }, listId: string }} `listId`: the page's datalist of accounts */
 	let { tx, listId } = $props();
@@ -64,14 +65,19 @@
 		busy = true;
 		error = null;
 		try {
-			await confirmBooking(/** @type {any} */ (store), tx.id, {
-				account: number,
-				taxKey: suggestion.taxKey,
-				// The suggested private share goes with it (private-share.js), as the
-				// row says; without one nothing is said about shares – changing or
-				// removing one is done on the payment's own page.
-				...(shareOk ? { privateShare: suggestion.privateShare } : {})
-			});
+			await confirmBooking(
+				/** @type {any} */ (store),
+				tx.id,
+				{
+					account: number,
+					taxKey: suggestion.taxKey,
+					// The suggested private share goes with it (private-share.js), as the
+					// row says; without one nothing is said about shares – changing or
+					// removing one is done on the payment's own page.
+					...(shareOk ? { privateShare: suggestion.privateShare } : {})
+				},
+				{ rule: accountRuleOf(tx, app.classifications[tx.id] ?? null) }
+			);
 			await refreshNow();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

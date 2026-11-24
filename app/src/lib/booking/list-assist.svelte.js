@@ -13,6 +13,7 @@ import { recordEvent } from '../activity/events.js';
 import { matchesOfTx } from '../matching/view.js';
 import { bridgeRequestLimit } from '../sync/bridge-limit.js';
 import { clearingAccountOf, travelSetOf } from '../travel/accounts.js';
+import { allowedPicks, forbiddenAccounts, knownOf } from './assist-guard.js';
 import { assistBody, assistEventData } from './assist-request.js';
 import { cleanDatevSettings, privateAccounts } from './settings.js';
 import { searchAccounts } from './skr03.js';
@@ -61,7 +62,8 @@ export function suggestFor(tx, app) {
 		privateAccounts: privateAccounts(datev),
 		privateShareRule: datev.privateShare,
 		travelSet: travelSetOf(datev, app.travel),
-		travelClearing: clearingAccountOf(datev, app.travel)
+		travelClearing: clearingAccountOf(datev, app.travel),
+		ruleAccounts: { reward: datev.rewardAccount, cloudCredits: datev.cloudCreditsAccount }
 	});
 }
 
@@ -101,6 +103,9 @@ export async function askForList({ txs, app, client, store, learnedName }) {
 		for (const tx of asked) {
 			if (listAssist.stopping) break;
 			const income = (tx.amountCents ?? 0) > 0;
+			const classification = app.classifications?.[tx.id] ?? null;
+			// Never the payment's own account, nor another own one (assist-guard.js).
+			const forbidden = forbiddenAccounts({ tx, accounts: app.accounts ?? [], classification });
 			const r = await client.bookingAssist(
 				assistBody({
 					tx,
@@ -110,10 +115,12 @@ export async function askForList({ txs, app, client, store, learnedName }) {
 					catalogue: searchAccounts('', { income, chart: app.chart }),
 					chart: app.chart,
 					learnedName,
-					requestLimit: bridgeRequestLimit()
+					requestLimit: bridgeRequestLimit(),
+					forbidden,
+					known: knownOf(tx, classification)
 				})
 			);
-			const first = (r.picks ?? [])[0];
+			const first = allowedPicks(/** @type {Rec[]} */ (r.picks ?? []), forbidden)[0];
 			listAssist.picks[tx.id] = {
 				account: first?.account ? String(first.account) : null,
 				confidence: String(first?.confidence ?? ''),

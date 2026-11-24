@@ -1,7 +1,10 @@
 // "Übernehmen": the person confirms a booking's account and BU key. Stored on
 // the transaction as `booking: { account, taxKey, confirmedAt }` (sealed like
 // every record); a booking whose receipt names a vendor teaches that vendor
-// the account (partners.js `learnAccount`). One event in the Verlauf.
+// the account (partners.js `learnAccount`). A reward or a purchase of Aleph
+// credits has no receipt to learn from: another account confirmed there
+// becomes the rule's account in the settings (suggest.js `accountRuleOf`).
+// One event in the Verlauf.
 
 import { cleanPrivateShare } from './private-share.js';
 import { valueCents } from '../assets/quantity.js';
@@ -9,7 +12,8 @@ import { recordEvent } from '../activity/events.js';
 import { cleanMatchingSettings } from '../matching/classify.js';
 import { learnAccount } from '../matching/partners.js';
 import { matchesOfTx } from '../matching/view.js';
-import { getSetting } from '../store/settings.js';
+import { getSetting, setSetting } from '../store/settings.js';
+import { cleanDatevSettings } from './settings.js';
 import { isAccountNumber } from './skr03.js';
 import { t } from '../i18n/index.js';
 
@@ -21,13 +25,15 @@ import { t } from '../i18n/index.js';
  * @param {{ account: string, taxKey?: string, privateShare?: unknown }} booking
  *   `privateShare`: the part that is private use, `{ percent, account }` (private-share.js); null: none, and
  *   the vendor is remembered as booked whole; left out: none, and nothing about it is learned
- * @param {{ log?: boolean, now?: () => Date }} [options]
+ * @param {{ log?: boolean, now?: () => Date, rule?: import('./suggest.js').AccountRule | null }} [options]
+ *   `rule`: the booking is one a rule of the settings suggests (suggest.js `accountRuleOf`); another
+ *   account confirmed becomes that rule's account
  */
 export async function confirmBooking(
 	store,
 	transactionId,
 	{ account, taxKey = '', privateShare },
-	{ log = true, now = () => new Date() } = {}
+	{ log = true, now = () => new Date(), rule = null } = {}
 ) {
 	const number = String(account ?? '').trim();
 	const key = String(taxKey ?? '').trim();
@@ -72,6 +78,7 @@ export async function confirmBooking(
 			)
 		);
 	}
+	const ruleLearned = rule ? await learnRuleAccount(store, rule, number) : false;
 	if (log) {
 		await recordEvent(store.events, 'decision', {
 			action: 'booking',
@@ -79,10 +86,28 @@ export async function confirmBooking(
 			account: number,
 			taxKey: key,
 			...(share ? { privateShare: share } : {}),
-			learned
+			learned,
+			...(ruleLearned ? { rule } : {})
 		});
 	}
 	return record;
+}
+
+/**
+ * The rule's account in the settings follows what the person confirmed.
+ *
+ * @param {MatchingStore} store
+ * @param {import('./suggest.js').AccountRule} rule
+ * @param {string} number
+ * @returns {Promise<boolean>} whether it changed
+ */
+async function learnRuleAccount(store, rule, number) {
+	if (!store.settings) return false;
+	const field = rule === 'reward' ? 'rewardAccount' : 'cloudCreditsAccount';
+	const stored = await getSetting(store.settings, 'datev');
+	if (cleanDatevSettings(stored)[field] === number) return false;
+	await setSetting(store.settings, 'datev', { ...(stored ?? {}), [field]: number });
+	return true;
 }
 
 /**

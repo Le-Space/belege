@@ -84,6 +84,11 @@ So kommt der Vorschlag zustande:
 
 - **Eigene Umbuchung** zwischen zwei deiner Konten → **1360** Geldtransit, ohne BU-Schlüssel.
 - **Bankgebühr** → **4970** Nebenkosten des Geldverkehrs, ohne BU-Schlüssel.
+- **Ertrag aus Staking, Earn oder Mining**, der hereinkam (bei einer Börse oder auf einer eigenen Wallet) → **2700** Sonstige Erträge, ohne BU-Schlüssel.
+- **Kauf von Aleph-Credits** (die Zahlung, die Aleph zu einem Kauf nennt) → **4960** Mieten für Einrichtungen, ohne BU-Schlüssel.
+
+  Beide Konten stellst du unter _Einstellungen → Buchhaltung (DATEV)_ ein; welches richtig ist, klärst du mit der Steuerberatung. Beide Zahlungen haben keinen Beleg, an dem Belege lernen könnte: Übernimmst du dort ein anderes Konto, steht es ab dann in den Einstellungen.
+
 - **Private Zahlung** vom Geschäftskonto oder ihre Rückzahlung → das Konto, das zu deiner Rechtsform passt (#172).
 - **Lohn, Lohnsteuer, Sozialabgaben oder eine Steuerzahlung** → das Konto, unter dem sie gebucht werden, wo es bekannt ist (#233).
 - **Reisekosten** → das Konto aus der Reisekostenabrechnung (#213).

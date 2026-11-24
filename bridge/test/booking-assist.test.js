@@ -61,6 +61,47 @@ test('the message: chart as "number: name", IBAN blacked out unless off', () => 
 	assert.ok(plain.includes('DE00 1234 5678 9012 3456 78'));
 });
 
+test('the message says which side is wanted, and what the app knows', () => {
+	const out = bookingMessage(input, { terms: [], off: true }).text;
+	assert.ok(out.includes('Gesucht: ein Aufwandskonto (Geld geht hinaus).'));
+	assert.equal(out.includes('Die App weiß'), false, 'nothing known, nothing said');
+
+	const reward = bookingMessage(
+		{
+			...input,
+			receipt: null,
+			booking: {
+				...input.booking,
+				direction: 'in',
+				amount: '0,12',
+				account: 'Börse Konto B – ETH',
+				counterparty: 'Staking-Ertrag',
+				purpose: '',
+				known: 'reward'
+			}
+		},
+		{ terms: [], off: true }
+	).text;
+	assert.ok(reward.includes('Gesucht: ein Ertrags- oder Erlöskonto (Geld kommt herein).'));
+	assert.ok(reward.includes('Die App weiß: ein Ertrag aus Staking, Earn oder Mining'));
+	assert.ok(reward.includes('nicht das Konto, auf dem der Ertrag eingeht'));
+
+	const credits = bookingMessage(
+		{ ...input, booking: { ...input.booking, known: 'cloud-credits' } },
+		{ terms: [], off: true }
+	).text;
+	assert.ok(credits.includes('Die App weiß: der Kauf von Aleph-Credits'));
+
+	const transfer = bookingMessage(
+		{ ...input, booking: { ...input.booking, known: 'own-transfer' } },
+		{ terms: [], off: true }
+	).text;
+	assert.equal(transfer.includes('Gesucht: ein Aufwandskonto'), false);
+	assert.ok(transfer.includes('Umbuchung zwischen eigenen Konten'));
+
+	assert.match(BOOKING_SYSTEM, /Never pick the account the payment is on/);
+});
+
 describe('/booking/assist', () => {
 	/** @type {Awaited<ReturnType<typeof startFakeLlm>>} */ let llm;
 	/** @type {ReturnType<typeof createBridgeServer>} */ let bridge;
@@ -145,7 +186,8 @@ describe('/booking/assist', () => {
 		for (const body of [
 			{ ...input, accounts: [] },
 			{ ...input, accounts: [{ number: '12', name: 'zu kurz' }] },
-			{ ...input, booking: { ...input.booking, direction: 'sideways' } }
+			{ ...input, booking: { ...input.booking, direction: 'sideways' } },
+			{ ...input, booking: { ...input.booking, known: 'anything' } }
 		]) {
 			const res = await request(port, '/booking/assist', {
 				method: 'POST',

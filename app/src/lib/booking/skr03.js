@@ -32,6 +32,7 @@ export const SKR03_ACCOUNTS = Object.freeze([
 	{ number: '1790', name: 'Umsatzsteuer Vorjahr', kind: 'neutral' },
 	{ number: '1800', name: 'Privatentnahmen allgemein', kind: 'private' },
 	{ number: '2200', name: 'Körperschaftsteuer', kind: 'neutral' },
+	{ number: '2700', name: 'Sonstige Erträge', kind: 'income' },
 	{ number: '1890', name: 'Privateinlagen', kind: 'private' },
 	{ number: '4210', name: 'Miete (unbewegliche Wirtschaftsgüter)', kind: 'expense' },
 	{ number: '4320', name: 'Gewerbesteuer', kind: 'expense' },
@@ -67,6 +68,11 @@ export const SKR03_ACCOUNTS = Object.freeze([
 		name: 'Aufwendungen für die zeitlich befristete Überlassung von Rechten (Lizenzen, Konzessionen)',
 		kind: 'expense'
 	},
+	{
+		number: '4960',
+		name: 'Mieten für Einrichtungen (bewegliche Wirtschaftsgüter)',
+		kind: 'expense'
+	},
 	{ number: '4970', name: 'Nebenkosten des Geldverkehrs', kind: 'expense' },
 	{ number: '8300', name: 'Erlöse 7 % USt', kind: 'income', automatic: 7 },
 	{ number: '8400', name: 'Erlöse 19 % USt', kind: 'income', automatic: 19 }
@@ -76,6 +82,17 @@ export const SKR03_ACCOUNTS = Object.freeze([
 export const TRANSFER_ACCOUNT = '1360';
 /** Bank fees (classify.js `bank-fee`). */
 export const FEE_ACCOUNT = '4970';
+/**
+ * Staking, earn and mining rewards (classify.js `crypto-reward`): Sonstige
+ * Erträge unless the books' settings name another (settings.js `rewardAccount`).
+ */
+export const REWARD_ACCOUNT = '2700';
+/**
+ * Aleph credits bought (classify.js `prepaid-topup` via `aleph-purchase`):
+ * rented computing and storage, Mieten für Einrichtungen unless the books'
+ * settings name another (settings.js `cloudCreditsAccount`).
+ */
+export const CLOUD_CREDITS_ACCOUNT = '4960';
 
 /** @param {unknown} v */
 const digits = (v) => String(v ?? '').trim();

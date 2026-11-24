@@ -26,6 +26,7 @@ import { MAX_RANGE_DAYS } from '@le-space/rates';
 import { MAX_BACKUP_BYTES } from './aleph-backup.js';
 import { checkEndpoint } from '@le-space/chains/http';
 import { withExtraTerms } from './llm/redact.js';
+import { KNOWN_BOOKINGS } from './llm/booking-assist.js';
 import { isLoopbackUrl, redactionOff, redactionOffForEnclave } from './config.js';
 import { providerOf } from './llm/providers.js';
 import { needsDefaultQuestion } from './llm/default-choice.js';
@@ -767,6 +768,7 @@ export function createCommands({
 					opt(b.account, 200) &&
 					opt(b.counterparty, 200) &&
 					opt(b.purpose, 1000) &&
+					(b.known === undefined || KNOWN_BOOKINGS.includes(b.known)) &&
 					(r === null ||
 						(typeof r === 'object' &&
 							opt(r.vendor, 200) &&

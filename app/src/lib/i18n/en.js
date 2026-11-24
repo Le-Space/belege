@@ -3065,6 +3065,11 @@ export default {
 			paymentAccountHint:
 				'What an own wallet pays into a payment contract (Filecoin Pay), or gets back from it, goes here: the money stays yours until something is settled from it. 1360 (cash in transit) by default. If your books keep an account of their own for it – for advance payments or other assets, say – enter it here; empty means 1360.',
 			invalidPaymentAccount: 'The account for balances in payment contracts has 4 to 8 digits.',
+			rewardAccount: 'Account for staking and earn rewards',
+			cloudCreditsAccount: 'Account for Aleph credits bought',
+			ruleAccountsHint:
+				'The app suggests this account for rewards from staking, earn and mining (2700 Sonstige Erträge by default) and for a purchase of Aleph credits, whose monthly statement is the document (4960 Mieten für Einrichtungen by default). Empty means the default. Which account is right is for you and your tax adviser to agree. If you confirm another account on such a payment, it applies here from then on.',
+			invalidRuleAccount: 'The accounts for staking rewards and Aleph credits have 4 to 8 digits.',
 			suspenseHint:
 				'Optional. With an account here, the export can book bookings without a confirmed account onto it instead of waiting. Belege suggests no number: which account (in SKR 03 usually one of the transit or unclear items) and who re-books is for you and your tax advisor to agree.',
 			legalFormHint:
@@ -3684,6 +3689,9 @@ export default {
 			payroll: 'by the kind of payment (wage, wage tax, contributions, tax)',
 			transfer: 'Own transfer',
 			fee: 'Bank fee',
+			reward: 'Staking or earn reward, account from the settings – check with the tax adviser',
+			'cloud-credits':
+				'Aleph credits bought, account from the settings – check with the tax adviser',
 			private: 'Private (paid by mistake), by legal form',
 			travel: 'travel costs, by kind and legal form – check with the tax adviser',
 			learned: 'learned',

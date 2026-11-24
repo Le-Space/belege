@@ -7,6 +7,11 @@
 // Redacted like every call, unless the model runs on this machine or in an
 // attested enclave and setup:llm was told not to (config.js redactionOff).
 // An answer naming an account that is not in the list sent is dropped.
+//
+// The app leaves the payment's own account, and every other own bank, wallet
+// or exchange account unless the payment is an own transfer, out of the list
+// (app booking/assist-guard.js), and says what it already knows of the
+// payment (`known`): the model is told which side of the books is wanted.
 
 import { redact } from './redact.js';
 import { stripChainIds } from './transfer-assist.js';
@@ -14,6 +19,20 @@ import { stripChainIds } from './transfer-assist.js';
 export const MAX_ACCOUNTS = 600;
 export const MAX_LEARNED = 80;
 export const MAX_PICKS = 2;
+
+/** What the app may say it knows of a payment (`booking.known`). */
+export const KNOWN_BOOKINGS = Object.freeze(['reward', 'cloud-credits', 'fee', 'own-transfer']);
+
+/** @type {Record<string, string>} */
+const KNOWN_TEXT = {
+	reward:
+		'Die App weiß: ein Ertrag aus Staking, Earn oder Mining, kein Beleg nötig. Gesucht ist ein Ertragskonto, nicht das Konto, auf dem der Ertrag eingeht.',
+	'cloud-credits':
+		'Die App weiß: der Kauf von Aleph-Credits (Rechen- und Speicherleistung in der Cloud); die Monatsabrechnung ist der Beleg. Gesucht ist ein Aufwandskonto, nicht das Konto, von dem gezahlt wurde.',
+	fee: 'Die App weiß: eine Gebühr des Kontos oder des Netzwerks. Gesucht ist ein Aufwandskonto.',
+	'own-transfer':
+		'Die App weiß: eine Umbuchung zwischen eigenen Konten. Gesucht ist das Konto der anderen Seite oder Geldtransit.'
+};
 
 export const BOOKING_SYSTEM = `You help a German company's bookkeeping choose the contra account (Gegenkonto) for one payment.
 You get the payment, its receipt if there is one, the accounts the books already use for known vendors, and the company's chart of accounts as "number: name" lines.
@@ -27,7 +46,7 @@ Answer with one JSON object and nothing else:
     }
   ]
 }
-Pick only numbers from the chart. Prefer an account the books already use for the same vendor. Money out is usually an expense or an asset, money in usually revenue. When nothing fits, answer an empty list.`;
+Pick only numbers from the chart. Prefer an account the books already use for the same vendor. Money in wants a revenue or income account, money out an expense account (an asset only for a purchase of one). Never pick the account the payment is on ("eigenes Konto") or another bank, wallet or exchange account of the company, unless the payment is a transfer between own accounts. When the payment says what the app already knows ("Die App weiß"), follow it. When nothing fits, answer an empty list.`;
 
 const NUMBER = /^\d{4,8}$/;
 
@@ -54,7 +73,7 @@ export function checkPicks(data, numbers) {
 }
 
 /**
- * @typedef {{ direction: 'in' | 'out', amount: string, day: string, account?: string | null, counterparty?: string | null, purpose?: string | null }} Booking
+ * @typedef {{ direction: 'in' | 'out', amount: string, day: string, account?: string | null, counterparty?: string | null, purpose?: string | null, known?: string }} Booking
  * @typedef {{ vendor?: string | null, kind?: string | null, items?: string[], vat?: string | null }} Receipt
  * @typedef {{ vendor: string, account: string }} Learned
  * @typedef {{ number: string, name: string }} Account
@@ -71,7 +90,16 @@ export function bookingMessage({ booking, receipt = null, learned = [], accounts
 	const lines = [
 		`Zahlung: ${b.direction === 'in' ? 'Eingang' : 'Ausgang'} ${b.amount} EUR am ${b.day}${b.account ? ` | eigenes Konto: ${b.account}` : ''}`,
 		`Gegenpartei: ${b.counterparty || 'unbekannt'}`,
-		...(b.purpose ? [`Verwendungszweck: ${String(b.purpose).slice(0, 300)}`] : [])
+		...(b.purpose ? [`Verwendungszweck: ${String(b.purpose).slice(0, 300)}`] : []),
+		// An own transfer is neither: its own line says what is wanted.
+		...(b.known === 'own-transfer'
+			? []
+			: [
+					b.direction === 'in'
+						? 'Gesucht: ein Ertrags- oder Erlöskonto (Geld kommt herein).'
+						: 'Gesucht: ein Aufwandskonto (Geld geht hinaus).'
+				]),
+		...(b.known && KNOWN_TEXT[b.known] ? [KNOWN_TEXT[b.known]] : [])
 	];
 	if (receipt) {
 		lines.push(

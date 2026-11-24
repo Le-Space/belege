@@ -172,6 +172,8 @@ describe('catalogue and settings', () => {
 			ownVatId: '',
 			smallBusiness: false,
 			suspenseAccount: '',
+			rewardAccount: '2700',
+			cloudCreditsAccount: '4960',
 			consultantNumber: '12345',
 			clientNumber: '7',
 			fiscalYearStartMonth: 7,

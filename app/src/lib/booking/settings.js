@@ -7,7 +7,7 @@
 // on its `accounts` record as `ledgerAccount`, so a new bank account starts
 // without one. Pure.
 
-import { isAccountNumber } from './skr03.js';
+import { CLOUD_CREDITS_ACCOUNT, REWARD_ACCOUNT, isAccountNumber } from './skr03.js';
 
 /**
  * @typedef {object} TaxKeys the BU keys per case; '' leaves the field empty
@@ -35,6 +35,10 @@ import { isAccountNumber } from './skr03.js';
  * @property {boolean} smallBusiness Kleinunternehmer (§19 UStG): no VAT charged, none deducted
  * @property {string} suspenseAccount where bookings without a confirmed account may go in the
  *   export (#323), '' until set; Belege suggests none – it is the tax adviser's to name
+ * @property {string} rewardAccount where staking, earn and mining rewards are suggested (suggest.js);
+ *   SKR 03 2700 unless set
+ * @property {string} cloudCreditsAccount where a purchase of Aleph credits is suggested (suggest.js);
+ *   SKR 03 4960 unless set
  */
 
 /**
@@ -89,6 +93,9 @@ export function defaultDatevSettings() {
 		ownVatId: '',
 		smallBusiness: false,
 		suspenseAccount: '',
+		// The accounts two rules suggest (suggest.js): to be checked with the tax adviser.
+		rewardAccount: REWARD_ACCOUNT,
+		cloudCreditsAccount: CLOUD_CREDITS_ACCOUNT,
 		// The usual numbers for a company doing its own books; check what the bookkeeping expects.
 		consultantNumber: '1001',
 		clientNumber: '1',
@@ -119,6 +126,12 @@ function key(v, fallback) {
 	return /^\d{1,4}$/.test(s) ? s : fallback;
 }
 
+/** An account number, or the default for none or a bad one. @param {unknown} v @param {string} fallback */
+function accountOr(v, fallback) {
+	const s = String(v ?? '').trim();
+	return /^\d{4,8}$/.test(s) ? s : fallback;
+}
+
 /**
  * A stored value, cleaned: bad entries fall back to the defaults.
  *
@@ -146,6 +159,8 @@ export function cleanDatevSettings(value) {
 		suspenseAccount: /^\d{4,8}$/.test(String(value?.suspenseAccount ?? '').trim())
 			? String(value.suspenseAccount).trim()
 			: '',
+		rewardAccount: accountOr(value?.rewardAccount, REWARD_ACCOUNT),
+		cloudCreditsAccount: accountOr(value?.cloudCreditsAccount, CLOUD_CREDITS_ACCOUNT),
 		consultantNumber: String(int(value?.consultantNumber, 1001, 9999999, 1001)),
 		clientNumber: String(int(value?.clientNumber, 1, 99999, 1)),
 		fiscalYearStartMonth: int(value?.fiscalYearStartMonth, 1, 12, d.fiscalYearStartMonth),

@@ -6,6 +6,13 @@
 //   1. what the person confirmed (`tx.booking`)
 //   2. an own transfer (classify.js): 1360 Geldtransit, no BU key
 //   3. a bank fee: 4970 Nebenkosten des Geldverkehrs, no BU key
+//   3a. a reward that came in – staking or earn on an exchange, a staking or
+//      mining reward on an own wallet (classify.js `crypto-reward`): the
+//      rewards' account of the settings (2700 Sonstige Erträge unless set);
+//      a purchase of Aleph credits (`prepaid-topup` via `aleph-purchase`): the
+//      cloud credits' account (4960 unless set). No BU key. Both have no
+//      receipt to learn from, so confirming another account moves the rule's
+//      account in the settings (actions.js `rule`).
 //   (before both: a private payment or its repayment, by the legal form, #172)
 //   3b. travel (#213): a line of a travel statement carries its account; its
 //      payout goes on the clearing account, as a private repayment; a receipt
@@ -19,7 +26,13 @@
 // learned vendor's key.
 
 import { findPartner, partnerOfTx } from '../matching/partners.js';
-import { FEE_ACCOUNT, TRANSFER_ACCOUNT, isAccountNumber } from './skr03.js';
+import {
+	CLOUD_CREDITS_ACCOUNT,
+	FEE_ACCOUNT,
+	REWARD_ACCOUNT,
+	TRANSFER_ACCOUNT,
+	isAccountNumber
+} from './skr03.js';
 import { DEFAULT_TAX_KEYS } from './settings.js';
 import { taxKeyFor } from './tax-keys.js';
 import { privateKind } from '../matching/private-kind.js';
@@ -29,7 +42,24 @@ import { isStatementReceipt } from '../travel/payout.js';
 import { cleanPrivateShare, suggestedShare } from './private-share.js';
 
 /** @typedef {Record<string, any>} Rec */
-/** @typedef {'confirmed' | 'transfer' | 'fee' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
+/** @typedef {'confirmed' | 'transfer' | 'fee' | 'reward' | 'cloud-credits' | 'payroll' | 'learned' | 'private' | 'travel' | null} SuggestionSource */
+/** @typedef {'reward' | 'cloud-credits'} AccountRule a rule whose account the settings keep */
+
+/**
+ * The rule whose account the books' settings keep for this booking, if any:
+ * a reward that came in, or the payment of Aleph credits.
+ *
+ * @param {Rec} tx
+ * @param {import('../matching/classify.js').Classification | null | undefined} classification
+ * @returns {AccountRule | null}
+ */
+export function accountRuleOf(tx, classification) {
+	if (classification?.kind === 'crypto-reward' && Number(tx?.amountCents ?? 0) > 0) return 'reward';
+	if (classification?.kind === 'prepaid-topup' && classification.via === 'aleph-purchase') {
+		return 'cloud-credits';
+	}
+	return null;
+}
 
 /**
  * @typedef {object} Suggestion
@@ -82,6 +112,8 @@ export function learnedPartner(partners, receipt, tx) {
  *   the travel accounts' set (#213): one, or per receipt, by its trip's traveller (#380)
  * @param {((p: { travellerId?: string | null, receiptId?: string | null }) => string | null) | null} [context.travelClearing]
  *   a traveller's clearing account, for an advance (#381) and a statement's payout (travel/accounts.js clearingAccountOf)
+ * @param {{ reward?: string, cloudCredits?: string }} [context.ruleAccounts]
+ *   the settings' accounts for rewards and Aleph credits (settings.js); SKR 03 2700 and 4960 without
  * @returns {Suggestion}
  */
 function suggestCore(
@@ -93,7 +125,8 @@ function suggestCore(
 		keys = DEFAULT_TAX_KEYS,
 		privateAccounts = { payment: null, repayment: null },
 		travelSet = null,
-		travelClearing = null
+		travelClearing = null,
+		ruleAccounts = {}
 	}
 ) {
 	if (isBookingConfirmed(tx)) {
@@ -152,6 +185,18 @@ function suggestCore(
 	}
 	if (classification?.kind === 'bank-fee') {
 		return { account: FEE_ACCOUNT, taxKey: '', source: 'fee', taxVia: 'none', vendor: null };
+	}
+	const rule = accountRuleOf(tx, classification);
+	if (rule) {
+		const set = rule === 'reward' ? ruleAccounts.reward : ruleAccounts.cloudCredits;
+		const fallback = rule === 'reward' ? REWARD_ACCOUNT : CLOUD_CREDITS_ACCOUNT;
+		return {
+			account: isAccountNumber(set) ? String(set) : fallback,
+			taxKey: '',
+			source: rule,
+			taxVia: 'none',
+			vendor: null
+		};
 	}
 	// A line of a travel statement (#213): its account and key were set with it.
 	if (tx.travelLine?.account) {

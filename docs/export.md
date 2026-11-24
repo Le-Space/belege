@@ -26,6 +26,7 @@ A receipt that is a mail without an attachment (a shop's receipt written in the 
 2. **Header values** – same place: Beraternummer and Mandantennummer (defaults 1001 and 1, usual for a company doing its own books – check what your bookkeeping expects), the month the fiscal year starts (January), the Sachkontenlänge (4).
 3. **An account for every booking** – in each booking under _Konto_. The app suggests, you confirm with _Übernehmen_:
    - own transfer → **1360** Geldtransit, bank fee → **4970** Nebenkosten des Geldverkehrs, both without a BU key;
+   - a reward that came in – staking or earn on an exchange, a staking or mining reward on an own wallet → **2700** Sonstige Erträge; a purchase of Aleph credits (the payment Aleph names for it, `docs/crypto.md`) → **4960** Mieten für Einrichtungen; both without a BU key. Both accounts are set under _Einstellungen → Buchhaltung (DATEV)_ – which one is right is for the tax adviser. Neither has a receipt to learn from: confirming another account on such a payment makes it the setting's account from then on;
    - a private payment from the business account or its repayment → the account of the legal form (#172); wages, payroll tax, contributions and tax payments → their account where one is known (#233); a travel statement's line → its account (#213);
    - _gelernt_: the account you gave this vendor last time (found by the receipt's vendor or the counterparty on the statement);
    - otherwise nothing: pick from the SKR 03 list (search by number or name) or type any 4–8 digit number.
