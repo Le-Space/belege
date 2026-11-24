@@ -1738,13 +1738,15 @@ export default {
 			none: 'There is nothing to withdraw from right now: the 14-day withdrawal period has passed for every contract, or there is none.',
 			item: '{what}, concluded on {date}, withdrawable until {until}',
 			credits: 'Top-up {amount}',
+			plan: 'Monthly plan “{plan}”',
 			subscription: 'Subscription',
 			backup: 'Backup ({what})',
 			effect:
-				'With the withdrawal Le Space requests the refund of the unused balance; a withdrawn subscription ends at once.',
+				'A withdrawn monthly plan ends at once and its credits go back to the balance; for withdrawn top-ups Le Space requests the refund of the unused balance; a withdrawn subscription ends at once.',
 			yes: 'Withdraw now',
 			done: 'Withdrawal received on {date}. Withdrawn:',
 			refund: 'The refund of the unused balance is requested.',
+			credited: '{amount} from the plan are credited back to your balance.',
 			mail: 'If you paid through Stripe, Le Space sends a confirmation by e-mail to the address you gave there.',
 			ownerOnly: 'Only the owner of the books can withdraw or cancel.'
 		},

@@ -1693,13 +1693,15 @@ export default {
 			none: 'Gerade kannst du nichts widerrufen: Die Widerrufsfrist von 14 Tagen ist für alle Verträge abgelaufen, oder es gibt keinen.',
 			item: '{what}, abgeschlossen am {date}, widerrufbar bis {until}',
 			credits: 'Aufladung {amount}',
+			plan: 'Monatspaket „{plan}“',
 			subscription: 'Abonnement',
 			backup: 'Backup ({what})',
 			effect:
-				'Mit dem Widerruf beantragt Le Space die Erstattung des nicht genutzten Guthabens; ein widerrufenes Abonnement endet sofort.',
+				'Ein widerrufenes Monatspaket endet sofort, seine Credits kommen ins Guthaben zurück; für widerrufene Aufladungen beantragt Le Space die Erstattung des nicht genutzten Guthabens; ein widerrufenes Abonnement endet sofort.',
 			yes: 'Jetzt widerrufen',
 			done: 'Widerruf eingegangen am {date}. Widerrufen:',
 			refund: 'Die Erstattung des nicht genutzten Guthabens ist beantragt.',
+			credited: '{amount} aus dem Paket sind deinem Guthaben wieder gutgeschrieben.',
 			mail: 'Hast du bei Stripe bezahlt, schickt Le Space eine Bestätigung per E-Mail an die Adresse, die du dort angegeben hast.',
 			ownerOnly: 'Widerrufen und kündigen kann nur, wem die Bücher gehören.'
 		},
