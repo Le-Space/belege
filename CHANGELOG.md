@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Einstellungen: every tile the same size.** The overview's rows share one height and each tile fills its cell, so a tile with a one-line note no longer sits smaller beside one with three. The Verlauf's direct links (Auslesen, Abgleich, Abruf, Entscheidung) moved under the grid, named after the Verlauf, with a space after each comma.
+
 ## [0.56.0] – 2026-11-24
 
 ## [0.55.0] – 2026-11-24
