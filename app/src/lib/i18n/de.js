@@ -1870,6 +1870,7 @@ export default {
 		fee: 'Netzwerkgebühr',
 		feeFailed: 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
 		storageDeposit: 'Storage-Deposit',
+		securityDeposit: 'Sicherheitsdeposit des Token-Transfers',
 		storageForTransfer: 'für die Überweisung an {to}, Tx {tx}',
 		storageForTransferAnyone: 'für die Überweisung, Tx {tx}',
 		storageForReceipt: 'für den ersten Eingang des Tokens, Tx {tx}',

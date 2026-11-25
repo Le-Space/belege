@@ -136,13 +136,16 @@ export function describeWalletEntry(e) {
 	}
 	if (e.type === 'fee') {
 		return {
-			// A NEAR storage deposit (#968) – for a swap, a transfer, a receipt or of its own – is a cost, as gas is.
+			// A NEAR storage deposit (#968) – for a swap, a transfer, a receipt or of its own – is a cost, as gas is;
+			// so is the 1 yoctoNEAR a token transfer attaches (#1028).
 			label: t(
 				e.purpose === 'storage' || (e.partOf && !e.id.endsWith(':fee'))
 					? 'walletBooks.storageDeposit'
-					: e.success
-						? 'walletBooks.fee'
-						: 'walletBooks.feeFailed'
+					: e.purpose === 'security'
+						? 'walletBooks.securityDeposit'
+						: e.success
+							? 'walletBooks.fee'
+							: 'walletBooks.feeFailed'
 			),
 			movement: /** @type {const} */ ('fee')
 		};

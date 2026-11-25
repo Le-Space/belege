@@ -348,6 +348,8 @@ describe('a NEAR account as a wallet', () => {
 				`${hashes.atDex}:fee`,
 				deposit,
 				`${hashes.atToken}:fee`,
+				// the 1 yoctoNEAR the swap's ft_transfer_call attached (#1028)
+				`${hashes.swap}:deposit`,
 				`${hashes.swap}:fee`
 			].sort()
 		);
@@ -456,6 +458,8 @@ describe('a NEAR account as a wallet', () => {
 			[
 				`${hashes.forTransfer}:deposit`,
 				`${hashes.forTransfer}:fee`,
+				// the 1 yoctoNEAR the ft_transfer attached (#1028)
+				`${hashes.transfer}:deposit`,
 				`${hashes.transfer}:fee`
 			].sort()
 		);
