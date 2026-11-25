@@ -35,6 +35,22 @@ describe('wallet bookings in the app’s language', () => {
 		);
 	});
 
+	it('names the 1 yoctoNEAR a token transfer attaches as a cost of its own (#1028)', () => {
+		const security = /** @type {any} */ ({
+			id: 'H:deposit',
+			type: 'fee',
+			success: true,
+			purpose: 'security'
+		});
+		setLocale('en');
+		expect(describeWalletEntry(security)).toEqual({
+			label: 'Security deposit of the token transfer',
+			movement: 'fee'
+		});
+		setLocale('de');
+		expect(describeWalletEntry(security).label).toBe('Sicherheitsdeposit des Token-Transfers');
+	});
+
 	it('stays German in German', () => {
 		setLocale('de');
 		expect(describeWalletEntry(/** @type {any} */ ({ type: 'fee', success: true })).label).toBe(

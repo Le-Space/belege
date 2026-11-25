@@ -81,7 +81,8 @@ export const KINDS = Object.freeze([
  * @property {string} priceAs the market asset that values it (`NEAR`, `USDC`, …), '' for a token
  *   without a trusted price (an unknown token, often spam): such an entry is listed, never valued
  * @property {WalletEntry['swap']} [swap] what the wallet gave and got in a swap
- * @property {'storage'} [purpose] NEAR: a storage deposit (kind `storage`), whatever it was for
+ * @property {'storage' | 'security'} [purpose] NEAR: a storage deposit (kind `storage`), whatever it was for;
+ *   `security`: the 1 yoctoNEAR a token transfer attaches (type `fee`), kept by the token contract
  * @property {WalletEntry['registration']} [registration] NEAR: whom a storage deposit registered, read from its call
  * @property {string} [partOf] NEAR: a storage deposit made for a swap in another transaction, and that
  *   transaction's gas: the swap's hash

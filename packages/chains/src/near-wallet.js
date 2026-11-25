@@ -224,6 +224,8 @@ export function createNearClient({ fetch: f, timeoutMs = 20_000, now = () => new
 					// The transfer or receipt a storage deposit let happen.
 					...(e.enables ? { enables: e.enables } : {}),
 					...(deposit ? { purpose: /** @type {const} */ ('storage') } : {}),
+					// The 1 yoctoNEAR a token transfer attaches, kept by the token contract.
+					...(e.purpose === 'security' ? { purpose: /** @type {const} */ ('security') } : {}),
 					...(deposit && e.registration ? { registration: e.registration } : {}),
 					asset: token?.symbol ?? native,
 					amount: e.amount,

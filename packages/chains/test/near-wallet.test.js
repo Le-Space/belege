@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CHAINS, createWalletService } from '../src/index.js';
+import { toUnits } from '@le-space/ledger';
 import { NEAR, fakeNear, yocto } from './support/fake-near.js';
 
 const { fetch: fakeFetch, state } = fakeNear();
@@ -164,12 +165,16 @@ test('wNEAR is NEAR: wrapping leaves only its gas, the swap at the DEX is one sw
 		result.entries.map((e) => [e.id, e.type, e.kind, e.asset, e.amount, e.counterparty]),
 		[
 			[`${WRAP}:fee`, 'fee', 'fee', 'NEAR', '-0.000446365125', ''],
+			// the 1 yoctoNEAR ft_transfer_call attaches, kept by the wrap contract (#1028)
+			[`${SWAP}:deposit`, 'fee', 'fee', 'NEAR', '-0.000000000000000000000001', ''],
 			[`${SWAP}:fee`, 'fee', 'fee', 'NEAR', '-0.000446365125', ''],
 			[`${SWAP}:ft:s1:0`, 'sent', 'swap', 'NEAR', '-2', DEX],
 			[`${SWAP}:ft:s2:0`, 'received', 'swap', 'USDC', '5.67', DEX]
 		]
 	);
-	const [wrapGas, swapGas, gave] = result.entries;
+	const [wrapGas, security, swapGas, gave] = result.entries;
+	assert.equal(security.purpose, 'security');
+	assert.equal(security.swap, undefined, 'the swap names its gas, not the security deposit');
 	assert.equal(wrapGas.swap, undefined, 'wrapping is no swap');
 	// What an earlier reading booked and this one leaves out: the NEAR handed
 	// to the wrap contract, and the wNEAR minted for it.
@@ -213,8 +218,56 @@ test('unwrapping gives no entry but its gas', async () => {
 	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
 	assert.deepEqual(
 		result.entries.map((e) => [e.type, e.asset, e.amount]),
-		[['fee', 'NEAR', '-0.000446365125']]
+		[
+			['fee', 'NEAR', '-0.000000000000000000000001'],
+			['fee', 'NEAR', '-0.000446365125']
+		]
 	);
+});
+
+test('24 decimals: what is booked adds up to the balance to the last yoctoNEAR (#1028)', async () => {
+	// Made-up figures with all 24 decimals: a receipt, then two token transfers
+	// that each attach 1 yoctoNEAR the token contract keeps.
+	const IN24 = 'In24111111111111111111111111111111111111111';
+	const T1X = 'Tok1111111111111111111111111111111111111111';
+	const T2X = 'Tok2111111111111111111111111111111111111111';
+	const received = '1234567890123456789012345';
+	const gas = '721874594031300000000';
+	const { fetch } = fakeNear({
+		txns: [
+			...[T2X, T1X].map((hash, i) =>
+				signed({
+					transaction_hash: hash,
+					block_timestamp: String(BigInt(T2) - BigInt(i) * 1_000_000_000n),
+					receiver_account_id: NEAR.usdc,
+					actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer' }],
+					actions_agg: { deposit: '1' },
+					outcomes_agg: { transaction_fee: gas }
+				})
+			),
+			signed({
+				transaction_hash: IN24,
+				block_timestamp: T1,
+				signer_account_id: EXCHANGE,
+				receiver_account_id: OURS,
+				actions: [{ action: 'TRANSFER', method: null }],
+				actions_agg: { deposit: received }
+			})
+		],
+		ftTxns: [],
+		account: {
+			amount: (BigInt(received) - 2n * BigInt(gas) - 2n).toString(),
+			locked: '0'
+		}
+	});
+	const result = await createWalletService({ fetch }).sync({ chain: 'near', address: OURS });
+	const booked = result.entries
+		.filter((e) => e.asset === 'NEAR')
+		.reduce((acc, e) => acc + toUnits(e.amount, 24), 0n);
+	const [balance] = result.balances;
+	assert.equal(balance.asset, 'NEAR');
+	assert.equal(booked, toUnits(balance.amount, 24));
+	assert.equal(balance.amount, '1.233124140935394189012343');
 });
 
 // Before a swap the wallet registers the account at the contracts the swap

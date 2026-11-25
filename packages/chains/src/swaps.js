@@ -21,7 +21,8 @@ export function markSwaps(entries, unlisted, viaOf) {
 	/** @type {Map<string, any>} hash → its gas entry */
 	const feeOf = new Map();
 	for (const e of entries) {
-		if (e.type === 'fee') feeOf.set(e.hash, e);
+		// The gas, not a cost booked beside it (a NEAR security deposit, `<hash>:deposit`).
+		if (e.type === 'fee' && (!feeOf.has(e.hash) || e.id.endsWith(':fee'))) feeOf.set(e.hash, e);
 		if (e.type === 'fee' || e.kind !== 'transfer') continue;
 		const x = of(e.hash);
 		(e.amount.startsWith('-') ? x.gave : x.got).push({

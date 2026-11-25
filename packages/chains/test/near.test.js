@@ -72,7 +72,7 @@ test('a NEAR transfer gives the payment and its fee; a failed one only the fee',
 	);
 });
 
-test('storage deposits and staking are kinds of their own; the 1 yocto of a token transfer is no payment', () => {
+test('storage deposits and staking are kinds of their own; the 1 yocto of a token transfer is a cost', () => {
 	const account = 'wolkenfabrik.testnet';
 	const e = mapRaw({
 		account,
@@ -100,7 +100,33 @@ test('storage deposits and staking are kinds of their own; the 1 yocto of a toke
 		['K', 'stake'],
 		['S', 'storage']
 	]);
-	assert.equal(e.filter((x) => x.type === 'fee').length, 3);
+	assert.equal(e.filter((x) => x.type === 'fee').length, 4);
+	// It leaves the account for the token contract, which keeps it (#1028).
+	const security = e.find((x) => x.id.endsWith('F:deposit'));
+	assert.deepEqual(
+		[security?.type, security?.kind, security?.amount, security?.purpose],
+		['fee', 'fee', '-0.000000000000000000000001', 'security']
+	);
+});
+
+test('the 1 yocto of a failed token transfer comes back: only its gas', () => {
+	const e = mapRaw({
+		account: 'wolkenfabrik.testnet',
+		network: 'testnet',
+		txns: [
+			row({
+				transaction_hash: 'F',
+				actions: [{ action: 'FUNCTION_CALL', method: 'ft_transfer' }],
+				actions_agg: { deposit: '1' },
+				outcomes: { status: false }
+			})
+		],
+		ftTxns: []
+	});
+	assert.deepEqual(
+		e.map((x) => x.id.split(':').pop()),
+		['fee']
+	);
 });
 
 test('NEAR received from someone else, and USDC sent: listed and priced', () => {
@@ -387,13 +413,15 @@ test('wrapping NEAR is a swap of NEAR for wNEAR, with its gas', () => {
 test('a token given to a DEX that pays out another is a swap; the DEX is named', () => {
 	const swap = mapRaw(wrapAndSwap()).filter((e) => e.hash === 'SWAP');
 	assert.deepEqual(swap.map((e) => [e.type, e.kind, e.asset, e.amount]).sort(), [
+		['fee', 'fee', 'NEAR', '-0.000000000000000000000001'],
 		['fee', 'fee', 'NEAR', '-0.000446365125'],
 		['received', 'swap', 'USDC', '5.67'],
 		['sent', 'swap', 'wNEAR', '-2']
 	]);
-	const { gave, got, via } = swap.find((e) => e.type === 'sent').swap;
+	const { gave, got, via, fee } = swap.find((e) => e.type === 'sent').swap;
 	assert.deepEqual([gave[0].asset, got[0].asset, via], ['wNEAR', 'USDC', 'tauschboerse.near']);
-	assert.equal(swap.find((e) => e.type === 'fee').swap.via, 'tauschboerse.near');
+	assert.deepEqual(fee, { asset: 'NEAR', amount: '0.000446365125' }, 'the gas, not the 1 yocto');
+	assert.equal(swap.find((e) => e.id.endsWith(':fee')).swap.via, 'tauschboerse.near');
 });
 
 test('no swap: wrapped NEAR without its token, a token that comes back, a token without a price', () => {

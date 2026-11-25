@@ -1836,6 +1836,7 @@ export default {
 		fee: 'Network fee',
 		feeFailed: 'Network fee (failed transaction)',
 		storageDeposit: 'Storage deposit',
+		securityDeposit: 'Security deposit of the token transfer',
 		storageForTransfer: 'for the transfer to {to}, tx {tx}',
 		storageForTransferAnyone: 'for the transfer, tx {tx}',
 		storageForReceipt: 'for the first receipt of the token, tx {tx}',
