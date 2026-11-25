@@ -29,7 +29,7 @@
 		})
 	);
 	const tile =
-		'flex min-h-16 w-full items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left shadow-sm hover:bg-surface-2';
+		'flex h-full min-h-16 w-full items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left shadow-sm hover:bg-surface-2';
 </script>
 
 <svelte:head><title>{t('settings.title')} · Le Space Belege</title></svelte:head>
@@ -37,7 +37,11 @@
 <h1 class="text-2xl font-bold text-heading">{t('settings.title')}</h1>
 <p class="mt-1 text-sm text-text">{t('settings.intro')}</p>
 
-<ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="settings-overview">
+<!-- Every tile the same size: the rows share one height (auto-rows-fr), each tile fills its cell. -->
+<ul
+	class="mt-4 grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3"
+	data-testid="settings-overview"
+>
 	{#each SETTINGS_SECTIONS as s (s.id)}
 		{@const state = states[s.id]}
 		<li>
@@ -93,15 +97,15 @@
 			</span>
 			<span aria-hidden="true" class="text-lg text-faint">›</span>
 		</a>
-		<p class="mt-1 px-1 text-xs text-text" data-testid="settings-verlauf-groups">
-			{t('settings.verlaufGroups')}:
-			{#each GROUPS as g, i (g)}{#if i},
-				{/if}<a
-					class="underline hover:text-heading"
-					href={`${resolve('/verlauf')}?group=${g}`}
-					data-testid="settings-verlauf-group"
-					data-group={g}>{t(`verlauf.groupName.${g}`)}</a
-				>{/each}
-		</p>
 	</li>
 </ul>
+<!-- Below the grid, so the Verlauf tile is as tall as the others. -->
+<p class="mt-2 px-1 text-xs text-text" data-testid="settings-verlauf-groups">
+	{t('settings.nav.verlauf')} · {t('settings.verlaufGroups')}:
+	{#each GROUPS as g, i (g)}{#if i},&#32;{/if}<a
+			class="underline hover:text-heading"
+			href={`${resolve('/verlauf')}?group=${g}`}
+			data-testid="settings-verlauf-group"
+			data-group={g}>{t(`verlauf.groupName.${g}`)}</a
+		>{/each}
+</p>

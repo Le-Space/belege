@@ -12,6 +12,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **A swap goes through Geldtransit by itself.** Each leg of a swap of one asset for another – a DEX trade, a swap across chains, two legs linked by hand – is suggested on **1360** Geldtransit, no BU key, labelled "Tausch, über Geldtransit", and is among what the export's one-click "Konten … übernehmen" confirms. Own transfers between accounts, wallets, chains and an exchange already were; `docs/export.md` lists what counts. Staking delegations and token migrations stay without a suggestion.
 
+### Changed
+
+- **Einstellungen: every tile the same size.** The overview's rows share one height and each tile fills its cell, so a tile with a one-line note no longer sits smaller beside one with three. The Verlauf's direct links (Auslesen, Abgleich, Abruf, Entscheidung) moved under the grid, named after the Verlauf, with a space after each comma.
+
 ### Fixed
 
 - **"✦ Konto vorschlagen" no longer suggests the payment's own account.** A staking reward was suggested onto the exchange's own ETH account, a wallet's payment onto the wallet itself. The model is no longer offered the payment's own account, nor another own bank, wallet or exchange account unless the payment is an own transfer; it is told which side is wanted (money in: revenue or income, out: expense) and what the app already knows (a reward, Aleph credits, a fee, an own transfer – `booking.known` of `llm.booking`, which a bridge before this refuses, so update the bridge with the app); an own account it names anyway is dropped – no suggestion rather than a wrong one. The same holds for _✦ Konten vorschlagen_ on a list.
