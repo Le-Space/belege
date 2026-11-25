@@ -1870,6 +1870,7 @@ export default {
 		fee: 'Netzwerkgebühr',
 		feeFailed: 'Netzwerkgebühr (fehlgeschlagene Transaktion)',
 		storageDeposit: 'Storage-Deposit',
+		securityDeposit: 'Sicherheitsdeposit des Token-Transfers',
 		storageForTransfer: 'für die Überweisung an {to}, Tx {tx}',
 		storageForTransferAnyone: 'für die Überweisung, Tx {tx}',
 		storageForReceipt: 'für den ersten Eingang des Tokens, Tx {tx}',
@@ -3111,6 +3112,11 @@ export default {
 			paymentAccountHint:
 				'Darauf geht, was eine eigene Wallet in einen Zahlungsvertrag einzahlt (Filecoin Pay) oder daraus zurückbekommt: Das Geld bleibt deins, bis daraus abgerechnet wird. Voreingestellt 1360 (Geldtransit). Führt eure Buchhaltung dafür ein eigenes Konto – etwa für geleistete Anzahlungen oder sonstige Vermögensgegenstände –, trag es hier ein; leer heißt 1360.',
 			invalidPaymentAccount: 'Das Konto für Guthaben in Zahlungsverträgen hat 4 bis 8 Ziffern.',
+			rewardAccount: 'Konto für Staking- und Earn-Erträge',
+			cloudCreditsAccount: 'Konto für gekaufte Aleph-Credits',
+			ruleAccountsHint:
+				'Darauf schlägt die App Erträge aus Staking, Earn und Mining vor (voreingestellt 2700 Sonstige Erträge) und den Kauf von Aleph-Credits, deren Monatsabrechnung der Beleg ist (voreingestellt 4960 Mieten für Einrichtungen). Leer heißt die Voreinstellung. Welches Konto richtig ist, klärt ihr mit der Steuerberatung. Übernimmst du bei einer solchen Zahlung ein anderes Konto, gilt es ab dann hier.',
+			invalidRuleAccount: 'Die Konten für Staking-Erträge und Aleph-Credits haben 4 bis 8 Ziffern.',
 			suspenseHint:
 				'Optional. Wenn hier ein Konto steht, kann der Export Buchungen ohne übernommenes Konto darauf buchen, statt zu warten. Belege schlägt keine Nummer vor: Welches Konto (bei SKR 03 meist eines der Durchlaufenden oder ungeklärten Posten) und wer umbucht, legt ihr mit dem Steuerberater fest.',
 			legalFormHint:
@@ -3739,7 +3745,12 @@ export default {
 		source: {
 			payroll: 'nach der Art der Zahlung (Lohn, Lohnsteuer, Abgaben, Steuer)',
 			transfer: 'Umbuchung',
+			swap: 'Tausch, über Geldtransit',
 			fee: 'Bankgebühr',
+			reward:
+				'Staking- oder Earn-Ertrag, Konto aus den Einstellungen – mit der Steuerberatung klären',
+			'cloud-credits':
+				'Kauf von Aleph-Credits, Konto aus den Einstellungen – mit der Steuerberatung klären',
 			private: 'Privat (Irrläufer), nach der Rechtsform',
 			travel: 'Reisekosten, nach Art und Rechtsform – mit der Steuerberatung prüfen',
 			learned: 'gelernt',
@@ -3863,7 +3874,7 @@ export default {
 			autoConfirm:
 				'Konten aus Umbuchung, Bankgebühr und Reisekostenabrechnung übernehmen ({count})',
 			autoConfirmHint:
-				'Übernimmt 1360 für eigene Umbuchungen, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
+				'Übernimmt 1360 für eigene Umbuchungen und Tausch, 4970 für Bankgebühren und die Konten einer Reisekostenabrechnung (nach Art und Rechtsform, mit der Steuerberatung prüfen) – dieselben Vorschläge wie in der Zahlung, mit einem Klick für alle.',
 			ledgerOk: 'Jedes Bankkonto hat sein Sachkonto.',
 			noLedger: 'Sachkonto fehlt für {list} – unter Einstellungen → Buchhaltung eintragen.',
 			noBankAccount: '{count} Buchungen gehören zu keinem Bankkonto der Bücher.',

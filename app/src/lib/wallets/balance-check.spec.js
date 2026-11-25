@@ -18,6 +18,27 @@ describe('balanceGap', () => {
 		expect(balanceGap(account, txs)?.gap).toBe(48500000n);
 	});
 
+	it('24 decimals (NEAR): exact to the last yoctoNEAR, no float in between (#1028)', () => {
+		const near = { id: 'acc-near', balance: '1.233124140935394189012343', decimals: 24 };
+		const n = (/** @type {string} */ quantity) => ({ accountId: 'acc-near', quantity });
+		// a receipt, two token transfers' gas and the 1 yoctoNEAR each attached
+		const txs = [
+			n('1234567890123456789012345'),
+			n('-721874594031300000000'),
+			n('-1'),
+			n('-721874594031300000000'),
+			n('-1')
+		];
+		expect(balanceGap(near, txs)?.gap).toBe(0n);
+		// without the two security deposits, two yoctoNEAR are missing
+		expect(
+			balanceGap(
+				near,
+				txs.filter((x) => x.quantity !== '-1')
+			)?.gap
+		).toBe(-2n);
+	});
+
 	it('nothing to say without a balance', () => {
 		expect(balanceGap({ id: 'x' }, [])).toBeNull();
 	});

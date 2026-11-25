@@ -508,7 +508,9 @@ export const COMMANDS = [
 						day: text(10),
 						account: optText(200),
 						counterparty: optText(200),
-						purpose: optText(1000)
+						purpose: optText(1000),
+						// What the app already knows of the payment (app booking/assist-guard.js).
+						known: { enum: ['reward', 'cloud-credits', 'fee', 'own-transfer'] }
 					},
 					['direction', 'amount', 'day'],
 					false

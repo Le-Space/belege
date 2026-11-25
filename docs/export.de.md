@@ -83,7 +83,16 @@ Jede Buchung braucht ein Konto: das **Gegenkonto**, auf dem sie in der Buchhaltu
 So kommt der Vorschlag zustande:
 
 - **Eigene Umbuchung** zwischen zwei deiner Konten → **1360** Geldtransit, ohne BU-Schlüssel.
+- **Tausch** eines Tokens gegen einen anderen (DEX-Tausch, Tausch über Chains, zwei von Hand verknüpfte Beine) → **1360** Geldtransit, jedes Bein, ohne BU-Schlüssel. Die Beine gleichen sich dort aus; was auf 1360 bleibt, ist ihr Unterschied.
+
+  Als Umbuchung (1360, ohne KI) gilt: zwei eigene Konten nach IBAN, Gegenbuchung oder Referenz (die beiden Beine eines Kraken-Handels teilen eine), die Auszahlung einer Börse auf eine eigene Wallet (gleicher Hash oder die Adresse der Wallet), eine Bridge- oder IBC-Überweisung zwischen eigenen Wallets, eine Adresse, die du als eigenes Geld bei einer Börse oder Verwahrstelle markiert hast. Ist die andere Seite weder in den Büchern noch als eigene bekannt, rät Belege nicht: kein Vorschlag. Staking-Delegationen und Token-Migrationen bekommen keinen Vorschlag – bei 1360 ginge eine Rückgabe aus dem Unbonding, die keine Transaktion ist, nie auf.
+
 - **Bankgebühr** → **4970** Nebenkosten des Geldverkehrs, ohne BU-Schlüssel.
+- **Ertrag aus Staking, Earn oder Mining**, der hereinkam (bei einer Börse oder auf einer eigenen Wallet) → **2700** Sonstige Erträge, ohne BU-Schlüssel.
+- **Kauf von Aleph-Credits** (die Zahlung, die Aleph zu einem Kauf nennt) → **4960** Mieten für Einrichtungen, ohne BU-Schlüssel.
+
+  Beide Konten stellst du unter _Einstellungen → Buchhaltung (DATEV)_ ein; welches richtig ist, klärst du mit der Steuerberatung. Beide Zahlungen haben keinen Beleg, an dem Belege lernen könnte: Übernimmst du dort ein anderes Konto, steht es ab dann in den Einstellungen.
+
 - **Private Zahlung** vom Geschäftskonto oder ihre Rückzahlung → das Konto, das zu deiner Rechtsform passt (#172).
 - **Lohn, Lohnsteuer, Sozialabgaben oder eine Steuerzahlung** → das Konto, unter dem sie gebucht werden, wo es bekannt ist (#233).
 - **Reisekosten** → das Konto aus der Reisekostenabrechnung (#213).

@@ -24,8 +24,9 @@
  * @property {{ hash: string, kind: 'transfer' | 'receipt' }} [enables] NEAR: a storage deposit (and its transaction's gas), type `fee`,
  *   that registered an account at a token so that a transfer of it (to the account registered) or the wallet's first
  *   receipt of it could happen: that transaction's hash, and which of the two it was
- * @property {'storage'} [purpose] NEAR: a storage deposit, type `fee`, whatever it was for; one with neither `partOf`
- *   nor `enables` is a storage deposit of its own – a cost to the network's contracts, no payment for a service
+ * @property {'storage' | 'security'} [purpose] NEAR: a storage deposit, type `fee`, whatever it was for; one with neither `partOf`
+ *   nor `enables` is a storage deposit of its own – a cost to the network's contracts, no payment for a service.
+ *   `security`: the 1 yoctoNEAR a token transfer attaches, type `fee`, kept by the token contract
  * @property {{ account: string, only?: boolean, tokens?: string[] }} [registration] NEAR: whom a storage deposit
  *   registered (`account_id`, the signer when not given), `registration_only` and a DEX's token list, as the call said
  * @property {string} asset symbol

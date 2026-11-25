@@ -1836,6 +1836,7 @@ export default {
 		fee: 'Network fee',
 		feeFailed: 'Network fee (failed transaction)',
 		storageDeposit: 'Storage deposit',
+		securityDeposit: 'Security deposit of the token transfer',
 		storageForTransfer: 'for the transfer to {to}, tx {tx}',
 		storageForTransferAnyone: 'for the transfer, tx {tx}',
 		storageForReceipt: 'for the first receipt of the token, tx {tx}',
@@ -3065,6 +3066,11 @@ export default {
 			paymentAccountHint:
 				'What an own wallet pays into a payment contract (Filecoin Pay), or gets back from it, goes here: the money stays yours until something is settled from it. 1360 (cash in transit) by default. If your books keep an account of their own for it – for advance payments or other assets, say – enter it here; empty means 1360.',
 			invalidPaymentAccount: 'The account for balances in payment contracts has 4 to 8 digits.',
+			rewardAccount: 'Account for staking and earn rewards',
+			cloudCreditsAccount: 'Account for Aleph credits bought',
+			ruleAccountsHint:
+				'The app suggests this account for rewards from staking, earn and mining (2700 Sonstige Erträge by default) and for a purchase of Aleph credits, whose monthly statement is the document (4960 Mieten für Einrichtungen by default). Empty means the default. Which account is right is for you and your tax adviser to agree. If you confirm another account on such a payment, it applies here from then on.',
+			invalidRuleAccount: 'The accounts for staking rewards and Aleph credits have 4 to 8 digits.',
 			suspenseHint:
 				'Optional. With an account here, the export can book bookings without a confirmed account onto it instead of waiting. Belege suggests no number: which account (in SKR 03 usually one of the transit or unclear items) and who re-books is for you and your tax advisor to agree.',
 			legalFormHint:
@@ -3683,7 +3689,11 @@ export default {
 		source: {
 			payroll: 'by the kind of payment (wage, wage tax, contributions, tax)',
 			transfer: 'Own transfer',
+			swap: 'Swap, through cash in transit',
 			fee: 'Bank fee',
+			reward: 'Staking or earn reward, account from the settings – check with the tax adviser',
+			'cloud-credits':
+				'Aleph credits bought, account from the settings – check with the tax adviser',
 			private: 'Private (paid by mistake), by legal form',
 			travel: 'travel costs, by kind and legal form – check with the tax adviser',
 			learned: 'learned',
@@ -3805,7 +3815,7 @@ export default {
 				'{count} bookings go onto the suspense account {account} – they must be re-booked in the bookkeeping.',
 			autoConfirm: 'Confirm accounts for own transfers, bank fees and travel statements ({count})',
 			autoConfirmHint:
-				'Confirms 1360 for own transfers, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
+				'Confirms 1360 for own transfers and swaps, 4970 for bank fees and a travel statement’s accounts (by kind and legal form, check with the tax adviser) – the same suggestions as in the payment, with one click for all.',
 			ledgerOk: 'Every bank account has its ledger account.',
 			noLedger: 'Ledger account missing for {list} – enter it under Settings → Bookkeeping.',
 			noBankAccount: '{count} bookings belong to no bank account in the books.',
