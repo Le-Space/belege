@@ -109,7 +109,7 @@ So bucht Belege die einzelnen Einträge:
 - **Kauf oder Verkauf gegen EUR** (`trade`, `spend`/`receive`): Das Krypto-Bein ist genau das wert, was bezahlt oder erhalten wurde (Kursquelle `trade`). Erkannt als eigene Umbuchung zwischen den beiden Kraken-Konten (gleiche Referenz).
 - **Krypto gegen Krypto:** Das abgehende Bein gilt zum Tageskurs, das eingehende spiegelt es. Erkannt als eigene Umbuchung (gleiche Referenz).
 - **Spot ↔ Earn:** beide Beine zum Tageskurs. Erkannt als eigene Umbuchung (gleiche Referenz).
-- **Staking- oder Earn-Ertrag:** zum Tageskurs. Erkannt als _Ertrag der Börse_. Er braucht keinen Beleg. Das Konto legst du mit dem Steuerberater fest.
+- **Staking- oder Earn-Ertrag:** zum Tageskurs. Erkannt als _Ertrag der Börse_. Er braucht keinen Beleg. Vorgeschlagen wird 2700 Sonstige Erträge oder das Konto aus _Einstellungen → Buchhaltung (DATEV)_; das Konto legst du mit dem Steuerberater fest.
 - **Gebühr:** zum Kurs ihres Eintrags. Erkannt als Gebühr der Börse, Konto 4970.
 - **Krypto-Einzahlung oder -Auszahlung:** zum Tageskurs. Erkannt als eigene Umbuchung mit der Wallet-Buchung, die denselben Hash trägt. Den Hash nennt Kraken als `txid` in DepositStatus und WithdrawStatus. Die Euro-Beträge spielen dafür keine Rolle.
 
@@ -310,7 +310,7 @@ So wird gebucht:
 - **Zwischen zwei eigenen Wallets:** Beide Seiten teilen den Hash als `txRef`. Das ist eine eigene Umbuchung (1360), gepaart über den Hash.
 - **An eine eigene Wallet, die noch nicht abgerufen wurde:** ebenso eine eigene Umbuchung (1360), erkannt über die Adresse.
 - **Die Gebühr, die diese Adresse zahlte** (auch bei einer fehlgeschlagenen Transaktion): Bewegung `fee`. Das ist eine Netzwerkgebühr. Die Transaktion ist der Beleg.
-- **Staking-Ertrag** (vom Modul `distribution`): Bewegung `reward`. Kein Beleg, wie beim Ertrag einer Börse.
+- **Staking-Ertrag** (vom Modul `distribution`): Bewegung `reward`. Kein Beleg, wie beim Ertrag einer Börse, und dasselbe vorgeschlagene Konto (2700, oder das aus den Einstellungen).
 - **Delegation** (an `bonded_tokens_pool`): Bewegung `stake`, Art `crypto-stake`. Kein Beleg, die Tokens bleiben deine. **Nicht 1360:** Ihre Rückkehr nach dem Unbonding ist keine Transaktion, ein Transitkonto ginge also nie auf. Das Konto entscheidet der Steuerberater.
 - **IBC-Transfer hinaus** (zu einer anderen Cosmos-Chain): Bewegung `transfer`. Der Empfänger auf der anderen Chain ist die Gegenpartei. Ein Beleg ist nötig.
 
@@ -785,7 +785,7 @@ Ein Monat ohne Bewegung ergibt keinen Nachweis. Geprüft am 27.09.2026 gegen zwe
 
 **Die Zahlung hinter einem Kauf.** Zu jedem Kauf nennt Aleph die Transaktion, die ihn bezahlt hat. „Bei Aleph prüfen“ liest die Käufe jedes gefundenen Kontos. Dafür fragt es den Nachweis des laufenden Monats ab, der alle Käufe bis heute aufführt. Konto, Hash, Zeit und Credits liegen danach versiegelt in den Einstellungen. „Verbrauchsnachweis erstellen“ merkt sich die Käufe ebenso.
 
-Eine Buchung, die mit diesem Hash die Bücher verlassen hat, erklärt Belege dann selbst als Kauf von Aleph-Credits. Das gilt für eine eigene Wallet und für die Auszahlung einer Börse mit ihrem On-Chain-Hash. Sie braucht keinen eigenen Beleg, weil der Verbrauchsnachweis des Kontos der Beleg ist. Die Netzwerkgebühr derselben Transaktion bleibt eine Gebühr. Eine ältere Bridge nennt nur die Käufe des abgefragten Monats.
+Eine Buchung, die mit diesem Hash die Bücher verlassen hat, erklärt Belege dann selbst als Kauf von Aleph-Credits. Das gilt für eine eigene Wallet und für die Auszahlung einer Börse mit ihrem On-Chain-Hash. Sie braucht keinen eigenen Beleg, weil der Verbrauchsnachweis des Kontos der Beleg ist. Als Konto schlägt Belege **4960** Mieten für Einrichtungen vor, oder das Konto aus _Einstellungen → Buchhaltung (DATEV)_; das klärst du mit der Steuerberatung. Übernimmst du bei so einer Zahlung ein anderes Konto, steht es ab dann in den Einstellungen. Die Netzwerkgebühr derselben Transaktion bleibt eine Gebühr. Eine ältere Bridge nennt nur die Käufe des abgefragten Monats.
 
 ## Im Export
 
