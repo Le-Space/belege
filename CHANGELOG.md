@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.58.0] – 2026-11-25
+
 ### Changed
 
 - **The month's share of an Akash deployment is computed in `@le-space/chains`** (0.13.0, `akash-deployments.js`: `usageInMonth`, `monthRange`, `fromMicro`, moved from `app/src/lib/akash/usage.js` with their tests), so Belege's Akash usage statement and the Eigenbeleg API's monthly consumption Eigenbeleg (Le-Space/eigenbeleg-agent#116) say the same for a month. New there: `akashUsageEntries`, a month's lease payouts per deployment as `usage` entries in ACT at 1 USD. The app's statement is unchanged.
