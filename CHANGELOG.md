@@ -14,6 +14,7 @@ All notable changes to Le Space Belege. The format follows
 
 ### Changed
 
+- **Einstellungen: every tile the same size.** The overview's rows share one height and each tile fills its cell, so a tile with a one-line note no longer sits smaller beside one with three. The Verlauf's direct links (Auslesen, Abgleich, Abruf, Entscheidung) moved under the grid, named after the Verlauf, with a space after each comma.
 - **The hosted bridge on Aleph boots the bridge of v0.56.0, and the books' own image is built from it.** The shared image (STORE `4e059d79…`) and the plain image an own image is sealed from (`b9a80dea…`, published for the attested builder in NiKrause/relay-button) were built from the tag v0.56.0; before, both held the bridge of v0.52.0, without the NEAR storage deposits that say what they were for (#1015), without unpairing that forgets the last pairing (#1014), without unlisted EVM tokens counted only when the wallet moved them (#999) and without Eigenbelege in English. An own image built before says so on the card: "Neu bauen", then start a new VM – a running VM keeps the image it started with.
 
 ### Fixed
