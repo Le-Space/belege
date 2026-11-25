@@ -31,7 +31,7 @@ import { toBase64, toHex } from '@le-space/ledger/bytes';
  * workflow's release (bridge-image.json), encrypted, published on Aleph. A new
  * image is a new release of the app, with this hash changed.
  */
-export const HOSTED_IMAGE = 'db43f996e5d9b21b7f1f368dac23a12b339957a5f4ee5cb7c949da20d073ad9a';
+export const HOSTED_IMAGE = '4e059d791b97d78c769301c7142fbc34e5dcfa9b7765d56f7b02daa1a6cead70';
 
 /** The sealed settings record: which VM, its name, the bridge's own peer key, when it was attested. */
 export { HOSTED_SETTING } from '$lib/bridge-connection/record.js';
