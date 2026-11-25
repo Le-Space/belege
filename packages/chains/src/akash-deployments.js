@@ -15,14 +15,18 @@
 // the ACT account (step 3): what was minted is what is held, in escrow and
 // used up.
 //
-// What a deployment cost in a month is not kept per month on chain: the app
-// spreads its transferred amount evenly over its time from creation to the
-// last settlement, and says so on the statement.
+// What a deployment cost in a month is not kept per month on chain:
+// `usageInMonth` spreads its transferred amount evenly over its time from
+// creation to the last settlement, and the documents say so. Pure, shared by
+// Belege's Akash usage statement and the Eigenbeleg API's monthly consumption
+// Eigenbeleg (`akashUsageEntries`, Le-Space/eigenbeleg-agent#116).
 //
 // The log gets counts, never an address.
 
+import { entry } from '@le-space/ledger';
 import { createJsonFetcher, WalletError } from './core.js';
 import { unitsToDecimal } from './cosmos.js';
+import { AKASH_CHAIN } from './cosmos-chains.js';
 
 const LIMIT = 1000;
 
@@ -142,4 +146,125 @@ export function createAkashDeploymentsClient({ fetch: f = fetch, timeoutMs, slee
 			return out.sort((a, b) => a.createdHeight - b.createdHeight);
 		}
 	};
+}
+
+// ---- a month's share of each deployment (moved from Belege's app/src/lib/akash/usage.js)
+
+/** `2026-07` → [start, end) in ms, UTC. @param {string} month */
+export function monthRange(month) {
+	const [y, m] = month.split('-').map(Number);
+	return [Date.UTC(y, m - 1, 1), Date.UTC(y, m, 1)];
+}
+
+/** `0.123456` → 123456n (micro). @param {string} text */
+export const micro = (text) => {
+	const m = /^(-?)(\d+)(?:\.(\d{1,6}))?/.exec(String(text ?? '0'));
+	if (!m) return 0n;
+	const v = BigInt(m[2]) * 1_000_000n + BigInt((m[3] ?? '').padEnd(6, '0'));
+	return m[1] ? -v : v;
+};
+
+/** 123456n → `0.123456`. @param {bigint} v */
+export const fromMicro = (v) => {
+	const sign = v < 0n ? '-' : '';
+	const a = v < 0n ? -v : v;
+	const frac = (a % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '');
+	return `${sign}${a / 1_000_000n}${frac ? `.${frac}` : ''}`;
+};
+
+/**
+ * @typedef {object} DeploymentUsage one deployment's share of a month
+ * @property {string} dseq
+ * @property {string} state
+ * @property {string} from ISO, its creation
+ * @property {string} until ISO, its last settlement (for a closed one, its end)
+ * @property {string} total ACT paid to its providers in all, decimal
+ * @property {string} inMonth the share that falls into the month, decimal ACT
+ * @property {number} share of its time, 0…1
+ */
+
+/**
+ * Each deployment's share of the month: its ACT spread evenly over its time,
+ * from creation to its last settlement. A deployment that lived no measurable
+ * time counts whole where it was created; one without times is left out.
+ *
+ * @param {Pick<AkashDeployment, 'dseq' | 'state' | 'createdAt' | 'settledAt' | 'transferred'>[]} deployments
+ * @param {string} month YYYY-MM
+ * @returns {DeploymentUsage[]}
+ */
+export function usageInMonth(deployments, month) {
+	const [start, end] = monthRange(month);
+	const out = [];
+	for (const d of deployments) {
+		const from = Date.parse(String(d.createdAt ?? ''));
+		const until = Date.parse(String(d.settledAt ?? d.createdAt ?? ''));
+		if (Number.isNaN(from) || Number.isNaN(until)) continue;
+		const total = micro(d.transferred);
+		const lo = Math.max(from, start);
+		const hi = Math.min(Math.max(until, from), end);
+		const span = Math.max(until - from, 0);
+		const share = span === 0 ? (from >= start && from < end ? 1 : 0) : Math.max(hi - lo, 0) / span;
+		if (share <= 0) continue;
+		// Rounded to the micro-ACT, half up.
+		const inMonth = (total * BigInt(Math.round(share * 1e9)) + 500_000_000n) / 1_000_000_000n;
+		out.push({
+			dseq: d.dseq,
+			state: d.state,
+			from: new Date(from).toISOString(),
+			until: new Date(Math.max(until, from)).toISOString(),
+			total: fromMicro(total),
+			inMonth: fromMicro(inMonth),
+			share
+		});
+	}
+	return out;
+}
+
+/** What ACT is valued at: Akash's compute credit, minted from AKT at 1 USD (burn-mint). */
+export const ACT_USD = '1';
+export const ACT_PRICE_SOURCE = 'Akash ACT zu 1 USD je ACT (Burn-Mint)';
+
+/**
+ * A month's consumption of an Akash wallet's deployments as ledger entries: one `usage` entry per
+ * deployment with a share in the month – what its escrow paid its providers (lease payouts), spread
+ * over its time (usageInMonth). No transaction of its own, so no hash; dated the month's last day,
+ * valued in USD per ACT (`unitPrice`) at that day's rate. These are no movements of the wallet: the
+ * ACT left it when it was deposited into the escrow (kind `escrow`), so they belong on no
+ * Kontoauszug of the wallet, only on the month's consumption Eigenbeleg.
+ *
+ * @param {{ address: string, month: string, deployments: Parameters<typeof usageInMonth>[0] }} p
+ * @returns {import('@le-space/ledger').LedgerEntry[]}
+ */
+export function akashUsageEntries({ address, month, deployments }) {
+	const [, end] = monthRange(month);
+	const last = new Date(end - 1000).toISOString();
+	const day = (/** @type {string} */ iso) => iso.slice(0, 10);
+	return usageInMonth(deployments, month)
+		.filter((u) => micro(u.inMonth) > 0n)
+		.map((u) =>
+			entry({
+				id: `akash:${address}:usage:${month}:${u.dseq}`,
+				chain: 'akash',
+				network: 'mainnet',
+				account: address,
+				hash: '',
+				height: 0,
+				time: last,
+				type: 'sent',
+				kind: 'usage',
+				asset: 'ACT',
+				contract: 'native',
+				decimals: 6,
+				amount: `-${u.inMonth}`,
+				counterparty: 'akash-providers',
+				counterpartyLabel: `Deployment ${u.dseq}`,
+				method: '',
+				// What the share was taken from, as the documents print it (de; localizeLabel gives the English).
+				memo: `Laufzeit ${day(u.from)} – ${day(u.until)}, gesamt ${u.total} ACT, Anteil ${(u.share * 100).toFixed(1)} %`,
+				success: true,
+				explorerUrl: AKASH_CHAIN.explorer.address.replace('{address}', address),
+				priceAs: '',
+				unitPrice: { currency: 'USD', amount: ACT_USD, source: ACT_PRICE_SOURCE }
+			})
+		);
 }

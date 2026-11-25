@@ -12,65 +12,16 @@
 //     1 USD (Akash burn-mint); its euro value is that dollar at the ECB's
 //     rate of the month's last day.
 
+import { fromMicro, micro, usageInMonth } from '@le-space/chains/akash-deployments';
+
 /** @typedef {Record<string, any>} Rec */
 /** @typedef {import('../bridge/client.js').AkashDeployment} AkashDeployment */
 
-/** `2026-07` → [start, end) in ms, UTC. @param {string} month */
-export function monthRange(month) {
-	const [y, m] = month.split('-').map(Number);
-	return [Date.UTC(y, m - 1, 1), Date.UTC(y, m, 1)];
-}
-
-/** `0.123456` → 123456n (micro). @param {string} text */
-const micro = (text) => {
-	const m = /^(-?)(\d+)(?:\.(\d{1,6}))?/.exec(String(text ?? '0'));
-	if (!m) return 0n;
-	const v = BigInt(m[2]) * 1_000_000n + BigInt((m[3] ?? '').padEnd(6, '0'));
-	return m[1] ? -v : v;
-};
-/** 123456n → `0.123456`. @param {bigint} v */
-export const fromMicro = (v) => {
-	const sign = v < 0n ? '-' : '';
-	const a = v < 0n ? -v : v;
-	const frac = (a % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '');
-	return `${sign}${a / 1_000_000n}${frac ? `.${frac}` : ''}`;
-};
-
-/**
- * Each deployment's share of the month: its ACT spread evenly over its time.
- *
- * @param {AkashDeployment[]} deployments
- * @param {string} month YYYY-MM
- * @returns {{ dseq: string, state: string, from: string, until: string, total: string, inMonth: string, share: number }[]}
- */
-export function usageInMonth(deployments, month) {
-	const [start, end] = monthRange(month);
-	const out = [];
-	for (const d of deployments) {
-		const from = Date.parse(String(d.createdAt ?? ''));
-		const until = Date.parse(String(d.settledAt ?? d.createdAt ?? ''));
-		if (Number.isNaN(from) || Number.isNaN(until)) continue;
-		const total = micro(d.transferred);
-		const lo = Math.max(from, start);
-		const hi = Math.min(Math.max(until, from), end);
-		const span = Math.max(until - from, 0);
-		// A deployment that lived no measurable time: all of it where it was created.
-		const share = span === 0 ? (from >= start && from < end ? 1 : 0) : Math.max(hi - lo, 0) / span;
-		if (share <= 0) continue;
-		// Rounded to the micro-ACT, half up.
-		const inMonth = (total * BigInt(Math.round(share * 1e9)) + 500_000_000n) / 1_000_000_000n;
-		out.push({
-			dseq: d.dseq,
-			state: d.state,
-			from: new Date(from).toISOString(),
-			until: new Date(Math.max(until, from)).toISOString(),
-			total: fromMicro(total),
-			inMonth: fromMicro(inMonth),
-			share
-		});
-	}
-	return out;
-}
+// The month's share of each deployment and the micro-ACT helpers are
+// @le-space/chains' (akash-deployments.js), shared with the Eigenbeleg API's
+// monthly consumption Eigenbeleg (Le-Space/eigenbeleg-agent#116): both say
+// the same for a month.
+export { fromMicro, monthRange, usageInMonth } from '@le-space/chains/akash-deployments';
 
 /**
  * @typedef {object} AkashMonth

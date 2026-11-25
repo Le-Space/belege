@@ -87,7 +87,12 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 				/** @type {any} */ (e).unitPrice
 			);
 		if (!e.priceAs && e.success && unit?.currency === 'USD' && unit.amount) {
-			const how = unit.source === 'purchase' ? 'Kaufpreis' : 'Listenpreis';
+			// Aleph's credits name their price `purchase` or `list`; another unit names itself
+			// (Akash's ACT at 1 USD, @le-space/chains akashUsageEntries).
+			const named =
+				unit.source && unit.source !== 'purchase' && unit.source !== 'list'
+					? unit.source
+					: `Aleph ${unit.source === 'purchase' ? 'Kaufpreis' : 'Listenpreis'} ${unit.amount} USD je Credit`;
 			// A document in USD: Aleph's own price, no rate at all.
 			if (currency === 'USD') {
 				out.push({
@@ -95,7 +100,7 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 					eur: {
 						value: multiply(e.amount, unit.amount, 8),
 						rate: unit.amount,
-						source: `Aleph ${how} ${unit.amount} USD je Credit`,
+						source: named,
 						...mark
 					}
 				});
@@ -108,7 +113,7 @@ export async function valueEntries(entries, rates, { currency: asked } = {}) {
 					? {
 							value: multiply(multiply(e.amount, unit.amount, 12), usd.rate, 8),
 							rate: multiply(unit.amount, usd.rate, 14),
-							source: `Aleph ${how} ${unit.amount} USD je Credit × ${usd.source}`,
+							source: `${named} × ${usd.source}`,
 							...mark
 						}
 					: null

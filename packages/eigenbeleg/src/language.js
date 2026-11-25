@@ -112,6 +112,10 @@ export function localizeSource(text, language) {
 			.replace(/\(kein Börsenkurs\)/g, '(no market rate)')
 			.replace(/Aleph Kaufpreis ([\d.]+) USD je Credit/g, 'Aleph purchase price $1 USD per credit')
 			.replace(/Aleph Listenpreis ([\d.]+) USD je Credit/g, 'Aleph list price $1 USD per credit')
+			.replace(
+				/Akash ACT zu ([\d.]+) USD je ACT \(Burn-Mint\)/g,
+				'Akash ACT at $1 USD per ACT (burn-mint)'
+			)
 			.replace(/fester Testkurs/g, 'fixed test rate')
 	);
 }
@@ -151,5 +155,9 @@ export function localizeLabel(text, language) {
 		.replace(/; bezahlt mit /, '; paid with ')
 		.replace(/^bezahlt bis (\d{4}-\d{2}-\d{2})$/, 'paid up to $1')
 		.replace(/^Einmalzahlung$/, 'one-off payment')
-		.replace(/^(\d+) Abrechnungen$/, '$1 settlements');
+		.replace(/^(\d+) Abrechnungen$/, '$1 settlements')
+		.replace(
+			/^Laufzeit (\S+) – (\S+), gesamt (\S+) ACT, Anteil ([\d.]+) %$/,
+			'running $1 – $2, $3 ACT in all, share $4 %'
+		);
 }

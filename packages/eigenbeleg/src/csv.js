@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The Eigenbeleg as CSV, for a German spreadsheet or bookkeeping import:
 // semicolons, decimal commas, UTF-8 with BOM, CRLF. Every entry of the
-// period is a line, the ones not on the Eigenbeleg too, with the reason.
+// period is a line, the ones not on the Eigenbeleg too, with the reason; a
+// monthly consumption Eigenbeleg's usage entries under its number.
 //
 // A cell that starts like a formula (= + - @) is prefixed with ' so a
 // spreadsheet shows it as text: account names and memos come from the chain,
@@ -116,6 +117,20 @@ export function eigenbelegCsv(doc) {
 		why
 	];
 	for (const p of doc.positions) rows.push(line(p.entry, p.pos, true, ''));
+	// A month's consumption (consumption.js): every usage entry it sums, under its own number; the position is its line.
+	for (const r of doc.consumption ?? [])
+		r.lines.forEach((l, i) => {
+			for (const e of l.entries) {
+				const row = line(e, i + 1, true, '');
+				row[0] = r.number;
+				row[19] = e.eur
+					? ''
+					: en
+						? 'no reliable rate: not in the amount'
+						: 'kein verlässlicher Kurs: nicht im Betrag';
+				rows.push(row);
+			}
+		});
 	for (const x of doc.excluded) rows.push(line(x.entry, '', false, x.why));
 	rows.push([]);
 	rows.push([
