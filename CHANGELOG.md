@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.57.0] – 2026-11-25
+
 ### Added
 
 - **Staking rewards and Aleph credits get an account suggested.** A reward that came in – staking or earn on an exchange, a staking or mining reward on an own wallet – is suggested on **2700** Sonstige Erträge, a purchase of Aleph credits (the payment Aleph names for it) on **4960** Mieten für Einrichtungen, both without a BU key and labelled "mit der Steuerberatung klären". Both accounts are set under _Einstellungen → Buchhaltung (DATEV)_; neither booking has a receipt to learn from, so confirming another account on one makes it the setting's account from then on. Both accounts are in the built-in SKR 03 list.
