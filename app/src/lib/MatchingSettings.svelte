@@ -20,7 +20,14 @@
 	import { app, currentStore, refreshNow, runMatchingNow } from './session.svelte.js';
 	import { forgetBankFee } from './matching/actions.js';
 	import { cleanChart, decodeChartBytes, parseChart } from './booking/chart.js';
-	import { chartCandidates, takeLedgersFromChart } from './booking/ledger-match.js';
+	import {
+		chartCandidates,
+		ledgerConflicts,
+		suggestAssetLedger,
+		takeLedgersFromChart
+	} from './booking/ledger-match.js';
+	import { loadWallets, noteAssetLedger } from './wallets/wallet-sync.js';
+	import { walletChain } from './wallets/chains.js';
 	import { recordEvent } from './activity/events.js';
 	import { setSetting } from './store/settings.js';
 	import {
@@ -101,6 +108,11 @@
 		paymentAccount = current.paymentAccountLedger;
 		datev = cleanDatevSettings(app.datevSettings);
 		ledgers = Object.fromEntries(app.accounts.map((a) => [a.id, String(a.ledgerAccount ?? '')]));
+		const store = currentStore();
+		if (store)
+			loadWallets(store.settings)
+				.then((w) => (wallets = w))
+				.catch(() => {});
 		// Accounts added since the chart was read in get their ledger account too.
 		takeFromChart().catch(() => {});
 	});
@@ -133,11 +145,89 @@
 
 	let bankAccounts = $derived(accountsInOrder(app.accounts));
 
+	/** @type {import('./wallets/wallet-sync.js').Wallet[]} the own wallets, for their names in suggestions */
+	let wallets = $state([]);
+
 	// The accounts as the form has them now, so that a chart account picked for
 	// one is no longer offered to another before it is saved.
 	let accountsAsEdited = $derived(
 		bankAccounts.map((a) => ({ ...a, ledgerAccount: (ledgers[a.id] ?? '').trim() }))
 	);
+
+	/** A wallet account's chain's own asset ('' for any other account). @param {Record<string, any>} a */
+	const nativeOf = (a) => (a.kind === 'wallet' ? (walletChain(a.source)?.nativeSymbol ?? '') : '');
+	/** The own wallet an asset account belongs to. @param {Record<string, any>} a */
+	const walletOf = (a) =>
+		a.kind === 'wallet'
+			? (wallets.find((w) => w.chain === a.source && w.address === a.walletAddress) ?? null)
+			: null;
+	/**
+	 * A number of its own for an asset account (booking/ledger-match.js), none
+	 * of `reserved`.
+	 *
+	 * @param {Record<string, any>} a
+	 * @param {string[]} [reserved]
+	 */
+	const suggestFor = (a, reserved = []) =>
+		suggestAssetLedger({
+			account: a,
+			wallet: walletOf(a),
+			chain: a.kind === 'wallet' ? walletChain(a.source) : null,
+			wallets,
+			accounts: accountsAsEdited.filter((x) => x.id !== a.id),
+			chart,
+			reserved
+		});
+
+	// Two assets on one ledger account (NEAR and USDC of one wallet, as an old
+	// wallet's one number gave them): flagged with a number for the one that
+	// moves. Nothing is changed until the person takes it and saves.
+	let conflicts = $derived.by(() => {
+		/** @type {string[]} */
+		const reserved = [];
+		return ledgerConflicts(accountsAsEdited, chart, nativeOf).map((c) => ({
+			...c,
+			moveAssets: [...new Set(c.move.map((a) => String(/** @type {any} */ (a).asset ?? 'EUR')))],
+			move: c.move.map((a) => {
+				const offer = suggestFor(a, reserved);
+				if (offer) reserved.push(offer.number);
+				return { account: a, offer };
+			})
+		}));
+	});
+	/** account id → the ledger account it shares with another asset, and which assets */
+	let sharedBy = $derived(
+		new Map(
+			conflicts.flatMap((c) =>
+				c.move.map((m) => [m.account.id, { number: c.number, assets: c.assets }])
+			)
+		)
+	);
+	/** What a row that shares its ledger account with another asset says. @param {Record<string, any>} a */
+	const sharedText = (a) => {
+		const shared = sharedBy.get(a.id);
+		return shared
+			? t('anweisungen.books.shared', {
+					number: shared.number,
+					assets: assetList(shared.assets.filter((x) => x !== (a.asset ?? 'EUR')))
+				})
+			: '';
+	};
+	/**
+	 * Whether a row is offered a number of its own: an asset account without
+	 * one, for which the chart offers nothing by its name.
+	 *
+	 * @param {Record<string, any>} a
+	 */
+	const wantsOffer = (a) =>
+		(a.kind === 'wallet' || a.kind === 'exchange') &&
+		!(ledgers[a.id] ?? '').trim() &&
+		!(chart && chartCandidates(/** @type {any} */ (a), accountsAsEdited, chart).length);
+	/** @param {string[]} assets */
+	const assetList = (assets) =>
+		assets.length > 1
+			? `${assets.slice(0, -1).join(', ')} ${t('anweisungen.books.and')} ${assets.at(-1)}`
+			: (assets[0] ?? '');
 
 	// What people's links taught (matching/partners.js); wrong ones can go.
 	let learned = $derived(
@@ -289,9 +379,14 @@
 			for (const a of bankAccounts) {
 				const next = (ledgers[a.id] ?? '').trim();
 				if (next !== String(a.ledgerAccount ?? '')) {
-					await store.accounts.put({ ...$state.snapshot(a), ledgerAccount: next || null });
+					const changed = { ...$state.snapshot(a), ledgerAccount: next || null };
+					await store.accounts.put(changed);
+					// A wallet keeps it for this asset only: the next sync leaves it be.
+					if (a.kind === 'wallet') await noteAssetLedger(store, changed);
 				}
 			}
+			if (bankAccounts.some((a) => a.kind === 'wallet'))
+				wallets = await loadWallets(store.settings);
 			datev = cleanDatevSettings($state.snapshot(datev));
 			await setSetting(store.settings, 'datev', datev);
 			const value = cleanMatchingSettings({
@@ -631,7 +726,27 @@
 							placeholder={chart ? '' : (placeholderOf.get(a.id) ?? '')}
 							data-testid="ledger-account"
 							data-account={a.ibanLast4}
+							data-asset={a.asset ?? ''}
 						/>
+						{#if sharedBy.has(a.id)}
+							<span class="block text-xs text-danger" data-testid="ledger-shared"
+								>{sharedText(a)}</span
+							>
+						{:else if wantsOffer(a)}
+							{@const offer = suggestFor(a)}
+							{#if offer}
+								<button
+									type="button"
+									class="mt-1 block rounded-md border border-border px-2 py-0.5 text-left text-xs text-text hover:bg-surface-2 hover:text-heading"
+									onclick={() => (ledgers[a.id] = offer.number)}
+									data-testid="ledger-suggestion"
+									data-number={offer.number}
+									>{offer.source === 'chart'
+										? t('anweisungen.books.suggestion', { number: offer.number, name: offer.name })
+										: t('anweisungen.books.suggestionNext', { number: offer.number })}</button
+								>
+							{/if}
+						{/if}
 					{:else}
 						{#if chart && isAccountNumber(ledgers[a.id] ?? '')}
 							{@const own = catalogueAccount(ledgers[a.id], chart)}
@@ -682,6 +797,56 @@
 					testid="ledger-accounts"
 					rowTestid="ledger-row"
 				/>
+				{#if conflicts.length}
+					<div
+						class="mt-3 rounded-md border border-danger px-3 py-2 text-xs text-text"
+						role="alert"
+						data-testid="ledger-conflicts"
+					>
+						<p class="font-medium text-danger">{t('anweisungen.books.conflicts.title')}</p>
+						<ul class="mt-1 flex flex-col gap-2">
+							{#each conflicts as c (c.number)}
+								<li data-testid="ledger-conflict" data-number={c.number}>
+									<span class="block text-heading"
+										>{t('anweisungen.books.conflicts.shared', {
+											assets: assetList(c.assets),
+											number: c.number,
+											move: assetList(c.moveAssets)
+										})}</span
+									>
+									<span class="mt-1 flex flex-wrap gap-1.5">
+										{#each c.move as m (m.account.id)}
+											{#if m.offer}
+												{@const offer = m.offer}
+												<button
+													type="button"
+													class="rounded-md border border-border px-2 py-0.5 hover:bg-surface-2 hover:text-heading"
+													onclick={() => (ledgers[m.account.id] = offer.number)}
+													data-testid="ledger-conflict-fix"
+													data-number={offer.number}
+													>{t(
+														offer.source === 'chart'
+															? 'anweisungen.books.conflicts.fix'
+															: 'anweisungen.books.conflicts.fixNext',
+														{ asset: accountLabel(m.account), number: offer.number }
+													)}</button
+												>
+											{:else}
+												<span class="text-faint"
+													>{t('anweisungen.books.conflicts.none', {
+														asset: accountLabel(m.account)
+													})}</span
+												>
+											{/if}
+										{/each}
+									</span>
+								</li>
+							{/each}
+						</ul>
+						<p class="mt-2">{t('anweisungen.books.conflicts.why')}</p>
+						<p class="mt-1">{t('anweisungen.books.conflicts.months')}</p>
+					</div>
+				{/if}
 				{#if chart}
 					<datalist id="ledger-chart">
 						{#each chart.accounts as c (c.number)}

@@ -135,12 +135,18 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 		`Neu: 0 · Aktualisiert: 0 · Übersprungen: ${count}`
 	);
 
-	// A name, a ledger account and a cost centre: on every asset account at once.
+	// A name and a cost centre for every asset account at once; a ledger
+	// account per asset. Two assets on one number are named, not refused.
 	await wallet.getByTestId('wallet-menu').click();
 	await wallet.getByTestId('wallet-edit').click();
 	const form = wallet.getByTestId('wallet-edit-form');
+	const ledgerOf = (/** @type {string} */ asset) =>
+		form.locator(`[data-testid="wallet-edit-ledger"][data-asset="${asset}"]`);
+	await expect(form.getByTestId('wallet-edit-ledger')).toHaveCount(3);
 	await form.getByTestId('wallet-edit-name').fill('Projekt Nord');
-	await form.getByTestId('wallet-edit-ledger').fill('1210');
+	await ledgerOf('ETH').fill('1210');
+	await ledgerOf('USDC').fill('1210');
+	await expect(form.getByTestId('wallet-edit-ledger-shared')).toContainText('ETH, USDC');
 	await form.getByTestId('wallet-edit-cost').fill('P 1');
 	await form.getByTestId('wallet-edit-save').click();
 	await expect(form.getByTestId('wallet-edit-error')).toContainText('Kostenstelle');
@@ -148,7 +154,7 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await form.getByTestId('wallet-edit-save').click();
 	await expect(form).toHaveCount(0);
 	await expect(wallet.getByTestId('wallet-name')).toHaveText('Projekt Nord');
-	await expect(wallet.getByTestId('wallet-booking')).toContainText('Konto 1210');
+	await expect(wallet.getByTestId('wallet-booking')).toContainText('Konto 1210 (ETH), 1210 (USDC)');
 	await expect(wallet.getByTestId('wallet-booking')).toContainText('Kostenstelle P100');
 	await expect(accounts.nth(0)).toContainText('Projekt Nord · ETH (Ethereum)');
 	await expect(accounts.nth(1)).toContainText('Projekt Nord · USDC (Ethereum)');
@@ -179,7 +185,40 @@ test('with an Alchemy key the card says so, and an Ethereum wallet is read there
 	await swapRow.click();
 	await expect(page.getByTestId('tx-detail-classification')).toContainText('Block-Explorer');
 	await page.getByTestId('tx-detail-close').click();
+
+	// Einstellungen → Buchhaltung: the two assets on one ledger account are
+	// flagged, with a number for USDC; nothing changes before it is taken and saved.
+	await page.getByTestId('settings-link').click();
+	await page.getByTestId('settings-tile-buchhaltung').click();
+	const conflict = page.getByTestId('ledger-conflict');
+	await expect(conflict).toHaveCount(1);
+	await expect(conflict).toContainText(
+		'ETH und USDC teilen 1210 – eigenes Konto für USDC eintragen.'
+	);
+	await expect(page.getByTestId('ledger-shared')).toHaveCount(1);
+	const usdc = page.locator('[data-testid="ledger-account"][data-asset="USDC"]');
+	await expect(usdc).toHaveValue('1210');
+	await conflict.getByTestId('ledger-conflict-fix').click();
+	await expect(usdc).toHaveValue('1211');
+	await expect(page.getByTestId('ledger-conflicts')).toHaveCount(0);
+	// XYZ has none: the next free number is offered.
+	await expect(
+		page
+			.locator('[data-testid="ledger-row"]')
+			.filter({ hasText: 'XYZ' })
+			.getByTestId('ledger-suggestion')
+	).toHaveAttribute('data-number', '1212');
+	await page.getByTestId('matching-save').click();
+	await expect(page.getByTestId('matching-saved')).toBeVisible();
+
+	// A sync keeps each asset's number.
 	await page.getByRole('link', { name: 'Integrationen' }).click();
+	await openIntegration(page, 'wallets');
+	await wallet.getByTestId('wallet-sync').click();
+	await expect(wallet.getByTestId('wallet-result')).toHaveText(
+		`Neu: 0 · Aktualisiert: 0 · Übersprungen: ${count}`
+	);
+	await expect(wallet.getByTestId('wallet-booking')).toContainText('Konto 1210 (ETH), 1211 (USDC)');
 
 	// The key went to the fake Alchemy, in the path of its requests, and nowhere else.
 	expect(alchemy.paths.length).toBeGreaterThan(0);

@@ -10,6 +10,8 @@
 	import { syncedAgo } from './wallet-groups.js';
 	import WalletDetails from './WalletDetails.svelte';
 	import WalletMetaFields from './WalletMetaFields.svelte';
+	import { walletLedgers } from './wallet-sync.js';
+	import { walletChain } from './chains.js';
 
 	/** @type {{ wallet: import('./wallet-sync.js').Wallet, ctx: import('./wallet-groups.js').RowContext }} */
 	let { wallet, ctx } = $props();
@@ -39,6 +41,15 @@
 	let editing = $state(false);
 	let editName = $state('');
 	let editLedger = $state('');
+	/** @type {Record<string, string>} asset → its ledger account, as typed */
+	let editLedgers = $state({});
+	/** One ledger account per asset account; before the first sync, one for the chain's own asset. */
+	const editAssets = $derived(
+		accounts
+			.map((a) => String(a.account.asset ?? ''))
+			.filter((a, i, all) => a && all.indexOf(a) === i)
+	);
+	const nativeAsset = $derived(walletChain(wallet.chain)?.nativeSymbol ?? '');
 	let editCostCentre = $state('');
 	/** @type {string | null} */
 	let editError = $state(null);
@@ -49,7 +60,12 @@
 		menuOpen = false;
 		editing = true;
 		editName = wallet.name ?? '';
-		editLedger = wallet.ledgerAccount ?? '';
+		const current = walletLedgers(
+			wallet,
+			accounts.map((a) => a.account)
+		);
+		editLedgers = Object.fromEntries(editAssets.map((a) => [a, current[a] ?? '']));
+		editLedger = current[nativeAsset] ?? '';
 		editCostCentre = wallet.costCentre ?? '';
 		editError = null;
 	}
@@ -61,7 +77,9 @@
 		try {
 			await ctx.saveMeta(wallet, {
 				name: editName,
-				ledgerAccount: editLedger,
+				ledgerAccounts: editAssets.length
+					? $state.snapshot(editLedgers)
+					: { [nativeAsset]: editLedger },
 				costCentre: editCostCentre
 			});
 			editing = false;
@@ -319,6 +337,9 @@
 			<WalletMetaFields
 				bind:name={editName}
 				bind:ledger={editLedger}
+				bind:ledgers={editLedgers}
+				assets={editAssets}
+				asset={nativeAsset}
 				bind:cost={editCostCentre}
 				id="wallet-edit"
 			/>

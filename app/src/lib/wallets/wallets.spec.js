@@ -20,6 +20,7 @@ import {
 } from '@belege/bridge/testing/alchemy';
 import { memoryCollection } from '../bank/test-support.js';
 import { buildMatchingContext } from '../matching/context.js';
+import { setSetting } from '../store/settings.js';
 import { classifyTransaction } from '../matching/classify.js';
 import { classificationLine } from '../matching/explain.js';
 import { describeEvent } from '../activity/view.js';
@@ -33,7 +34,10 @@ import {
 } from './chains.js';
 import {
 	addWallet,
+	assetLedgerPlan,
 	cleanWalletMeta,
+	noteAssetLedger,
+	walletLedgers,
 	exchangeWithdrawalHashes,
 	loadWallets,
 	reconcileSourceIds,
@@ -288,17 +292,21 @@ describe('wallets in the settings', () => {
 	});
 });
 
-describe('a wallet’s name, ledger account and cost centre', () => {
+describe('a wallet’s name, ledger accounts and cost centre', () => {
 	it('cleans them, and refuses a ledger account or cost centre that cannot be one', () => {
 		expect(
-			cleanWalletMeta({ name: '  Projekt   Nord  ', ledgerAccount: ' 1210 ', costCentre: 'P100' })
+			cleanWalletMeta({
+				name: '  Projekt   Nord  ',
+				ledgerAccounts: { NYM: ' 1210 ', NYX: '' },
+				costCentre: 'P100'
+			})
 		).toEqual({
 			name: 'Projekt Nord',
-			ledgerAccount: '1210',
+			ledgerAccounts: { NYM: '1210', NYX: '' },
 			costCentre: 'P100'
 		});
-		expect(cleanWalletMeta({})).toEqual({ name: '', ledgerAccount: '', costCentre: '' });
-		expect(() => cleanWalletMeta({ ledgerAccount: '12a' })).toThrow(/Kontonummer/);
+		expect(cleanWalletMeta({})).toEqual({ name: '', ledgerAccounts: {}, costCentre: '' });
+		expect(() => cleanWalletMeta({ ledgerAccounts: { NYM: '12a' } })).toThrow(/Kontonummer/);
 		expect(() => cleanWalletMeta({ costCentre: 'P 100' })).toThrow(/Kostenstelle/);
 		expect(() => cleanWalletMeta({ costCentre: 'x'.repeat(37) })).toThrow(/Kostenstelle/);
 	});
@@ -317,7 +325,48 @@ describe('a wallet’s name, ledger account and cost centre', () => {
 		);
 	});
 
-	it('added with them, a sync gives them to every asset account; a change carries at once', async () => {
+	it('plans a number per asset: the wallet’s for that asset, an old wallet’s one number to one asset only', () => {
+		const near = /** @type {any} */ ({ id: 'near', nativeSymbol: 'NEAR' });
+		const base = { id: 'near:x', chain: 'near', address: 'x', endpoints: {}, addedAt: '' };
+		// Per asset: each its own; an account that has one keeps it.
+		expect(
+			assetLedgerPlan({
+				wallet: { ...base, ledgerAccounts: { NEAR: '1204', USDC: '1205' } },
+				chain: near,
+				assets: ['NEAR', 'USDC'],
+				accounts: [{ asset: 'NEAR', ledgerAccount: '1299' }]
+			})
+		).toEqual(new Map([['USDC', '1205']]));
+		// The old one number: the native asset first, the others none.
+		expect(
+			assetLedgerPlan({
+				wallet: { ...base, ledgerAccount: '1204' },
+				chain: near,
+				assets: ['USDC', 'NEAR', 'AURORA'],
+				accounts: []
+			})
+		).toEqual(new Map([['NEAR', '1204']]));
+		// …and not at all while an asset account of the wallet holds it.
+		expect(
+			assetLedgerPlan({
+				wallet: { ...base, ledgerAccount: '1204' },
+				chain: near,
+				assets: ['NEAR', 'USDC'],
+				accounts: [{ asset: 'NEAR', ledgerAccount: '1204' }]
+			})
+		).toEqual(new Map());
+		// The numbers as they stand: the accounts' own first, the old number for the native asset.
+		expect(
+			walletLedgers(
+				{ ...base, ledgerAccount: '1204', ledgerAccounts: { USDC: '1205' } },
+				[{ asset: 'USDC', ledgerAccount: '1206' }],
+				near
+			)
+		).toEqual({ USDC: '1206' });
+		expect(walletLedgers({ ...base, ledgerAccount: '1204' }, [], near)).toEqual({ NEAR: '1204' });
+	});
+
+	it('added with one, a sync gives it to the native asset only; each asset keeps its own number', async () => {
 		const nyxNode = await startFakeCosmos();
 		try {
 			const s = store();
@@ -326,37 +375,92 @@ describe('a wallet’s name, ledger account and cost centre', () => {
 				chain: 'nyx',
 				address: NYX.wallet,
 				name: 'Projekt Nord',
-				ledgerAccount: '1210',
+				ledgerAccounts: { NYM: '1210' },
 				costCentre: 'P100'
 			});
-			await syncWallet({ client, store: s, wallet, now: new Date('2026-09-26T08:00:00Z') });
+			const now = new Date('2026-09-26T08:00:00Z');
+			await syncWallet({ client, store: s, wallet, now });
 			const fields = async () =>
 				(await s.accounts.list())
-					.map((a) => [a.name, a.ledgerAccount, a.costCentre])
+					.map((a) => [a.name, a.ledgerAccount ?? null, a.costCentre])
 					.sort((a, b) => (String(a[0]) < String(b[0]) ? -1 : 1));
 			expect(await fields()).toEqual([
 				['Projekt Nord · NYM', '1210', 'P100'],
-				['Projekt Nord · NYX', '1210', 'P100']
+				['Projekt Nord · NYX', null, 'P100']
 			]);
 
+			// The dialog sets one asset's number; the other keeps its own.
 			const changed = await updateWalletMeta(s, wallet.id, {
 				name: 'Projekt Süd',
-				ledgerAccount: '1220',
+				ledgerAccounts: { NYX: '1211' },
 				costCentre: ''
 			});
 			expect(changed).not.toHaveProperty('costCentre');
+			expect(changed).not.toHaveProperty('ledgerAccount');
+			expect(changed.ledgerAccounts).toEqual({ NYM: '1210', NYX: '1211' });
 			expect(await fields()).toEqual([
-				['Projekt Süd · NYM', '1220', null],
-				['Projekt Süd · NYX', '1220', null]
+				['Projekt Süd · NYM', '1210', null],
+				['Projekt Süd · NYX', '1211', null]
 			]);
-			// Without a name, the address tail again; the ledger account stays on the accounts.
-			await updateWalletMeta(s, wallet.id, { name: '', ledgerAccount: '', costCentre: '' });
+
+			// A row of the DATEV table: that account, noted on the wallet; a sync keeps it.
+			const nyx = (await s.accounts.list()).find((a) => a.asset === 'NYX');
+			const edited = { ...nyx, ledgerAccount: '1215' };
+			await s.accounts.put(edited);
+			const noted = await noteAssetLedger(s, edited);
+			expect(noted?.ledgerAccounts).toEqual({ NYM: '1210', NYX: '1215' });
+			const [kept] = await loadWallets(s.settings);
+			await syncWallet({ client, store: s, wallet: kept, now });
+			expect((await fields()).map((f) => f[1])).toEqual(['1210', '1215']);
+
+			// Without a name, the address tail again; the ledger accounts stay.
+			await updateWalletMeta(s, wallet.id, { name: '', costCentre: '' });
 			expect((await fields()).map((f) => f.slice(0, 2))).toEqual([
-				[`Wallet NYM ···${NYX.wallet.slice(-6)}`, '1220'],
-				[`Wallet NYX ···${NYX.wallet.slice(-6)}`, '1220']
+				[`Wallet NYM ···${NYX.wallet.slice(-6)}`, '1210'],
+				[`Wallet NYX ···${NYX.wallet.slice(-6)}`, '1215']
 			]);
 			await expect(updateWalletMeta(s, wallet.id, { costCentre: 'P 1' })).rejects.toThrow();
 			await expect(updateWalletMeta(s, 'nyx:unknown', {})).rejects.toThrow(/Unbekannte/);
+		} finally {
+			await nyxNode.close();
+		}
+	});
+
+	it('an old wallet with one number: its accounts keep what they have, nothing is renumbered', async () => {
+		const nyxNode = await startFakeCosmos();
+		try {
+			const s = store();
+			const { client } = clientFor({ nyx: nyxNode.endpoints });
+			const wallet = await addWallet(s.settings, { chain: 'nyx', address: NYX.wallet });
+			// As an older version kept it: one number, given to every asset account.
+			const old = { ...wallet, ledgerAccount: '1210' };
+			await setSetting(s.settings, 'wallets', [old]);
+			const now = new Date('2026-09-26T08:00:00Z');
+			await syncWallet({ client, store: s, wallet: old, now });
+			for (const a of await s.accounts.list())
+				await s.accounts.put({ ...a, ledgerAccount: '1210' });
+			await syncWallet({ client, store: s, wallet: old, now });
+			const numbers = async () =>
+				(await s.accounts.list())
+					.sort((a, b) => (a.asset < b.asset ? -1 : 1))
+					.map((a) => [a.asset, a.ledgerAccount]);
+			expect(await numbers()).toEqual([
+				['NYM', '1210'],
+				['NYX', '1210']
+			]);
+			// The person gives NYX its own: the old one number goes, so that an
+			// older device no longer hands it to every asset.
+			const nyx = (await s.accounts.list()).find((a) => a.asset === 'NYX');
+			await s.accounts.put({ ...nyx, ledgerAccount: '1211' });
+			const noted = await noteAssetLedger(s, { ...nyx, ledgerAccount: '1211' });
+			expect(noted).not.toHaveProperty('ledgerAccount');
+			expect(noted?.ledgerAccounts).toEqual({ NYM: '1210', NYX: '1211' });
+			const [kept] = await loadWallets(s.settings);
+			await syncWallet({ client, store: s, wallet: kept, now });
+			expect(await numbers()).toEqual([
+				['NYM', '1210'],
+				['NYX', '1211']
+			]);
 		} finally {
 			await nyxNode.close();
 		}

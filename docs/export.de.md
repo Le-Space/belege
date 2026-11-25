@@ -435,6 +435,12 @@ Wo nichts übernommen wurde, bietet das Feld die freien Konten des Plans an, die
 
 ### Eine neue Wallet
 
-Das Formular schlägt ein Sachkonto vor: das Konto des Plans, das die Wallet oder ihre Chain nennt. Gibt es keins, ist es die nächste freie Nummer nach den Sachkonten deiner anderen Wallets, mit dem Hinweis, dass die Buchhaltung dieses Konto erst anlegen muss. Du kannst das Feld ändern oder leeren.
+Das Formular schlägt ein Sachkonto für das eigene Asset der Chain vor: das Konto des Plans, das die Wallet oder ihre Chain nennt. Gibt es keins, ist es die nächste freie Nummer nach den Sachkonten deiner anderen Wallets, mit dem Hinweis, dass die Buchhaltung dieses Konto erst anlegen muss. Du kannst das Feld ändern oder leeren.
+
+### Jedes Asset sein eigenes Sachkonto
+
+Jedes Asset-Konto einer Wallet oder Börse hat ein eigenes Sachkonto. Fehlt eines, schlägt die Tabelle eins vor: das Konto des Plans, das Wallet (oder Börse) und Asset nennt, sonst die nächste freie Nummer. Stehen zwei verschiedene Assets auf einem Sachkonto, zeigt ein Hinweis über der Tabelle das an, mit einer Nummer für das Asset, das umziehen soll. Geändert wird erst, wenn du sie übernimmst und speicherst.
+
+Der Export liest das Sachkonto, wenn er läuft. Noch nicht exportierte Monate folgen also der neuen Nummer. Monate, die schon beim Steuerberater sind, brauchen dort eine Umbuchung oder einen neuen Export (siehe `docs/crypto.de.md`).
 
 Code: `app/src/lib/booking/chart.js`.

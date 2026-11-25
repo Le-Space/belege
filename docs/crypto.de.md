@@ -809,10 +809,16 @@ Der Buchungstext einer Krypto-Buchung endet mit der Menge, zum Beispiel `Konto B
 Jede eigene Wallet kann drei Angaben haben. Du setzt sie beim Hinzufügen oder später unter _Bezeichnung, Konto, Kostenstelle_:
 
 - **Bezeichnung** (Projekt, Zweck): Sie ersetzt das Adressende an allen Asset-Konten der Wallet, etwa `Projekt Nord · USDC (Ethereum)`.
-- **Konto:** gilt für alle Asset-Konten der Wallet und geht in den DATEV-Export (_Konto_).
-- **Kostenstelle:** ebenso, im DATEV-Export als _KOST1_.
+- **Konto, je Asset eines:** geht in den DATEV-Export (_Konto_).
+- **Kostenstelle:** gilt für alle Asset-Konten der Wallet, im DATEV-Export als _KOST1_.
 
-Eine Wallet ohne Konto lässt die Konten ihrer Assets, wie sie sind.
+**Jedes Asset hat sein eigenes Sachkonto.** Ein DATEV-Konto summiert in Euro. Stehen NEAR und USDC auf einer Nummer, lassen sich Bestand und Gewinn je Asset nicht mehr auseinanderhalten. Deshalb hat der Dialog ein Feld je Asset-Konto (`Konto (Finanzkonto) für USDC`). Eine Änderung dort oder in einer Zeile unter _Einstellungen → Buchhaltung (DATEV)_ setzt nur die Nummer dieses Assets. Das Synchronisieren überschreibt nie eine Nummer, die ein Asset-Konto schon hat.
+
+Beim Hinzufügen gilt die Nummer für das eigene Asset der Chain (NEAR, ETH, AKT …). Jedes weitere Asset bekommt danach seine eigene. Die Einstellungen schlagen eine vor: das Konto deines Kontenplans, das Wallet und Asset nennt („Wallet Projekt Nord USDC“), sonst die nächste freie Nummer nach deinen anderen Wallets. Nie eine, die schon ein anderes Asset hat.
+
+Wallets von früher hatten eine Nummer für alle Assets, und das Synchronisieren gab sie jedem Asset-Konto. Ihre Konten behalten, was sie haben; nichts wird umnummeriert. _Einstellungen → Buchhaltung (DATEV)_ zeigt jedes Sachkonto, auf dem zwei verschiedene Assets stehen, etwa „ETH und USDC teilen 1210 – eigenes Konto für USDC eintragen“. Daneben steht ein Vorschlag für das Asset, das umziehen soll. Geändert wird erst, wenn du ihn übernimmst und speicherst. Börsenkonten (Kraken) hatten schon je Asset ein Konto mit eigener Nummer; die Prüfung gilt für sie genauso.
+
+Der Export liest das Sachkonto jedes Kontos, wenn er läuft; die Buchungen speichern es nicht. Noch nicht exportierte Monate gehen also mit der neuen Nummer hinaus. Monate, die schon beim Steuerberater sind, stehen dort auf dem alten gemeinsamen Konto. Sie brauchen eine Umbuchung vom alten auf das neue Konto oder einen neuen Export dieser Monate.
 
 ## In der App
 

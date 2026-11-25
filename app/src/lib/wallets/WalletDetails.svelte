@@ -7,6 +7,7 @@
 	import { formatDate } from '$lib/bank/format.js';
 	import { formatQuantity } from '$lib/assets/quantity.js';
 	import { t } from '$lib/i18n/index.js';
+	import { walletLedgers } from './wallet-sync.js';
 
 	/**
 	 * @type {{
@@ -22,6 +23,19 @@
 	 * `alchemy`: Alchemy reads this wallet; `alchemyInternal`: and its internal transactions too
 	 */
 	let { wallet, open, id, alchemy, alchemyInternal, endpoints, accounts, error } = $props();
+
+	// Each asset's ledger account: `1204 (NEAR), 1205 (USDC)`; a lone one without its asset.
+	const ledgerText = $derived.by(() => {
+		const ledgers = Object.entries(
+			walletLedgers(
+				wallet,
+				accounts.map((a) => a.account)
+			)
+		).sort(([a], [b]) => (a < b ? -1 : 1));
+		return ledgers.length === 1 && accounts.length <= 1
+			? ledgers[0][1]
+			: ledgers.map(([asset, number]) => `${number} (${asset})`).join(', ');
+	});
 </script>
 
 <dl
@@ -52,12 +66,12 @@
 		</ul>
 	</dd>
 
-	{#if wallet.ledgerAccount || wallet.costCentre}
+	{#if ledgerText || wallet.costCentre}
 		<dt class="text-faint">{t('integrationen.wallets.details.booking')}</dt>
 		<dd class="text-heading" data-testid="wallet-booking">
-			{#if wallet.ledgerAccount}{t('integrationen.wallets.meta.ledgerShort', {
-					account: wallet.ledgerAccount
-				})}{/if}{#if wallet.ledgerAccount && wallet.costCentre}
+			{#if ledgerText}{t('integrationen.wallets.meta.ledgerShort', {
+					account: ledgerText
+				})}{/if}{#if ledgerText && wallet.costCentre}
 				·
 			{/if}{#if wallet.costCentre}{t('integrationen.wallets.meta.costCentreShort', {
 					costCentre: wallet.costCentre
