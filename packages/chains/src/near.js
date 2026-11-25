@@ -288,9 +288,27 @@ export function mapRaw({
 					})
 				);
 			// A failed transaction gives its deposit back; the 1 yoctoNEAR a token
-			// transfer must attach is no payment.
+			// transfer must attach is no payment for anything.
 			const tokenMechanic =
 				deposit === 1n && methods.some((/** @type {string} */ m) => FT_METHODS.has(m));
+			// It still leaves the account, for the token contract to keep: a cost of
+			// the transfer, as gas is, booked under the id a payment would have (#1028).
+			if (tokenMechanic && success && receiver !== account)
+				out.push(
+					entry({
+						...common,
+						id: `near:${account}:${hash}:deposit`,
+						type: 'fee',
+						kind: 'fee',
+						amount: fromUnits(-deposit, NEAR_DECIMALS),
+						counterparty: receiver,
+						counterpartyLabel: '',
+						method,
+						memo: '',
+						success,
+						purpose: 'security'
+					})
+				);
 			if (deposit > 0n && success && receiver !== account && !tokenMechanic) {
 				const wrap = wraps(network, receiver, methods);
 				const kind = wrap ? 'transfer' : kindOf(actions, methods);
