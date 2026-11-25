@@ -35,6 +35,15 @@ export {
 } from './document.js';
 export { DOCUMENT_LANGUAGES, documentLanguage, localizeLabel, localizeSource } from './language.js';
 export { eigenbelegCsv } from './csv.js';
+export {
+	buildConsumption,
+	consumptionTexts,
+	consumptionTitle,
+	CONSUMPTION_CHAINS,
+	isConsumption,
+	monthName
+} from './consumption.js';
+/** @typedef {import('./consumption.js').ConsumptionReceipt} ConsumptionReceipt */
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
 export {
 	buildStatement,

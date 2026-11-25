@@ -26,6 +26,8 @@
 
 import { normalize, round, sum } from '@le-space/ledger';
 
+import { CONSUMPTION_CHAINS, buildConsumption, isConsumption } from './consumption.js';
+
 import {
 	documentLanguage,
 	enDate,
@@ -382,6 +384,11 @@ export const dataSourceOf = (chain, chainName, given, language = 'de') =>
  *   given; the entries are valued in it. The fields named `eur…` hold the values in this
  *   currency: they keep the name they had when every document was in euro.
  * @param {import('./language.js').DocumentLanguage} [p.language] `de` (the default) or `en` (language.js)
+ * @param {{ account: string, month: string, statementNumber?: string, entries?: import('./value.js').ValuedEntry[] }[]} [p.consumption]
+ *   the monthly consumption Eigenbelege to make (consumption.js; Aleph, Filecoin Pay, Akash; single layout only): one
+ *   per account and finished month, numbered after the payments' own. Its usage entries are taken from `entries`, or
+ *   from its own `entries` where they are no movements of the account (Akash's lease payouts from the escrow); taken,
+ *   they are on that Eigenbeleg and no longer among those not on it. An account and month without usage gets none.
  */
 export function buildDocument({
 	payer,
@@ -395,21 +402,32 @@ export function buildDocument({
 	layout = 'collective',
 	dataSource,
 	currency: asked,
-	language: askedLanguage
+	language: askedLanguage,
+	consumption = []
 }) {
 	if (layout !== 'collective' && layout !== 'single')
 		throw new Error('layout: collective or single');
+	if (consumption.length && layout !== 'single')
+		throw new Error('consumption: one Eigenbeleg per account and month, in the single layout');
+	if (consumption.length && !CONSUMPTION_CHAINS.includes(chain))
+		throw new Error(`consumption: ${CONSUMPTION_CHAINS.join(', ')} only, not ${chain}`);
 	const currency = documentCurrency(asked);
 	const L = documentLanguage(askedLanguage);
 	checkValued(entries, currency);
+	for (const c of consumption) if (c.entries) checkValued(c.entries, currency);
 	checkPayer(payer);
 	const kinds = new Set(includeKinds);
+	// Usage that goes on a consumption Eigenbeleg is neither a position nor left off.
+	const consumed = new Set(
+		consumption.flatMap((c) => entries.filter((e) => isConsumption(e, c.account, c.month)))
+	);
 	const own = new Set(payer.addresses);
 	/** @type {Position[]} */
 	const positions = [];
 	/** @type {{ entry: import('./value.js').ValuedEntry, why: string }[]} */
 	const excluded = [];
 	for (const e of entries) {
+		if (consumed.has(e)) continue;
 		const why =
 			e.type === 'received'
 				? say(L, 'Eingang, keine Zahlung', 'incoming, no payment')
@@ -486,6 +504,23 @@ export function buildDocument({
 		}
 		p.pos = t.pos;
 	}
+	const places = currencyPlaces(currency);
+	// A month without consumption gets no Eigenbeleg.
+	const receipts = consumption
+		.filter((c) => (c.entries ?? entries).some((e) => isConsumption(e, c.account, c.month)))
+		.map((c, i) =>
+			buildConsumption({
+				chain,
+				account: c.account,
+				month: c.month,
+				entries: c.entries ?? entries,
+				number: nthNumber(first, transactions.length + i),
+				statementNumber: c.statementNumber ?? '',
+				places,
+				sourceOf: (source) => localizeSource(sourceName(source), L),
+				language: L
+			})
+		);
 	for (const t of transactions)
 		t.eurExact = sum(
 			t.movements.filter((m) => m.onIt).map((m) => /** @type {any} */ (m.entry.eur).value)
@@ -499,14 +534,16 @@ export function buildDocument({
 				''
 			)
 		);
-	const eurExact = positions.length
-		? sum(positions.map((p) => /** @type {any} */ (p.entry.eur).value))
-		: '0';
+	// A consumption Eigenbeleg's sums count as what is on the Eigenbelege, like a payment's.
+	for (const r of receipts)
+		for (const [asset, q] of Object.entries(r.totals.quantities))
+			quantities[asset] = normalize(sum([quantities[asset] ?? '0', q]));
+	const paid = positions.map((p) => /** @type {any} */ (p.entry.eur).value);
+	const used = receipts.map((r) => `-${r.totals.eurExact}`);
+	const eurExact = paid.length || used.length ? sum([...paid, ...used]) : '0';
+	const numbers = [...transactions.map((t) => t.number), ...receipts.map((r) => r.number)];
 	return {
-		number:
-			layout === 'single' && transactions.length > 1
-				? `${first} – ${transactions.at(-1)?.number}`
-				: first,
+		number: layout === 'single' && numbers.length > 1 ? `${first} – ${numbers.at(-1)}` : first,
 		layout,
 		transactions,
 		issuedAt: issuedAt ?? new Date().toISOString(),
@@ -525,6 +562,7 @@ export function buildDocument({
 		language: L,
 		positions,
 		excluded,
+		consumption: receipts,
 		totals: {
 			quantities,
 			// What was paid, as a positive amount, rounded to cents (the currency's smallest unit).
@@ -533,9 +571,12 @@ export function buildDocument({
 		},
 		// The rate's name without its day (`… vom 2026-08-10`): the day is each position's.
 		sources: [
-			...new Set(
-				positions.map((p) => localizeSource(sourceName(/** @type {any} */ (p.entry.eur).source), L))
-			)
+			...new Set([
+				...positions.map((p) =>
+					localizeSource(sourceName(/** @type {any} */ (p.entry.eur).source), L)
+				),
+				...receipts.flatMap((r) => r.sources)
+			])
 		],
 		note: noInvoice(chain, chainName, L).note,
 		notInvoice: L === 'en' ? NOT_AN_INVOICE_EN : NOT_AN_INVOICE

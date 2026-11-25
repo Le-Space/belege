@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The month's share of an Akash deployment is computed in `@le-space/chains`** (0.13.0, `akash-deployments.js`: `usageInMonth`, `monthRange`, `fromMicro`, moved from `app/src/lib/akash/usage.js` with their tests), so Belege's Akash usage statement and the Eigenbeleg API's monthly consumption Eigenbeleg (Le-Space/eigenbeleg-agent#116) say the same for a month. New there: `akashUsageEntries`, a month's lease payouts per deployment as `usage` entries in ACT at 1 USD. The app's statement is unchanged.
+- **`@le-space/eigenbeleg` 0.11.0: the monthly consumption Eigenbeleg** (`consumption.js`; `buildDocument({ consumption })`, drawn by `eigenbelegPdf`, written by `eigenbelegCsv`): one per account and finished month of Aleph credits, Filecoin Pay or Akash, "Verbrauch <Monat> – kein Rechnungssteller", the consumption in sums per resource, rail or deployment, valued as the usage statement, which it names; numbered after the payments' own Eigenbelege. A `unitPrice` in USD may now name its own price (`source`), as Akash's ACT does; Aleph's `purchase` and `list` read as before. Nothing in the app uses it yet.
+
 ## [0.57.0] – 2026-11-25
 
 ### Added

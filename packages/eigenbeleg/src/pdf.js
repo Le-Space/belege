@@ -82,8 +82,11 @@ export async function eigenbelegPdf(
 	const { text, gap, field, label } = l;
 	const width = l.width;
 
-	/** @param {string} number @param {string} subtitle */
-	function head(number, subtitle) {
+	/**
+	 * @param {string} number @param {string} subtitle
+	 * @param {{ recipient?: string, note?: string }} [o] a consumption Eigenbeleg's own (consumption.js)
+	 */
+	function head(number, subtitle, o = {}) {
 		current = number;
 		// The issuer's logo as a letterhead, above everything else on the page.
 		l.letterhead(own);
@@ -117,7 +120,7 @@ export async function eigenbelegPdf(
 		text(`${deDate(doc.issuedAt)}, ${doc.issuedAt.slice(11, 16)} UTC`, { x: rx });
 		gap(5);
 		label(t('Empfänger', 'Recipient'), { x: rx });
-		text(noInvoice(doc.chain, doc.chainName, L).recipient, { x: rx });
+		text(o.recipient ?? noInvoice(doc.chain, doc.chainName, L).recipient, { x: rx });
 		l.y = Math.min(l.y, leftEnd);
 		gap(8);
 		label(
@@ -127,7 +130,7 @@ export async function eigenbelegPdf(
 		);
 		for (const a of doc.payer.addresses) text(a, { face: mono, size: TYPE.table });
 		gap(12);
-		l.note(doc.note);
+		l.note(o.note ?? doc.note);
 		gap(16);
 	}
 
@@ -194,13 +197,13 @@ export async function eigenbelegPdf(
 		l.y -= 16;
 	}
 
-	/** @param {{ why: string }[]} excluded @param {string[]} sources */
-	function sourcesAndSignature(excluded, sources) {
+	/** @param {{ why: string }[]} excluded @param {string[]} sources @param {boolean} [usage] a consumption Eigenbeleg */
+	function sourcesAndSignature(excluded, sources, usage = false) {
 		gap(8);
 		label(t('Kursquelle', 'Rate source'));
 		text(
 			sources.length
-				? `${sources.join('; ')} – ${t('jeweils für den Tag der Zahlung (UTC).', 'each for the day of the payment (UTC).')}`
+				? `${sources.join('; ')} – ${usage ? t('jeweils für den Tag des Verbrauchs (UTC), wie im Verbrauchsnachweis.', 'each for the day of the consumption (UTC), as on the usage statement.') : t('jeweils für den Tag der Zahlung (UTC).', 'each for the day of the payment (UTC).')}`
 				: '—',
 			{
 				size: TYPE.table
@@ -247,16 +250,108 @@ export async function eigenbelegPdf(
 	const amountLine = (label, total) => l.total(label, total);
 	const period = `${deDate(doc.period.from)} – ${deDate(doc.period.to)}`;
 
-	if (doc.layout === 'single' && doc.transactions.length > 0) {
+	const consumption = doc.consumption ?? [];
+	/** Each Eigenbeleg starts on a page of its own, counted from 1. */
+	const nextReceipt = () => {
+		footer(l);
+		l.page = pdf.addPage(A4);
+		l.pages.push(l.page);
+		pageNo = 1;
+		l.y = A4[1] - M;
+	};
+	const usageColumns = (/** @type {string} */ lineName) => [
+		{ title: lineName, width: 190 },
+		{ title: t('Buchungen', 'Entries'), width: 56, right: true },
+		{ title: t('Zeitraum', 'Period'), width: width - 190 - 56 - 116 - 90 },
+		{ title: t('Menge', 'Amount'), width: 116, right: true },
+		{ title: `${t('Wert', 'Value')} ${cur}`, width: 90, right: true }
+	];
+	/**
+	 * A month's consumption of one account (consumption.js): the sums per resource, rail or deployment, the
+	 * usage statement the details are on, why nobody invoices it.
+	 *
+	 * @param {import('./consumption.js').ConsumptionReceipt} r
+	 */
+	function consumptionReceipt(r) {
+		head(r.number, `${r.title} · ${doc.chainName}`, { recipient: r.recipient, note: r.note });
+		const mono = { face: fonts.mono, size: TYPE.small, labelWidth: 96 };
+		field(t('Konto', 'Account'), r.account, mono);
+		field(t('Zeitraum', 'Period'), `${deDate(r.period.from)} – ${deDate(r.period.to)}`, {
+			labelWidth: 96
+		});
+		if (r.statementNumber)
+			field(
+				t('Einzelheiten', 'Details'),
+				r.chain === 'akash'
+					? t(
+							`Kontoauszug ${r.statementNumber} (die Einzahlungen in den Escrow); Laufzeit und Anteil je Deployment unten`,
+							`account statement ${r.statementNumber} (the deposits into the escrow); term and share per deployment below`
+						)
+					: t(
+							`Verbrauchsauszug ${r.statementNumber} (jede Abrechnung, je Tag)`,
+							`usage statement ${r.statementNumber} (every settlement, per day)`
+						),
+				{ labelWidth: 96 }
+			);
+		gap(10);
+		const columns = usageColumns(r.lineName);
+		l.tableHead(columns);
+		for (const line of r.lines) {
+			l.row(columns, [
+				line.label,
+				String(line.count),
+				line.first === line.last
+					? deDate(line.first)
+					: `${deDate(line.first).slice(0, 6)} – ${deDate(line.last)}`,
+				Object.entries(line.quantities)
+					.map(([a, q]) => `${deNumber(q)} ${a}`)
+					.join(', '),
+				line.unvalued === line.count ? '—' : money(line.eurExact, 4)
+			]);
+			if (line.detail)
+				l.row(
+					columns,
+					[line.detail, '', '', '', ''].map((c, i) => (i === 0 ? c : '')),
+					{
+						color: GREY
+					}
+				);
+		}
+		l.ensure(14);
+		l.y -= 1;
+		l.rule();
+		l.y -= 6;
+		const n = r.lines.length;
+		const qty = Object.entries(r.totals.quantities)
+			.map(([a, q]) => `${deNumber(q)} ${a}`)
+			.join(', ');
+		amountLine(
+			`${t('Verbrauch', 'Consumption')} (${n} × ${r.lineName}): ${qty}`,
+			money(r.totals.eur)
+		);
+		if (round(r.totals.eurExact, places) === '0' && r.totals.eurExact !== '0')
+			text(`${t('Ungerundet', 'Unrounded')} ${money(r.totals.eurExact, 8)} (${below}).`, {
+				size: TYPE.table,
+				color: GREY
+			});
+		if (r.unvalued)
+			text(
+				t(
+					`${r.unvalued} Buchung(en) ohne verlässlichen Kurs: nicht im Betrag, mit ihrer Menge oben.`,
+					`${r.unvalued} entr${r.unvalued === 1 ? 'y' : 'ies'} without a reliable rate: not in the amount, with their quantity above.`
+				),
+				{ size: TYPE.table, color: WARN }
+			);
+		gap(6);
+		field(t('Was wurde verbraucht', 'What was consumed'), r.title);
+		gap(2);
+		field(t('Warum kein Fremdbeleg', 'Why no invoice'), r.why);
+		sourcesAndSignature([], r.sources, true);
+	}
+
+	if (doc.layout === 'single' && (doc.transactions.length > 0 || consumption.length > 0)) {
 		doc.transactions.forEach((t, i) => {
-			if (i > 0) {
-				// Each Eigenbeleg starts on a page of its own, counted from 1.
-				footer(l);
-				l.page = pdf.addPage(A4);
-				l.pages.push(l.page);
-				pageNo = 1;
-				l.y = A4[1] - M;
-			}
+			if (i > 0) nextReceipt();
 			head(
 				t.number,
 				tr(
@@ -283,6 +378,10 @@ export async function eigenbelegPdf(
 				noInvoice(doc.chain, doc.chainName, L).why
 			);
 			sourcesAndSignature([], sourcesOf([t]));
+		});
+		consumption.forEach((r, i) => {
+			if (doc.transactions.length + i > 0) nextReceipt();
+			consumptionReceipt(r);
 		});
 	} else {
 		head(

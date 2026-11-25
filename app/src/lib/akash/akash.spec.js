@@ -10,7 +10,7 @@ import { extractText, getDocumentProxy } from 'unpdf';
 import { memoryCollection } from '../bank/test-support.js';
 import { createBlobStore } from '../receipts/blob-store.js';
 import { collectNetworkFees } from '../export/plan.js';
-import { akashMonth, usageInMonth } from './usage.js';
+import { akashMonth } from './usage.js';
 import { createAkashStatement, findAkashStatement } from './statement.js';
 import { actAccount } from './act-account.js';
 
@@ -30,33 +30,7 @@ const deployment = (d) => ({
 	...d
 });
 
-describe('usageInMonth', () => {
-	it('a deployment within the month counts whole; one across two months is split by time', () => {
-		const within = deployment({ dseq: '1' });
-		// 10 days in June, 20 in July.
-		const across = deployment({
-			dseq: '2',
-			createdAt: '2026-06-21T00:00:00.000Z',
-			settledAt: '2026-07-21T00:00:00.000Z',
-			transferred: '3'
-		});
-		const july = usageInMonth([within, across], '2026-07');
-		expect(july.map((u) => [u.dseq, u.inMonth])).toEqual([
-			['1', '1'],
-			['2', '2']
-		]);
-		expect(usageInMonth([within, across], '2026-06').map((u) => [u.dseq, u.inMonth])).toEqual([
-			['2', '1']
-		]);
-		expect(usageInMonth([within], '2026-08')).toEqual([]);
-	});
-
-	it('one that lived no time counts where it was created; one without times is left out', () => {
-		const instant = deployment({ settledAt: '2026-07-10T00:00:00.000Z', transferred: '0.5' });
-		expect(usageInMonth([instant], '2026-07')[0].inMonth).toBe('0.5');
-		expect(usageInMonth([deployment({ createdAt: null })], '2026-07')).toEqual([]);
-	});
-});
+// usageInMonth's own tests moved with it to @le-space/chains (test/akash-deployments.test.js).
 
 describe('akashMonth', () => {
 	const accounts = [

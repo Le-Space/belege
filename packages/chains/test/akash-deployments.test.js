@@ -4,7 +4,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createAkashDeploymentsClient, decUnits } from '../src/akash-deployments.js';
+import {
+	ACT_PRICE_SOURCE,
+	akashUsageEntries,
+	createAkashDeploymentsClient,
+	decUnits,
+	fromMicro,
+	usageInMonth
+} from '../src/akash-deployments.js';
 
 const ADDRESS = `akash1${'q'.repeat(38)}`;
 const REST = 'https://rest.example';
@@ -152,4 +159,104 @@ test('the ACT held now, from the node’s balances; none is 0', async () => {
 		'7.503515'
 	);
 	assert.equal(await client([]).actBalance({ address: ADDRESS, rest: REST }), '0');
+});
+
+/** @param {Partial<import('../src/akash-deployments.js').AkashDeployment>} d */
+const deployment = (d) => ({
+	dseq: '1000',
+	state: 'closed',
+	createdAt: '2026-07-10T00:00:00.000Z',
+	settledAt: '2026-07-20T00:00:00.000Z',
+	transferred: '1',
+	...d
+});
+
+// Moved with usageInMonth from Belege's app/src/lib/akash/akash.spec.js.
+test('usageInMonth: a deployment within the month counts whole; one across two months is split by time', () => {
+	const within = deployment({ dseq: '1' });
+	// 10 days in June, 20 in July.
+	const across = deployment({
+		dseq: '2',
+		createdAt: '2026-06-21T00:00:00.000Z',
+		settledAt: '2026-07-21T00:00:00.000Z',
+		transferred: '3'
+	});
+	assert.deepEqual(
+		usageInMonth([within, across], '2026-07').map((u) => [u.dseq, u.inMonth]),
+		[
+			['1', '1'],
+			['2', '2']
+		]
+	);
+	assert.deepEqual(
+		usageInMonth([within, across], '2026-06').map((u) => [u.dseq, u.inMonth]),
+		[['2', '1']]
+	);
+	assert.deepEqual(usageInMonth([within], '2026-08'), []);
+});
+
+test('usageInMonth: one that lived no time counts where it was created; one without times is left out', () => {
+	const instant = deployment({ settledAt: '2026-07-10T00:00:00.000Z', transferred: '0.5' });
+	assert.equal(usageInMonth([instant], '2026-07')[0].inMonth, '0.5');
+	assert.deepEqual(usageInMonth([deployment({ createdAt: null })], '2026-07'), []);
+	assert.equal(fromMicro(-1_500_000n), '-1.5');
+});
+
+test('akashUsageEntries: one usage entry per deployment with a share in the month, in ACT at 1 USD, no wallet movement', () => {
+	const entries = akashUsageEntries({
+		address: ADDRESS,
+		month: '2026-07',
+		deployments: [
+			deployment({ dseq: '1' }),
+			deployment({
+				dseq: '2',
+				createdAt: '2026-06-21T00:00:00.000Z',
+				settledAt: '2026-07-21T00:00:00.000Z',
+				transferred: '3'
+			}),
+			// Nothing paid out yet: no entry.
+			deployment({ dseq: '3', transferred: '0' })
+		]
+	});
+	assert.deepEqual(
+		entries.map((e) => [
+			e.id,
+			e.kind,
+			e.type,
+			e.asset,
+			e.amount,
+			e.counterpartyLabel,
+			e.time,
+			e.hash
+		]),
+		[
+			[
+				`akash:${ADDRESS}:usage:2026-07:1`,
+				'usage',
+				'sent',
+				'ACT',
+				'-1',
+				'Deployment 1',
+				'2026-07-31T23:59:59.000Z',
+				''
+			],
+			[
+				`akash:${ADDRESS}:usage:2026-07:2`,
+				'usage',
+				'sent',
+				'ACT',
+				'-2',
+				'Deployment 2',
+				'2026-07-31T23:59:59.000Z',
+				''
+			]
+		]
+	);
+	assert.equal(entries[1].memo, 'Laufzeit 2026-06-21 – 2026-07-21, gesamt 3 ACT, Anteil 66.7 %');
+	assert.deepEqual(entries[0].unitPrice, {
+		currency: 'USD',
+		amount: '1',
+		source: ACT_PRICE_SOURCE
+	});
+	assert.match(entries[0].explorerUrl, /mintscan\.io\/akash\/accounts\/akash1/);
 });
