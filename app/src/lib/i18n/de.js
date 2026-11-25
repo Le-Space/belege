@@ -557,7 +557,8 @@ export default {
 			saveFailed: 'Der Akash-Verbrauchsnachweis konnte nicht gespeichert werden.'
 		},
 		wallets: {
-			costCentre: 'Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – {value}'
+			costCentre: 'Kostenstelle: bis zu 36 Buchstaben und Ziffern, ohne Leerzeichen – {value}',
+			ledgerAccount: 'Keine Kontonummer für {asset}: {value} (4 bis 8 Ziffern)'
 		},
 		export: {
 			notReady: 'Dieser Monat ist noch nicht bereit für den Export.'
@@ -3072,6 +3073,20 @@ export default {
 			ledgerHintChart:
 				'Das Sachkonto, unter dem jedes Konto in deiner Buchhaltung geführt wird. Tipp Nummer oder Bezeichnung – die Vorschläge kommen aus deinem eingelesenen Kontenplan ({count} Konten).',
 			filterMissing: 'nur ohne Sachkonto',
+			suggestion: 'Vorschlag: {number} {name}',
+			suggestionNext: 'Vorschlag: {number} (nächste freie Nummer – im Kontenplan anlegen)',
+			shared: 'teilt {number} mit {assets}',
+			and: 'und',
+			conflicts: {
+				title: 'Mehrere Assets auf einem Sachkonto',
+				shared: '{assets} teilen {number} – eigenes Konto für {move} eintragen.',
+				why: 'Ein Sachkonto summiert in Euro: Bestand und Gewinn je Asset lassen sich dort nicht mehr auseinanderhalten. Belege ändert nichts von selbst – übernimm einen Vorschlag oder trag eine freie Nummer aus deinem Kontenplan ein, dann „Speichern“.',
+				months:
+					'Noch nicht exportierte Monate gehen mit der neuen Nummer hinaus. Monate, die schon beim Steuerberater sind, braucht er als Umbuchung vom alten auf das neue Konto – oder als neuen Export.',
+				fix: '{asset}: {number} eintragen',
+				fixNext: '{asset}: {number} eintragen (nächste freie Nummer – im Kontenplan anlegen)',
+				none: 'Für {asset} gibt es keinen Vorschlag: trag eine freie Nummer aus deinem Kontenplan ein.'
+			},
 			col: { account: 'Konto', kind: 'Art', name: 'Im Kontenplan' },
 			kind: {
 				bank: 'Bank',
@@ -5827,8 +5842,13 @@ export default {
 				name: 'Bezeichnung (optional)',
 				namePlaceholder: 'z. B. Projekt oder Zweck',
 				ledger: 'Konto (Finanzkonto)',
+				ledgerFor: 'Konto (Finanzkonto) für {asset}',
 				costCentre: 'Kostenstelle (KOST1)',
-				hint: 'Die Bezeichnung steht statt der Adresse an allen Konten dieser Wallet. Konto und Kostenstelle gelten für alle ihre Assets und gehen in den DATEV-Export; die Kostenstelle nur aus Buchstaben und Ziffern.',
+				hint: 'Die Bezeichnung steht statt der Adresse an allen Konten dieser Wallet. Jedes Asset hat sein eigenes Konto; die Kostenstelle gilt für alle Assets. Beides geht in den DATEV-Export; die Kostenstelle nur aus Buchstaben und Ziffern.',
+				hintNew:
+					'Das Konto gilt für {asset}. Jedes weitere Asset der Wallet braucht ein eigenes – nach dem ersten Synchronisieren hier im Menü oder unter Einstellungen → Buchhaltung, dort mit Vorschlag.',
+				ledgerShared:
+					'{assets} stehen auf demselben Konto {number}. Jedes Asset braucht ein eigenes Sachkonto – sonst lassen sich Bestand und Gewinn je Asset in der Buchhaltung nicht auseinanderhalten.',
 				ledgerFromChart:
 					'Vorschlag aus deinem Kontenplan: {account} {name}. Du kannst die Nummer ändern.',
 				ledgerCandidates: 'In deinem Kontenplan passen mehrere freie Konten – wähle eines:',

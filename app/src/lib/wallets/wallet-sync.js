@@ -52,35 +52,133 @@ import { currentLocale, t } from '../i18n/index.js';
  * @property {string} [addressUrl] the explorer's page of the address, from the last sync
  * @property {string} [lastSyncedAt]
  * @property {string} [name] the person's name for it (a project), shown instead of the address tail
- * @property {string} [ledgerAccount] the ledger account of its asset accounts (DATEV Konto)
+ * @property {Record<string, string>} [ledgerAccounts] the ledger account (DATEV Konto) of each of its
+ *   asset accounts, by asset (`{ NEAR: '1204', USDC: '1205' }`): every asset its own
+ * @property {string} [ledgerAccount] before ledger accounts per asset: one number for the
+ *   wallet. Read for one asset that has none yet (assetLedgerPlan); dropped once the
+ *   person sets a number per asset, so that an older device, which gives this number to
+ *   every asset account, no longer overwrites them
  * @property {string} [costCentre] a cost centre for all its bookings (DATEV KOST1)
  */
 
 /** DATEV KOST1: up to 36 characters; letters and digits keep every import happy. */
 export const COST_CENTRE = /^[A-Za-z0-9]{1,36}$/;
 
+/** The longest asset symbol kept as a key of `ledgerAccounts`. */
+const ASSET_KEY = 40;
+
 /**
- * A wallet's name, ledger account and cost centre as kept: a name of at most
- * 60 characters, an account number, a cost centre of letters and digits; ''
- * for none. Throws on a ledger account or cost centre that cannot be one.
+ * A wallet's name, ledger accounts and cost centre as kept: a name of at most
+ * 60 characters, an account number per asset ('' to take one away), a cost
+ * centre of letters and digits; '' for none. Throws on a ledger account or
+ * cost centre that cannot be one.
  *
- * @param {{ name?: unknown, ledgerAccount?: unknown, costCentre?: unknown }} input
- * @returns {{ name: string, ledgerAccount: string, costCentre: string }}
+ * @param {{ name?: unknown, ledgerAccounts?: unknown, costCentre?: unknown }} input
+ * @returns {{ name: string, ledgerAccounts: Record<string, string>, costCentre: string }}
  */
 export function cleanWalletMeta(input) {
 	const name = String(input.name ?? '')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.slice(0, 60);
-	const ledgerAccount = String(input.ledgerAccount ?? '').trim();
 	const costCentre = String(input.costCentre ?? '').trim();
-	if (ledgerAccount && !isAccountNumber(ledgerAccount)) {
-		throw new Error(`Keine Kontonummer: ${ledgerAccount}`);
+	/** @type {Record<string, string>} */
+	const ledgerAccounts = {};
+	const given =
+		input.ledgerAccounts && typeof input.ledgerAccounts === 'object' ? input.ledgerAccounts : {};
+	for (const [key, value] of Object.entries(given)) {
+		const asset = String(key).trim().slice(0, ASSET_KEY);
+		if (!asset) continue;
+		const number = String(value ?? '').trim();
+		if (number && !isAccountNumber(number)) {
+			throw new Error(t('messages.wallets.ledgerAccount', { value: number, asset }));
+		}
+		ledgerAccounts[asset] = number;
 	}
 	if (costCentre && !COST_CENTRE.test(costCentre)) {
 		throw new Error(t('messages.wallets.costCentre', { value: costCentre }));
 	}
-	return { name, ledgerAccount, costCentre };
+	return { name, ledgerAccounts, costCentre };
+}
+
+/**
+ * The ledger account of each asset of a wallet as it stands: what its asset
+ * accounts carry, else what the wallet keeps for the asset (`ledgerAccounts`);
+ * an old wallet's one number (`ledgerAccount`) for its native asset when no
+ * account has numbers yet.
+ *
+ * @param {Wallet} wallet
+ * @param {{ asset?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} accounts its asset accounts
+ * @param {import('./chains.js').WalletChain | null} [chain]
+ * @returns {Record<string, string>}
+ */
+export function walletLedgers(wallet, accounts, chain = walletChain(wallet.chain)) {
+	/** @type {Record<string, string>} */
+	const out = {};
+	for (const [asset, number] of Object.entries(wallet.ledgerAccounts ?? {})) {
+		if (isAccountNumber(number)) out[asset] = String(number);
+	}
+	for (const a of accounts) {
+		const asset = String(a.asset ?? '');
+		if (!a.deleted && asset && isAccountNumber(a.ledgerAccount))
+			out[asset] = String(a.ledgerAccount);
+	}
+	const legacy = String(wallet.ledgerAccount ?? '');
+	if (isAccountNumber(legacy) && !Object.values(out).includes(legacy)) {
+		const assets = accounts
+			.filter((a) => !a.deleted)
+			.map((a) => String(a.asset ?? ''))
+			.filter(Boolean)
+			.sort();
+		const holder = [chain?.nativeSymbol ?? '', ...assets].find(
+			(x) => x && !out[x] && (!assets.length || assets.includes(x))
+		);
+		if (holder) out[holder] = legacy;
+	}
+	return out;
+}
+
+/**
+ * Which ledger account a sync gives the asset accounts that have none: the
+ * one the wallet keeps for the asset (`ledgerAccounts`); an old wallet's one
+ * number (`ledgerAccount`) to one asset only – its native asset first, else
+ * the first by name – and only while no other asset account of the wallet
+ * holds it. An account that has a number keeps it: the person may have set it
+ * in the DATEV settings.
+ *
+ * @param {object} p
+ * @param {Wallet} p.wallet
+ * @param {import('./chains.js').WalletChain} p.chain
+ * @param {string[]} p.assets the assets the sync books
+ * @param {{ asset?: unknown, ledgerAccount?: unknown, deleted?: boolean }[]} p.accounts the wallet's asset accounts in the books
+ * @returns {Map<string, string>} asset → the number to give its account
+ */
+export function assetLedgerPlan({ wallet, chain, assets, accounts }) {
+	/** @type {Map<string, string>} */
+	const out = new Map();
+	const live = accounts.filter((a) => !a.deleted);
+	const has = (/** @type {string} */ asset) =>
+		live.some((a) => a.asset === asset && isAccountNumber(a.ledgerAccount));
+	const taken = new Set(
+		live.map((a) => String(a.ledgerAccount ?? '')).filter((n) => isAccountNumber(n))
+	);
+	const open = assets.filter((asset) => !has(asset));
+	for (const asset of open) {
+		const own = wallet.ledgerAccounts?.[asset];
+		if (isAccountNumber(own)) {
+			out.set(asset, String(own));
+			taken.add(String(own));
+		}
+	}
+	const legacy = String(wallet.ledgerAccount ?? '');
+	if (!isAccountNumber(legacy) || taken.has(legacy)) return out;
+	const rest = open
+		.filter((asset) => !out.has(asset) && !wallet.ledgerAccounts?.[asset])
+		.sort((a, b) =>
+			a === chain.nativeSymbol ? -1 : b === chain.nativeSymbol ? 1 : a < b ? -1 : 1
+		);
+	if (rest.length) out.set(rest[0], legacy);
+	return out;
 }
 
 /**
@@ -99,18 +197,19 @@ export function walletAccountLabel(chain, asset, wallet) {
 }
 
 /**
- * What a wallet gives its asset accounts: the name, and its ledger account
- * and cost centre where it has them (an account keeps its own ledger account
- * when the wallet names none).
+ * What a wallet gives its asset accounts: the name and the cost centre, and
+ * a ledger account where one is given for this account (assetLedgerPlan) –
+ * never the wallet's one number to every asset: each asset its own.
  *
  * @param {import('./chains.js').WalletChain} chain
  * @param {Record<string, any>} account
  * @param {Wallet} wallet
+ * @param {string | null} [ledger] the ledger account to give this account; none: it keeps its own
  */
-export function walletAccountFields(chain, account, wallet) {
+export function walletAccountFields(chain, account, wallet, ledger = null) {
 	return {
 		name: walletAccountLabel(chain, String(account.asset ?? ''), wallet),
-		...(wallet.ledgerAccount ? { ledgerAccount: wallet.ledgerAccount } : {}),
+		...(ledger ? { ledgerAccount: ledger } : {}),
 		costCentre: wallet.costCentre || null
 	};
 }
@@ -610,7 +709,7 @@ export async function loadWallets(settings) {
  * Add a wallet to the list; the same chain and address twice is one.
  *
  * @param {import('../store/repository.js').Collection} settings
- * @param {{ chain: string, address: string, endpoints?: Record<string, string>, name?: string, ledgerAccount?: string, costCentre?: string }} input
+ * @param {{ chain: string, address: string, endpoints?: Record<string, string>, name?: string, ledgerAccounts?: Record<string, string>, costCentre?: string }} input
  * @param {Date} [now]
  * @returns {Promise<Wallet>}
  */
@@ -625,6 +724,9 @@ export async function addWallet(settings, input, now = new Date()) {
 		if (trimmed) endpoints[name] = trimmed;
 	}
 	const meta = cleanWalletMeta(input);
+	const ledgerAccounts = Object.fromEntries(
+		Object.entries(meta.ledgerAccounts).filter(([, number]) => number)
+	);
 	const wallets = await loadWallets(settings);
 	const known = wallets.find((w) => w.chain === chain.id && w.address === address);
 	if (known) return known;
@@ -636,7 +738,7 @@ export async function addWallet(settings, input, now = new Date()) {
 		endpoints,
 		addedAt: now.toISOString(),
 		...(meta.name ? { name: meta.name } : {}),
-		...(meta.ledgerAccount ? { ledgerAccount: meta.ledgerAccount } : {}),
+		...(Object.keys(ledgerAccounts).length ? { ledgerAccounts } : {}),
 		...(meta.costCentre ? { costCentre: meta.costCentre } : {})
 	};
 	await setSetting(settings, 'wallets', [...wallets, wallet]);
@@ -659,12 +761,13 @@ export async function removeWallet(settings, id) {
 }
 
 /**
- * Change a wallet's name, ledger account and cost centre, and carry them to
- * its asset accounts at once.
+ * Change a wallet's name, ledger accounts and cost centre, and carry them to
+ * its asset accounts at once. A ledger account is set for the assets named in
+ * `ledgerAccounts` only ('' takes it away); the other assets keep theirs.
  *
  * @param {{ settings: import('../store/repository.js').Collection, accounts: import('../store/repository.js').Collection }} store
  * @param {string} id
- * @param {{ name?: unknown, ledgerAccount?: unknown, costCentre?: unknown }} input
+ * @param {{ name?: unknown, ledgerAccounts?: unknown, costCentre?: unknown }} input
  * @returns {Promise<Wallet>}
  */
 export async function updateWalletMeta(store, id, input) {
@@ -673,19 +776,69 @@ export async function updateWalletMeta(store, id, input) {
 	const found = wallets.find((w) => w.id === id);
 	const chain = found ? walletChain(found.chain) : null;
 	if (!found || !chain) throw new Error(`Unbekannte Wallet: ${id}`);
+	const accounts = await store.accounts.list({
+		where: (a) => a.source === chain.id && a.walletAddress === found.address
+	});
 	/** @type {Wallet} */
 	const wallet = { ...found };
-	for (const key of /** @type {const} */ (['name', 'ledgerAccount', 'costCentre'])) {
+	for (const key of /** @type {const} */ (['name', 'costCentre'])) {
 		if (meta[key]) wallet[key] = meta[key];
 		else delete wallet[key];
 	}
+	setLedgers(wallet, { ...walletLedgers(found, accounts, chain), ...meta.ledgerAccounts });
 	await saveWallet(store.settings, wallet);
-	const accounts = await store.accounts.list({
-		where: (a) => a.source === chain.id && a.walletAddress === wallet.address
-	});
 	for (const account of accounts) {
-		await store.accounts.put({ ...account, ...walletAccountFields(chain, account, wallet) });
+		const asset = String(account.asset ?? '');
+		const named = Object.hasOwn(meta.ledgerAccounts, asset);
+		await store.accounts.put({
+			...account,
+			...walletAccountFields(chain, account, wallet),
+			...(named ? { ledgerAccount: meta.ledgerAccounts[asset] || null } : {})
+		});
 	}
+	return wallet;
+}
+
+/**
+ * Keep a wallet's ledger accounts per asset, and drop its old one number:
+ * an older device would give that to every asset account again.
+ *
+ * @param {Wallet} wallet changed in place
+ * @param {Record<string, string>} ledgers asset → number; '' for none
+ */
+function setLedgers(wallet, ledgers) {
+	const kept = Object.fromEntries(
+		Object.entries(ledgers).filter(([, number]) => isAccountNumber(number))
+	);
+	if (Object.keys(kept).length) wallet.ledgerAccounts = kept;
+	else delete wallet.ledgerAccounts;
+	delete wallet.ledgerAccount;
+}
+
+/**
+ * A ledger account set on one asset account by hand (Einstellungen →
+ * Buchhaltung): the wallet keeps it for that asset, so that its record and
+ * the other devices know it. The account itself is written by the caller.
+ *
+ * @param {{ settings: import('../store/repository.js').Collection, accounts: import('../store/repository.js').Collection }} store
+ * @param {Record<string, any>} account the wallet's asset account, as it is now in the books
+ * @returns {Promise<Wallet | null>} the wallet, or null for an account that is no own wallet's
+ */
+export async function noteAssetLedger(store, account) {
+	const chain = account.kind === 'wallet' ? walletChain(account.source) : null;
+	const asset = String(account.asset ?? '');
+	if (!chain || !account.walletAddress || !asset) return null;
+	const wallets = await loadWallets(store.settings);
+	const found = wallets.find((w) => w.chain === chain.id && w.address === account.walletAddress);
+	if (!found) return null;
+	const accounts = await store.accounts.list({
+		where: (a) => a.source === chain.id && a.walletAddress === found.address
+	});
+	const number = isAccountNumber(account.ledgerAccount) ? String(account.ledgerAccount) : '';
+	/** @type {Wallet} */
+	const wallet = { ...found };
+	setLedgers(wallet, { ...walletLedgers(found, accounts, chain), [asset]: number });
+	await saveWallet(store.settings, wallet);
 	return wallet;
 }
 
@@ -871,6 +1024,17 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 	const fullHistory = !(result.history?.pruned && result.history?.completedBy !== 'indexer');
 	const thisMonth = today.slice(0, 7);
 
+	// Which ledger account each asset account gets that has none.
+	const ledgerPlan = assetLedgerPlan({
+		wallet,
+		chain,
+		assets: [...wanted.keys()],
+		accounts: await store.accounts.list({
+			where: (/** @type {Record<string, any>} */ a) =>
+				a.source === chain.id && String(a.sourceAccountId ?? '').startsWith(`${wallet.address}:`)
+		})
+	});
+
 	const totals = { new: 0, updated: 0, skipped: 0 };
 	/** @type {{ accountId: string, name: string, asset: string, counts: typeof totals }[]} */
 	const perAccount = [];
@@ -899,7 +1063,12 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 		});
 		await store.accounts.put({
 			...record,
-			...walletAccountFields(chain, { ...record, asset }, wallet),
+			...walletAccountFields(
+				chain,
+				{ ...record, asset },
+				wallet,
+				isAccountNumber(record.ledgerAccount) ? null : (ledgerPlan.get(asset) ?? null)
+			),
 			importEnabled: true,
 			walletAddress: wallet.address,
 			addressUrl: safeExplorerUrl(result.addressUrl) ?? '',

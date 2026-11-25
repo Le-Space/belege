@@ -272,7 +272,7 @@
 
 	/**
 	 * @param {import('./wallet-sync.js').Wallet} wallet
-	 * @param {{ name: string, ledgerAccount: string, costCentre: string }} meta
+	 * @param {{ name: string, ledgerAccounts: Record<string, string>, costCentre: string }} meta
 	 */
 	async function saveMeta(wallet, meta) {
 		const store = currentStore();

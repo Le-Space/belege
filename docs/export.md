@@ -145,4 +145,6 @@ A wallet the chart calls by another name is found by what it holds: an asset acc
 
 Where nothing was taken over, the field offers the free chart accounts that share most with the account's name and bank; a click fills one in, and "Speichern" keeps it.
 
-**A new wallet** is offered a ledger account in the form: the chart account that names the wallet or its chain, else the next free number after the ledger accounts of your other wallets, with the note that the bookkeeping has to open that account first. The field can be changed or emptied.
+**A new wallet** is offered a ledger account in the form, for the chain's own asset: the chart account that names the wallet or its chain, else the next free number after the ledger accounts of your other wallets, with the note that the bookkeeping has to open that account first. The field can be changed or emptied.
+
+**Every asset its own ledger account.** Each asset account of a wallet or an exchange has a ledger account of its own; one without gets a suggestion in the table – the chart account that names the wallet (or the exchange) and the asset, else the next free number. Two different assets on one ledger account are flagged above the table, with a number for the one that should move; nothing changes until it is taken and saved. The export reads the ledger account when it runs, so months not yet exported follow a new number; months already with the tax adviser need a reposting there, or a new export (`docs/crypto.md`, "Every asset its own ledger account").

@@ -120,7 +120,8 @@
 				address,
 				endpoints: custom,
 				name: newName,
-				ledgerAccount: newLedger,
+				// The number is the chain's own asset's; every other asset gets its own.
+				ledgerAccounts: { [localChain.nativeSymbol]: newLedger },
 				costCentre: newCostCentre
 			});
 			await onadded();
@@ -202,6 +203,7 @@
 		bind:name={newName}
 		bind:ledger={newLedger}
 		bind:cost={newCostCentre}
+		asset={localChain?.nativeSymbol ?? ''}
 		id="wallet-new"
 	/>
 	{#if ledgerSuggestion && newLedger === ledgerSuggestion.number}

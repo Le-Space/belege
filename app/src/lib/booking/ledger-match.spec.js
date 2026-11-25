@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	bankWord,
 	chartCandidates,
+	ledgerConflicts,
 	ledgersFromChart,
 	nameWords,
+	suggestAssetLedger,
 	suggestWalletLedger,
 	walletLedgerCandidates
 } from './ledger-match.js';
@@ -326,5 +328,99 @@ describe('a ledger account for a new wallet', () => {
 		expect(
 			suggestWalletLedger({ chain: { name: 'Akash' }, wallets: [{}], accounts: [], chart: null })
 		).toBeNull();
+	});
+});
+
+describe('a ledger account per asset', () => {
+	const near = { name: 'NEAR', shortName: 'NEAR', nativeSymbol: 'NEAR' };
+	const perAsset = {
+		accounts: [
+			{ number: '1400', name: 'Wallet Projekt Ost NEAR' },
+			{ number: '1401', name: 'Wallet Projekt Ost USDC' },
+			{ number: '1410', name: 'Kraken Bitcoin' },
+			{ number: '1411', name: 'Kraken Ether' }
+		]
+	};
+
+	it('is the chart account that names the wallet with the asset', () => {
+		const s = suggestAssetLedger({
+			account: { kind: 'wallet', asset: 'USDC', source: 'near' },
+			wallet: { name: 'Projekt Ost', address: 'ost.near' },
+			chain: near,
+			wallets: [{ ledgerAccounts: { NEAR: '1400' } }],
+			accounts: [{ kind: 'wallet', asset: 'NEAR', ledgerAccount: '1400' }],
+			chart: perAsset
+		});
+		expect(s).toEqual({
+			number: '1401',
+			name: 'Wallet Projekt Ost USDC',
+			source: 'chart',
+			inChart: true
+		});
+	});
+
+	it('names an exchange’s asset by the exchange and the asset, a ticker as its name', () => {
+		expect(
+			suggestAssetLedger({
+				account: { kind: 'exchange', asset: 'ETH', source: 'kraken' },
+				wallets: [],
+				accounts: [{ kind: 'exchange', asset: 'BTC', ledgerAccount: '1410' }],
+				chart: perAsset
+			})?.number
+		).toBe('1411');
+	});
+
+	it('is else the next free number, never one another asset or another offer uses', () => {
+		const ask = {
+			account: { kind: 'wallet', asset: 'AURORA', source: 'near' },
+			wallet: { name: 'Projekt West', address: 'west.near' },
+			chain: near,
+			wallets: [{ ledgerAccount: '1500' }, { ledgerAccounts: { NEAR: '1501', USDC: '1502' } }],
+			accounts: [{ kind: 'wallet', asset: 'NEAR', ledgerAccount: '1503' }],
+			chart: null
+		};
+		expect(suggestAssetLedger(ask)).toEqual({
+			number: '1504',
+			name: '',
+			source: 'next',
+			inChart: false
+		});
+		expect(suggestAssetLedger({ ...ask, reserved: ['1504'] })?.number).toBe('1505');
+		// A chart account that names the wallet without the asset is the other asset's: not offered.
+		expect(
+			suggestAssetLedger({
+				...ask,
+				wallet: { name: 'Projekt Ost', address: 'ost.near' },
+				wallets: [],
+				accounts: [{ kind: 'wallet', asset: 'NEAR', ledgerAccount: '1400' }],
+				chart: perAsset
+			})?.number
+		).toBe('1402');
+	});
+
+	it('flags two assets on one ledger account, and says which keeps it', () => {
+		const accounts = [
+			{ id: 'w-near', kind: 'wallet', source: 'near', asset: 'NEAR', ledgerAccount: '1400' },
+			{ id: 'w-usdc', kind: 'wallet', source: 'near', asset: 'USDC', ledgerAccount: '1400' },
+			// The same asset in two wallets on one number: allowed.
+			{ id: 'v-near', kind: 'wallet', source: 'near', asset: 'NEAR', ledgerAccount: '1400' },
+			{ id: 'x-btc', kind: 'exchange', source: 'kraken', asset: 'BTC', ledgerAccount: '1200' },
+			{ id: 'bank', kind: 'bank', ledgerAccount: '1200' },
+			{ id: 'e-eth', kind: 'wallet', source: 'ethereum', asset: 'ETH', ledgerAccount: '1450' },
+			{ id: 'e-xyz', kind: 'wallet', source: 'ethereum', asset: 'XYZ', ledgerAccount: '1450' },
+			{ id: 'gone', kind: 'wallet', asset: 'USDC', ledgerAccount: '1450', deleted: true },
+			{ id: 'b-only', kind: 'wallet', asset: 'NEAR', ledgerAccount: '1460' }
+		];
+		const native = (/** @type {any} */ a) =>
+			a.source === 'near' ? 'NEAR' : a.source === 'ethereum' ? 'ETH' : '';
+		const named = { accounts: [{ number: '1450', name: 'Wallet XYZ Token' }] };
+		const found = ledgerConflicts(accounts, named, native);
+		expect(found.map((c) => [c.number, c.assets, c.keep.id, c.move.map((a) => a.id)])).toEqual([
+			['1200', ['BTC', 'EUR'], 'x-btc', ['bank']],
+			['1400', ['NEAR', 'USDC'], 'w-near', ['w-usdc']],
+			// The chart names XYZ: XYZ keeps it, the native asset moves.
+			['1450', ['ETH', 'XYZ'], 'e-xyz', ['e-eth']]
+		]);
+		expect(ledgerConflicts(accounts.slice(0, 1), null)).toEqual([]);
 	});
 });

@@ -35,7 +35,7 @@ import { intlLocale, t } from '../i18n/index.js';
  * @property {(w: import('./wallet-sync.js').Wallet) => Promise<void>} sync
  * @property {(w: import('./wallet-sync.js').Wallet, file: File | undefined) => Promise<void>} importHistory
  * @property {(w: import('./wallet-sync.js').Wallet) => Promise<void>} remove
- * @property {(w: import('./wallet-sync.js').Wallet, meta: { name: string, ledgerAccount: string, costCentre: string }) => Promise<void>} saveMeta
+ * @property {(w: import('./wallet-sync.js').Wallet, meta: { name: string, ledgerAccounts: Record<string, string>, costCentre: string }) => Promise<void>} saveMeta
  */
 /**
  * The wallets as groups

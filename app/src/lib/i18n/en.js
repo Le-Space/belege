@@ -534,7 +534,8 @@ export default {
 			saveFailed: 'The Akash usage statement could not be saved.'
 		},
 		wallets: {
-			costCentre: 'Cost centre: up to 36 letters and digits, no spaces – {value}'
+			costCentre: 'Cost centre: up to 36 letters and digits, no spaces – {value}',
+			ledgerAccount: 'Not an account number for {asset}: {value} (4 to 8 digits)'
 		},
 		export: {
 			notReady: 'This month is not ready for export yet.'
@@ -3026,6 +3027,20 @@ export default {
 			ledgerHintChart:
 				'The ledger account under which each account is kept in your bookkeeping. Type its number or name – the suggestions come from your chart of accounts ({count} accounts).',
 			filterMissing: 'without a ledger account only',
+			suggestion: 'Suggestion: {number} {name}',
+			suggestionNext: 'Suggestion: {number} (next free number – add it to your chart of accounts)',
+			shared: 'shares {number} with {assets}',
+			and: 'and',
+			conflicts: {
+				title: 'Several assets on one ledger account',
+				shared: '{assets} share {number} – enter an account of its own for {move}.',
+				why: 'A ledger account sums in euros: holdings and gains per asset can no longer be told apart there. Belege changes nothing by itself – take a suggestion or enter a free number from your chart of accounts, then “Save”.',
+				months:
+					'Months not yet exported go out with the new number. Months your tax adviser already has need a reposting from the old account to the new one there – or a new export.',
+				fix: '{asset}: enter {number}',
+				fixNext: '{asset}: enter {number} (next free number – add it to your chart of accounts)',
+				none: 'No suggestion for {asset}: enter a free number from your chart of accounts.'
+			},
 			col: { account: 'Account', kind: 'Kind', name: 'In the chart of accounts' },
 			kind: {
 				bank: 'Bank',
@@ -5755,8 +5770,13 @@ export default {
 				name: 'Label (optional)',
 				namePlaceholder: 'e.g. project or purpose',
 				ledger: 'Account (financial account)',
+				ledgerFor: 'Account (financial account) for {asset}',
 				costCentre: 'Cost centre (KOST1)',
-				hint: 'The label replaces the address on all accounts of this wallet. Account and cost centre apply to all its assets and go into the DATEV export; the cost centre only letters and digits.',
+				hint: 'The label replaces the address on all accounts of this wallet. Each asset has an account of its own; the cost centre applies to all assets. Both go into the DATEV export; the cost centre only letters and digits.',
+				hintNew:
+					'The account applies to {asset}. Every other asset of the wallet needs one of its own – after the first sync here in the menu or under Settings → Bookkeeping, with a suggestion there.',
+				ledgerShared:
+					'{assets} are on the same account {number}. Each asset needs a ledger account of its own – otherwise holdings and gains per asset cannot be told apart in the bookkeeping.',
 				ledgerFromChart:
 					'Suggested from your chart of accounts: {account} {name}. You can change the number.',
 				ledgerCandidates: 'Several free accounts of your chart fit – pick one:',

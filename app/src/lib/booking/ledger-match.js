@@ -5,7 +5,9 @@
 // and that chart account for no other – since a wrong number goes into the
 // DATEV export unseen. Without a match nothing is guessed for an account that
 // exists; a new wallet is offered the next free number beside the other
-// wallets' (suggestWalletLedger, walletLedgerCandidates). Pure.
+// wallets' (suggestWalletLedger, walletLedgerCandidates), and every asset of a
+// wallet or an exchange a number of its own (suggestAssetLedger): two assets
+// on one ledger account are flagged (ledgerConflicts). Pure.
 
 import { ledgerLength } from './chart.js';
 import { isAccountNumber } from './skr03.js';
@@ -348,7 +350,7 @@ export function ledgersFromChart(accounts, chart) {
  * @param {string} [p.name] the wallet's name, when it has one
  * @param {string} [p.address] its address or account id (`name.near`): a chart may name the account by it
  * @param {{ name?: string, shortName?: string, nativeSymbol?: string } | null | undefined} p.chain
- * @param {{ ledgerAccount?: string }[]} p.wallets the wallets already kept
+ * @param {{ ledgerAccount?: string, ledgerAccounts?: Record<string, string> }[]} p.wallets the wallets already kept
  * @param {{ ledgerAccount?: unknown, deleted?: boolean, kind?: unknown }[]} p.accounts every account of the books
  * @param {{ accounts: ChartAccount[] } | null | undefined} p.chart
  * @returns {{ number: string, name: string, source: 'chart' | 'next', inChart: boolean } | null}
@@ -367,19 +369,47 @@ export function suggestWalletLedger({ name = '', address = '', chain, wallets, a
 		}
 	}
 	// The numbers wallets have so far: on the wallet, or on its accounts (one per asset).
-	const ofWallets = [...wallets, ...accounts.filter((a) => !a.deleted && a.kind === 'wallet')]
-		.map((w) => String(w.ledgerAccount ?? ''))
-		.filter((n) => isAccountNumber(n));
-	if (!ofWallets.length) return null;
-	const length = ofWallets[0].length;
+	const ofWallets = [
+		...wallets.flatMap(walletNumbers),
+		...accounts
+			.filter((a) => !a.deleted && a.kind === 'wallet')
+			.map((a) => String(a.ledgerAccount ?? ''))
+	].filter((n) => isAccountNumber(n));
+	return nextFree(ofWallets, used, chart);
+}
+
+/**
+ * The next number after the highest of `after` that nothing uses and the
+ * chart gives to nothing else; null when there is none close by.
+ *
+ * @param {string[]} after numbers of the same kind of account
+ * @param {Set<string>} used
+ * @param {{ accounts: ChartAccount[] } | null | undefined} chart
+ * @returns {{ number: string, name: string, source: 'next', inChart: false } | null}
+ */
+function nextFree(after, used, chart) {
+	if (!after.length) return null;
+	const length = after[0].length;
 	const inChart = new Map((chart?.accounts ?? []).map((a) => [a.number, a.name]));
-	let next = Math.max(...ofWallets.filter((n) => n.length === length).map(Number)) + 1;
+	let next = Math.max(...after.filter((n) => n.length === length).map(Number)) + 1;
 	// A number the chart gives to something else, or that is in use, is not free.
 	for (let i = 0; i < 200 && (used.has(String(next)) || inChart.has(String(next))); i++) next++;
 	const number = String(next).padStart(length, '0');
 	if (number.length !== length || used.has(number) || inChart.has(number)) return null;
 	return { number, name: '', source: 'next', inChart: false };
 }
+
+/**
+ * Every ledger account a wallet names: its numbers per asset, and the one
+ * number of a wallet from before them.
+ *
+ * @param {{ ledgerAccount?: unknown, ledgerAccounts?: Record<string, unknown> }} wallet
+ * @returns {string[]}
+ */
+const walletNumbers = (wallet) =>
+	[wallet.ledgerAccount, ...Object.values(wallet.ledgerAccounts ?? {})]
+		.map((n) => String(n ?? ''))
+		.filter((n) => isAccountNumber(n));
 
 /**
  * The chart's free accounts that fit a wallet being added, when more than one
@@ -418,15 +448,129 @@ function walletLabels({ name = '', address = '', chain }) {
 /**
  * The chart's ledger accounts nothing in the books uses yet, and the numbers in use.
  *
- * @param {{ wallets: { ledgerAccount?: string }[], accounts: { ledgerAccount?: unknown, deleted?: boolean }[], chart: { accounts: ChartAccount[] } | null | undefined }} p
+ * @param {{ wallets: { ledgerAccount?: string, ledgerAccounts?: Record<string, string> }[], accounts: { ledgerAccount?: unknown, deleted?: boolean }[], chart: { accounts: ChartAccount[] } | null | undefined, reserved?: string[] }} p
+ *   `reserved`: numbers already offered to another account on the same page
  */
-function freeLedgerAccounts({ wallets, accounts, chart }) {
+function freeLedgerAccounts({ wallets, accounts, chart, reserved = [] }) {
 	const used = new Set(
-		[...wallets, ...accounts.filter((a) => !a.deleted)]
-			.map((x) => String(x.ledgerAccount ?? ''))
-			.filter((n) => isAccountNumber(n))
+		[
+			...wallets.flatMap(walletNumbers),
+			...accounts.filter((a) => !a.deleted).map((a) => String(a.ledgerAccount ?? '')),
+			...reserved
+		].filter((n) => isAccountNumber(n))
 	);
 	return { used, free: ledgerAccounts(chart).filter((c) => !used.has(c.account.number)) };
+}
+
+/**
+ * A ledger account for one asset account – a wallet's or an exchange's –
+ * that has none, or has to leave one it shares with another asset: the chart
+ * account that names the wallet (by its name, its address, else its chain) or
+ * the exchange together with the asset ("Projekt Nord USDC", "Kraken
+ * Bitcoin"), when exactly one free one does; else the next free number after
+ * the ledger accounts of the same kind of account. Never a number in use, nor
+ * one in `reserved`. Null when there is nothing to go by.
+ *
+ * @param {object} p
+ * @param {{ kind?: unknown, asset?: unknown, source?: unknown }} p.account
+ * @param {{ name?: string, address?: string } | null} [p.wallet] the wallet it belongs to
+ * @param {{ name?: string, shortName?: string, nativeSymbol?: string } | null} [p.chain]
+ * @param {{ ledgerAccount?: string, ledgerAccounts?: Record<string, string> }[]} p.wallets
+ * @param {{ ledgerAccount?: unknown, deleted?: boolean, kind?: unknown, asset?: unknown }[]} p.accounts every account of the books
+ * @param {{ accounts: ChartAccount[] } | null | undefined} p.chart
+ * @param {string[]} [p.reserved]
+ * @returns {{ number: string, name: string, source: 'chart' | 'next', inChart: boolean } | null}
+ */
+export function suggestAssetLedger({
+	account,
+	wallet = null,
+	chain = null,
+	wallets,
+	accounts,
+	chart,
+	reserved = []
+}) {
+	const asset = nameWords(account.asset);
+	if (!asset.length) return null;
+	const { free, used } = freeLedgerAccounts({ wallets, accounts, chart, reserved });
+	const labels =
+		account.kind === 'wallet'
+			? walletLabels({ name: wallet?.name, address: wallet?.address, chain })
+			: [nameWords(account.source).filter((w) => !GENERIC.has(w))].filter((w) => w.length);
+	for (const words of labels) {
+		const need = [...new Set([...words, ...asset])];
+		const fits = free.filter((c) => need.every((w) => c.words.has(w)));
+		if (fits.length === 1) {
+			return {
+				number: fits[0].account.number,
+				name: fits[0].account.name,
+				source: 'chart',
+				inChart: true
+			};
+		}
+		if (fits.length > 1) break;
+	}
+	const sameKind = [
+		...(account.kind === 'wallet' ? wallets.flatMap(walletNumbers) : []),
+		...accounts
+			.filter((a) => !a.deleted && a.kind === account.kind)
+			.map((a) => String(a.ledgerAccount ?? ''))
+	].filter((n) => isAccountNumber(n));
+	return nextFree(sameKind, used, chart);
+}
+
+/**
+ * What an account holds, for telling two apart on one ledger account: the
+ * asset of an exchange's or a wallet's account, euros for every other.
+ *
+ * @param {{ kind?: unknown, asset?: unknown }} account
+ */
+const holds = (account) =>
+	(account.kind === 'wallet' || account.kind === 'exchange') && account.asset
+		? String(account.asset)
+		: 'EUR';
+
+/**
+ * The ledger accounts that hold accounts of different assets: NEAR and USDC
+ * of one wallet on one number, an exchange's BTC beside a bank account. A
+ * DATEV account sums in euros, so the two cannot be told apart there – not
+ * their quantities, nor the gains of a sale. Per number: the account that
+ * may keep it – the one whose asset the chart account names, else a wallet's
+ * native asset, else the first – and those that need their own.
+ *
+ * @template {{ id: string, name?: unknown, kind?: unknown, asset?: unknown, source?: unknown, ledgerAccount?: unknown, deleted?: boolean }} A
+ * @param {A[]} accounts
+ * @param {{ accounts: ChartAccount[] } | null | undefined} chart
+ * @param {(account: A) => string} [native] a wallet account's native asset ('' for none)
+ * @returns {{ number: string, assets: string[], keep: A, move: A[] }[]}
+ */
+export function ledgerConflicts(accounts, chart, native = () => '') {
+	/** @type {Map<string, A[]>} */
+	const byNumber = new Map();
+	for (const a of accounts) {
+		const number = String(a.ledgerAccount ?? '').trim();
+		if (a.deleted || !isAccountNumber(number)) continue;
+		byNumber.set(number, [...(byNumber.get(number) ?? []), a]);
+	}
+	const named = new Map((chart?.accounts ?? []).map((c) => [c.number, new Set(nameWords(c.name))]));
+	/** @type {{ number: string, assets: string[], keep: A, move: A[] }[]} */
+	const out = [];
+	for (const [number, list] of [...byNumber].sort(([a], [b]) => (a < b ? -1 : 1))) {
+		const assets = [...new Set(list.map(holds))];
+		if (assets.length < 2) continue;
+		const words = named.get(number);
+		const keep =
+			(words &&
+				list.find((a) => {
+					const w = nameWords(holds(a));
+					return w.length > 0 && w.every((x) => words.has(x));
+				})) ||
+			list.find((a) => a.kind === 'wallet' && holds(a) === native(a)) ||
+			list[0];
+		const kept = holds(keep);
+		out.push({ number, assets, keep, move: list.filter((a) => holds(a) !== kept) });
+	}
+	return out;
 }
 
 /**
