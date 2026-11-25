@@ -433,7 +433,8 @@ export async function walletTransactions(entries, getRate) {
 						? `${label} ${storage}`
 						: label,
 				e.memo ? `Memo: ${e.memo}` : '',
-				`Tx ${shortHash(e.hash)}`
+				// Tokens back from an unbonding: no transaction, the block it ended in (#1029).
+				e.hash ? `Tx ${shortHash(e.hash)}` : `Block ${e.height}`
 			]
 				.filter(Boolean)
 				.join(' · ');

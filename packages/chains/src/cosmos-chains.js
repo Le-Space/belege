@@ -13,8 +13,10 @@
  * @property {string} bech32Prefix
  * @property {string} nativeDenom
  * @property {Record<string, import('@le-space/ledger/wallet-entry').ChainAsset>} denoms base denom → asset
- * @property {{ rpc: string, rest: string, indexer?: string }} endpoints the defaults; `indexer`: the
- *   Akash Console indexer, read for what the pruned node no longer knows (akash-console.js)
+ * @property {{ rpc: string, rest: string, indexer?: string, archive?: string }} endpoints the defaults; `indexer`: the
+ *   Akash Console indexer, read for what the pruned node no longer knows (akash-console.js); `archive`: a
+ *   CometBFT RPC with every block, the person's own (no public one, #1029), for what the indexer has no
+ *   amount for and for unbondings that ended before the node's window – empty by default
  * @property {{ rpc: string[], rest: string[] }} alternatives also public, e.g. an archive node
  * @property {import('./explorer.js').Explorer} explorer
  */
@@ -66,7 +68,12 @@ export const AKASH_CHAIN = {
 	endpoints: {
 		rpc: 'https://akash-rpc.publicnode.com',
 		rest: 'https://akash-rest.publicnode.com',
-		indexer: 'https://console-api.akash.network'
+		indexer: 'https://console-api.akash.network',
+		// No public Akash node keeps every block (checked 2026-11-25: every
+		// public RPC and REST in the chain registry, Lavender Five, PublicNode,
+		// Akash's own – the lowest height between 26.9 and 29.7 million). The
+		// person names one of their own, or none.
+		archive: ''
 	},
 	alternatives: {
 		rpc: ['https://akash-rpc.polkachu.com', 'https://rpc-akash.ecostake.com'],

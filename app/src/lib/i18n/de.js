@@ -5813,6 +5813,7 @@ export default {
 				rpc: 'RPC',
 				rest: 'REST',
 				indexer: 'Indexer (ältere Geschichte)',
+				archive: 'Archivknoten (CometBFT-RPC, für ältere Beträge und Unbonding)',
 				api: 'API',
 				apiService: {
 					blockscout: 'API (Blockscout)',
@@ -5864,8 +5865,16 @@ export default {
 			unknownAmounts:
 				'{count} ältere Transaktionen mit Staking-Rewards, Escrow-Rückzahlungen oder Auto-Restake: Ihre Beträge kennt der Indexer nicht, sie sind nicht gebucht. Der Bestandsabgleich zeigt die Lücke.',
 			indexerFailed: 'Der Akash-Indexer war nicht erreichbar; der nächste Abruf fragt ihn wieder.',
+			archiveRead:
+				'{count} ältere Transaktionen ohne Betrag im Indexer kamen aus den Blöcken deines Archivknotens.',
+			archiveHint:
+				'Ein Archivknoten (CometBFT-RPC mit allen Blöcken, ohne Transaktionsindex nötig) im Feld „Archivknoten“ liefert sie; öffentlich gibt es für Akash keinen.',
+			archiveFailed:
+				'Der Archivknoten war nicht erreichbar oder gehört zu einer anderen Chain; der nächste Abruf fragt ihn wieder.',
+			unbondingUnread:
+				'{count} beendete Unbondings: Der Knoten kennt den Block nicht mehr, in dem die Tokens zurückkamen – sie sind nicht gebucht. Ein Archivknoten liest sie.',
 			balanceGap:
-				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus dem Unbonding, die keine Transaktion sind.',
+				'Gebucht {booked}, Bestand {balance}: Es fehlen Transaktionen – ältere, die der Knoten nicht mehr kennt, oder Tokens aus einem Unbonding, dessen Ende er nicht mehr kennt.',
 			// The page in tabs, the list grouped by chain, one row per wallet (#1019).
 			tabs: {
 				label: 'Ansicht der Wallets',

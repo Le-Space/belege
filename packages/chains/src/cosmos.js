@@ -39,9 +39,24 @@
 // Denoms that are not in the chain's list (IBC vouchers `ibc/…`, factory
 // tokens) are counted and left out.
 //
-// Not seen: tokens that come back when an unbonding ends (the chain does
-// that in its end-block, not in a transaction) and vesting. The balance
-// shows them; the difference is for a person to look at.
+// Tokens that come back when an unbonding ends are no transaction: the chain
+// pays them out in the end-block of the first block at or after the
+// undelegation's completion time, with a `complete_unbonding` event that
+// names delegator, validator and amount (#1029). The completion time is in
+// the undelegation's `unbond` event; the block is found by its time (a
+// binary search over headers), and its `block_results` give the event. Such
+// a return is an entry without a hash (`unbonding:<height>:<validator>:<asset>`).
+// A node that no longer has that block cannot tell, and the return stays
+// unread (counted).
+//
+// An archive node (`archive`, a CometBFT RPC that has every block) reads a
+// transaction the node's window has lost by its height: `block` for its
+// bytes (whose SHA-256 is its hash) and `block_results` for its events, in
+// the same shape as tx_search – so it gives the same entries and ids. No
+// transaction index is needed for that.
+//
+// Not seen: vesting. The balance shows it; the difference is for a person
+// to look at.
 //
 // The log gets counts, never an address.
 
@@ -250,6 +265,63 @@ export function untransferredOf(events, { nativeDenom, bonded }) {
 }
 
 /**
+ * The undelegations of `address` in a transaction's events: the validator,
+ * and when the tokens come back (`unbond.completion_time`). The delegator is
+ * named in the event (cosmos-sdk ≥ 0.50), else it is the messages' only sender.
+ *
+ * @param {ReturnType<typeof readEvents>} events
+ * @param {string} address
+ * @returns {{ validator: string, completionTime: string }[]}
+ */
+export function unbondingsOf(events, address) {
+	const value = (/** @type {typeof events[number]} */ e, /** @type {string} */ key) =>
+		e.attributes.find((a) => a.key === key)?.value;
+	const senders = [
+		...new Set(
+			events
+				.filter((e) => e.type === 'message')
+				.flatMap((e) => e.attributes.filter((a) => a.key === 'sender').map((a) => a.value))
+		)
+	];
+	/** @type {{ validator: string, completionTime: string }[]} */
+	const out = [];
+	for (const e of events) {
+		if (e.type !== 'unbond') continue;
+		const delegator = value(e, 'delegator') ?? (senders.length === 1 ? senders[0] : '');
+		const validator = value(e, 'validator') ?? '';
+		const at = Date.parse(value(e, 'completion_time') ?? '');
+		if (delegator !== address || !validator || Number.isNaN(at)) continue;
+		out.push({ validator, completionTime: new Date(at).toISOString() });
+	}
+	return out;
+}
+
+/**
+ * The unbondings a block's end paid out to `address`: its
+ * `complete_unbonding` events (amount with its denom; before cosmos-sdk
+ * 0.45 maybe without, then the chain's own).
+ *
+ * @param {ReturnType<typeof readEvents>} events the block's end-block (finalize-block) events
+ * @param {string} address
+ * @param {string} nativeDenom
+ * @returns {{ validator: string, coins: { denom: string, amount: bigint }[] }[]}
+ */
+export function completedUnbondingsOf(events, address, nativeDenom) {
+	/** @type {{ validator: string, coins: { denom: string, amount: bigint }[] }[]} */
+	const out = [];
+	for (const e of events) {
+		if (e.type !== 'complete_unbonding') continue;
+		const value = (/** @type {string} */ key) => e.attributes.find((a) => a.key === key)?.value;
+		if (value('delegator') !== address) continue;
+		const raw = value('amount') ?? '';
+		const coins = parseCoins(/^\d+$/.test(raw) ? `${raw}${nativeDenom}` : raw);
+		const validator = value('validator') ?? '';
+		if (coins && validator) out.push({ validator, coins });
+	}
+	return out;
+}
+
+/**
  * One transaction from tx_search → the entries of `address`.
  *
  * @param {any} raw an item of `result.txs`
@@ -257,7 +329,7 @@ export function untransferredOf(events, { nativeDenom, bonded }) {
  * @param {string} context.address
  * @param {import('./cosmos-chains.js').CosmosChain} context.chain
  * @param {string} context.time ISO 8601 of its block
- * @returns {{ entries: WalletEntry[], unknownDenoms: string[] }}
+ * @returns {{ entries: WalletEntry[], unknownDenoms: string[], unbondings: { hash: string, height: number, validator: string, completionTime: string }[] }}
  */
 export function normalizeCosmosTx(raw, { address, chain, time }) {
 	const hash = String(raw?.hash ?? '').toUpperCase();
@@ -351,7 +423,7 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 			});
 		}
 	}
-	if (code !== 0) return { entries, unknownDenoms };
+	if (code !== 0) return { entries, unknownDenoms, unbondings: [] };
 
 	const ibcEvent = events.find((e) => e.type === 'ibc_transfer');
 	const ibcReceiver = ibcEvent?.attributes.find((a) => a.key === 'receiver')?.value ?? '';
@@ -402,7 +474,23 @@ export function normalizeCosmosTx(raw, { address, chain, time }) {
 		}
 	}
 	if (withBme) markBmeSwap(entries, unlisted, MODULES.bme);
-	return { entries, unknownDenoms };
+	const unbondings = unbondingsOf(events, address).map((u) => ({ hash, height, ...u }));
+	return { entries, unknownDenoms, unbondings };
+}
+
+/** Upper-case hex SHA-256 of a transaction's bytes: its hash. @param {string} b64 */
+async function txHash(b64) {
+	const digest = await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(fromBase64(b64)));
+	return [...new Uint8Array(digest)]
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('')
+		.toUpperCase();
+}
+
+/** `1814400s` → ms; null when it does not parse. @param {unknown} text */
+function durationMs(text) {
+	const m = /^(\d+)(?:\.(\d{1,9}))?s$/.exec(String(text ?? ''));
+	return m ? Number(m[1]) * 1000 + Math.floor(Number(`0.${m[2] ?? '0'}`) * 1000) : null;
 }
 
 /**
@@ -444,7 +532,238 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 		return body.result;
 	}
 
+	/**
+	 * A node's block times, cached: `header`, else `block` (older nodes).
+	 *
+	 * @param {string} rpc
+	 */
+	function blockTimes(rpc) {
+		/** @type {Map<number, string>} */
+		const times = new Map();
+		return async (/** @type {number} */ height) => {
+			const known = times.get(height);
+			if (known) return known;
+			let header;
+			try {
+				header = (await rpcCall(rpc, 'header', { height: String(height) }))?.header;
+			} catch {
+				header = (await rpcCall(rpc, 'block', { height: String(height) }))?.block?.header;
+			}
+			const time = Date.parse(String(header?.time ?? ''));
+			if (Number.isNaN(time)) {
+				throw new WalletError(`no time for block ${height}`, 'WALLET_DATA');
+			}
+			const iso = new Date(time).toISOString();
+			times.set(height, iso);
+			return iso;
+		};
+	}
+
+	/**
+	 * What came back when undelegations ended (#1029): for each, the first
+	 * block at or after its completion time, and in that block's end the
+	 * `complete_unbonding` event for the address and its validator – one
+	 * event, and one entry, for all of a validator's unbondings that end in
+	 * the same block. Without a completion time (an undelegation the indexer
+	 * read) it is the transaction's time plus the chain's unbonding period;
+	 * only the event's amount is booked, so a wrong guess books nothing.
+	 *
+	 * @param {object} p
+	 * @param {import('./cosmos-chains.js').CosmosChain} p.chain
+	 * @param {string} p.address
+	 * @param {string} p.rpc
+	 * @param {string} [p.rest] for the unbonding period
+	 * @param {number} [p.floor] the lowest block the node has
+	 * @param {{ hash: string, height: number, validator: string, completionTime?: string, time?: string }[]} p.unbondings
+	 * @returns {Promise<{ entries: WalletEntry[], pending: number, unread: number }>}
+	 */
+	async function unbondingReturns({ chain, address, rpc, rest, floor = 1, unbondings }) {
+		/** @type {WalletEntry[]} */
+		const entries = [];
+		let pending = 0;
+		let unread = 0;
+		if (!unbondings.length) return { entries, pending, unread };
+		const timeAt = blockTimes(rpc);
+		const ms = async (/** @type {number} */ h) => Date.parse(await timeAt(h));
+		let latest = 0;
+		let latestMs = 0;
+		try {
+			const status = await rpcCall(rpc, 'status', {});
+			latest = Number(status?.sync_info?.latest_block_height ?? 0);
+			latestMs = await ms(latest);
+		} catch {
+			return { entries, pending, unread: unbondings.length };
+		}
+		/** @type {number | null | undefined} */
+		let period;
+		const periodMs = async () => {
+			if (period === undefined) {
+				period = rest
+					? await getJson(`${rest}/cosmos/staking/v1beta1/params`)
+							.then((b) => durationMs(b?.params?.unbonding_time))
+							.catch(() => null)
+					: null;
+			}
+			return period;
+		};
+		/** @type {Map<number, Set<string>>} completion height → validators */
+		const byHeight = new Map();
+		for (const u of unbondings) {
+			let at = Date.parse(u.completionTime ?? '');
+			if (Number.isNaN(at)) {
+				const p = await periodMs();
+				const t = Date.parse(u.time ?? '');
+				if (p === null || Number.isNaN(t)) {
+					unread++;
+					continue;
+				}
+				at = t + p;
+			}
+			if (at > latestMs) {
+				pending++; // still unbonding
+				continue;
+			}
+			try {
+				// The smallest height whose time is at or after `at`; the
+				// undelegation's own block lies before it.
+				let lo = Math.max(u.height, floor);
+				if (lo > u.height && (await ms(lo)) >= at) throw new Error('before the node');
+				let hi = latest;
+				while (hi - lo > 1) {
+					const mid = Math.floor((lo + hi) / 2);
+					if ((await ms(mid)) >= at) hi = mid;
+					else lo = mid;
+				}
+				const set = byHeight.get(hi) ?? new Set();
+				set.add(u.validator);
+				byHeight.set(hi, set);
+			} catch {
+				unread++;
+			}
+		}
+		const notBonded = moduleAddress(chain.bech32Prefix, 'not_bonded_tokens_pool');
+		for (const [height, validators] of [...byHeight].sort((a, b) => a[0] - b[0])) {
+			let done;
+			let time;
+			try {
+				const r = await rpcCall(rpc, 'block_results', { height: String(height) });
+				done = completedUnbondingsOf(
+					readEvents([...(r?.finalize_block_events ?? []), ...(r?.end_block_events ?? [])]),
+					address,
+					chain.nativeDenom
+				);
+				time = await timeAt(height);
+			} catch {
+				unread += validators.size;
+				continue;
+			}
+			for (const validator of validators) {
+				const found = done.find((d) => d.validator === validator);
+				if (!found) {
+					unread++;
+					continue;
+				}
+				for (const coin of found.coins) {
+					const asset = Object.hasOwn(chain.denoms, coin.denom) ? chain.denoms[coin.denom] : null;
+					if (!asset || coin.amount === 0n) continue;
+					entries.push({
+						id: `unbonding:${height}:${validator}:${asset.symbol}`,
+						hash: '',
+						height,
+						time,
+						date: time.slice(0, 10),
+						type: 'received',
+						kind: 'stake',
+						asset: asset.symbol,
+						amount: unitsToDecimal(coin.amount, asset.decimals),
+						decimals: asset.decimals,
+						counterparty: notBonded,
+						counterpartyLabel: MODULES.not_bonded_tokens_pool,
+						memo: '',
+						success: true,
+						explorerUrl: ''
+					});
+				}
+			}
+		}
+		return { entries, pending, unread };
+	}
+
 	return {
+		unbondingReturns,
+
+		/**
+		 * Transactions the node's window has lost, read by their height from an
+		 * archive node: `block` for the bytes, `block_results` for the events –
+		 * the same entries and ids as tx_search would give. A height the node
+		 * cannot answer is left out (`failed`), its transactions unread.
+		 *
+		 * @param {object} p
+		 * @param {import('./cosmos-chains.js').CosmosChain} p.chain
+		 * @param {string} p.address
+		 * @param {string} p.rpc the archive node, checked
+		 * @param {{ hash: string, height: number }[]} p.txs
+		 */
+		async archived({ chain, address, rpc, txs }) {
+			const status = await rpcCall(rpc, 'status', {});
+			if (String(status?.node_info?.network ?? '') !== chain.chainId) {
+				throw new WalletError(
+					'the archive node belongs to another chain',
+					'WALLET_WRONG_CHAIN',
+					400
+				);
+			}
+			/** @type {Map<number, Set<string>>} */
+			const byHeight = new Map();
+			for (const t of txs) {
+				const set = byHeight.get(t.height) ?? new Set();
+				set.add(t.hash.toUpperCase());
+				byHeight.set(t.height, set);
+			}
+			/** @type {WalletEntry[]} */
+			const entries = [];
+			/** @type {ReturnType<typeof normalizeCosmosTx>['unbondings']} */
+			const unbondings = [];
+			/** @type {Set<string>} */
+			const read = new Set();
+			/** @type {Set<string>} */
+			const unknown = new Set();
+			let failed = 0;
+			for (const [height, wanted] of [...byHeight].sort((a, b) => a[0] - b[0])) {
+				try {
+					const block = (await rpcCall(rpc, 'block', { height: String(height) }))?.block;
+					const results = (await rpcCall(rpc, 'block_results', { height: String(height) }))
+						?.txs_results;
+					const bytes = Array.isArray(block?.data?.txs) ? block.data.txs : [];
+					const ms = Date.parse(String(block?.header?.time ?? ''));
+					if (!Array.isArray(results) || results.length !== bytes.length || Number.isNaN(ms)) {
+						throw new WalletError(`block ${height} without its results`, 'WALLET_DATA');
+					}
+					const time = new Date(ms).toISOString();
+					for (let i = 0; i < bytes.length; i++) {
+						const hash = await txHash(String(bytes[i]));
+						if (!wanted.has(hash)) continue;
+						const r = normalizeCosmosTx(
+							{
+								hash,
+								height: String(height),
+								tx: bytes[i],
+								tx_result: { code: results[i]?.code ?? 0, events: results[i]?.events ?? [] }
+							},
+							{ address, chain, time }
+						);
+						entries.push(...r.entries);
+						unbondings.push(...r.unbondings);
+						for (const d of r.unknownDenoms) unknown.add(d);
+						read.add(hash);
+					}
+				} catch {
+					failed += wanted.size;
+				}
+			}
+			return { entries, unbondings, read, unknownAssets: unknown.size, failed };
+		},
+
 		/**
 		 * @param {object} params
 		 * @param {import('./cosmos-chains.js').CosmosChain} params.chain
@@ -513,29 +832,12 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 				}
 			}
 
-			/** @type {Map<number, string>} */
-			const times = new Map();
-			const timeOf = async (/** @type {number} */ height) => {
-				const known = times.get(height);
-				if (known) return known;
-				let header;
-				try {
-					header = (await rpcCall(endpoints.rpc, 'header', { height: String(height) }))?.header;
-				} catch {
-					header = (await rpcCall(endpoints.rpc, 'block', { height: String(height) }))?.block
-						?.header;
-				}
-				const time = Date.parse(String(header?.time ?? ''));
-				if (Number.isNaN(time)) {
-					throw new WalletError(`no time for block ${height}`, 'WALLET_DATA');
-				}
-				const iso = new Date(time).toISOString();
-				times.set(height, iso);
-				return iso;
-			};
+			const timeOf = blockTimes(endpoints.rpc);
 
 			/** @type {WalletEntry[]} */
 			const entries = [];
+			/** @type {ReturnType<typeof normalizeCosmosTx>['unbondings']} */
+			const unbondings = [];
 			/** @type {Set<string>} */
 			const unknown = new Set();
 			const ordered = [...txs.values()].sort(
@@ -548,8 +850,20 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 				}
 				const result = normalizeCosmosTx(raw, { address, chain, time: await timeOf(height) });
 				entries.push(...result.entries);
+				unbondings.push(...result.unbondings);
 				for (const d of result.unknownDenoms) unknown.add(d);
 			}
+			// What the undelegations it read gave back when they ended (#1029).
+			const returned = await unbondingReturns({
+				chain,
+				address,
+				rpc: endpoints.rpc,
+				rest: endpoints.rest,
+				floor: Math.max(earliestHeight, 1),
+				unbondings
+			});
+			entries.push(...returned.entries);
+			entries.sort((a, b) => a.height - b.height);
 
 			const bank = await getJson(
 				`${endpoints.rest}/cosmos/bank/v1beta1/balances/${encodeURIComponent(address)}?pagination.limit=1000`
@@ -582,7 +896,14 @@ export function createCosmosClient({ fetch: f = fetch, timeoutMs, maxPages = 200
 					earliestHeight,
 					earliestTime,
 					// A node that starts after block 1 has forgotten older transactions.
-					pruned: earliestHeight > 1
+					pruned: earliestHeight > 1,
+					// Undelegations whose tokens came back, are still unbonding, or
+					// whose end the node cannot tell (#1029).
+					unbonding: {
+						returned: returned.entries.length,
+						pending: returned.pending,
+						unread: returned.unread
+					}
 				},
 				addressUrl: addressUrl(chain.explorer, address)
 			};

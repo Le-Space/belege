@@ -164,16 +164,69 @@ export function createWalletService({
 							indexer: endpoints.indexer,
 							beforeHeight: history.earliestHeight
 						});
+						let olderEntries = older.entries;
+						let unknownAmounts = older.unknownAmounts;
+						let unknownAssets = older.unknownAssets;
+						/** @type {{ hash: string, height: number, validator: string, completionTime?: string, time?: string }[]} */
+						let unbondings = older.unbondings;
+						/** @type {Record<string, unknown>} */
+						const archive = {};
+						// What the indexer has no amount for, from an archive node's blocks
+						// (#1029): in place of what the indexer read of the same transaction.
+						if (endpoints.archive && older.withoutAmounts.length) {
+							try {
+								const got = await cosmos.archived({
+									chain,
+									address,
+									rpc: endpoints.archive,
+									txs: older.withoutAmounts
+								});
+								olderEntries = [
+									...olderEntries.filter((e) => !got.read.has(e.hash)),
+									...got.entries
+								].sort((a, b) => a.height - b.height);
+								unknownAmounts -= got.read.size;
+								unknownAssets += got.unknownAssets;
+								unbondings = [
+									...unbondings.filter((u) => !got.read.has(u.hash)),
+									...got.unbondings
+								];
+								archive.archiveRead = got.read.size;
+							} catch (/** @type {any} */ error) {
+								archive.archiveError = String(error?.code ?? 'WALLET_ARCHIVE');
+							}
+						}
+						// The tokens those undelegations gave back: from the archive node,
+						// else from the node, whose window may still hold the block they ended in.
+						const returned = await cosmos.unbondingReturns({
+							chain,
+							address,
+							rpc: endpoints.archive || endpoints.rpc,
+							rest: endpoints.rest,
+							floor: endpoints.archive && !archive.archiveError ? 1 : history.earliestHeight,
+							unbondings
+						});
+						const ids = new Set(result.entries.map((e) => e.id));
+						const returns = returned.entries.filter((e) => !ids.has(e.id));
+						const before = history.unbonding ?? { returned: 0, pending: 0, unread: 0 };
 						result = {
 							...result,
-							entries: [...older.entries, ...result.entries],
+							entries: [...olderEntries, ...result.entries, ...returns].sort(
+								(a, b) => a.height - b.height
+							),
 							transactions: result.transactions + older.transactions,
-							unknownAssets: result.unknownAssets + older.unknownAssets,
+							unknownAssets: result.unknownAssets + unknownAssets,
 							history: {
 								...history,
 								completedBy: 'indexer',
-								unknownAmounts: older.unknownAmounts,
-								indexerFrom: older.earliestTime
+								unknownAmounts,
+								indexerFrom: older.earliestTime,
+								...archive,
+								unbonding: {
+									returned: before.returned + returns.length,
+									pending: before.pending + returned.pending,
+									unread: before.unread + returned.unread
+								}
 							}
 						};
 					} catch (/** @type {any} */ error) {

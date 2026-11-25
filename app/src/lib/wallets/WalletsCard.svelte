@@ -186,12 +186,14 @@
 	function endpointsOf(wallet) {
 		const defaults = infoOf(wallet)?.endpoints ?? {};
 		const kind = walletChain(wallet.chain)?.kind;
-		return Object.entries(defaults).map(([name, fallback]) => ({
-			name,
-			label: endpointLabel(name, kind),
-			url: wallet.endpoints?.[name] || fallback,
-			own: Boolean(wallet.endpoints?.[name])
-		}));
+		return Object.entries(defaults)
+			.map(([name, fallback]) => ({
+				name,
+				label: endpointLabel(name, kind),
+				url: wallet.endpoints?.[name] || fallback,
+				own: Boolean(wallet.endpoints?.[name])
+			}))
+			.filter((e) => e.url); // an endpoint without a default (an archive node) only when named
 	}
 
 	/** @param {import('./wallet-sync.js').Wallet} wallet */

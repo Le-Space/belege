@@ -225,9 +225,11 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {number} unknownAssets denoms or tokens that are not booked
  * @property {string[]} [superseded] ids of entries an earlier reading gave and this one leaves out,
  *   because they are part of another entry now (NEAR handed to the wrap contract, wallets/wallet-sync.js)
- * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean, completedBy?: 'indexer', unknownAmounts?: number, indexerFrom?: string | null, indexerError?: string }} history
+ * @property {{ earliestHeight: number, earliestTime: string | null, pruned: boolean, completedBy?: 'indexer', unknownAmounts?: number, indexerFrom?: string | null, indexerError?: string, archiveRead?: number, archiveError?: string, unbonding?: { returned: number, pending: number, unread: number } }} history
  *   `completedBy`: a pruned node's older part came from the chain's indexer (Akash, issue #105);
- *   `unknownAmounts`: older transactions whose amount only events carry, not booked
+ *   `unknownAmounts`: older transactions whose amount only events carry, not booked; `archiveRead`: as many read
+ *   from the wallet's archive node instead (#1029), `archiveError` when it failed; `unbonding`: undelegations whose
+ *   tokens came back (booked, without a hash), are still unbonding, or whose end the node could not tell
  * @property {string} addressUrl
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
  * @property {{ asset: string, decimals: number, points: { time: string, value: string }[], source?: 'explorer' | 'history' }[]} [balanceHistory]
