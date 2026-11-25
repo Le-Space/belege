@@ -118,7 +118,8 @@ describe('the chain table', () => {
 		assert.deepEqual(nyx.denoms.unym, { symbol: 'NYM', decimals: 6 });
 		assert.deepEqual(nyx.denoms.unyx, { symbol: 'NYX', decimals: 6 });
 		for (const c of Object.values(CHAINS)) {
-			for (const url of Object.values(c.endpoints)) assert.match(url, /^https:\/\//);
+			// An empty one has no default: the person's own (Akash's archive node, #1029).
+			for (const url of Object.values(c.endpoints)) if (url) assert.match(url, /^https:\/\//);
 			assert.match(c.explorer.tx, /^https:\/\/.*\{tx\}/);
 			// Monero's explorers have no page for an address: the chain hides them.
 			if (c.kind === 'monero') assert.equal(c.explorer.address, '');

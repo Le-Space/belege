@@ -103,9 +103,9 @@ export async function readAkash(p) {
 /**
  * For a Kontoauszug: the bookings of the period, and the balances before and
  * after it, derived from today's balance less every movement since. (Pruned
- * nodes keep no old balances.) What the reader cannot see – tokens coming back
- * when an unbonding ends, vesting – shifts the derived balances; the
- * statement says how they were made.
+ * nodes keep no old balances.) What the reader cannot see – vesting, an
+ * unbonding whose end the node no longer has – shifts the derived balances;
+ * the statement says how they were made.
  *
  * @param {Parameters<typeof history>[0]} p
  */

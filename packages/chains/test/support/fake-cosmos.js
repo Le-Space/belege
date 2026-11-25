@@ -1,5 +1,7 @@
 // Fake Cosmos services on 127.0.0.1 for tests: a Cosmos node (CometBFT
-// JSON-RPC `status`, `tx_search`, `header`, and the REST balance) and the
+// JSON-RPC `status`, `tx_search`, `header`, `block`, `block_results` with a
+// block's end events, the REST balance and staking params) – started with
+// `earliestHeight: 1` and `txIndex: false`, an archive node – and the
 // Akash Console indexer. Every address, hash and amount here is made up:
 // addresses are derived from test phrases, hashes from counters.
 import http from 'node:http';
@@ -47,6 +49,9 @@ export const NYX = {
  *   event holding every triple, base64 keys and values, no fee event
  * @param {boolean} [t.coinEvents] also the bank keeper's coin_spent / coin_received before each transfer, as real chains emit them
  * @param {{ delegator: string, amount: string, validator?: string }[]} [t.delegations] MsgDelegate, one message each, after the transfers
+ * @param {{ delegator: string, validator: string, amount: string, completionTime: string }[]} [t.undelegations]
+ *   MsgUndelegate, one message each, after the delegations: the `unbond` event with its completion time
+ *   (the tokens move between the module pools, not to the delegator)
  * @param {string} [t.prefix] the chain's bech32 prefix, for its fee collector
  */
 export function cosmosTx({
@@ -61,6 +66,7 @@ export function cosmosTx({
 	legacyEvents = false,
 	coinEvents = false,
 	delegations = [],
+	undelegations = [],
 	prefix = 'n'
 }) {
 	/** @type {{ type: string, attributes: { key: string, value: string, index?: boolean }[] }[]} */
@@ -172,6 +178,28 @@ export function cosmosTx({
 				});
 			}
 		});
+		undelegations.forEach((u, n) => {
+			const i = String(transfers.length + delegations.length + n);
+			events.push({
+				type: 'message',
+				attributes: [
+					attr('action', '/cosmos.staking.v1beta1.MsgUndelegate'),
+					attr('sender', u.delegator),
+					attr('module', 'staking'),
+					attr('msg_index', i)
+				]
+			});
+			events.push({
+				type: 'unbond',
+				attributes: [
+					attr('validator', u.validator),
+					attr('delegator', u.delegator),
+					attr('amount', u.amount),
+					attr('completion_time', u.completionTime),
+					attr('msg_index', i)
+				]
+			});
+		});
 		if (ibcReceiver) {
 			events.push({
 				type: 'ibc_transfer',
@@ -188,7 +216,8 @@ export function cosmosTx({
 			memo,
 			messageTypes: [
 				...transfers.map(() => '/cosmos.bank.v1beta1.MsgSend'),
-				...delegations.map(() => '/cosmos.staking.v1beta1.MsgDelegate')
+				...delegations.map(() => '/cosmos.staking.v1beta1.MsgDelegate'),
+				...undelegations.map(() => '/cosmos.staking.v1beta1.MsgUndelegate')
 			],
 			fee: fee
 				? [{ denom: fee.amount.replace(/^\d+/, ''), amount: fee.amount.match(/^\d+/)?.[0] ?? '0' }]
@@ -206,6 +235,35 @@ export function cosmosTx({
 		}
 	};
 }
+
+/**
+ * A transaction whose hash is what a chain makes it: the SHA-256 of its
+ * bytes – as an archive node's `block` is read (cosmos.js `archived`). Give
+ * each such transaction a memo of its own, so their bytes differ.
+ *
+ * @template {{ tx: string }} T
+ * @param {T} tx
+ * @returns {T & { hash: string }}
+ */
+export const withTxHash = (tx) => ({
+	...tx,
+	hash: createHash('sha256').update(Buffer.from(tx.tx, 'base64')).digest('hex').toUpperCase()
+});
+
+/**
+ * The event a block's end emits when an unbonding has matured: the tokens
+ * back to the delegator (cosmos-sdk ≥ 0.45, the amount with its denom).
+ *
+ * @param {{ delegator: string, validator: string, amount: string }} u
+ */
+export const completeUnbonding = ({ delegator, validator, amount }) => ({
+	type: 'complete_unbonding',
+	attributes: [
+		{ key: 'amount', value: amount, index: true },
+		{ key: 'validator', value: validator, index: true },
+		{ key: 'delegator', value: delegator, index: true }
+	]
+});
 
 /** Block heights → times: one block a minute from a made-up start. */
 export const blockTime = (/** @type {number} */ height) =>
@@ -320,6 +378,10 @@ export function sampleNyxHistory({ filler = 110 } = {}) {
  * @param {number} [options.failFirst] this many requests answer 503 first
  * @param {(height: number) => string} [options.time]
  * @param {any[]} [options.deployments] Akash: deployments as the node lists them (akashDeployment)
+ * @param {Record<number, any[]>} [options.endBlockEvents] a block's end (finalize-block) events, by height
+ * @param {boolean} [options.txIndex] false: tx_search is refused, as on a node without a transaction index
+ * @param {number} [options.latestHeight]
+ * @param {string} [options.unbondingTime] the staking module's unbonding period, e.g. `1814400s`
  */
 export async function startFakeCosmos({
 	network = 'nyx',
@@ -335,7 +397,11 @@ export async function startFakeCosmos({
 	statusSaysZero = false,
 	failFirst = 0,
 	time = blockTime,
-	deployments = []
+	deployments = [],
+	endBlockEvents = {},
+	txIndex = true,
+	latestHeight = 99999,
+	unbondingTime = '1814400s'
 } = {}) {
 	/** @type {{ method: string, params: any }[]} */
 	const calls = [];
@@ -361,6 +427,10 @@ export async function startFakeCosmos({
 					balances: balances[decodeURIComponent(bank[1])] ?? [],
 					pagination: { next_key: null, total: '0' }
 				});
+			}
+			if (req.method === 'GET' && url.pathname === '/cosmos/staking/v1beta1/params') {
+				calls.push({ method: 'staking-params', params: {} });
+				return reply(200, { params: { unbonding_time: unbondingTime, bond_denom: 'uakt' } });
 			}
 			// Akash: an owner's deployments with their escrow (#305).
 			if (req.method === 'GET' && url.pathname === '/akash/deployment/v1beta4/deployments/list') {
@@ -394,8 +464,40 @@ export async function startFakeCosmos({
 						earliest_block_time: statusSaysZero
 							? '1970-01-01T00:00:00Z'
 							: time(Math.max(earliestHeight, 1000)),
-						latest_block_height: '99999'
+						latest_block_height: String(latestHeight)
 					}
+				});
+			}
+			const gone = (/** @type {number} */ h) =>
+				reply(200, {
+					jsonrpc: '2.0',
+					id: body.id,
+					error: {
+						code: -32603,
+						message: 'Internal error',
+						data: `height ${h} is not available, lowest height is ${earliestHeight}`
+					}
+				});
+			if (method === 'block' || method === 'block_results') {
+				const h = Number(params.height);
+				if (h < earliestHeight) return gone(h);
+				const here = txs.filter((tx) => Number(tx.height) === h);
+				if (method === 'block') {
+					return ok({
+						block: {
+							header: { height: String(h), time: time(h) },
+							data: { txs: here.map((tx) => tx.tx) }
+						}
+					});
+				}
+				return ok({
+					height: String(h),
+					txs_results: here.map((tx) => ({
+						code: tx.tx_result.code,
+						log: tx.tx_result.log,
+						events: tx.tx_result.events
+					})),
+					finalize_block_events: endBlockEvents[h] ?? []
 				});
 			}
 			if (method === 'header') {
@@ -411,6 +513,17 @@ export async function startFakeCosmos({
 					});
 				}
 				return ok({ header: { height: String(params.height), time: time(Number(params.height)) } });
+			}
+			if (method === 'tx_search' && !txIndex) {
+				return reply(200, {
+					jsonrpc: '2.0',
+					id: body.id,
+					error: {
+						code: -32603,
+						message: 'Internal error',
+						data: 'transaction indexing is disabled'
+					}
+				});
 			}
 			if (method === 'tx_search') {
 				// As strict as CometBFT 0.38: `prove` a JSON bool, page and per_page
@@ -501,12 +614,15 @@ export async function startFakeCosmos({
  * @param {number} [t.fee] uakt
  * @param {boolean} [t.success]
  * @param {{ type: string, data: Record<string, unknown> }[]} [t.messages] type without its package, e.g. `MsgSend`
+ * @param {string} [t.hash] instead of the seed's: the hash of the same transaction on a node (withTxHash)
  */
-export function consoleTx({ seed, height, signers, fee = 0, success = true, messages = [] }) {
+export function consoleTx({ seed, height, signers, fee = 0, success = true, messages = [], hash }) {
 	const packages = /** @type {Record<string, string>} */ ({
 		MsgSend: '/cosmos.bank.v1beta1.',
 		MsgMultiSend: '/cosmos.bank.v1beta1.',
 		MsgDelegate: '/cosmos.staking.v1beta1.',
+		MsgUndelegate: '/cosmos.staking.v1beta1.',
+		MsgCloseDeployment: '/akash.deployment.v1beta3.',
 		MsgWithdrawDelegatorReward: '/cosmos.distribution.v1beta1.',
 		MsgTransfer: '/ibc.applications.transfer.v1.',
 		MsgRecvPacket: '/ibc.core.channel.v1.',
@@ -518,7 +634,7 @@ export function consoleTx({ seed, height, signers, fee = 0, success = true, mess
 	return {
 		height,
 		datetime: blockTime(height),
-		hash: fakeHash(seed),
+		hash: hash ?? fakeHash(seed),
 		isSuccess: success,
 		multisigThreshold: null,
 		signers,

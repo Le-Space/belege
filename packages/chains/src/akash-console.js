@@ -17,8 +17,11 @@
 // event carries: the rewards a withdrawal pays (the message has none), the
 // rewards a delegation, undelegation or redelegation withdraws on the way,
 // escrow refunds and lease payouts, whatever an authz MsgExec does. Those
-// transactions are counted (`unknownAmounts`) and not booked; the balance
-// check on the wallet card shows the gap. What is booked comes from the
+// transactions are counted (`unknownAmounts`) and named (`withoutAmounts`):
+// with an archive node, wallets.js reads them from its blocks (cosmos.js
+// `archived`, #1029); without, they are not booked and the balance check on
+// the wallet card shows the gap. An undelegation is named too
+// (`unbondings`), for the tokens that come back when it ends. What is booked comes from the
 // message: sends, multi-sends, IBC transfers out and in, delegations, escrow
 // deposits from the balance, governance deposits – and the fee of every
 // transaction the address signed first.
@@ -102,7 +105,7 @@ function packetTransfer(packet) {
  *
  * @param {any} tx
  * @param {{ address: string, chain: import('./cosmos-chains.js').CosmosChain }} context
- * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownDenoms: string[], unknownAmount: boolean }}
+ * @returns {{ entries: import('./cosmos.js').WalletEntry[], unknownDenoms: string[], unknownAmount: boolean, unbondings: { hash: string, height: number, validator: string, time: string }[] }}
  */
 export function normalizeConsoleTx(tx, { address, chain }) {
 	const hash = str(tx?.hash).toUpperCase();
@@ -122,6 +125,8 @@ export function normalizeConsoleTx(tx, { address, chain }) {
 	/** @type {string[]} */
 	const unknownDenoms = [];
 	let unknownAmount = false;
+	/** @type {{ hash: string, height: number, validator: string, time: string }[]} undelegations, without their completion time */
+	const unbondings = [];
 
 	/** @param {{ denom: string, amount: bigint }} c */
 	const assetOf = (c) => {
@@ -180,7 +185,7 @@ export function normalizeConsoleTx(tx, { address, chain }) {
 			explorerUrl
 		});
 	}
-	if (tx?.isSuccess === false) return { entries, unknownDenoms, unknownAmount };
+	if (tx?.isSuccess === false) return { entries, unknownDenoms, unknownAmount, unbondings };
 
 	const messages = Array.isArray(tx?.messages) ? tx.messages : [];
 	messages.forEach((/** @type {any} */ m, /** @type {number} */ index) => {
@@ -264,6 +269,16 @@ export function normalizeConsoleTx(tx, { address, chain }) {
 				unknownAmount = true;
 				return;
 			}
+			case 'MsgUndelegate': {
+				// The tokens come back when the unbonding ends, in a block's end
+				// (cosmos.js unbondingReturns); rewards withdrawn on the way are in
+				// the events only.
+				if (str(d.delegator_address ?? d.delegatorAddress) !== address) return;
+				const validator = str(d.validator_address ?? d.validatorAddress);
+				if (validator) unbondings.push({ hash, height, validator, time });
+				unknownAmount = true;
+				return;
+			}
 			case 'MsgCreateDeployment':
 			case 'MsgDepositDeployment': {
 				const owner = str(d.depositor) || str(d.id?.owner);
@@ -337,7 +352,7 @@ export function normalizeConsoleTx(tx, { address, chain }) {
 				if (AMOUNT_IN_EVENTS.has(type)) unknownAmount = true;
 		}
 	});
-	return { entries, unknownDenoms, unknownAmount };
+	return { entries, unknownDenoms, unknownAmount, unbondings };
 }
 
 /**
@@ -399,6 +414,10 @@ export function createAkashConsoleClient({
 			/** @type {Set<string>} */
 			const unknown = new Set();
 			let unknownAmounts = 0;
+			/** @type {{ hash: string, height: number }[]} the transactions counted in `unknownAmounts` */
+			const withoutAmounts = [];
+			/** @type {ReturnType<typeof normalizeConsoleTx>['unbondings']} */
+			const unbondings = [];
 			/** @type {Set<string>} */
 			const seen = new Set();
 			older.sort((a, b) => a.height - b.height);
@@ -409,13 +428,19 @@ export function createAkashConsoleClient({
 				const result = normalizeConsoleTx(tx, { address, chain });
 				entries.push(...result.entries);
 				for (const d of result.unknownDenoms) unknown.add(d);
-				if (result.unknownAmount) unknownAmounts++;
+				unbondings.push(...result.unbondings);
+				if (result.unknownAmount) {
+					unknownAmounts++;
+					withoutAmounts.push({ hash, height: Number(tx?.height) });
+				}
 			}
 			return {
 				entries,
 				transactions: seen.size,
 				unknownAssets: unknown.size,
 				unknownAmounts,
+				withoutAmounts,
+				unbondings,
 				earliestTime: entries[0]?.time ?? null
 			};
 		},

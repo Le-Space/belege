@@ -229,9 +229,25 @@ So geht die Bridge vor:
 
 Diese Transaktionen werden gezählt und auf der Wallet-Karte genannt. Der Bestandsabgleich zeigt die Lücke.
 
+**Mit Archivknoten (#1029):** Trägst du bei der Wallet einen **Archivknoten** ein (Feld _Archivknoten_, `endpoints.archive`: ein CometBFT-RPC, der alle Blöcke hat), liest die Bridge diese Transaktionen aus dessen Blöcken. Einen öffentlichen Akash-Knoten mit allen Blöcken gibt es nicht (geprüft am 25.11.2026: alle RPC- und REST-Knoten der Chain-Registry, Lavender Five, PublicNode, Akashs eigener – der unterste Block liegt zwischen 26,9 und 29,7 Millionen). Es ist also dein eigener; ohne Eintrag fragt die Bridge keinen, und der Einwilligungstext („der Knoten, den du nennst“) deckt ihn ab.
+
+- Je Transaktion holt sie ihren Block: `block` für die Bytes der Transaktionen (deren SHA-256 ist der Hash) und `block_results` für ihre Events. Ein Transaktionsindex ist dafür nicht nötig.
+- Gebucht wird genau wie aus `tx_search`: Rewards (`reward`, Ertrag wie jeder Staking-Reward, #1027), Escrow-Rückzahlungen, die Rewards einer Entdelegation – anstelle dessen, was der Indexer von derselben Transaktion las. Eine Delegation, die der Indexer aus der Nachricht schon gebucht hatte, behält ihre Kennung (`reconcileSourceIds`).
+- Nur Zahlen der Chain. Ein Block, den der Knoten nicht liefert, bleibt gezählt.
+
 **Wechsel der Quelle:** Rückt das Fenster des Knotens weiter, kommt eine Transaktion, die zuerst vom Knoten kam, später unter einer anderen Kennung aus dem Indexer. Die App behält die Kennung, unter der sie gebucht wurde. Sie erkennt die Transaktion an gleichem Hash, gleicher Art und gleicher Menge (`reconcileSourceIds`).
 
 **Geprüft am 27.09.2026:** Die Geschichte reicht bis März 2021 (Mainnet-2). Gebühren und Überweisungen stimmen mit den Events des Knotens überein. Reward-Beträge stehen im Indexer als 0.
+
+### Rückfluss aus dem Unbonding (#1029)
+
+Die Tokens, die eine Entdelegation zurückgibt, kommen ohne Transaktion. Die Chain zahlt sie am Ende des ersten Blocks aus, dessen Zeit die Fälligkeit der Entdelegation erreicht, mit einem `complete_unbonding`-Event (Delegator, Validator, Betrag).
+
+- Die Fälligkeit steht im `unbond`-Event der Entdelegation. Den Block findet die Bridge über seine Zeit (Binärsuche über die Block-Header).
+- Gebucht wird der Betrag des Events als Bewegung `stake`, erhalten von `not_bonded_tokens_pool` (_Rückfluss aus Staking_), ohne Hash: Kennung `unbonding:<Höhe>:<Validator>:<Asset>`, der Verwendungszweck nennt den Block. Alle Unbondings eines Validators, die im selben Block enden, sind ein Event und eine Buchung.
+- Eine Entdelegation, die nur der Akash-Indexer kennt (ohne Events, ohne Fälligkeit), sucht die Bridge zu ihrer Zeit plus der Unbonding-Frist der Chain (`/cosmos/staking/v1beta1/params`). Gebucht wird nur ein Event, das dort steht.
+- Der Block kommt vom Archivknoten, wenn einer eingetragen ist, sonst vom Knoten, dessen Fenster ihn vielleicht noch hat. Ein laufendes Unbonding ist keine Lücke; eines, dessen Block kein Knoten liefert, nennt die Wallet-Karte.
+- Das gilt für jede Cosmos-Chain, auch Nyx.
 
 ### Akash: Burn-Mint (BME, #303)
 
@@ -311,7 +327,7 @@ So wird gebucht:
 - **An eine eigene Wallet, die noch nicht abgerufen wurde:** ebenso eine eigene Umbuchung (1360), erkannt über die Adresse.
 - **Die Gebühr, die diese Adresse zahlte** (auch bei einer fehlgeschlagenen Transaktion): Bewegung `fee`. Das ist eine Netzwerkgebühr. Die Transaktion ist der Beleg.
 - **Staking-Ertrag** (vom Modul `distribution`): Bewegung `reward`. Kein Beleg, wie beim Ertrag einer Börse, und dasselbe vorgeschlagene Konto (2700, oder das aus den Einstellungen).
-- **Delegation** (an `bonded_tokens_pool`): Bewegung `stake`, Art `crypto-stake`. Kein Beleg, die Tokens bleiben deine. **Nicht 1360:** Ihre Rückkehr nach dem Unbonding ist keine Transaktion, ein Transitkonto ginge also nie auf. Das Konto entscheidet der Steuerberater.
+- **Delegation** (an `bonded_tokens_pool`): Bewegung `stake`, Art `crypto-stake`. Kein Beleg, die Tokens bleiben deine. **Nicht 1360:** Ihre Rückkehr nach dem Unbonding wird ohne Transaktion gebucht, wenn das Unbonding endet (#1029); ein Transitkonto ginge erst nach der Frist auf, und nie, wo der Block des Endes unbekannt ist. Das Konto entscheidet der Steuerberater.
 - **IBC-Transfer hinaus** (zu einer anderen Cosmos-Chain): Bewegung `transfer`. Der Empfänger auf der anderen Chain ist die Gegenpartei. Ein Beleg ist nötig.
 
 Jede Buchung hat eine Kennung (`sourceId`), damit sie nicht doppelt gebucht wird:
@@ -340,7 +356,6 @@ Jede Buchung hat eine Kennung (`sourceId`), damit sie nicht doppelt gebucht wird
 
 **Gar nicht gesehen:**
 
-- Tokens, die nach dem Ende eines Unbondings zurückkommen. Das macht die Chain ohne Transaktion.
 - Vesting.
 - Bei Rollups (Base, Optimism, Arbitrum) die L1-Datengebühr. Die Etherscan-kompatible API von Blockscout meldet sie nicht.
 

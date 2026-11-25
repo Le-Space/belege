@@ -60,7 +60,8 @@ async function syncOne(wallet, { client = bridgeClient() } = {}) {
 		const hints =
 			result.unpriced.length +
 			(result.history.pruned && result.history.completedBy !== 'indexer' ? 1 : 0) +
-			((result.history.unknownAmounts ?? 0) ? 1 : 0);
+			((result.history.unknownAmounts ?? 0) ? 1 : 0) +
+			((result.history.unbonding?.unread ?? 0) ? 1 : 0);
 		await updateAlerts(store.settings, (a) => ({
 			...a,
 			wallets: { ...a.wallets, [wallet.id]: hints }

@@ -5740,6 +5740,7 @@ export default {
 				rpc: 'RPC',
 				rest: 'REST',
 				indexer: 'Indexer (older history)',
+				archive: 'Archive node (CometBFT RPC, for older amounts and unbonding)',
 				api: 'API',
 				apiService: {
 					blockscout: 'API (Blockscout)',
@@ -5791,8 +5792,16 @@ export default {
 			unknownAmounts:
 				'{count} older transactions with staking rewards, escrow refunds or auto-restake: the indexer does not know their amounts, they are not booked. The balance check shows the gap.',
 			indexerFailed: 'The Akash indexer was not reachable; the next fetch asks it again.',
+			archiveRead:
+				'{count} older transactions without an amount in the indexer came from the blocks of your archive node.',
+			archiveHint:
+				'An archive node (a CometBFT RPC with every block; no transaction index needed) in the field “Archive node” gives them; there is no public one for Akash.',
+			archiveFailed:
+				'The archive node was not reachable or belongs to another chain; the next fetch asks it again.',
+			unbondingUnread:
+				'{count} finished unbondings: the node no longer knows the block in which the tokens came back – they are not booked. An archive node reads them.',
 			balanceGap:
-				'Booked {booked}, balance {balance}: transactions are missing – older ones the node no longer knows, or tokens from unbonding, which are not a transaction.',
+				'Booked {booked}, balance {balance}: transactions are missing – older ones the node no longer knows, or tokens from an unbonding whose end it no longer knows.',
 			// The page in tabs, the list grouped by chain, one row per wallet (#1019).
 			tabs: {
 				label: 'Wallet views',

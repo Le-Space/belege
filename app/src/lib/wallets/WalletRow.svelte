@@ -385,12 +385,28 @@
 							: '?'
 					})}
 				</p>
+				{#if result.history.archiveRead}
+					<p class="mt-1 text-xs text-faint" data-testid="wallet-archive-read">
+						{t('integrationen.wallets.archiveRead', { count: result.history.archiveRead })}
+					</p>
+				{/if}
 				{#if result.history.unknownAmounts}
 					<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-unknown-amounts">
 						{t('integrationen.wallets.unknownAmounts', { count: result.history.unknownAmounts })}
+						{#if result.history.archiveError}
+							{t('integrationen.wallets.archiveFailed')}
+						{:else if !result.history.archiveRead}
+							{t('integrationen.wallets.archiveHint')}
+						{/if}
 					</p>
 				{/if}
-			{:else if result.history.pruned}
+			{/if}
+			{#if result.history.unbonding?.unread}
+				<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-unbonding-unread">
+					{t('integrationen.wallets.unbondingUnread', { count: result.history.unbonding.unread })}
+				</p>
+			{/if}
+			{#if result.history.pruned && result.history.completedBy !== 'indexer'}
 				<p class="mt-1 text-sm text-warning" role="status" data-testid="wallet-pruned">
 					{t('integrationen.wallets.pruned', {
 						date: result.history.earliestTime
