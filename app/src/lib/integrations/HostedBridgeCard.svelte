@@ -26,6 +26,7 @@
 		hostedNodes,
 		hostedOwnImage,
 		hostedVmRecord,
+		reconcileHostedVm,
 		startHostedBridge,
 		stopHostedBridge,
 		stopHostedInstance,
@@ -98,7 +99,20 @@
 		if (paused) untrack(() => !building && controller?.abort());
 	});
 
+	/**
+	 * What Aleph said of the recorded VM when the card asked (#1036): which
+	 * instance, and `running`, `forgotten` or `unreachable`; '' before it asked.
+	 * @type {{ instance: string, state: string, stoppedAt?: string }}
+	 */
+	let alephSaid = $state({ instance: '', state: '' });
 	const running = $derived(Boolean(vm && !vm.stoppedAt));
+	/** Aleph confirmed the recorded VM is still held: until then nothing says it did not come up. */
+	const alephHolds = $derived(
+		!vm || (alephSaid.instance === vm.instance && alephSaid.state === 'running')
+	);
+	const alephUnknown = $derived(
+		running && alephSaid.instance === vm?.instance && alephSaid.state === 'unreachable'
+	);
 	/** A start Aleph has, not yet unlocked from here. */
 	const halfway = $derived(running && /** @type {any} */ (kept)?.instance !== vm?.instance);
 	const used = $derived(usage(vm, vm?.stoppedAt ? Date.parse(vm.stoppedAt) : now));
@@ -117,7 +131,8 @@
 	});
 	/** Unlocked, but nothing in the VM started: most often a wrong passphrase. */
 	const notUp = $derived(
-		hostedNotUp({ kept, vm, reached: reachedFor === /** @type {any} */ (kept)?.instance, now })
+		alephHolds &&
+			hostedNotUp({ kept, vm, reached: reachedFor === /** @type {any} */ (kept)?.instance, now })
 	);
 
 	/**
@@ -159,14 +174,43 @@
 	});
 
 	async function reload() {
-		[kept, vm, history, ownImage] = await Promise.all([
+		let record;
+		[kept, record, history, ownImage] = await Promise.all([
 			hostedBridgeRecord(),
 			hostedVmRecord(),
 			hostedNodeHistory(),
 			hostedOwnImage()
 		]);
+		// Forgotten at Aleph, though this device could not record it (a member's): shown stopped.
+		if (
+			record &&
+			!record.stoppedAt &&
+			alephSaid.state === 'forgotten' &&
+			alephSaid.instance === record.instance
+		)
+			record = { ...record, stoppedAt: alephSaid.stoppedAt };
+		vm = record;
 		noteAleph(kept, vm);
 	}
+
+	// A VM the books record as running is held against Aleph once (#1036): one
+	// question, only while the network is on. Forgotten there, it is stopped here.
+	$effect(() => {
+		const id = vm && !vm.stoppedAt ? vm.instance : '';
+		if (!online || busy || !id || untrack(() => alephSaid.instance) === id) return;
+		alephSaid = { instance: id, state: 'asking' };
+		reconcileHostedVm()
+			.then((r) => {
+				if (r.record?.instance !== id) return;
+				alephSaid = { instance: id, state: r.state, stoppedAt: r.record?.stoppedAt };
+				if (r.state === 'forgotten') {
+					vm = r.record;
+					noteAleph(kept, vm);
+					loadInstances();
+				}
+			})
+			.catch(() => (alephSaid = { instance: id, state: 'unreachable' }));
+	});
 
 	async function loadInstances() {
 		// Paused meanwhile: asked again once the network is resumed.
@@ -378,7 +422,13 @@
 	/** @param {string} hash */
 	function stopListed(hash) {
 		if (!confirm(t('integrationen.hostedBridge.instances.confirmStop', { hash }))) return;
-		step(() => stopHostedInstance(hash));
+		step(async () => saidStopped(await stopHostedInstance(hash)));
+	}
+
+	/** A stop that found the VM forgotten already says so, with Aleph's time. @param {{ stoppedAt: string, already: boolean }} done */
+	function saidStopped(done) {
+		if (done?.already)
+			notice = t('integrationen.hostedBridge.alreadyStopped', { date: when(done.stoppedAt) });
 	}
 
 	/**
@@ -493,7 +543,7 @@
 	}
 
 	function stop() {
-		step(() => stopHostedBridge());
+		step(async () => saidStopped(await stopHostedBridge()));
 	}
 
 	/** @param {SubmitEvent} event */
@@ -565,6 +615,15 @@
 					: t('integrationen.hostedBridge.copy')}</button
 			>
 		</p>
+		{#if alephUnknown && online && !busy}
+			<p
+				class="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-text"
+				role="status"
+				data-testid="hosted-bridge-aleph-unknown"
+			>
+				{t('integrationen.hostedBridge.alephUnknown')}
+			</p>
+		{/if}
 		{#if vm.nodeUrl}
 			<p class="mt-1 text-xs break-all text-faint" data-testid="hosted-bridge-vm-node">
 				{t('integrationen.hostedBridge.node')}: <span class="font-mono">{vm.nodeUrl}</span>

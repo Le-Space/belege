@@ -44,7 +44,8 @@ const isoNow = () => new Date().toISOString();
  * cannot get around the card; marked `fatal`, so a loop that tries again
  * (integrations/hosted-unlock.js) ends at once. The one exception is stopping
  * (`stopHostedBridge`, `stopHostedInstance`): a VM costs while it runs, so a
- * person may stop it while paused; that sends Aleph the FORGET and nothing else.
+ * person may stop it while paused; that asks Aleph whether the VM is forgotten
+ * already and sends it the FORGET, nothing else (#1036).
  */
 function refuseWhilePaused() {
 	if (!networkPause()) return;
@@ -932,39 +933,113 @@ export async function continueHostedStart({
 }
 
 /**
- * "Stoppen" (#587): FORGET the VM; its node stops and drops it, and the VM
- * keeps nothing. The books keep when it ran, for the hours used; the hosted
- * bridge leaves the devices. Works while the network is paused (see
- * `refuseWhilePaused`): the one message to Aleph is what the person asked for.
+ * FORGET `hash` unless Aleph has forgotten it already (#1036): asked first,
+ * so a second "Stoppen" – here, or after another device stopped it, or after
+ * the write that followed the FORGET failed – sends nothing. A FORGET Aleph
+ * refuses because the INSTANCE is forgotten meanwhile ends the same way. The
+ * VM's end is the FORGET's time as Aleph has it, not now.
+ *
+ * @param {{ hash: string, payerOf: () => Promise<string> }} p
+ * @returns {Promise<{ stoppedAt: string, already: boolean }>}
  */
-export async function stopHostedBridge() {
+async function forgetOnce({ hash, payerOf }) {
 	const vm = await import('../integrations/hosted-vm.js');
 	const { alephEndpoints } = await import('../backup/keeper.js');
 	const { alephSign } = await import('../backup/aleph-signer.js');
+	const { key, owner } = await hostedOwner();
+	const { apiHost } = alephEndpoints();
+	const statusNow = () => vm.instanceStatus(hash, { apiHost }).catch(() => null);
+	const before = await statusNow();
+	if (before?.status === 'forgotten') {
+		return { stoppedAt: before.forgottenAt ?? isoNow(), already: true };
+	}
+	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
+	const message = await vm.signedMessage({
+		type: 'FORGET',
+		content: vm.forgetContent(await payerOf(), hash),
+		sign,
+		sender: owner
+	});
+	try {
+		await vm.sendMessage(message, { apiHost });
+	} catch (e) {
+		const after = await statusNow();
+		if (after?.status !== 'forgotten') throw e;
+		// Forgotten all the same: by this FORGET (its answer was lost), or by one before it.
+		const ours = after.forgottenBy.includes(message.item_hash);
+		return { stoppedAt: after.forgottenAt ?? isoNow(), already: !ours };
+	}
+	return { stoppedAt: isoNow(), already: false };
+}
+
+/** The hosted bridge of `instance` leaves the devices, if it is the one paired. @param {string} instance */
+async function unpairHosted(instance) {
+	const paired = await hostedBridgeRecord();
+	if (paired && paired.instance === instance && paired.peerId && ctx.deviceSync) {
+		await ctx.deviceSync.removeDevice(paired.peerId).catch(() => {});
+	}
+}
+
+/**
+ * "Stoppen" (#587): FORGET the VM; its node stops and drops it, and the VM
+ * keeps nothing. The books keep when it ran, for the hours used; the hosted
+ * bridge leaves the devices. Works while the network is paused (see
+ * `refuseWhilePaused`): what goes to Aleph is what the person asked for – the
+ * question whether it is forgotten already, and the FORGET. `already` says
+ * that Aleph had forgotten it before (#1036); `stoppedAt` is then that time.
+ *
+ * @returns {Promise<{ stoppedAt: string, already: boolean }>}
+ */
+export async function stopHostedBridge() {
+	const vm = await import('../integrations/hosted-vm.js');
 	const record = await hostedVmRecord();
 	if (!record || record.stoppedAt || !ctx.session?.store)
 		throw new Error(t('messages.hostedBridge.noVm'));
 	const settings = ctx.session.store.settings;
-	const { key, owner } = await hostedOwner();
+	const done = await forgetOnce({
+		hash: record.instance,
+		payerOf: async () =>
+			typeof record.payer === 'string' ? record.payer : (await hostedOwner()).owner
+	});
+	await setSetting(settings, vm.VM_SETTING, { ...record, stoppedAt: done.stoppedAt });
+	await unpairHosted(record.instance);
+	return done;
+}
+
+/**
+ * The VM the books recorded as running, held against what Aleph says (#1036):
+ * one question, only while the network is on. A VM Aleph has forgotten – on
+ * another device, or a stop whose record did not reach this one – is recorded
+ * as stopped at the FORGET's time, and its bridge leaves the devices.
+ *
+ * `state`: `none` (no record), `stopped` (recorded so), `unasked` (offline or
+ * paused), `running` (Aleph holds it), `forgotten` (just recorded as stopped),
+ * `unreachable` (Aleph did not answer); `record` is the record as it is now.
+ *
+ * @returns {Promise<{ state: 'none' | 'stopped' | 'unasked' | 'running' | 'forgotten' | 'unreachable', record: any }>}
+ */
+export async function reconcileHostedVm() {
+	const record = await hostedVmRecord();
+	if (!record) return { state: 'none', record: null };
+	if (record.stoppedAt) return { state: 'stopped', record };
+	if (networkPause() || !ctx.session?.online) return { state: 'unasked', record };
+	const vm = await import('../integrations/hosted-vm.js');
+	const { alephEndpoints } = await import('../backup/keeper.js');
 	const { apiHost } = alephEndpoints();
-	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
-	const payer = typeof record.payer === 'string' ? record.payer : owner;
-	await vm.sendMessage(
-		await vm.signedMessage({
-			type: 'FORGET',
-			content: vm.forgetContent(payer, record.instance),
-			sign,
-			sender: owner
-		}),
-		{ apiHost }
-	);
-	const stoppedAt = isoNow();
-	await setSetting(settings, vm.VM_SETTING, { ...record, stoppedAt });
-	const paired = await hostedBridgeRecord();
-	if (paired && paired.instance === record.instance && paired.peerId && ctx.deviceSync) {
-		await ctx.deviceSync.removeDevice(paired.peerId).catch(() => {});
+	/** @type {import('../integrations/hosted-vm.js').InstanceStatus} */
+	let said;
+	try {
+		said = await vm.instanceStatus(record.instance, { apiHost });
+	} catch {
+		return { state: 'unreachable', record };
 	}
-	return { stoppedAt };
+	if (said.status !== 'forgotten') return { state: 'running', record };
+	const stopped = { ...record, stoppedAt: said.forgottenAt ?? isoNow() };
+	// A device that may not write the settings still shows it stopped; the next one records it.
+	if (ctx.session?.store)
+		await setSetting(ctx.session.store.settings, vm.VM_SETTING, stopped).catch(() => {});
+	await unpairHosted(record.instance);
+	return { state: 'forgotten', record: stopped };
 }
 
 /**
@@ -1011,30 +1086,17 @@ export async function stopHostedInstance(instance) {
 	const record = await hostedVmRecord();
 	if (record && !record.stoppedAt && record.instance === hash) return stopHostedBridge();
 	if (!ctx.session?.store) throw new Error(t('messages.bridge.needsSync'));
-	const vm = await import('../integrations/hosted-vm.js');
 	const hosted = await import('../integrations/hosted-bridge.js');
 	const { alephEndpoints } = await import('../backup/keeper.js');
-	const { alephSign } = await import('../backup/aleph-signer.js');
 	if (!hosted.isInstanceHash(hash)) throw new Error(t('messages.hostedBridge.notInstance'));
-	const { key, owner } = await hostedOwner();
-	const { apiHost } = alephEndpoints();
-	const { content } = await hosted.fetchInstance(hash, { apiHost });
-	const payer = /^0x[0-9a-fA-F]{40}$/.test(String(content?.address ?? ''))
-		? content.address
-		: owner;
-	const sign = async (/** @type {string} */ payload) => alephSign(key, payload);
-	await vm.sendMessage(
-		await vm.signedMessage({
-			type: 'FORGET',
-			content: vm.forgetContent(payer, hash),
-			sign,
-			sender: owner
-		}),
-		{ apiHost }
-	);
-	const paired = await hostedBridgeRecord();
-	if (paired && paired.instance === hash && paired.peerId && ctx.deviceSync) {
-		await ctx.deviceSync.removeDevice(paired.peerId).catch(() => {});
-	}
-	return { stoppedAt: isoNow() };
+	const done = await forgetOnce({
+		hash,
+		payerOf: async () => {
+			const { owner } = await hostedOwner();
+			const { content } = await hosted.fetchInstance(hash, { apiHost: alephEndpoints().apiHost });
+			return /^0x[0-9a-fA-F]{40}$/.test(String(content?.address ?? '')) ? content.address : owner;
+		}
+	});
+	await unpairHosted(hash);
+	return done;
 }
