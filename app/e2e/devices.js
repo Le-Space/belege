@@ -21,6 +21,36 @@ const AUTHENTICATOR = {
 const PRF = Array.from({ length: 32 }, (_, i) => (i * 37 + 11) % 256);
 
 /**
+ * Every passkey prompt in `context` that asks for PRF gets `prf` as its
+ * answer, as a synced passkey gives the same one on every device – also the
+ * identity provider's own, which a restore asks and which a credential copied
+ * into another virtual authenticator cannot answer (#957).
+ *
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {number[]} [prf]
+ */
+export async function answerPrfAlike(context, prf = PRF) {
+	await context.addInitScript((prf) => {
+		const container = navigator.credentials;
+		for (const name of /** @type {const} */ (['create', 'get'])) {
+			const ask = container[name].bind(container);
+			container[name] = async (/** @type {any} */ options) => {
+				const credential = /** @type {any} */ (await ask(options));
+				const asked = options?.publicKey?.extensions?.prf;
+				if (!credential || !asked) return credential;
+				const results = credential.getClientExtensionResults.bind(credential);
+				const first = Uint8Array.from(prf).buffer;
+				credential.getClientExtensionResults = () => {
+					const r = results();
+					return { ...r, prf: { ...r.prf, enabled: true, results: { first } } };
+				};
+				return credential;
+			};
+		}
+	}, prf);
+}
+
+/**
  * A device with device sync switched on, a virtual authenticator, and a camera
  * and QR detector the test feeds.
  *
@@ -52,26 +82,7 @@ export async function equip(
 	page,
 	{ mode = 'public', lanRelay = '', syncedPrf = false, prf = PRF } = {}
 ) {
-	if (syncedPrf) {
-		await context.addInitScript((prf) => {
-			const container = navigator.credentials;
-			for (const name of /** @type {const} */ (['create', 'get'])) {
-				const ask = container[name].bind(container);
-				container[name] = async (/** @type {any} */ options) => {
-					const credential = /** @type {any} */ (await ask(options));
-					const asked = options?.publicKey?.extensions?.prf;
-					if (!credential || !asked) return credential;
-					const results = credential.getClientExtensionResults.bind(credential);
-					const first = Uint8Array.from(prf).buffer;
-					credential.getClientExtensionResults = () => {
-						const r = results();
-						return { ...r, prf: { ...r.prf, enabled: true, results: { first } } };
-					};
-					return credential;
-				};
-			}
-		}, prf);
-	}
+	if (syncedPrf) await answerPrfAlike(context, prf);
 	// BENCH_LIBP2P_DEBUG=libp2p:connection-monitor* switches libp2p's own
 	// logging on in the page (its logger reads `localStorage.debug`); the
 	// resilience benchmark keeps what the console then says (bench/).

@@ -30,6 +30,7 @@
 	} from './restore-flow.svelte.js';
 	import BackupProgress from './BackupProgress.svelte';
 	import OtherBooksOffer from '$lib/keys/OtherBooksOffer.svelte';
+	import VaultIndexOffer from '$lib/keys/VaultIndexOffer.svelte';
 	import { backupRun, decideBackup, refused, runBackup, sizeText } from './run.svelte.js';
 	import { keepAliveOffered, keepAliveWanted, setKeepAlive } from '$lib/keep-alive.js';
 	import { backupDue, setAutoBackup } from './auto.svelte.js';
@@ -1129,6 +1130,9 @@
 			{/if}
 		</div>
 	{/if}
+	<!-- Asked once after a backup (#1049): the vault on Aleph, so an empty
+	     device finds these backups with the passkey alone. -->
+	<VaultIndexOffer backedUp={Boolean(made) || backups.some((b) => b.status !== 'rejected')} />
 	{#if bridgeError && granted === true}
 		<p class="mt-2 text-xs text-faint" data-testid="backup-bridge-not-needed">
 			{t('backup.bridgeNotNeeded')}
