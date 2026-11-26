@@ -30,12 +30,20 @@
 // What a vault does not do: a removed passkey has seen the root, and the root
 // cannot be renewed without sealing the books anew. Renewing the vault key
 // keeps what is added to the vault later from it (`renewBooksVault`).
+//
+// A renewed vault carries a generation, one more than the vault it replaces,
+// sealed into every slot (the package's vault format 2). A record of these
+// books from elsewhere – the index, an own device – is taken only when it is
+// not older than the one kept here: not of a lower generation, and not one
+// this record replaced (`replaces`). An empty device shown only an old record
+// still opens it; nothing says it was replaced.
 
 import {
 	createVault,
 	deriveAesKey,
 	openVault,
 	addSlot as addVaultSlot,
+	generationOf,
 	slotIdFor
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import { toHex } from '@le-space/ledger/bytes';
@@ -130,6 +138,40 @@ export class RemovedWordsError extends Error {
 		this.name = 'RemovedWordsError';
 	}
 }
+
+/**
+ * Whether `vault` is older than the one `record` keeps: of a lower generation,
+ * or one this record replaced. The generation is read unverified here; a
+ * record that claims a higher one than it was made with does not open
+ * (its slots are sealed with the number), so only a lower one is trusted to
+ * mean "older".
+ *
+ * @param {VaultRecord} record the one kept here, opened
+ * @param {any} vault from elsewhere
+ */
+export function isEarlierVault(record, vault) {
+	if (record.replaces?.includes(String(vault?.id))) return true;
+	try {
+		return generationOf(vault) < generationOf(record.vault);
+	} catch {
+		// Not a vault this version reads: opening it says so.
+		return false;
+	}
+}
+
+/**
+ * `replaces` of a record that takes the place of `record`'s vault: what that
+ * one replaced, and itself.
+ *
+ * @param {VaultRecord} record
+ * @param {any} vault the vault taking its place
+ */
+const replacesAfter = (record, vault) => {
+	const ids = [...(record.replaces ?? [])];
+	if (record.vault.id !== vault.id) ids.push(String(record.vault.id));
+	const kept = [...new Set(ids)].filter((id) => id !== vault.id);
+	return kept.length ? { replaces: kept } : {};
+};
 
 /** @param {string} hex @param {number} length */
 function fromHex(hex, length) {
@@ -554,10 +596,13 @@ export async function renewBooksVault(opened, answers, removed, storage) {
 	const kids = await Promise.all(answers.map((a) => slotIdFor(a.rawCredentialId)));
 	if (!kids.includes(opened.kid)) throw new Error('The passkey that opened the books has to stay.');
 	const [first, ...rest] = answers;
-	let { vault, vaultKey } = await createVault(encodePayload(opened.root, opened.previous), {
-		slotKey: await slotKeyOf(first.prfOutput),
-		rawCredentialId: first.rawCredentialId
-	});
+	// One generation on: a device that has this one never steps back to
+	// the vault it replaces, wherever that record comes from.
+	let { vault, vaultKey } = await createVault(
+		encodePayload(opened.root, opened.previous),
+		{ slotKey: await slotKeyOf(first.prfOutput), rawCredentialId: first.rawCredentialId },
+		{ generation: generationOf(opened.record.vault) + 1 }
+	);
 	for (const a of rest) {
 		vault = await addVaultSlot(vault, vaultKey, {
 			slotKey: await slotKeyOf(a.prfOutput),
@@ -594,6 +639,8 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 	// The same record (a slot added keeps the vault's id, so the whole record is compared).
 	if (!vault || !Array.isArray(vault.slots)) return opened;
 	if (JSON.stringify(vault) === JSON.stringify(opened.record.vault)) return opened;
+	// Older than the one kept here: never taken in its place.
+	if (isEarlierVault(opened.record, vault)) return opened;
 	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
 		// Another vault (#555): not proof that this passkey was taken out – the
 		// two may be two devices' vaults of the same books. Refused all the same,
@@ -637,7 +684,8 @@ export async function adoptNewerVault(opened, vault, passkey, storage, published
 			...published.filter((s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid))
 		],
 		removed: opened.record.removed,
-		...asideOf(opened.record)
+		...asideOf(opened.record),
+		...replacesAfter(opened.record, vault)
 	};
 	const records = loadVaultRecords(storage).filter((r) => r.vault.id !== opened.record.vault.id);
 	records.push(record);
@@ -671,8 +719,8 @@ export async function convergeOnPublished(opened, published, passkey, storage) {
 		return { opened, lost: [] };
 	}
 	if (vault.id === opened.record.vault.id) return { opened, lost: [] };
-	// This record's own vault before it was renewed here: replaced by publishing.
-	if (opened.record.replaces?.includes(vault.id)) return { opened, lost: [] };
+	// This record's own vault before it was renewed, or an older one: replaced by publishing.
+	if (isEarlierVault(opened.record, vault)) return { opened, lost: [] };
 	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
 		throw new PublishedVaultLacksPasskeyError();
 	}
@@ -693,7 +741,8 @@ export async function convergeOnPublished(opened, published, passkey, storage) {
 				(s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid)
 			)
 		],
-		removed: opened.record.removed
+		removed: opened.record.removed,
+		...(opened.record.replaces?.length ? { replaces: opened.record.replaces } : {})
 	};
 	const lost = opened.record.slots.filter((s) => !kids.has(s.kid));
 	const old = opened.record.vault.id;
@@ -862,6 +911,8 @@ export async function openWithWords({ seed, storage, find }) {
  */
 export async function newerWithWords(opened, vault, seed, published = []) {
 	if (!vault || !Array.isArray(vault.slots)) return opened;
+	// Older than the record the words opened: never taken in its place.
+	if (isEarlierVault(opened.record, vault)) return opened;
 	if (!vault.slots.some((/** @type {any} */ s) => s.kid === opened.kid)) {
 		throw new RemovedWordsError();
 	}
@@ -891,7 +942,8 @@ export async function newerWithWords(opened, vault, seed, published = []) {
 				...published.filter((s) => kids.has(s.kid) && !here.some((h) => h.kid === s.kid))
 			],
 			removed: Array.isArray(opened.record.removed) ? opened.record.removed : [],
-			...asideOf(opened.record)
+			...asideOf(opened.record),
+			...replacesAfter(opened.record, vault)
 		},
 		vaultKey
 	};

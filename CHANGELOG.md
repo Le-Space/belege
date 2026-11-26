@@ -6,6 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **`@le-space/orbitdb-identity-provider-webauthn-did` 0.14.0** (from 0.11.0), the security release for [GHSA-7j39-c465-x35x](https://github.com/advisories/GHSA-7j39-c465-x35x). The books write as their own identity (#496, members as theirs, #612), not as the passkey, so their entries are unaffected. Identity proofs in the provider's first format stay accepted (`configureWebAuthn({ acceptLegacyProofs: true })` in `node.js`, which also replaces the provider's console notice): the books from before #496 and their backups were written by passkey identities with such proofs and must still open.
+- **A renewed vault is one generation on, and a device never steps back to the vault it replaced.** Renewing the books' vault (when a passkey is removed) now makes the new vault with a generation one higher than the one it replaces, sealed into every slot (the provider's vault format 2). A record of the same books from the index on Aleph, from an own device or opened with the recovery words is taken in place of the one kept only when it is not older: not of a lower generation, and not a vault this record replaced – which a device that takes a renewal made elsewhere now remembers too (`books-vault.js` `isEarlierVault`). A vault made fresh, and every vault renewed before, are unchanged: version 1, generation 0.
+
+### Changed
+
+- **A vault renewed from now on opens only with this version or later.** Older builds refuse the vault format 2 a renewal writes; a device still on one opens the books again after a reload. Vaults that are not renewed stay readable by every version.
+
 ## [0.58.0] – 2026-11-25
 
 ### Changed
