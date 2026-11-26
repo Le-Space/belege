@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.64.0] – 2026-11-26
+
 ### Added
 
 - **A wallet's network fees are one row per month** (#1043). Zahlungen folds a wallet's fees of a month into one row once there are two or more – _Netzwerkgebühren · Wallet AKT … · September 2026 · 30 Transaktionen_ – with the sum in euros and in the asset, how many have an account, whether the usage statement covers them and, when they differ, which accounts they are on. It opens to the single fees. _Ohne Konto_, _Nur ohne Beleg_, the month counts and the search (_netz_) count a group once. **One _Übernehmen_** confirms every open fee of the group in one step, with one entry in the history; _Auf ein Konto vereinheitlichen_ puts a group with mixed accounts on one, and _Rückgängig_ takes the whole group back. The grouping is computed from the bookings, not stored, so fees confirmed one by one before are in their groups already. The export is unchanged.
