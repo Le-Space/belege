@@ -1118,3 +1118,75 @@ test('building the books’ own image shows the journey; without an attest relay
 	await mac.page.getByTestId('build-journey-close').click();
 	await expect(journey).toHaveCount(0);
 });
+
+test('a VM the books record as running but Aleph has forgotten: the card shows it stopped at the FORGET, without the unlock notice or "Stoppen" (#1036)', async ({
+	browser
+}) => {
+	test.setTimeout(120_000);
+	const mac = await device(browser);
+	await mac.page.addInitScript(
+		(url) => localStorage.setItem('belege.e2e.alephUrl', url),
+		aleph.url
+	);
+	await mac.page.goto('/');
+	await acceptConsent(mac.page);
+	await mac.page.getByTestId('passkey-label').fill('E2E VM vergessen');
+	await mac.page.getByRole('button', { name: 'Passkey anlegen' }).click();
+	await expect(mac.page.getByTestId('own-did')).toBeVisible();
+	await openIntegration(mac.page, 'geraete');
+	await expect(mac.page.getByTestId('devices-reachable')).toContainText(
+		'über den Relay erreichbar',
+		{ timeout: 30_000 }
+	);
+	const owner = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.alephAddress()
+	);
+	// Started two days ago; forgotten a day later by a FORGET of the books' key from another device.
+	const instance = 'c'.repeat(64);
+	const started = Math.floor(Date.now() / 1000) - 2 * 86_400;
+	aleph.holdInstance(instance, { address: owner, time: started });
+	aleph.forgetElsewhere(instance, { at: started + 86_400 });
+	const startedAt = new Date(started * 1000).toISOString();
+	// This device's record never heard of the stop: running, and unlocked long ago.
+	await mac.page.evaluate((r) => /** @type {any} */ (window).__belegeE2E.setHostedRecords(r), {
+		vm: {
+			instance,
+			crn: FAKE_CRN,
+			nodeUrl: aleph.url,
+			payer: owner,
+			paidBy: 'books',
+			startedAt,
+			creditsPerHour: 100
+		},
+		hosted: {
+			instance,
+			host: 'vm.example.com',
+			peerId: '12D3KooWMadeUpPeerIdOfAForgottenHostedBridge',
+			measurement: PUBLISHED,
+			attestedAt: startedAt
+		}
+	});
+
+	await openIntegration(mac.page, 'bridge');
+	const card = mac.page.getByTestId('hosted-bridge');
+	await expect(card.getByTestId('hosted-bridge-vm')).toContainText('Gestoppt', {
+		timeout: 30_000
+	});
+	// Runtime and credits from the start to the FORGET, not up to now.
+	await expect(card.getByTestId('hosted-bridge-usage')).toContainText('24 h');
+	await expect(card.getByTestId('hosted-bridge-not-up')).toHaveCount(0);
+	await expect(card.getByTestId('hosted-bridge-state')).toHaveCount(0);
+	await expect(card.getByTestId('hosted-bridge-stop')).toHaveCount(0);
+	await expect(card.getByTestId('hosted-bridge-instances')).toContainText('keine VM', {
+		timeout: 30_000
+	});
+	// Asked, not told: no second FORGET went to Aleph.
+	expect(aleph.instances.get(instance)?.forgottenBy).toHaveLength(1);
+
+	// The check wrote the stop into the books: read back, it is stopped at the FORGET.
+	const kept = await mac.page.evaluate(() =>
+		/** @type {any} */ (window).__belegeE2E.hostedVmRecord()
+	);
+	expect(kept?.stoppedAt).toBe(new Date((started + 86_400) * 1000).toISOString());
+	await mac.context.close();
+});

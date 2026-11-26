@@ -5412,6 +5412,10 @@ export default {
 			usageHours: '{hours} h',
 			stop: 'Stoppen',
 			stopped: 'Gestoppt {date}',
+			alreadyStopped:
+				'Die VM war bereits gestoppt am {date}: Aleph hatte sie schon vergessen, es ging nichts mehr an Aleph.',
+			alephUnknown:
+				'Aleph antwortet gerade nicht: Ob die VM noch läuft, ist nicht bestätigt. Laufzeit und Credits sind vom Start bis jetzt gerechnet.',
 			resume: 'Entsperren',
 			download: {
 				of: '{received} von {total} MB · {seconds} s · {host}',

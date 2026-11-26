@@ -535,6 +535,9 @@ export const continueHostedStart = async (...args) =>
 	(await hostedAleph()).continueHostedStart(...args);
 /** @type {HostedAleph['stopHostedBridge']} */
 export const stopHostedBridge = async (...args) => (await hostedAleph()).stopHostedBridge(...args);
+/** @type {HostedAleph['reconcileHostedVm']} */
+export const reconcileHostedVm = async (...args) =>
+	(await hostedAleph()).reconcileHostedVm(...args);
 /** @type {HostedAleph['hostedInstances']} */
 export const hostedInstances = async (...args) => (await hostedAleph()).hostedInstances(...args);
 /** @type {HostedAleph['stopHostedInstance']} */
@@ -1526,6 +1529,16 @@ function installE2EHooks() {
 		setOwnImage: async (/** @type {Record<string, any>} */ record) => {
 			const { IMAGE_SETTING } = await import('./integrations/hosted-image.js');
 			if (session?.store) await setSetting(session.store.settings, IMAGE_SETTING, record);
+		},
+		/** The hosted VM as the books record it (#1036). */
+		hostedVmRecord: () => hostedVmRecord(),
+		// What the books record of a hosted VM and its unlock, as another device left it (#1036).
+		setHostedRecords: async (/** @type {{ vm?: any, hosted?: any }} */ { vm, hosted }) => {
+			if (!session?.store) return;
+			const { VM_SETTING } = await import('./integrations/hosted-vm.js');
+			const { writeHostedRecord } = await import('./bridge-connection/record.js');
+			if (vm) await setSetting(session.store.settings, VM_SETTING, vm);
+			if (hosted) await writeHostedRecord(session.store.settings, hosted);
 		},
 		/** The passphrase the books derive for an own image of `plainSha256`, to compare with what a VM got. */
 		ownImagePassphrase: async (/** @type {string} */ plainSha256) =>
