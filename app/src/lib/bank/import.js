@@ -63,6 +63,8 @@ const FIELDS = /** @type {const} */ ([
 	// moved out in someone else's transaction, and a booking without a rate (#162)
 	'movedByOther',
 	'rateMissing',
+	// Bitcoin and its kin: the transaction's inputs and outputs (#1037)
+	'utxo',
 	// a crypto movement (assets/valuation.js)
 	'asset',
 	'quantity',
@@ -108,6 +110,8 @@ const TIED = /** @type {const} */ (['partOf', 'enables', 'storageDeposit']);
  *   storage deposit booked as a network fee: what it was for, and whom it registered
  * @property {import('../wallets/cross-swap.js').CrossSwap} [crossSwap] a swap to another chain (IBC memo)
  * @property {{ by: string }} [movedByOther] moved out in someone else's transaction (#162)
+ * @property {import('@le-space/ledger').WalletEntry['utxo']} [utxo] Bitcoin and its kin: the transaction's
+ *   inputs and outputs, ours marked (#1037)
  * @property {{ reason: string } | null} [rateMissing] no rate found: kept with its quantity, amount open (#162)
  * @property {CryptoFields} [crypto] for a crypto asset: what moved and how `amountCents`
  *   (EUR) was valued; see assets/valuation.js
@@ -263,6 +267,7 @@ export async function importTransactions({
 			...(tx.storageDeposit ? { storageDeposit: tx.storageDeposit } : {}),
 			...(tx.crossSwap ? { crossSwap: tx.crossSwap } : {}),
 			...(tx.movedByOther ? { movedByOther: tx.movedByOther } : {}),
+			...(tx.utxo ? { utxo: tx.utxo } : {}),
 			...(tx.crypto ? { rateMissing: tx.rateMissing ?? null } : {}),
 			...(tx.crypto
 				? {

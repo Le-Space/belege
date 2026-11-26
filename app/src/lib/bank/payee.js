@@ -18,6 +18,10 @@ import { displayPurpose } from './format.js';
 import { txAlias } from '../matching/partners.js';
 import { cosmosChainOf, normalizeAddress, walletChain } from '../wallets/chains.js';
 import { knownContract } from '../wallets/known-contracts.js';
+import { ownAddressOf } from '../wallets/payout-wallet.js';
+
+/** A key's fingerprint (`btc-` + 8 hex), which an account knows a key-read wallet by. @param {unknown} v */
+const isFingerprint = (v) => /^[a-z]+-[0-9a-f]{8}$/.test(String(v ?? ''));
 
 /** @typedef {Record<string, any>} Rec */
 
@@ -139,6 +143,9 @@ function otherParty(tx, book) {
 	if (ownAccount) {
 		return { address, label: String(ownAccount.name ?? shortAddress(address)), own: true };
 	}
+	// A name said for this booking alone (a payout wallet's receipt, #1037).
+	const said = String(tx.saidKind?.name ?? '').trim();
+	if (said) return { address, label: said, own: false };
 	const partner = book.known.get(txAlias(tx));
 	if (partner) return { address, label: partner, own: false };
 	// A contract known for what it is (wallets/known-contracts.js).
@@ -186,7 +193,11 @@ export function payeeName(tx, book = { own: new Map(), known: new Map() }) {
  */
 export function walletParties(tx, account, book) {
 	if (!walletChain(tx.source)) return null;
-	const address = String(account?.walletAddress ?? '');
+	// A wallet read by its key (Bitcoin) is known by a fingerprint, not an
+	// address: the address of this booking is in its transaction (#1037).
+	const address =
+		ownAddressOf(tx) ||
+		(isFingerprint(account?.walletAddress) ? '' : String(account?.walletAddress ?? ''));
 	/** @type {Party} */
 	const mine = {
 		address,

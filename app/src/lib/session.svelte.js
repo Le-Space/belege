@@ -1601,6 +1601,9 @@ function installE2EHooks() {
 		addAccount: (/** @type {Record<string, any>} */ account) =>
 			session?.store.accounts.put(account),
 		accounts: () => session?.store.accounts.list(),
+		// A partner as "Was war diese Zahlung?" remembers one (matching/partners.js), for the Bitcoin spec.
+		addPartner: (/** @type {Record<string, any>} */ partner) =>
+			session?.store.partners.put(partner),
 		// For the benchmark (app/bench/): made-up books written through the real
 		// store, and the app's own read, refresh and matching paths timed in the page.
 		bench: {

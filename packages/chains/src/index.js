@@ -60,6 +60,8 @@ export {
 	deriveAddress,
 	keyFingerprint,
 	normalizeBitcoin,
+	txMagnitude,
+	utxoShape,
 	parseExtendedKey,
 	parseStoredKey
 } from './bitcoin.js';

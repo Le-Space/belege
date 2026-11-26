@@ -40,6 +40,9 @@
  * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send (#162)
  * @property {string} [txFrom] EVM: who sent that transaction, where known
  * @property {string} explorerUrl
+ * @property {{ inputs: { address: string, sats: string, own: boolean, count?: number }[], outputs: { address: string, sats: string, own: boolean }[], inputCount: number, outputCount: number, moreInputs?: { count: number, sats: string }, moreOutputs?: { count: number, sats: string }, fee: string, height: number, senderTxs?: number }} [utxo]
+ *   Bitcoin and its kin: the transaction's inputs by address and its outputs, ours marked, the first others
+ *   listed and the rest counted; the fee in sats; a receipt's sender's transaction count as a power of ten (#1037)
  * @property {string} [contract] EVM: a token not in the chain's list, by its contract (issue #115)
  * @property {boolean} [listed] false for such a token: its symbol is its own claim
  */

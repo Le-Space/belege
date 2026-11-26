@@ -169,6 +169,43 @@ export async function setNoReceipt(store, transactionId, reason, { log = true } 
 }
 
 /**
+ * What one booking was, said for it alone (issue #1037): a receipt from an
+ * exchange's payout wallet, whose address pays many people, is a customer's
+ * payment, own money from an exchange, or private – this time. Kept on the
+ * booking as `saidKind`, so the address stays no one's; `kind` null takes it
+ * back. The engine reads it like an answer for an address (partners.js
+ * `addressKindOf`).
+ *
+ * @param {MatchingStore} store
+ * @param {string} transactionId
+ * @param {'vendor' | 'private' | 'custodian' | null} kind
+ * @param {string} [name]
+ * @param {{ accountId?: string }} [extra] own money at an exchange: its account in the books, if there is one
+ */
+export async function sayForBooking(store, transactionId, kind, name = '', extra = {}) {
+	const tx = await store.transactions.get(transactionId);
+	if (!tx) throw new Error(`No transaction ${transactionId}`);
+	const label = String(name ?? '')
+		.trim()
+		.slice(0, 80);
+	if (kind !== null && (!['vendor', 'private', 'custodian'].includes(kind) || !label)) return;
+	await store.transactions.put({
+		...tx,
+		saidKind:
+			kind === null
+				? null
+				: {
+						kind,
+						name: label,
+						...(kind === 'custodian' && extra.accountId ? { accountId: extra.accountId } : {}),
+						at: new Date().toISOString()
+					}
+	});
+	await syncLinks(store);
+	await decided(store, kind === null ? 'booking-kind-cleared' : 'booking-kind', { transactionId });
+}
+
+/**
  * "Bankgebühr": this booking is a bank fee, and so is the next one on the same
  * account with the same purpose words (classify.js `feeKey`). A purpose
  * without words to learn from, or a booking that does not look like the

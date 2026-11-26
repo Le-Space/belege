@@ -1056,9 +1056,9 @@ export default {
 				name: 'Blockchain query (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin, NEAR)',
 				text: 'Only for your own wallets that you enter under Integrations, and only when you press “Sync”: the bridge asks a public node for the transfers and the balance of the address.',
 				leaves:
-					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself; for that the card names further public ones (Nodes Guru for Nyx, Polkachu and Ecostake for Akash, blockstream.info for Bitcoin), which are asked only if you enter one of them. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP: the operator can infer from this that all these addresses belong together. For Filecoin the bridge asks Filfox (filfox.info) about the address. For Filecoin Pay, only if you check a Filecoin wallet under “Own wallets” or make its usage statement: the wallet’s address to the index kept by the makers of Filecoin Pay at Goldsky (api.goldsky.com), to Blockscout (filecoin.blockscout.com – or api.blockscout.com, if you have set up a Blockscout API key; Blockscout then links the queries to your Blockscout account) and, where Blockscout does not answer, to Filfox; each of them also sees the IP address of this Mac. For NEAR the bridge asks NearBlocks (api.nearblocks.io) for the account’s transactions and an archival node of FastNEAR (archival-rpc.mainnet.fastnear.com) for the balance; both see the account name. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
+					'The wallet address and the IP address of this Mac – to the operator of the node: by default Nym (rpc.nymtech.net) for Nyx, PublicNode for Akash (for the older history also the Akash indexer console-api.akash.network, run by the Akash team), Blockscout for Ethereum, Base, Arbitrum, Optimism and Polygon – or Alchemy, if you have set up an Alchemy API key –, or the node you enter yourself; for that the card names further public ones (Nodes Guru for Nyx, Polkachu and Ecostake for Akash, blockstream.info for Bitcoin), which are asked only if you enter one of them. The operator can infer from this that this address belongs to you; Alchemy also associates the queries with your Alchemy account. If a token has no CoinGecko rate, the bridge also asks Alchemy for its Uniswap pool in the block of the booking – Alchemy then sees the token contract and the block. For Bitcoin, the bridge asks mempool.space (or your own Esplora server) about every address it derives from your account key, in quick succession from the same IP, and about the address an incoming payment came from (how many transactions it has): the operator can infer from this that all these addresses belong together. For Filecoin the bridge asks Filfox (filfox.info) about the address. For Filecoin Pay, only if you check a Filecoin wallet under “Own wallets” or make its usage statement: the wallet’s address to the index kept by the makers of Filecoin Pay at Goldsky (api.goldsky.com), to Blockscout (filecoin.blockscout.com – or api.blockscout.com, if you have set up a Blockscout API key; Blockscout then links the queries to your Blockscout account) and, where Blockscout does not answer, to Filfox; each of them also sees the IP address of this Mac. For NEAR the bridge asks NearBlocks (api.nearblocks.io) for the account’s transactions and an archival node of FastNEAR (archival-rpc.mainnet.fastnear.com) for the balance; both see the account name. For Aleph Cloud, only if you switch on “Check own Ethereum addresses at Aleph” under Integrations or enter an Aleph account: each of these addresses to Aleph (api2.aleph.im), read only – Aleph can infer from this that they belong together.',
 				technical:
-					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain). The app knows only a fingerprint of the key. For Filecoin, Filfox’s public API (address, address/transfers; the address is in the query URL), without a key; a message’s send, receive and fees come from there, and the message CID is the hash. For Filecoin Pay (USDFC only), the makers’ index (a subgraph at Goldsky, over GraphQL: userTokens, rails, settlements, oneTimePayments by the payer’s address) and the payment contract’s events at Blockscout (getLogs for DepositRecorded and WithdrawRecorded; when the index does not answer, also RailCreated, RailSettled, RailOneTimePaymentProcessed and the balance by eth_call). The Blockscout key is kept in the bridge’s macOS keychain (pnpm setup:blockscout) and goes to api.blockscout.com only, in the request’s header – in no URL, never in the browser, never in the log. What a payer itself earns over rails is not read. For NEAR, NearBlocks’ API (v3: accounts/<account>/txns and ft-txns; the account name is in the query URL), without a key, and the JSON-RPC of an archival node of FastNEAR (view_account and ft_balance_of for the balance, EXPERIMENTAL_tx_status for what a storage deposit kept); NEAR and USDC (Circle’s contract) are booked, and the transaction hash is the one an exchange names for a withdrawal. NEAR that arrives in the inner receipts of someone else’s transaction (a staking pool paying out, say) is not read yet. Links to the block explorer only open when you click them.'
+					'Queries are made over HTTPS: for Cosmos chains the CometBFT RPC (tx_search by transfer.sender and transfer.recipient, header, status) and the REST API (balance), for EVM chains Blockscout’s Etherscan-compatible API (txlist, txlistinternal, tokentx, balance) or, with a key, Alchemy (alchemy_getAssetTransfers, receipts, nonce, balance; internal transactions on Arbitrum and Optimism still via Blockscout; for a token without a CoinGecko rate, eth_call to the Uniswap factories (V2, V3) and Uniswap V4’s StateView for its pools against ETH and USDC in the block of the booking; the deepest one counts if it holds at least €3,000 on the ETH or USDC side). The Alchemy key is kept in the bridge’s macOS Keychain (pnpm setup:alchemy) and appears only in the address of the requests to Alchemy – never in the browser, never in the log. The app sends the address in the body of a request to the bridge, never in a URL (to Blockscout it goes in the query URL, as its API requires); the bridge’s log records only numbers. No key, no signature: the address is public, the list of your wallets is stored encrypted in your books, not in the bridge. Only assets from the chain’s list are booked (NYM, NYX, AKT, ETH, POL, USDC with a verified contract); other tokens are counted and left out. For Bitcoin, the account key (xpub, ypub or zpub) is kept only in the bridge’s macOS Keychain; the bridge derives the addresses from it (up to 20 unused in a row) and queries their confirmed transactions (Esplora API: address, address/txs/chain), plus, for an incoming payment, the sender’s transaction count (address) and the current block height for the confirmations (blocks/tip/height). The app knows only a fingerprint of the key. For Filecoin, Filfox’s public API (address, address/transfers; the address is in the query URL), without a key; a message’s send, receive and fees come from there, and the message CID is the hash. For Filecoin Pay (USDFC only), the makers’ index (a subgraph at Goldsky, over GraphQL: userTokens, rails, settlements, oneTimePayments by the payer’s address) and the payment contract’s events at Blockscout (getLogs for DepositRecorded and WithdrawRecorded; when the index does not answer, also RailCreated, RailSettled, RailOneTimePaymentProcessed and the balance by eth_call). The Blockscout key is kept in the bridge’s macOS keychain (pnpm setup:blockscout) and goes to api.blockscout.com only, in the request’s header – in no URL, never in the browser, never in the log. What a payer itself earns over rails is not read. For NEAR, NearBlocks’ API (v3: accounts/<account>/txns and ft-txns; the account name is in the query URL), without a key, and the JSON-RPC of an archival node of FastNEAR (view_account and ft_balance_of for the balance, EXPERIMENTAL_tx_status for what a storage deposit kept); NEAR and USDC (Circle’s contract) are booked, and the transaction hash is the one an exchange names for a withdrawal. NEAR that arrives in the inner receipts of someone else’s transaction (a staking pool paying out, say) is not read yet. Links to the block explorer only open when you click them.'
 			},
 			ucep: {
 				name: 'Invoice app (UCEP via a relay)',
@@ -3637,6 +3637,8 @@ export default {
 			'receipt-private': 'Receipt set aside as private',
 			'receipt-restore': 'Receipt taken back in',
 			'needs-receipt': '“No receipt needed” withdrawn',
+			'booking-kind': 'Said what one booking was',
+			'booking-kind-cleared': 'Answer for one booking undone',
 			'confirm-sender': 'Sender released',
 			'scam-cleared': 'Scam suspicion marked as unfounded',
 			'mail-trash': 'Mail moved to the bin',
@@ -4491,7 +4493,85 @@ export default {
 				custodianPlaceholder: 'e.g. the exchange’s name',
 				save: 'Remember',
 				current: 'Remembered as: {kind} (“{name}”)',
-				forget: 'Undo'
+				forget: 'Undo',
+				hintBooking: 'Your answer holds for this booking only, not for the address.',
+				currentBooking: 'For this booking: {kind} (“{name}”)',
+				exchangeLabel: 'Exchange account',
+				exchangeOther: 'Another one …',
+				customerLabel: 'Customer',
+				saveBooking: 'Apply to this booking'
+			},
+			head: {
+				in: 'Incoming',
+				out: 'Outgoing',
+				own: 'Transfer',
+				eur: '≈ {amount}',
+				more: 'More actions',
+				qr: 'Block explorer QR code',
+				copyTx: 'Copy transaction ID',
+				confirmations: '{count} confirmations',
+				confirmationsOne: '1 confirmation'
+			},
+			utxo: {
+				title: 'Transaction: {inputs} → {outputs}',
+				inputs: '{count} inputs',
+				inputsOne: '1 input',
+				outputs: '{count} outputs',
+				outputsOne: '1 output',
+				ours: 'own wallet · {name}',
+				ourChange: 'change · own wallet',
+				change: 'back to the sender',
+				recipient: 'recipient',
+				other: 'other recipient',
+				inputsFrom: 'from {count} inputs',
+				moreInputs: '{count} more addresses · {amount} together',
+				moreRecipients: '{count} more recipients · {amount} together',
+				moreUnlisted: '{count} more outputs, not stored one by one · {amount} together',
+				collapse: 'Collapse the other recipients',
+				feeSender: 'Fee {fee} · paid by the sender',
+				feeOurs: 'Fee {fee} · paid by you, booked on its own'
+			},
+			payout: {
+				text: 'The sender pays out in batches and has very many transactions – typical of an exchange or a payment service.',
+				textShape: 'The sender pays out in batches – typical of an exchange or a payment service.',
+				busy: 'more than {count} transactions on this address',
+				reused: 'address used more than once',
+				batch: '{count} outputs in one transaction',
+				changeBack: 'change back to the same address',
+				review:
+					'“{name}” is remembered for this address ({kind}). For a payout wallet that does not hold for every payment.',
+				reviewKeep: 'Keep it for this booking only',
+				reviewDrop: 'Undo it for the address'
+			},
+			nextStep: {
+				askIn: 'Say above where the money came from',
+				askOut: 'Say above where the money went',
+				askHint: 'Then Belege shows the next step.',
+				open: 'Open',
+				invoiceOf: 'Assign the invoice to {name}',
+				receiptOf: 'Assign the invoice from {name}',
+				invoice: 'Assign the invoice',
+				receipt: 'Assign the receipt',
+				invoiceButton: 'Assign invoice',
+				receiptButton: 'Assign receipt',
+				transferFrom: 'Book as a transfer from {name}',
+				transferTo: 'Book as a transfer to {name}',
+				transfer: 'Book as an own transfer',
+				transferHint: 'No receipt needed · account {account}',
+				transferButton: 'Book',
+				konto: 'Confirm the account',
+				done: 'Done',
+				doneState: 'Done'
+			},
+			chainDetails: {
+				blockTime: 'Block time',
+				block: 'Block',
+				confirmations: 'Confirmations',
+				confirmationsAt: '{count} (at the last sync)',
+				fee: 'Fee',
+				feeSender: '{fee} · paid by the sender',
+				feeOurs: '{fee} · paid by you (booked on its own)',
+				txid: 'Transaction ID'
 			},
 			walletUnsupported:
 				'Belege cannot read {chain} as an own wallet yet, so it does not find the arrival there.',

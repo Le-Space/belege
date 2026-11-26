@@ -27,6 +27,13 @@
 //   - some inputs ours (a payjoin or coinjoin): one entry with the net
 //     change, fee included, marked in the memo – rare, and for a person
 // Only confirmed transactions are booked; unconfirmed ones are counted.
+// Every entry carries the transaction's shape (`utxo`, issue #1037): its
+// inputs by address, its outputs, which are ours, the fee and the block – so
+// the app can show where the money came from and went, and tell an
+// exchange's payout wallet (many outputs, change back to itself) from a
+// person. A receipt's sender is asked once more (GET /address/<sender>) for
+// how many transactions it has, as a power of ten; the tip of the chain
+// (GET /blocks/tip/height) gives the confirmations.
 // The log gets counts, never an address, a txid or the key.
 
 import { HDKey } from '@scure/bip32';
@@ -50,6 +57,8 @@ const TYPE_OF = /** @type {const} */ ({ ypub: 'p2sh-p2wpkh', zpub: 'p2wpkh' });
 export const ADDRESS_TYPES = /** @type {const} */ (['p2wpkh', 'p2sh-p2wpkh', 'p2pkh']);
 const base58check = createBase58check(sha256);
 const GAP_LIMIT = 20;
+/** Outputs (and input addresses) listed by name in `utxo`; the rest only counted and summed. */
+const UTXO_LISTED = 12;
 const MAX_ADDRESSES = 2000;
 
 /**
@@ -148,6 +157,101 @@ export function deriveAddress(account, type, chain, index) {
  */
 
 /**
+ * @typedef {object} UtxoSide one address of a transaction's inputs, or one output
+ * @property {string} address '' for an output without one (OP_RETURN)
+ * @property {string} sats a non-negative integer, as a string
+ * @property {boolean} own one of our addresses
+ * @property {number} [count] inputs: how many of the transaction's inputs came from this address
+ */
+
+/**
+ * @typedef {object} UtxoShape a transaction's inputs and outputs (issue #1037)
+ * @property {UtxoSide[]} inputs grouped by address, in the order they appear; ours and the first others
+ * @property {UtxoSide[]} outputs in order; ours, those back to an input's address and the first others
+ * @property {number} inputCount every input
+ * @property {number} outputCount every output
+ * @property {{ count: number, sats: string }} [moreInputs] input addresses not listed
+ * @property {{ count: number, sats: string }} [moreOutputs] outputs not listed
+ * @property {string} fee sats
+ * @property {number} height the block
+ * @property {number} [senderTxs] a receipt's sender: its transaction count, floored to a power of ten
+ */
+
+/**
+ * The shape of one transaction, from our side: what the app shows as its
+ * flow. Kept short – a payout of hundreds of outputs lists ours, the change
+ * back to the sender and the first others, and counts the rest.
+ *
+ * @param {EsploraTx} tx
+ * @param {Set<string>} own
+ * @returns {UtxoShape}
+ */
+export function utxoShape(tx, own) {
+	/** @type {Map<string, UtxoSide>} */
+	const byAddress = new Map();
+	let inputCount = 0;
+	for (const i of tx.vin) {
+		if (!i.prevout) continue;
+		inputCount++;
+		const address = String(i.prevout.scriptpubkey_address ?? '');
+		const known = byAddress.get(address);
+		if (known) {
+			known.sats = String(BigInt(known.sats) + BigInt(i.prevout.value ?? 0));
+			known.count = (known.count ?? 1) + 1;
+		} else {
+			byAddress.set(address, {
+				address,
+				sats: String(BigInt(i.prevout.value ?? 0)),
+				own: own.has(address),
+				count: 1
+			});
+		}
+	}
+	const senders = new Set(byAddress.keys());
+	/** @param {UtxoSide[]} all @param {(s: UtxoSide) => boolean} always */
+	const keep = (all, always) => {
+		const listed = [];
+		let others = 0;
+		let count = 0;
+		let sats = 0n;
+		for (const s of all) {
+			if (always(s) || others < UTXO_LISTED) {
+				if (!always(s)) others++;
+				listed.push(s);
+			} else {
+				count++;
+				sats += BigInt(s.sats);
+			}
+		}
+		return { listed, more: count ? { count, sats: String(sats) } : null };
+	};
+	const ins = keep([...byAddress.values()], (s) => s.own);
+	const outs = keep(
+		tx.vout.map((o) => {
+			const address = String(o.scriptpubkey_address ?? '');
+			return { address, sats: String(BigInt(o.value ?? 0)), own: own.has(address) };
+		}),
+		(s) => s.own || (Boolean(s.address) && senders.has(s.address))
+	);
+	return {
+		inputs: ins.listed,
+		outputs: outs.listed,
+		inputCount,
+		outputCount: tx.vout.length,
+		...(ins.more ? { moreInputs: ins.more } : {}),
+		...(outs.more ? { moreOutputs: outs.more } : {}),
+		fee: String(BigInt(tx.fee ?? 0)),
+		height: tx.status.block_height ?? 0
+	};
+}
+
+/** A transaction count floored to a power of ten: 0, 1, 10, 100, … – it changes seldom. @param {number} n */
+export function txMagnitude(n) {
+	const v = Math.floor(Number(n) || 0);
+	return v < 1 ? 0 : 10 ** Math.floor(Math.log10(v));
+}
+
+/**
  * Entries for our transactions (pure; the tests call it directly).
  *
  * @param {EsploraTx[]} txs confirmed, each once
@@ -179,7 +283,8 @@ export function normalizeBitcoin(txs, own, chain) {
 			decimals,
 			counterpartyLabel: '',
 			success: true,
-			explorerUrl: txUrl(chain.explorer, tx.txid)
+			explorerUrl: txUrl(chain.explorer, tx.txid),
+			utxo: utxoShape(tx, own)
 		};
 		const fee = BigInt(tx.fee ?? 0);
 		const allOurs = oursIn.length > 0 && oursIn.length === inputs.length;
@@ -346,6 +451,23 @@ export function createBitcoinClient({
 			}
 			const balance = [...used.values()].reduce((s, u) => s + u.funded - u.spent, 0n);
 			const entries = normalizeBitcoin([...confirmed.values()], own, chain);
+			// A receipt's sender: how busy it is, once per address. A sender that
+			// cannot be asked is left without – the app then judges by the shape.
+			/** @type {Map<string, number | null>} */
+			const busy = new Map();
+			for (const e of entries) {
+				if (e.type !== 'received' || !e.utxo || e.utxo.inputs.some((i) => i.own)) continue;
+				const sender = e.utxo.inputs.find((i) => i.address)?.address;
+				if (!sender) continue;
+				if (!busy.has(sender)) {
+					const info = await get(`${endpoints.api}/address/${sender}`).catch(() => null);
+					const n = Number(info?.chain_stats?.tx_count);
+					busy.set(sender, Number.isFinite(n) && n > 0 ? txMagnitude(n) : null);
+				}
+				const n = busy.get(sender);
+				if (n) e.utxo.senderTxs = n;
+			}
+			const tip = Number(await get(`${endpoints.api}/blocks/tip/height`).catch(() => NaN));
 			return {
 				entries,
 				balances: [
@@ -359,6 +481,7 @@ export function createBitcoinClient({
 				unknownAssets: 0,
 				history: { earliestHeight: 0, earliestTime: null, pruned: false },
 				addresses: { used: used.size, derived: own.size },
+				...(Number.isInteger(tip) && tip > 0 ? { tipHeight: tip } : {}),
 				addressUrl: ''
 			};
 		}

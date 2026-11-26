@@ -51,6 +51,10 @@
 		txAlias
 	} from './matching/partners.js';
 	import AddressKind from './matching/AddressKind.svelte';
+	import UtxoFlow from './wallets/UtxoFlow.svelte';
+	import { formatQuantity } from './assets/quantity.js';
+	import NextAction from './NextAction.svelte';
+	import { confirmationsOf, payoutSignals, utxoFlow } from './wallets/payout-wallet.js';
 	import { groupIban, ownIbanSuggestionFor, ownIbanSuggestions } from './matching/own-iban.js';
 	import { instalmentOf, settlement as invoiceSettlement } from './matching/instalments.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
@@ -65,10 +69,11 @@
 		formatDate,
 		formatMoney,
 		formatTxAmount,
+		formatBookingDateTime,
 		txDirection
 	} from './bank/format.js';
 	import { tradeArrow, tradeSides, tradeSideWhat } from './exchanges/trades.js';
-	import { acknowledgeImportChange, setManualRate } from './booking/actions.js';
+	import { acknowledgeImportChange, confirmBooking, setManualRate } from './booking/actions.js';
 	import { isBookingConfirmed } from './booking/suggest.js';
 	import { quantityText, rateInputPlaceholder, valuationText } from './assets/valuation.js';
 	import {
@@ -105,6 +110,7 @@
 		markBankFee,
 		linkRefund,
 		linkTransfer,
+		sayForBooking,
 		linkSwap,
 		unlinkSwap,
 		linkMigration,
@@ -162,7 +168,8 @@
 	} from './matching/private.js';
 	import { cleanDatevSettings, privateAccounts } from './booking/settings.js';
 	import { graceWait, localDay } from './matching/grace.js';
-	import { list, t } from './i18n/index.js';
+	import { intlLocale, list, t } from './i18n/index.js';
+	import { copyText } from './copy.js';
 	import { paperlessSourceRef } from './paperless/import.js';
 
 	/** @type {{ txId: string, onclose: () => void, onopen: (id: string) => void }} */
@@ -237,6 +244,8 @@
 		});
 	// The transaction in the block explorer as a QR code, to open it on a phone.
 	let explorerQrOpen = $state(false);
+	// The ⋯ menu of a Bitcoin booking's head (#1037).
+	let headMenu = $state(false);
 	// The payment's name and, for a crypto booking, who sent and who received (bank/payee.js).
 	let book = $derived(addressBook(app));
 	let payee = $derived(tx ? payeeName(tx, book) : null);
@@ -322,12 +331,49 @@
 				(!classification || classification.via === 'address' || classification.via === 'custodian')
 		)
 	);
-	/** @param {'vendor' | 'private' | 'custodian'} kind @param {string} name */
-	const saveAddressKind = (kind, name) =>
+	// A Bitcoin booking's transaction (issue #1037): its inputs → outputs, ours
+	// marked – and, for a receipt, whether the sender looks like an exchange's
+	// or a payment service's payout wallet. Then the answer is this booking's
+	// alone: one for the address would label every later payout from it.
+	let flow = $derived(tx ? utxoFlow(tx) : null);
+	let senderOthers = $derived(
+		tx && flow && tx.counterpartyAddress
+			? app.transactions.filter(
+					(o) => !o.deleted && o.id !== tx?.id && o.counterpartyAddress === tx?.counterpartyAddress
+				).length
+			: 0
+	);
+	let payout = $derived(tx ? payoutSignals(tx, { others: senderOthers }) : null);
+	/** @type {'in' | 'out' | 'own'} */
+	let headDirection = $derived(
+		classification?.kind === 'own-transfer' && classification.via !== 'custodian' && counterAccount
+			? 'own'
+			: tx && txDirection(tx) < 0
+				? 'out'
+				: 'in'
+	);
+	let perBooking = $derived(Boolean(payout?.payout));
+	// A name remembered for such an address before: for review.
+	let payoutReview = $derived(
+		perBooking && addressKind && !addressKind.booking ? addressKind : null
+	);
+	// Own money at an exchange: one of the exchange accounts in the books.
+	let exchanges = $derived(
+		app.accounts
+			.filter((a) => a.source === 'kraken' && !a.deleted && (!a.asset || a.asset === tx?.asset))
+			.map((a) => ({ id: String(a.id), label: accountLabel(a) }))
+	);
+	/**
+	 * @param {'vendor' | 'private' | 'custodian'} kind
+	 * @param {string} name
+	 * @param {string} [accountId]
+	 */
+	const saveAddressKind = (kind, name, accountId) =>
 		act(async () => {
 			const store = currentStore();
 			if (!store || !tx) return;
-			await nameAddress(store.partners, tx, name, kind);
+			if (perBooking) await sayForBooking(store, String(tx.id), kind, name, { accountId });
+			else await nameAddress(store.partners, tx, name, kind);
 			await refreshNow();
 			await runMatchingNow();
 		});
@@ -335,6 +381,19 @@
 		act(async () => {
 			const store = currentStore();
 			if (!store || !tx) return;
+			if (addressKind?.booking) await sayForBooking(store, String(tx.id), null);
+			else await forgetAddress(store.partners, tx);
+			await refreshNow();
+			await runMatchingNow();
+		});
+	/** A payout wallet's remembered name: kept for this booking only, or dropped for the address. @param {boolean} keep */
+	const reviewPayoutName = (keep) =>
+		act(async () => {
+			const store = currentStore();
+			if (!store || !tx || !payoutReview) return;
+			if (keep) {
+				await sayForBooking(store, String(tx.id), payoutReview.kind, payoutReview.name);
+			}
 			await forgetAddress(store.partners, tx);
 			await refreshNow();
 			await runMatchingNow();
@@ -1181,6 +1240,108 @@
 			stale = true;
 		};
 	});
+	// Confirmations at the chain's height of the last sync (#1037).
+	let confirmations = $derived.by(() => {
+		if (!tx || !flow) return null;
+		const w = (ownWallets ?? []).find(
+			(x) => x.chain === tx?.source && x.address === account?.walletAddress
+		);
+		return confirmationsOf(tx, w?.tipHeight);
+	});
+	// The one next step of a Bitcoin booking (#1037), in place of the two chips.
+	let nextStep = $derived.by(() => {
+		if (!tx || !flow) return null;
+		const said = addressKind;
+		const incoming = txDirection(tx) > 0;
+		if (receiptState === 'missing') {
+			if ((whereOpen || addressKindOpen) && !said) {
+				return {
+					done: false,
+					label: t(
+						incoming ? 'zahlungen.detail.nextStep.askIn' : 'zahlungen.detail.nextStep.askOut'
+					),
+					hint: t('zahlungen.detail.nextStep.askHint'),
+					action: null,
+					state: t('zahlungen.detail.nextStep.open')
+				};
+			}
+			return {
+				done: false,
+				label:
+					said?.kind === 'vendor'
+						? t(
+								incoming
+									? 'zahlungen.detail.nextStep.invoiceOf'
+									: 'zahlungen.detail.nextStep.receiptOf',
+								{ name: said.name }
+							)
+						: t(
+								incoming ? 'zahlungen.detail.nextStep.invoice' : 'zahlungen.detail.nextStep.receipt'
+							),
+				hint: t('zahlungen.detail.status.receipt.missing'),
+				action: {
+					label: t(
+						incoming
+							? 'zahlungen.detail.nextStep.invoiceButton'
+							: 'zahlungen.detail.nextStep.receiptButton'
+					),
+					run: () => scrollToPart('tx-receipt-part')
+				},
+				state: ''
+			};
+		}
+		if (!isBookingConfirmed(tx)) {
+			const own = classification?.kind === 'own-transfer' ? classification : null;
+			const from = own
+				? String(own.company ?? '') || (counterAccount ? accountLabel(counterAccount) : '')
+				: '';
+			if (own && own.account && /^\d+$/.test(String(own.account))) {
+				return {
+					done: false,
+					label: from
+						? t(
+								incoming
+									? 'zahlungen.detail.nextStep.transferFrom'
+									: 'zahlungen.detail.nextStep.transferTo',
+								{ name: from }
+							)
+						: t('zahlungen.detail.nextStep.transfer'),
+					hint: t('zahlungen.detail.nextStep.transferHint', { account: own.account }),
+					action: {
+						label: t('zahlungen.detail.nextStep.transferButton'),
+						run: () => bookAs(String(own.account)),
+						testid: 'tx-next-step-book'
+					},
+					state: ''
+				};
+			}
+			return {
+				done: false,
+				label: t('zahlungen.detail.nextStep.konto'),
+				hint: t('zahlungen.detail.status.konto.missingHint'),
+				action: {
+					label: t('zahlungen.detail.nextKonto'),
+					run: () => scrollToPart('tx-konto-part')
+				},
+				state: ''
+			};
+		}
+		return {
+			done: true,
+			label: t('zahlungen.detail.nextStep.done'),
+			hint: t(`zahlungen.detail.status.receipt.${receiptState}`),
+			action: null,
+			state: t('zahlungen.detail.nextStep.doneState')
+		};
+	});
+	/** Book on the account the classification names: an own transfer (1360). @param {string} number */
+	const bookAs = (number) =>
+		act(async () => {
+			const store = currentStore();
+			if (!store || !tx) return;
+			await confirmBooking(/** @type {any} */ (store), String(tx.id), { account: number });
+			await refreshNow();
+		});
 	let walletOffer = $derived.by(() => {
 		if (!tx || !ownWallets) return null;
 		if (tx.chainAddress) {
@@ -1627,10 +1788,74 @@
 		ownChains={walletOffer?.state === 'add' ? walletOffer.chains : []}
 		current={addressKind}
 		{busy}
+		{perBooking}
+		exchanges={perBooking ? exchanges : []}
 		onown={offerWallet}
 		onsave={saveAddressKind}
 		onforget={forgetAddressKind}
 	/>
+{/snippet}
+
+{#snippet payoutNote()}
+	<!-- Why the sender looks like a payout wallet (#1037): one line, the signals below. -->
+	{#if payout?.payout}
+		<div
+			class="mt-1 rounded-r-md border-l-4 border-amber-400 bg-amber-50 px-3 py-1.5 text-sm text-heading dark:border-amber-500 dark:bg-amber-950/30"
+			data-testid="tx-payout"
+		>
+			<p>
+				{payout.busy ? t('zahlungen.detail.payout.text') : t('zahlungen.detail.payout.textShape')}
+			</p>
+			<ul class="mt-1 list-disc pl-5 text-xs text-text" data-testid="tx-payout-signals">
+				{#if payout.busy}<li data-signal="busy">
+						{t('zahlungen.detail.payout.busy', {
+							count: payout.senderTxs.toLocaleString(intlLocale())
+						})}
+					</li>{/if}
+				{#if payout.reused}<li data-signal="reused">{t('zahlungen.detail.payout.reused')}</li>{/if}
+				{#if payout.batch}<li data-signal="batch">
+						{t('zahlungen.detail.payout.batch', { count: payout.outputs })}
+					</li>{/if}
+				{#if payout.changeBack}<li data-signal="changeBack">
+						{t('zahlungen.detail.payout.changeBack')}
+					</li>{/if}
+			</ul>
+		</div>
+		{#if payoutReview}
+			<div
+				class="mt-2 rounded-r-md border-l-4 border-amber-600 bg-amber-50 px-3 py-1.5 text-sm text-heading dark:border-amber-400 dark:bg-amber-950/30"
+				data-testid="tx-payout-review"
+			>
+				<p>
+					{t('zahlungen.detail.payout.review', {
+						name: payoutReview.name,
+						kind:
+							payoutReview.kind === 'vendor'
+								? t(
+										`zahlungen.detail.addressKind.${tx && txDirection(tx) > 0 ? 'vendorIn' : 'vendorOut'}`
+									)
+								: t(`zahlungen.detail.addressKind.${payoutReview.kind}`)
+					})}
+				</p>
+				<div class="mt-1.5 flex flex-wrap gap-2">
+					<button
+						type="button"
+						class={button}
+						disabled={busy}
+						onclick={() => reviewPayoutName(true)}
+						data-testid="tx-payout-review-keep">{t('zahlungen.detail.payout.reviewKeep')}</button
+					>
+					<button
+						type="button"
+						class={button}
+						disabled={busy}
+						onclick={() => reviewPayoutName(false)}
+						data-testid="tx-payout-review-drop">{t('zahlungen.detail.payout.reviewDrop')}</button
+					>
+				</div>
+			</div>
+		{/if}
+	{/if}
 {/snippet}
 
 {#snippet uploadControls()}
@@ -1762,124 +1987,256 @@
 			     amount and the button come first, on a row of their own, and the name
 			     and the two sides get the whole width below. By the panel's own width
 			     (a container query), since it is a narrow panel on a wide screen too. -->
-			<div class="@container">
-				<div
-					class="flex flex-col-reverse gap-2 @md:flex-row @md:items-start @md:justify-between @md:gap-3"
-				>
+			{#if flow}
+				<!-- A Bitcoin booking (issue #1037): the movement large, its euro value
+				     and rate below, one explorer link; the QR code in the ⋯ menu. -->
+				<div class="flex items-start justify-between gap-3" data-testid="tx-head">
 					<div class="min-w-0">
 						<p class="text-xs font-semibold tracking-wide text-faint uppercase">
-							{t('zahlungen.detail.title')}
+							{t('zahlungen.detail.title')}{#if account}&nbsp;· {accountLabel(account)}{/if}
 						</p>
 						<h2
 							id="tx-detail-title"
-							class="text-xl font-bold break-words text-heading"
+							class="text-lg font-bold break-words text-heading"
 							data-testid="tx-detail-counterparty"
 						>
 							{heading}
 						</h2>
-						{#if payee && payee.from !== 'unknown' && !parties}
-							<a
-								class="text-sm underline"
-								href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(payee.name)}&until=${tx.bookedOn}`}
-								data-testid="vendor-account-link">{t('vendorAccount.open')}</a
-							>
-						{/if}
-						{#if parties}
-							<!-- The full address under each name (issue #114): the list keeps the short
-						     form, here it is copied into an explorer or a wallet. -->
-							<!-- Who sent and who received (issue #254): both sides the same way, ours
-						     marked, each address once and short – the full one on hover and copy. -->
-							<dl
-								class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
-								data-testid="tx-parties"
-							>
-								{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
-									{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
-									<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
-									<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
-										{#if p.own}<span
-												class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
-												data-testid={`tx-party-${side}-own`}
-												>{t('zahlungen.detail.party.ownChip')}</span
-											>{/if}<span class="font-medium text-heading"
-											>{p.address && p.label === shortAddress(p.address)
-												? t('zahlungen.detail.party.unknownAddress')
-												: p.label}</span
-										>
-										{#if p.address}
-											<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
-												<span class="whitespace-nowrap" title={p.address}>
-													<CopyButton
-														text={p.address}
-														label={t('copy.address')}
-														testid={`tx-party-${side}-address`}
-														valueClass="font-mono text-xs text-faint"
-														>{shortAddress(p.address)}</CopyButton
-													>
-												</span>
-												{#if pageUrl}<a
-														href={pageUrl}
-														target="_blank"
-														rel="noopener noreferrer"
-														class="text-xs underline"
-														data-testid={`tx-party-${side}-explorer`}
-														>{t('zahlungen.detail.party.explorer')}</a
-													>{/if}
-											</span>
-										{/if}
-									</dd>
-								{/each}
-							</dl>
-						{/if}
-					</div>
-					<div class="flex items-start justify-between gap-3 @md:shrink-0 @md:justify-start">
 						<p
-							class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {txDirection(
-								tx
-							) < 0
-								? 'text-red-700 dark:text-red-400'
-								: 'text-emerald-700 dark:text-emerald-400'}"
-							data-testid="tx-detail-amount"
+							class="mt-1 font-mono text-2xl font-semibold break-words tabular-nums {headDirection ===
+							'own'
+								? 'text-cyan-800 dark:text-cyan'
+								: headDirection === 'out'
+									? 'text-red-700 dark:text-red-400'
+									: 'text-emerald-700 dark:text-emerald-400'}"
 						>
-							{formatTxAmount(tx)}
+							<span
+								class="block font-sans text-sm font-semibold text-faint"
+								data-testid="tx-head-direction"
+								data-direction={headDirection}>{t(`zahlungen.detail.head.${headDirection}`)}</span
+							><span data-testid="tx-detail-quantity"
+								>{headDirection === 'in' ? '+' : ''}{quantityText(tx)}</span
+							>
 						</p>
+						<p class="mt-0.5 text-sm text-text">
+							<span data-testid="tx-detail-amount"
+								>{t('zahlungen.detail.head.eur', { amount: formatTxAmount(tx) })}</span
+							>{#if valuationText(tx)}<span class="text-xs text-faint" title={valuationText(tx)}
+									>&nbsp;· {valuationText(tx, { short: true })}</span
+								>{/if}
+						</p>
+					</div>
+					<div class="relative flex shrink-0 items-start gap-2">
+						<button
+							type="button"
+							class={button}
+							aria-haspopup="menu"
+							aria-expanded={headMenu}
+							aria-label={t('zahlungen.detail.head.more')}
+							title={t('zahlungen.detail.head.more')}
+							onclick={() => (headMenu = !headMenu)}
+							data-testid="tx-head-menu">⋯</button
+						>
 						<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
 							>{t('zahlungen.detail.close')}</button
 						>
+						{#if headMenu}
+							<div
+								class="absolute top-11 right-0 z-10 grid min-w-56 gap-0.5 rounded-md border border-border bg-surface-2 p-1 shadow-lg"
+								role="menu"
+								data-testid="tx-head-menu-list"
+							>
+								{#if safeExplorerUrl(tx.explorerUrl)}
+									<button
+										type="button"
+										role="menuitem"
+										class="rounded px-2.5 py-2 text-left text-sm text-heading hover:bg-border"
+										onclick={() => {
+											explorerQrOpen = !explorerQrOpen;
+											headMenu = false;
+										}}
+										data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.head.qr')}</button
+									>
+								{/if}
+								{#if tx.txRef}
+									<button
+										type="button"
+										role="menuitem"
+										class="rounded px-2.5 py-2 text-left text-sm text-heading hover:bg-border"
+										onclick={() => {
+											copyText(String(tx?.txRef ?? ''));
+											headMenu = false;
+										}}
+										data-testid="tx-head-copy-tx">{t('zahlungen.detail.head.copyTx')}</button
+									>
+								{/if}
+							</div>
+						{/if}
 					</div>
 				</div>
-			</div>
-			<p class="mt-1 text-sm text-faint" data-testid="tx-detail-meta">
-				<span class="text-heading" data-testid="tx-detail-date"
-					>{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
-							time: formatBookingTime(tx)
-						})}{/if}</span
-				>{#if account}&nbsp;· {accountLabel(account)}{/if}{#if quantityText(tx)}&nbsp;·
-					<span class="font-mono text-heading tabular-nums" data-testid="tx-detail-quantity"
-						>{quantityText(tx)}</span
-					>{/if}{#if tx.bookingType}&nbsp;· {tx.bookingType}{/if}{#if safeExplorerUrl(tx.explorerUrl)}&nbsp;·
-					<a
-						href={safeExplorerUrl(tx.explorerUrl)}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="underline"
-						data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
-					>
-					<button
-						type="button"
-						class="underline"
-						aria-expanded={explorerQrOpen}
-						onclick={() => (explorerQrOpen = !explorerQrOpen)}
-						data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.explorerQr')}</button
-					>{/if}
-			</p>
-			{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
-				<div
-					class="mt-2 inline-block rounded-md bg-white p-2 [&_svg]:block [&_svg]:size-40"
-					data-testid="tx-explorer-qr"
+				<p
+					class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-faint"
+					data-testid="tx-detail-meta"
 				>
-					<Qr text={safeExplorerUrl(tx.explorerUrl) ?? ''} border={1} />
+					<span class="text-heading" data-testid="tx-detail-date"
+						>{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
+								time: formatBookingTime(tx)
+							})}{/if}</span
+					>
+					{#if confirmations}
+						<span data-testid="tx-head-confirmations"
+							>{confirmations === 1
+								? t('zahlungen.detail.head.confirmationsOne')
+								: t('zahlungen.detail.head.confirmations', {
+										count: confirmations.toLocaleString(intlLocale())
+									})}</span
+						>
+					{/if}
+					{#if safeExplorerUrl(tx.explorerUrl)}
+						<a
+							href={safeExplorerUrl(tx.explorerUrl)}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="whitespace-nowrap underline"
+							data-testid="tx-explorer">{t('zahlungen.detail.explorer')}&nbsp;↗</a
+						>
+					{/if}
+				</p>
+				{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
+					<div
+						class="mt-2 inline-block rounded-md bg-white p-2 [&_svg]:block [&_svg]:size-40"
+						data-testid="tx-explorer-qr"
+					>
+						<Qr text={safeExplorerUrl(tx.explorerUrl) ?? ''} border={1} />
+					</div>
+				{/if}
+				<UtxoFlow
+					{flow}
+					asset={String(tx.asset ?? '')}
+					decimals={Number(tx.decimals ?? 8)}
+					ownLabel={account ? accountLabel(account) : ''}
+					fee={flow.utxo.fee}
+				/>
+			{:else}
+				<div class="@container">
+					<div
+						class="flex flex-col-reverse gap-2 @md:flex-row @md:items-start @md:justify-between @md:gap-3"
+					>
+						<div class="min-w-0">
+							<p class="text-xs font-semibold tracking-wide text-faint uppercase">
+								{t('zahlungen.detail.title')}
+							</p>
+							<h2
+								id="tx-detail-title"
+								class="text-xl font-bold break-words text-heading"
+								data-testid="tx-detail-counterparty"
+							>
+								{heading}
+							</h2>
+							{#if payee && payee.from !== 'unknown' && !parties}
+								<a
+									class="text-sm underline"
+									href={`${resolve('/lieferantenkonto')}?name=${encodeURIComponent(payee.name)}&until=${tx.bookedOn}`}
+									data-testid="vendor-account-link">{t('vendorAccount.open')}</a
+								>
+							{/if}
+							{#if parties}
+								<!-- The full address under each name (issue #114): the list keeps the short
+							     form, here it is copied into an explorer or a wallet. -->
+								<!-- Who sent and who received (issue #254): both sides the same way, ours
+							     marked, each address once and short – the full one on hover and copy. -->
+								<dl
+									class="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+									data-testid="tx-parties"
+								>
+									{#each [{ side: 'from', p: parties.from }, { side: 'to', p: parties.to }] as { side, p } (side)}
+										{@const pageUrl = addressExplorerUrl(tx.explorerUrl, tx.txRef, p.address)}
+										<dt class="text-faint">{t(`zahlungen.detail.party.${side}`)}</dt>
+										<dd class="min-w-0" data-testid={`tx-party-${side}`} data-own={p.own}>
+											{#if p.own}<span
+													class="mr-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-semibold whitespace-nowrap text-success"
+													data-testid={`tx-party-${side}-own`}
+													>{t('zahlungen.detail.party.ownChip')}</span
+												>{/if}<span class="font-medium text-heading"
+												>{p.address && p.label === shortAddress(p.address)
+													? t('zahlungen.detail.party.unknownAddress')
+													: p.label}</span
+											>
+											{#if p.address}
+												<span class="mt-0.5 flex flex-wrap items-center gap-x-2">
+													<span class="whitespace-nowrap" title={p.address}>
+														<CopyButton
+															text={p.address}
+															label={t('copy.address')}
+															testid={`tx-party-${side}-address`}
+															valueClass="font-mono text-xs text-faint"
+															>{shortAddress(p.address)}</CopyButton
+														>
+													</span>
+													{#if pageUrl}<a
+															href={pageUrl}
+															target="_blank"
+															rel="noopener noreferrer"
+															class="text-xs underline"
+															data-testid={`tx-party-${side}-explorer`}
+															>{t('zahlungen.detail.party.explorer')}</a
+														>{/if}
+												</span>
+											{/if}
+										</dd>
+									{/each}
+								</dl>
+							{/if}
+						</div>
+						<div class="flex items-start justify-between gap-3 @md:shrink-0 @md:justify-start">
+							<p
+								class="font-mono text-2xl font-semibold whitespace-nowrap tabular-nums {txDirection(
+									tx
+								) < 0
+									? 'text-red-700 dark:text-red-400'
+									: 'text-emerald-700 dark:text-emerald-400'}"
+								data-testid="tx-detail-amount"
+							>
+								{formatTxAmount(tx)}
+							</p>
+							<button type="button" class={button} onclick={onclose} data-testid="tx-detail-close"
+								>{t('zahlungen.detail.close')}</button
+							>
+						</div>
+					</div>
 				</div>
+				<p class="mt-1 text-sm text-faint" data-testid="tx-detail-meta">
+					<span class="text-heading" data-testid="tx-detail-date"
+						>{formatDate(tx.bookedOn)}{#if formatBookingTime(tx)}, {t('zahlungen.time', {
+								time: formatBookingTime(tx)
+							})}{/if}</span
+					>{#if account}&nbsp;· {accountLabel(account)}{/if}{#if quantityText(tx)}&nbsp;·
+						<span class="font-mono text-heading tabular-nums" data-testid="tx-detail-quantity"
+							>{quantityText(tx)}</span
+						>{/if}{#if tx.bookingType}&nbsp;· {tx.bookingType}{/if}{#if safeExplorerUrl(tx.explorerUrl)}&nbsp;·
+						<a
+							href={safeExplorerUrl(tx.explorerUrl)}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="underline"
+							data-testid="tx-explorer">{t('zahlungen.detail.explorer')}</a
+						>
+						<button
+							type="button"
+							class="underline"
+							aria-expanded={explorerQrOpen}
+							onclick={() => (explorerQrOpen = !explorerQrOpen)}
+							data-testid="tx-explorer-qr-toggle">{t('zahlungen.detail.explorerQr')}</button
+						>{/if}
+				</p>
+				{#if explorerQrOpen && safeExplorerUrl(tx.explorerUrl)}
+					<div
+						class="mt-2 inline-block rounded-md bg-white p-2 [&_svg]:block [&_svg]:size-40"
+						data-testid="tx-explorer-qr"
+					>
+						<Qr text={safeExplorerUrl(tx.explorerUrl) ?? ''} border={1} />
+					</div>
+				{/if}
 			{/if}
 			{#if walletPurposeExtra(tx)}
 				<p
@@ -1901,43 +2258,64 @@
 					>
 				</p>
 			{/if}
-			<div class="mt-3 flex flex-wrap items-center gap-2" data-testid="tx-status">
-				<button
-					type="button"
-					class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {receiptState ===
-					'missing'
-						? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
-						: 'border-success/30 bg-success/10 text-success'}"
-					onclick={() => scrollToPart('tx-receipt-part')}
-					data-testid="tx-status-receipt"
-					data-state={receiptState}>{t(`zahlungen.detail.status.receipt.${receiptState}`)}</button
-				>
-				<button
-					type="button"
-					class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {isBookingConfirmed(tx)
-						? 'border-success/30 bg-success/10 text-success'
-						: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
-					onclick={() => scrollToPart('tx-konto-part')}
-					title={isBookingConfirmed(tx)
-						? undefined
-						: t('zahlungen.detail.status.konto.missingHint')}
-					data-testid="tx-status-konto"
-					data-state={isBookingConfirmed(tx) ? 'done' : 'missing'}
-					>{isBookingConfirmed(tx)
-						? t('zahlungen.detail.status.konto.done')
-						: t('zahlungen.detail.status.konto.missing')}</button
-				>
-				<span class="flex-1"></span>
-				<button
-					type="button"
-					class="text-sm text-cyan-800 underline dark:text-cyan"
-					onclick={() => (showDetails = !showDetails)}
-					aria-expanded={showDetails}
-					aria-controls="tx-details"
-					data-testid="tx-details-toggle"
-					>{showDetails ? t('zahlungen.detail.detailsHide') : t('zahlungen.detail.details')}</button
-				>
-			</div>
+			{#if flow}
+				<!-- The chips' place is taken by one next step, below the questions (#1037). -->
+				<div class="mt-2 flex justify-end">
+					<button
+						type="button"
+						class="text-sm text-cyan-800 underline dark:text-cyan"
+						onclick={() => (showDetails = !showDetails)}
+						aria-expanded={showDetails}
+						aria-controls="tx-details"
+						data-testid="tx-details-toggle"
+						>{showDetails
+							? t('zahlungen.detail.detailsHide')
+							: t('zahlungen.detail.details')}</button
+					>
+				</div>
+			{:else}
+				<div class="mt-3 flex flex-wrap items-center gap-2" data-testid="tx-status">
+					<button
+						type="button"
+						class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {receiptState ===
+						'missing'
+							? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+							: 'border-success/30 bg-success/10 text-success'}"
+						onclick={() => scrollToPart('tx-receipt-part')}
+						data-testid="tx-status-receipt"
+						data-state={receiptState}>{t(`zahlungen.detail.status.receipt.${receiptState}`)}</button
+					>
+					<button
+						type="button"
+						class="min-h-9 rounded-full border px-3 py-1 text-sm font-semibold {isBookingConfirmed(
+							tx
+						)
+							? 'border-success/30 bg-success/10 text-success'
+							: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'}"
+						onclick={() => scrollToPart('tx-konto-part')}
+						title={isBookingConfirmed(tx)
+							? undefined
+							: t('zahlungen.detail.status.konto.missingHint')}
+						data-testid="tx-status-konto"
+						data-state={isBookingConfirmed(tx) ? 'done' : 'missing'}
+						>{isBookingConfirmed(tx)
+							? t('zahlungen.detail.status.konto.done')
+							: t('zahlungen.detail.status.konto.missing')}</button
+					>
+					<span class="flex-1"></span>
+					<button
+						type="button"
+						class="text-sm text-cyan-800 underline dark:text-cyan"
+						onclick={() => (showDetails = !showDetails)}
+						aria-expanded={showDetails}
+						aria-controls="tx-details"
+						data-testid="tx-details-toggle"
+						>{showDetails
+							? t('zahlungen.detail.detailsHide')
+							: t('zahlungen.detail.details')}</button
+					>
+				</div>
+			{/if}
 			{#if whereOpen}
 				<section
 					class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
@@ -1951,6 +2329,7 @@
 								: 'zahlungen.detail.where.titleIn'
 						)}
 					</h3>
+					{@render payoutNote()}
 					{#if whereCandidate}
 						{@const acc = app.accounts.find((a) => a.id === whereCandidate?.accountId)}
 						<p class="mt-1 text-text" data-testid="tx-where-candidate">
@@ -2009,8 +2388,19 @@
 					class="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
 					data-testid="tx-address-kind-section"
 				>
+					{@render payoutNote()}
 					{@render addressKindForm()}
 				</section>
+			{/if}
+			{#if nextStep}
+				<NextAction
+					done={nextStep.done}
+					label={nextStep.label}
+					hint={nextStep.hint}
+					action={nextStep.action}
+					state={nextStep.state}
+					{busy}
+				/>
 			{/if}
 			{#if tx.importChange}
 				<div
@@ -2055,6 +2445,43 @@
 								{valuationText(tx, { short: true })}
 							</dd>
 						{/if}
+					{/if}
+					{#if flow}
+						{#if formatBookingDateTime(tx)}
+							<dt class="text-faint">{t('zahlungen.detail.chainDetails.blockTime')}</dt>
+							<dd class="text-heading" data-testid="tx-detail-block-time">
+								{formatBookingDateTime(tx)}
+							</dd>
+						{/if}
+						{#if flow.utxo.height}
+							<dt class="text-faint">{t('zahlungen.detail.chainDetails.block')}</dt>
+							<dd class="font-mono text-heading tabular-nums" data-testid="tx-detail-block">
+								{flow.utxo.height.toLocaleString(intlLocale())}
+							</dd>
+						{/if}
+						{#if confirmations}
+							<dt class="text-faint">{t('zahlungen.detail.chainDetails.confirmations')}</dt>
+							<dd class="text-heading" data-testid="tx-detail-confirmations">
+								{t('zahlungen.detail.chainDetails.confirmationsAt', {
+									count: confirmations.toLocaleString(intlLocale())
+								})}
+							</dd>
+						{/if}
+						<dt class="text-faint">{t('zahlungen.detail.chainDetails.fee')}</dt>
+						<dd class="text-heading" data-testid="tx-detail-fee">
+							{t(
+								flow.weSent
+									? 'zahlungen.detail.chainDetails.feeOurs'
+									: 'zahlungen.detail.chainDetails.feeSender',
+								{
+									fee: formatQuantity(
+										flow.utxo.fee,
+										Number(tx.decimals ?? 8),
+										String(tx.asset ?? '')
+									)
+								}
+							)}
+						</dd>
 					{/if}
 					{#if tx.original?.currency}
 						<dt class="text-faint">{t('zahlungen.detail.original')}</dt>
@@ -3705,7 +4132,7 @@
 					{/if}
 				{/if}
 			</section>
-			{#if receiptState === 'missing' || !isBookingConfirmed(tx)}
+			{#if !flow && (receiptState === 'missing' || !isBookingConfirmed(tx))}
 				<div
 					class="sticky -bottom-4 -mx-4 mt-4 -mb-4 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:hidden"
 					data-testid="tx-next"
