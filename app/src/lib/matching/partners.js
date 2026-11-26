@@ -282,16 +282,35 @@ export async function forgetAddress(partners, tx) {
 }
 
 /**
+ * What one booking was said to be, for it alone (matching/actions.js
+ * `sayForBooking`); null when nothing was.
+ *
+ * @param {Rec} tx
+ * @returns {{ kind: 'vendor' | 'private' | 'custodian', name: string, booking: true } | null}
+ */
+export function bookingKindOf(tx) {
+	const said = tx?.saidKind;
+	const kind = said?.kind;
+	const name = String(said?.name ?? '').trim();
+	if ((kind !== 'vendor' && kind !== 'private' && kind !== 'custodian') || !name) return null;
+	return { kind, name, booking: true };
+}
+
+/**
  * What a booking's address was said to be, and by which name; null when no
  * one named it.
  *
  * @param {Rec[]} partners
  * @param {Rec} tx
- * @returns {{ kind: 'vendor' | 'private' | 'custodian', name: string, alias: string } | null}
+ * @returns {{ kind: 'vendor' | 'private' | 'custodian', name: string, alias: string, booking?: true } | null}
+ *   `booking`: said for this booking alone (`saidKind`), not for the address
  */
 export function addressKindOf(partners, tx) {
 	const alias = txAlias(tx);
 	if (!isAddressAlias(alias)) return null;
+	// Said for this booking alone (a payout wallet's receipt, #1037): it comes first.
+	const said = bookingKindOf(tx);
+	if (said) return { ...said, alias };
 	const p = partners.find((x) => !x.deleted && (x.aliases ?? []).includes(alias));
 	if (!p) return null;
 	const kind = p.addressKinds?.[alias];

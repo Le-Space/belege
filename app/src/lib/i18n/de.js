@@ -1084,9 +1084,9 @@ export default {
 				name: 'Blockchain-Abfrage (Nym/Cosmos, Ethereum/EVM, Bitcoin, Filecoin, NEAR)',
 				text: 'Nur für eigene Wallets, die du unter Integrationen einträgst, und nur wenn du „Synchronisieren“ drückst: Die Bridge fragt einen öffentlichen Knoten nach den Überweisungen und dem Bestand der Adresse.',
 				leaves:
-					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst; die Karte nennt dafür weitere öffentliche (Nodes Guru für Nyx, Polkachu und Ecostake für Akash, blockstream.info für Bitcoin), die nur gefragt werden, wenn du einen davon einträgst. Der Betreiber kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Hat ein Token keinen CoinGecko-Kurs, fragt die Bridge Alchemy außerdem nach seinem Uniswap-Pool im Block der Buchung – Alchemy sieht dann den Token-Vertrag und den Block. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP: Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören. Bei Filecoin fragt die Bridge Filfox (filfox.info) nach der Adresse. Für Filecoin Pay, nur wenn du unter „Eigene Wallets“ eine Filecoin-Wallet prüfst oder ihren Verbrauchsnachweis erstellst: die Adresse der Wallet an den Index der Filecoin-Pay-Macher bei Goldsky (api.goldsky.com), an Blockscout (filecoin.blockscout.com – oder api.blockscout.com, wenn du einen Blockscout-API-Schlüssel eingerichtet hast; Blockscout ordnet die Abfragen dann deinem Blockscout-Konto zu) und, wo Blockscout nicht antwortet, an Filfox; jeder von ihnen sieht dazu die IP-Adresse dieses Macs. Bei NEAR fragt die Bridge NearBlocks (api.nearblocks.io) nach den Buchungen des Kontos und einen Archivknoten von FastNEAR (archival-rpc.mainnet.fastnear.com) nach dem Bestand; beide sehen den Kontonamen. Für Aleph Cloud, nur wenn du unter Integrationen „Eigene Ethereum-Adressen bei Aleph prüfen“ einschaltest oder ein Aleph-Konto einträgst: jede dieser Adressen an Aleph (api2.aleph.im), nur gelesen – Aleph kann daraus schließen, dass sie zusammengehören.',
+					'Die Adresse der Wallet und die IP-Adresse dieses Macs – an den Betreiber des Knotens: voreingestellt Nym (rpc.nymtech.net) für Nyx, PublicNode für Akash (für die ältere Geschichte zusätzlich den Akash-Indexer console-api.akash.network, betrieben vom Akash-Team), Blockscout für Ethereum, Base, Arbitrum, Optimism und Polygon – oder Alchemy, wenn du einen Alchemy-API-Schlüssel eingerichtet hast –, oder den Knoten, den du selbst einträgst; die Karte nennt dafür weitere öffentliche (Nodes Guru für Nyx, Polkachu und Ecostake für Akash, blockstream.info für Bitcoin), die nur gefragt werden, wenn du einen davon einträgst. Der Betreiber kann daraus ablesen, dass diese Adresse zu dir gehört; Alchemy ordnet die Abfragen zudem deinem Alchemy-Konto zu. Hat ein Token keinen CoinGecko-Kurs, fragt die Bridge Alchemy außerdem nach seinem Uniswap-Pool im Block der Buchung – Alchemy sieht dann den Token-Vertrag und den Block. Bei Bitcoin fragt die Bridge mempool.space (oder deinen eigenen Esplora-Server) nach jeder Adresse, die sie aus deinem Kontoschlüssel ableitet, kurz nacheinander von derselben IP, und nach der Adresse, von der ein Eingang kam (wie viele Transaktionen sie hat): Der Betreiber kann daraus schließen, dass alle diese Adressen zusammengehören. Bei Filecoin fragt die Bridge Filfox (filfox.info) nach der Adresse. Für Filecoin Pay, nur wenn du unter „Eigene Wallets“ eine Filecoin-Wallet prüfst oder ihren Verbrauchsnachweis erstellst: die Adresse der Wallet an den Index der Filecoin-Pay-Macher bei Goldsky (api.goldsky.com), an Blockscout (filecoin.blockscout.com – oder api.blockscout.com, wenn du einen Blockscout-API-Schlüssel eingerichtet hast; Blockscout ordnet die Abfragen dann deinem Blockscout-Konto zu) und, wo Blockscout nicht antwortet, an Filfox; jeder von ihnen sieht dazu die IP-Adresse dieses Macs. Bei NEAR fragt die Bridge NearBlocks (api.nearblocks.io) nach den Buchungen des Kontos und einen Archivknoten von FastNEAR (archival-rpc.mainnet.fastnear.com) nach dem Bestand; beide sehen den Kontonamen. Für Aleph Cloud, nur wenn du unter Integrationen „Eigene Ethereum-Adressen bei Aleph prüfen“ einschaltest oder ein Aleph-Konto einträgst: jede dieser Adressen an Aleph (api2.aleph.im), nur gelesen – Aleph kann daraus schließen, dass sie zusammengehören.',
 				technical:
-					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout; für einen Token ohne CoinGecko-Kurs eth_call an die Uniswap-Factories (V2, V3) und den StateView von Uniswap V4 nach seinen Pools gegen ETH und USDC im Block der Buchung; es zählt der tiefste, wenn er auf der ETH- oder USDC-Seite mindestens 3.000 € hält). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain). Die App kennt nur einen Fingerabdruck des Schlüssels. Bei Filecoin die öffentliche API von Filfox (address, address/transfers; die Adresse steht in der Abfrage-URL), ohne Schlüssel; Senden, Empfangen und die Gebühren einer Nachricht kommen von dort, die Nachrichten-CID ist der Hash. Für Filecoin Pay (nur USDFC) der Index der Macher (ein Subgraph bei Goldsky, per GraphQL: userTokens, rails, settlements, oneTimePayments nach der Adresse des Zahlers) und die Ereignisse des Zahlungsvertrags bei Blockscout (getLogs für DepositRecorded und WithdrawRecorded; antwortet der Index nicht, auch RailCreated, RailSettled, RailOneTimePaymentProcessed und der Bestand per eth_call). Der Blockscout-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:blockscout) und geht nur an api.blockscout.com, im Kopf der Anfrage – in keiner URL, nie im Browser, nie im Protokoll. Was ein Zahler selbst über Rails einnimmt, liest die Bridge nicht. Bei NEAR die API von NearBlocks (v3: accounts/<Konto>/txns und ft-txns; der Kontoname steht in der Abfrage-URL), ohne Schlüssel, und die JSON-RPC eines Archivknotens von FastNEAR (view_account und ft_balance_of für den Bestand, EXPERIMENTAL_tx_status für das, was eine Speicher-Einlage behielt); gebucht werden NEAR und USDC (Circles Vertrag), der Transaktions-Hash ist derselbe, den eine Börse für eine Auszahlung nennt. NEAR, das in den inneren Quittungen einer fremden Transaktion ankommt (etwa die Auszahlung eines Staking-Pools), liest die Bridge noch nicht. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
+					'Gefragt wird per HTTPS: bei Cosmos-Chains die CometBFT-RPC (tx_search nach transfer.sender und transfer.recipient, header, status) und die REST-API (Bestand), bei EVM-Chains die Etherscan-kompatible API von Blockscout (txlist, txlistinternal, tokentx, balance) oder, mit Schlüssel, Alchemy (alchemy_getAssetTransfers, Quittungen, Nonce, Bestand; interne Transaktionen auf Arbitrum und Optimism weiter bei Blockscout; für einen Token ohne CoinGecko-Kurs eth_call an die Uniswap-Factories (V2, V3) und den StateView von Uniswap V4 nach seinen Pools gegen ETH und USDC im Block der Buchung; es zählt der tiefste, wenn er auf der ETH- oder USDC-Seite mindestens 3.000 € hält). Der Alchemy-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:alchemy) und steht nur in der Adresse der Anfragen an Alchemy – nie im Browser, nie im Protokoll. Die App schickt die Adresse im Rumpf einer Anfrage an die Bridge, nie in einer URL (an Blockscout geht sie, wie dessen API es verlangt, in der Abfrage-URL); das Protokoll der Bridge nennt nur Zahlen. Kein Schlüssel, keine Signatur: die Adresse ist öffentlich, die Liste deiner Wallets liegt verschlüsselt in deinen Büchern, nicht in der Bridge. Gebucht werden nur Assets aus der Liste der Chain (NYM, NYX, AKT, ETH, POL, USDC mit geprüftem Vertrag); andere Token werden gezählt und ausgelassen. Bei Bitcoin liegt der Kontoschlüssel (xpub, ypub oder zpub) nur im macOS-Schlüsselbund der Bridge; die Bridge leitet daraus die Adressen ab (bis 20 unbenutzte in Folge) und fragt deren bestätigte Transaktionen ab (Esplora-API: address, address/txs/chain), dazu bei einem Eingang die Zahl der Transaktionen des Absenders (address) und die aktuelle Blockhöhe für die Bestätigungen (blocks/tip/height). Die App kennt nur einen Fingerabdruck des Schlüssels. Bei Filecoin die öffentliche API von Filfox (address, address/transfers; die Adresse steht in der Abfrage-URL), ohne Schlüssel; Senden, Empfangen und die Gebühren einer Nachricht kommen von dort, die Nachrichten-CID ist der Hash. Für Filecoin Pay (nur USDFC) der Index der Macher (ein Subgraph bei Goldsky, per GraphQL: userTokens, rails, settlements, oneTimePayments nach der Adresse des Zahlers) und die Ereignisse des Zahlungsvertrags bei Blockscout (getLogs für DepositRecorded und WithdrawRecorded; antwortet der Index nicht, auch RailCreated, RailSettled, RailOneTimePaymentProcessed und der Bestand per eth_call). Der Blockscout-Schlüssel liegt im macOS-Schlüsselbund der Bridge (pnpm setup:blockscout) und geht nur an api.blockscout.com, im Kopf der Anfrage – in keiner URL, nie im Browser, nie im Protokoll. Was ein Zahler selbst über Rails einnimmt, liest die Bridge nicht. Bei NEAR die API von NearBlocks (v3: accounts/<Konto>/txns und ft-txns; der Kontoname steht in der Abfrage-URL), ohne Schlüssel, und die JSON-RPC eines Archivknotens von FastNEAR (view_account und ft_balance_of für den Bestand, EXPERIMENTAL_tx_status für das, was eine Speicher-Einlage behielt); gebucht werden NEAR und USDC (Circles Vertrag), der Transaktions-Hash ist derselbe, den eine Börse für eine Auszahlung nennt. NEAR, das in den inneren Quittungen einer fremden Transaktion ankommt (etwa die Auszahlung eines Staking-Pools), liest die Bridge noch nicht. Links zum Block-Explorer öffnen erst, wenn du sie anklickst.'
 			},
 			ucep: {
 				name: 'Rechnungs-App (UCEP über ein Relay)',
@@ -3692,6 +3692,8 @@ export default {
 			'receipt-private': 'Beleg als privat aussortiert',
 			'receipt-restore': 'Beleg wieder aufgenommen',
 			'needs-receipt': '„Kein Beleg nötig“ zurückgenommen',
+			'booking-kind': 'Für eine Buchung gesagt, was sie war',
+			'booking-kind-cleared': 'Antwort für eine Buchung aufgehoben',
 			'confirm-sender': 'Absender freigegeben',
 			'scam-cleared': 'Scam-Verdacht als unbegründet markiert',
 			'mail-trash': 'Mail in den Papierkorb verschoben',
@@ -4600,7 +4602,86 @@ export default {
 				custodianPlaceholder: 'z. B. der Name der Börse',
 				save: 'Merken',
 				current: 'Gemerkt als: {kind} („{name}“)',
-				forget: 'Aufheben'
+				forget: 'Aufheben',
+				hintBooking: 'Deine Antwort gilt nur für diese Buchung, nicht für die Adresse.',
+				currentBooking: 'Für diese Buchung: {kind} („{name}“)',
+				exchangeLabel: 'Börsenkonto',
+				exchangeOther: 'Ein anderes …',
+				customerLabel: 'Kunde',
+				saveBooking: 'Für diese Buchung übernehmen'
+			},
+			head: {
+				in: 'Eingang',
+				out: 'Ausgang',
+				own: 'Umbuchung',
+				eur: '≈ {amount}',
+				more: 'Weitere Aktionen',
+				qr: 'QR-Code des Block-Explorers',
+				copyTx: 'Transaktions-ID kopieren',
+				confirmations: '{count} Bestätigungen',
+				confirmationsOne: '1 Bestätigung'
+			},
+			utxo: {
+				title: 'Transaktion: {inputs} → {outputs}',
+				inputs: '{count} Eingänge',
+				inputsOne: '1 Eingang',
+				outputs: '{count} Ausgänge',
+				outputsOne: '1 Ausgang',
+				ours: 'eigene Wallet · {name}',
+				ourChange: 'Wechselgeld · eigene Wallet',
+				change: 'zurück an den Absender',
+				recipient: 'Empfänger',
+				other: 'anderer Empfänger',
+				inputsFrom: 'aus {count} Eingängen',
+				moreInputs: '{count} weitere Adressen · zusammen {amount}',
+				moreRecipients: '{count} weitere Empfänger · zusammen {amount}',
+				moreUnlisted: '{count} weitere Ausgänge, nicht einzeln gespeichert · zusammen {amount}',
+				collapse: 'Weitere Empfänger einklappen',
+				feeSender: 'Gebühr {fee} · bezahlt vom Absender',
+				feeOurs: 'Gebühr {fee} · von dir bezahlt, als eigene Buchung'
+			},
+			payout: {
+				text: 'Der Absender zahlt in Sammelüberweisungen aus und hat sehr viele Transaktionen – typisch für eine Börse oder einen Zahlungsdienst.',
+				textShape:
+					'Der Absender zahlt in Sammelüberweisungen aus – typisch für eine Börse oder einen Zahlungsdienst.',
+				busy: 'mehr als {count} Transaktionen an dieser Adresse',
+				reused: 'Adresse mehrfach verwendet',
+				batch: '{count} Ausgänge in einer Transaktion',
+				changeBack: 'Wechselgeld zurück an dieselbe Adresse',
+				review:
+					'Für diese Adresse ist „{name}“ gemerkt ({kind}). Bei einer Auszahlungs-Wallet trifft das nicht auf jede Zahlung zu.',
+				reviewKeep: 'Nur für diese Buchung behalten',
+				reviewDrop: 'Für die Adresse aufheben'
+			},
+			nextStep: {
+				askIn: 'Sag oben, woher das Geld kam',
+				askOut: 'Sag oben, wohin das Geld ging',
+				askHint: 'Dann zeigt Belege den nächsten Schritt.',
+				open: 'Offen',
+				invoiceOf: 'Rechnung an {name} zuordnen',
+				receiptOf: 'Rechnung von {name} zuordnen',
+				invoice: 'Rechnung zuordnen',
+				receipt: 'Beleg zuordnen',
+				invoiceButton: 'Rechnung zuordnen',
+				receiptButton: 'Beleg zuordnen',
+				transferFrom: 'Als Umbuchung von {name} buchen',
+				transferTo: 'Als Umbuchung an {name} buchen',
+				transfer: 'Als eigene Umbuchung buchen',
+				transferHint: 'Kein Beleg nötig · Konto {account}',
+				transferButton: 'Buchen',
+				konto: 'Konto übernehmen',
+				done: 'Erledigt',
+				doneState: 'Erledigt'
+			},
+			chainDetails: {
+				blockTime: 'Blockzeit',
+				block: 'Block',
+				confirmations: 'Bestätigungen',
+				confirmationsAt: '{count} (beim letzten Abruf)',
+				fee: 'Gebühr',
+				feeSender: '{fee} · bezahlt vom Absender',
+				feeOurs: '{fee} · von dir bezahlt (eigene Buchung)',
+				txid: 'Transaktions-ID'
 			},
 			walletUnsupported:
 				'{chain} kann Belege noch nicht als eigene Wallet lesen. Die Ankunft dort findet es deshalb nicht.',

@@ -51,6 +51,7 @@ import { currentLocale, t } from '../i18n/index.js';
  * @property {string} addedAt ISO 8601
  * @property {string} [addressUrl] the explorer's page of the address, from the last sync
  * @property {string} [lastSyncedAt]
+ * @property {number} [tipHeight] Bitcoin and its kin: the chain's height at the last sync, for confirmations (#1037)
  * @property {string} [name] the person's name for it (a project), shown instead of the address tail
  * @property {Record<string, string>} [ledgerAccounts] the ledger account (DATEV Konto) of each of its
  *   asset accounts, by asset (`{ NEAR: '1204', USDC: '1205' }`): every asset its own
@@ -561,6 +562,8 @@ export async function walletTransactions(entries, getRate) {
 					: {}),
 				...(e.type === 'fee' && storageOf(e) ? { storageDeposit: storageOf(e) } : {}),
 				...(e.byOther ? { movedByOther: { by: e.txFrom ?? '' } } : {}),
+				// Bitcoin and its kin: the transaction's inputs and outputs (#1037).
+				...(e.utxo ? { utxo: e.utxo } : {}),
 				...(value.rateMissing ? { rateMissing: value.rateMissing } : {}),
 				// A swap to another chain, planned in the IBC memo (issue #170).
 				...(() => {
@@ -1099,6 +1102,8 @@ export async function bookWalletHistory({ client, store, wallet, result, now = n
 	await saveWallet(store.settings, {
 		...wallet,
 		addressUrl: safeExplorerUrl(result.addressUrl) ?? '',
+		// The chain's tip at this sync: a booking's confirmations (#1037).
+		...(Number.isInteger(result.tipHeight) ? { tipHeight: result.tipHeight } : {}),
 		lastSyncedAt: now.toISOString()
 	});
 	await recordEvent(store.events, 'bank-sync', {

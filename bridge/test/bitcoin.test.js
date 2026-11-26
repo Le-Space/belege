@@ -11,6 +11,7 @@ import {
 	deriveAddress,
 	keyFingerprint,
 	normalizeBitcoin,
+	txMagnitude,
 	parseExtendedKey,
 	parseStoredKey
 } from '@le-space/chains';
@@ -135,6 +136,7 @@ function fakeEsplora(asked = []) {
 	return async (input) => {
 		const url = new URL(String(input));
 		asked.push(url.pathname);
+		if (url.pathname === '/api/blocks/tip/height') return new Response('1000');
 		const m = /^\/api\/address\/([^/]+)(\/txs\/chain(?:\/([0-9a-f]+))?)?$/.exec(url.pathname);
 		if (!m) return new Response('{}', { status: 404 });
 		const a = m[1];
@@ -180,6 +182,59 @@ describe('a wallet’s history', () => {
 		assert.match(entries[4].memo, /several wallets/);
 		assert.ok(entries.every((e) => e.asset === 'BTC' && e.decimals === 8 && e.hash.length === 64));
 		assert.equal(entries[0].explorerUrl, `https://mempool.space/tx/${hex(1)}`);
+		// The transaction's shape, from our side (#1037).
+		assert.deepEqual(entries[1].utxo, {
+			inputs: [{ address: R0, sats: '1000000', own: true, count: 1 }],
+			outputs: [
+				{ address: Y, sats: '300000', own: false },
+				{ address: C0, sats: '690000', own: true }
+			],
+			inputCount: 1,
+			outputCount: 2,
+			fee: '10000',
+			height: 200
+		});
+		assert.deepEqual(
+			entries[4].utxo?.inputs.map((i) => [i.address, i.own]),
+			[
+				[R1, true],
+				[FOREIGN, false]
+			]
+		);
+	});
+
+	test('a payout: inputs grouped by address, ours and the change back listed, the rest counted', () => {
+		const own = new Set([R0]);
+		const others = Array.from({ length: 20 }, (_, i) => [
+			`bc1qexampleother${String(i).padStart(2, '0')}xxxxxxxxxxxxxxxxxxxxxxxx`,
+			1_000 + i
+		]);
+		const payout = tx(
+			hex(9),
+			900,
+			[
+				[X, 5_000_000],
+				[X, 3_000_000]
+			],
+			[...others.slice(0, 15), [R0, 123_456], [X, 7_000_000], ...others.slice(15)].map(
+				(o) => /** @type {[string, number]} */ (o)
+			),
+			4_210
+		);
+		const [entry] = normalizeBitcoin([payout], own, BTC);
+		const u = entry.utxo;
+		assert.deepEqual(u?.inputs, [{ address: X, sats: '8000000', own: false, count: 2 }]);
+		assert.equal(u?.inputCount, 2);
+		assert.equal(u?.outputCount, 22);
+		// 12 others, ours, the change back to X; 8 others counted with their sum
+		assert.equal(u?.outputs.length, 14);
+		assert.ok(u?.outputs.some((o) => o.own && o.sats === '123456'));
+		assert.ok(u?.outputs.some((o) => o.address === X));
+		const unlisted = others.slice(12).reduce((s, o) => s + Number(o[1]), 0);
+		assert.deepEqual(u?.moreOutputs, { count: 8, sats: String(unlisted) });
+		assert.equal(txMagnitude(0), 0);
+		assert.equal(txMagnitude(7), 1);
+		assert.equal(txMagnitude(183_456), 100_000);
 	});
 
 	test('sync: derives until 20 unused in a row, reads every page, books only confirmed, balance', async () => {
@@ -207,6 +262,11 @@ describe('a wallet’s history', () => {
 			asked.some((p) => /\/txs\/chain\/[0-9a-f]{64}$/.test(p)),
 			'the second page'
 		);
+		// The sender of the receipts is asked once; the tip gives confirmations (#1037).
+		assert.equal(asked.filter((p) => p === `/api/address/${X}`).length, 1);
+		assert.equal(result.tipHeight, 1000);
+		const received = result.entries.find((e) => e.id === `${hex(1)}:value`);
+		assert.equal(received?.utxo?.senderTxs, 10, 'X has 31 confirmed: floored to 10');
 	});
 
 	test('a replaced key or none: refused, not booked onto the old account', async () => {

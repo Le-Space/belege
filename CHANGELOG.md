@@ -6,6 +6,19 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A Bitcoin payment shows its transaction** (#1037): the flow of inputs and outputs (_1 Eingang → 8 Ausgänge_), our output marked _eigene Wallet_ with its real address and a copy button, the change back to the sender, our own change, the other recipients collapsed into _n weitere Empfänger_; who paid the fee, the block time with its time zone, the block, the confirmations at the last sync. The Bitcoin reader in `@le-space/chains` keeps each transaction's shape on its entries (`utxo`: inputs by address, the outputs that matter and the first twelve others, the rest counted), asks Esplora once per receipt's sender for its transaction count (as a power of ten) and the tip's height – the same host, said in the consent text. Doichain, read by the same code, gets the flow too.
+- **Payout wallets are answered per booking.** A receipt whose sender has a thousand transactions or more, or pays out in a batch with its change back to itself or from an address used before, says it looks like an exchange's or a payment service's payout wallet. What the person answers to _Woher kam das Geld?_ – a customer, own money at an exchange (a Kraken account in the books), private – then holds for that booking only (`saidKind`), so the next payout from that exchange is asked again; a name remembered for such an address before is flagged, to keep it for one booking or drop it. Ordinary addresses are remembered as before.
+
+### Changed
+
+- **The head of a Bitcoin payment** says the movement large (_Eingang +0,01234567 BTC_), the euro value and rate below it, and has one explorer link; the QR code and _Transaktions-ID kopieren_ are in a ⋯ menu. One next step (_Rechnung zuordnen_, _Als Umbuchung von Kraken · BTC buchen_ – which books it on 1360 in one click –, _Erledigt_) takes the place of the chips _Beleg fehlt_ / _Konto fehlt_. Other payments are unchanged for now.
+
+### Fixed
+
+- **"An" of a Bitcoin receipt named the wallet's key fingerprint** (`btc-…`) instead of an address, so its explorer link led nowhere: the own side is now the address of the output that reached us (or, for a payment, the input it was paid from).
+
 ## [0.61.0] – 2026-11-26
 
 ### Security

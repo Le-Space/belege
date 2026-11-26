@@ -191,6 +191,8 @@ A Bitcoin wallet is read by its account's **extended public key**, not by one ad
   - some inputs ours (payjoin, coinjoin): one booking with the net change, fee included, and a note.
 - `txRef` is the txid. A Kraken BTC deposit or withdrawal carries the same txid as `chainTxRef`, so the two pair as an own transfer.
 - One account, _Wallet BTC ···<fingerprint>_, with its balance (confirmed, from the Esplora API).
+- Each booking keeps its transaction's shape (`utxo`, #1037): the inputs by address, the outputs (ours, those back to an input's address and the first twelve others; the rest counted and summed), the fee and the block. For a receipt the bridge also asks Esplora once per sender how many transactions it has (kept as a power of ten), and the tip height at each sync gives the confirmations.
+- **The payment's detail** shows the flow (_1 Eingang → 8 Ausgänge_): our output with its real address, the change back to the sender, our own change, the other recipients collapsed. A receipt whose sender has a thousand transactions or more, or pays out in a batch (five outputs or more) with its change back to itself or from an address used before, looks like an exchange's or a payment service's payout wallet: the detail says so, and the answer to _Woher kam das Geld?_ (a customer, own money at an exchange – one of the Kraken accounts –, private) holds for that booking only (`saidKind`), not for the address. A name remembered for such an address before is flagged for review. One next step replaces the chips _Beleg fehlt_ / _Konto fehlt_; for an own transfer it books it on 1360 in one click.
 
 ### Filecoin
 

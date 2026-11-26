@@ -565,6 +565,10 @@ Diese API sieht all diese Adressen von derselben IP. Sie kann daraus schließen,
 
 Es gibt ein Konto, _Wallet BTC ···<Fingerabdruck>_. Sein Bestand ist der bestätigte Bestand aus der Esplora-API.
 
+**Ein- und Ausgänge (#1037):** Jede Buchung behält die Form ihrer Transaktion (`utxo`): die Inputs nach Adresse, die Outputs (unsere, die zurück an eine Input-Adresse und die ersten zwölf anderen; der Rest gezählt und summiert), die Gebühr und den Block. Bei einem Eingang fragt die Bridge Esplora einmal je Absender, wie viele Transaktionen er hat (als Zehnerpotenz gespeichert). Die Blockhöhe bei jedem Abruf ergibt die Bestätigungen.
+
+**Die Zahlung im Detail** zeigt den Fluss (_1 Eingang → 8 Ausgänge_): unseren Output mit seiner echten Adresse, das Wechselgeld zurück an den Absender, eigenes Wechselgeld und die übrigen Empfänger eingeklappt. Hat der Absender tausend oder mehr Transaktionen, oder zahlt er gesammelt aus (fünf oder mehr Outputs) mit Wechselgeld an sich selbst oder von einer schon benutzten Adresse, sieht er nach der Auszahlungs-Wallet einer Börse oder eines Zahlungsdiensts aus. Die Zahlung sagt das, und die Antwort auf _Woher kam das Geld?_ (ein Kunde, eigenes Geld bei einer Börse – eines der Kraken-Konten –, privat) gilt nur für diese Buchung (`saidKind`), nicht für die Adresse. Ein früher für so eine Adresse gemerkter Name wird zur Prüfung markiert. Ein nächster Schritt ersetzt die Chips _Beleg fehlt_ / _Konto fehlt_; eine eigene Umbuchung bucht er mit einem Klick auf 1360.
+
 ### Filecoin
 
 **Anlegen:** Eine eigene Filecoin-Wallet legst du mit ihrer Adresse an. Möglich sind:

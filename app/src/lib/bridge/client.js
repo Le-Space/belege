@@ -201,6 +201,7 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  * @property {string} [ibcMemo] Cosmos: an IBC transfer's own memo (MsgTransfer.memo) – where a wallet's swap puts its plan (#170)
  * @property {boolean} [byOther] EVM: sent out in a transaction this address did not send – a token project's burn, say (#162)
  * @property {string} [txFrom] who sent that transaction, where the bridge knows it
+ * @property {import('@le-space/ledger').WalletEntry['utxo']} [utxo] Bitcoin and its kin: inputs and outputs (#1037)
  */
 
 /**
@@ -231,6 +232,7 @@ function failed(message, status, body, kind = wayOutKind(status, body)) {
  *   from the wallet's archive node instead (#1029), `archiveError` when it failed; `unbonding`: undelegations whose
  *   tokens came back (booked, without a hash), are still unbonding, or whose end the node could not tell
  * @property {string} addressUrl
+ * @property {number} [tipHeight] Bitcoin: the chain's height when it was read (#1037)
  * @property {'alchemy' | 'blockscout'} [source] EVM: where it was read
  * @property {{ asset: string, decimals: number, points: { time: string, value: string }[], source?: 'explorer' | 'history' }[]} [balanceHistory]
  *   the source's balance after each change, in smallest units, oldest first (#287): Blockscout's of the

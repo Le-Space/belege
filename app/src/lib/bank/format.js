@@ -80,6 +80,26 @@ export function txDirection(tx) {
 const BERLIN_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' });
 
 /**
+ * A booking's day and time in German time with its time zone –
+ * `24.11.2026, 14:32 MEZ` – for a block's time (#1037); '' without a time.
+ *
+ * @param {Record<string, any>} tx
+ */
+export function formatBookingDateTime(tx) {
+	const ms = typeof tx?.bookedAt === 'string' ? Date.parse(tx.bookedAt) : NaN;
+	if (!Number.isFinite(ms)) return '';
+	return formatter('date', intlLocale(), {
+		day: '2-digit',
+		month: '2-digit',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Europe/Berlin',
+		timeZoneName: 'short'
+	}).format(ms);
+}
+
+/**
  * A booking's time in German time: `14:32`, or `31.08. 01:15` when that is
  * another day than the booking day (a wallet or an exchange books by the UTC
  * day). '' when the source gave no time.
