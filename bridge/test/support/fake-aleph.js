@@ -54,10 +54,13 @@
 //                          (FAKE_INSTANCE_CREDITS_PER_HOUR), otherwise
 //                          `rejected` with error 6. A FORGET of it by the
 //                          address or a delegate allowed FORGET makes it
-//                          `forgotten`, and the node drops it. The
-//                          `port-forwarding` AGGREGATE likewise, by the
+//                          `forgotten`, and the node drops it; a second
+//                          FORGET of a forgotten one is `rejected` (#1036).
+//                          The `port-forwarding` AGGREGATE likewise, by the
 //                          address or a delegate allowed that key.
-//   GET  /api/v0/messages/<item hash>   the INSTANCE with its content and status
+//   GET  /api/v0/messages/<item hash>   the INSTANCE with its content and
+//                          status, and `forgotten_by` once forgotten; a
+//                          FORGET with its time and content
 //   POST /api/v0/price/estimate   the VM's price, per second
 //   GET  /crns.json        Aleph's node list: the fake node (FAKE_CRN), at this
 //                          server's address, confidential, with room
@@ -197,13 +200,20 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 	const aggregates = new Map();
 	/** Other aggregates, by checksummed address, then key. @type {Map<string, Record<string, any>>} */
 	const kept = new Map();
-	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number }>} */
+	/** The FORGET messages taken, by item hash. @type {Map<string, { status: string, errorCode?: number, time?: number, content?: any }>} */
 	const forgets = new Map();
 	/**
 	 * The INSTANCE messages taken, by item hash; `placed` once the node was told.
-	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, address: string, time: number, placed: boolean, failed?: boolean }>}
+	 * @type {Map<string, { status: string, errorCode?: number, content: any, sender: string, address: string, time: number, placed: boolean, failed?: boolean, forgottenBy?: string[] }>}
 	 */
 	const instances = new Map();
+	/** An INSTANCE forgotten by the FORGET `forget`: the node drops it, and Aleph says which FORGET it was. @param {any} vm @param {string} forget */
+	const forgetInstance = (vm, forget) =>
+		Object.assign(vm, {
+			status: 'forgotten',
+			placed: false,
+			forgottenBy: [...(vm.forgottenBy ?? []), forget]
+		});
 	/** This server's own address, the fake node's too; set once it listens. */
 	let self = '';
 	/** How the IPFS host answers a preflight (see the head of this file). */
@@ -604,14 +614,19 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 							mayActFor(vm.address, m.sender, 'FORGET')
 						);
 					});
-				const verdict = own ? { status: 'processed' } : { status: 'rejected', errorCode: 3 };
-				if (own) {
+				// A FORGET of an INSTANCE forgotten already is refused, as Aleph may (#1036).
+				const again = content.hashes.some(
+					(/** @type {string} */ h) => instances.get(h)?.status === 'forgotten'
+				);
+				const verdict =
+					own && !again ? { status: 'processed' } : { status: 'rejected', errorCode: 3 };
+				if (verdict.status === 'processed') {
 					for (const h of content.hashes) {
 						const vm = instances.get(h);
-						if (vm) Object.assign(vm, { status: 'forgotten', placed: false });
+						if (vm) forgetInstance(vm, m.item_hash);
 					}
 				}
-				forgets.set(m.item_hash, verdict);
+				forgets.set(m.item_hash, { ...verdict, time: m.time, content });
 				return answer(verdict.status);
 			}
 
@@ -868,6 +883,7 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				status: vm.status,
 				item_hash: msg[1],
 				...(vm.errorCode !== undefined ? { error_code: vm.errorCode } : {}),
+				...(vm.forgottenBy ? { forgotten_by: vm.forgottenBy } : {}),
 				message: {
 					type: 'INSTANCE',
 					item_hash: msg[1],
@@ -882,7 +898,17 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 			return reply(200, {
 				status: forget.status,
 				item_hash: msg[1],
-				...(forget.errorCode !== undefined ? { error_code: forget.errorCode } : {})
+				...(forget.errorCode !== undefined ? { error_code: forget.errorCode } : {}),
+				...(forget.time !== undefined
+					? {
+							message: {
+								type: 'FORGET',
+								item_hash: msg[1],
+								time: forget.time,
+								content: forget.content
+							}
+						}
+					: {})
 			});
 		}
 		if (msg && messages[msg[1]]) {
@@ -933,6 +959,49 @@ export async function startFakeAleph({ accounts: given, messages = {} }) {
 				...rest,
 				{ address: delegate, types, aggregate_keys: aggregateKeys, chain: 'ETH' }
 			]);
+		},
+		/**
+		 * Aleph forgets an INSTANCE on a FORGET sent from elsewhere (another
+		 * device of the books), sent at `at` (seconds); its hash is returned.
+		 * Messages about the VM from the books' own record are left as they are.
+		 *
+		 * @param {string} instance @param {{ at?: number, address?: string }} [p]
+		 */
+		forgetElsewhere(instance, { at = Date.now() / 1000, address } = {}) {
+			const forget = fakeItemHash(`forget ${instance} ${at}`);
+			const vm = instances.get(instance);
+			const content = {
+				address: address ?? vm?.address,
+				time: at,
+				hashes: [instance],
+				aggregates: [],
+				reason: 'made up'
+			};
+			forgets.set(forget, { status: 'processed', time: at, content });
+			if (vm) forgetInstance(vm, forget);
+			return forget;
+		},
+		/**
+		 * An INSTANCE Aleph holds although this fake never took it, as if sent
+		 * from another browser: processed, on the fake node.
+		 *
+		 * @param {string} instance @param {{ address: string, time?: number }} p
+		 */
+		holdInstance(instance, { address, time = Date.now() / 1000 }) {
+			instances.set(instance, {
+				status: 'processed',
+				content: {
+					address,
+					time,
+					metadata: { name: 'made-up' },
+					requirements: { node: { node_hash: FAKE_CRN } },
+					resources: { vcpus: 2 }
+				},
+				sender: address,
+				address,
+				time,
+				placed: true
+			});
 		},
 		/** From now on the node fails to bring up every VM it places, or again does not. @param {boolean} fail */
 		failStarts(fail) {

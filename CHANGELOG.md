@@ -14,6 +14,10 @@ All notable changes to Le Space Belege. The format follows
 
 - **Svelte 5.59.2** (from 5.37.2): Svelte now makes its templates through a Trusted Types policy of its own (`svelte-trusted-html`); 5.37.2 wrote them as plain strings.
 
+### Fixed
+
+- **The hosted-bridge card no longer shows a VM Aleph has forgotten as running, and "Stoppen" clears it** (#1036). When the card opens and the books record the VM as running, it asks Aleph once for the INSTANCE's status (only while the network is on). A forgotten one is recorded as stopped at the time of the FORGET that ended it: on another device, or after the write following a FORGET failed. The card then shows "Gestoppt …" with runtime and credits from start to stop, without the "nicht hochgekommen" unlock notice and without "Stoppen". Stopping asks first and sends no second FORGET for a forgotten instance ("war bereits gestoppt am …"). A FORGET Aleph refuses because the instance is forgotten meanwhile ends the same way. If Aleph does not answer, the card says so instead of extrapolating silently.
+
 ## [0.60.0] – 2026-11-26
 
 ### Changed
