@@ -126,7 +126,7 @@ describe('withFeeGroups', () => {
 		};
 		const items = withFeeGroups([fee(), fee(), fee({ txRef: 'S1' }), swap]);
 		expect(items.filter(isFeeGroup)[0].fees).toHaveLength(2);
-		expect(items.some((i) => !isFeeGroup(i) && i.txRef === 'S1')).toBe(true);
+		expect(items.some((i) => !isFeeGroup(i) && /** @type {any} */ (i).txRef === 'S1')).toBe(true);
 	});
 
 	it('says how much of a group a receipt covers', () => {
