@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A second last known relay, will-view-session-barely (orbitdb-relay 0.11.1, on another node than athlete-equal-ritual-rhythm), so that one relay going away does not leave Belege without a fallback when Aleph does not answer.
+
 ## [0.62.0] – 2026-11-26
 
 ### Added

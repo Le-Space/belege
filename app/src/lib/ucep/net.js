@@ -91,11 +91,13 @@ export function twoN6Host(instanceHash) {
 }
 
 /**
- * The relay as it was registered on 2026-11-26, for when Aleph cannot be
- * asked, and after those it finds: athlete-equal-ritual-rhythm, orbitdb-relay
- * 0.11.1 from the orbitdb-relay account. It serves UCEP and an attest relay at
+ * The relays as they were registered on 2026-11-26, for when Aleph cannot be
+ * asked, and after those it finds: athlete-equal-ritual-rhythm and
+ * will-view-session-barely, both orbitdb-relay 0.11.1 from the orbitdb-relay
+ * account, on two different nodes, so that one relay or node going away does
+ * not leave Belege without any. They serve UCEP and an attest relay at
  * /attest that knows the image builders. A relay moves when it is redeployed;
- * the lookup is what keeps up. Retired for it on 2026-11-26, as they ran
+ * the lookup is what keeps up. Retired on 2026-11-26, as they ran
  * orbitdb-relay 0.10.11 with @libp2p/crypto 5.1.21 (GHSA-rvfr-cqwq-rc4j):
  * ocean-skate-resource-route (2026-11-17) and relay-main-ekb,
  * crazy-pluck-uncle-device (2026-11-02). Gone before: secret-pass-wife-sentence
@@ -103,7 +105,8 @@ export function twoN6Host(instanceHash) {
  * (2026-10-14) and job-blanket-biology-typical, silent since 2026-10-09.
  */
 export const FALLBACK_RELAYS = Object.freeze([
-	'/dns4/athlete-equal-ritual-rhythm.2n6.me/tcp/443/tls/ws/p2p/12D3KooWGrGmLRaKeqeMRzN9J2MPBas1CKcQiQPutXBTmoBHnVgS'
+	'/dns4/athlete-equal-ritual-rhythm.2n6.me/tcp/443/tls/ws/p2p/12D3KooWGrGmLRaKeqeMRzN9J2MPBas1CKcQiQPutXBTmoBHnVgS',
+	'/dns4/will-view-session-barely.2n6.me/tcp/443/tls/ws/p2p/12D3KooWPHqmGqmyWpkvNrheZJwr3zMftnQTYmViLRk3FLAmoCAU'
 ]);
 
 /**
