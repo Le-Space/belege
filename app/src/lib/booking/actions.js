@@ -219,3 +219,96 @@ export async function setManualRate(store, transactionId, rate, now = () => new 
 		rate: clean
 	});
 }
+
+/**
+ * @typedef {object} FeeGroupUndo what `confirmFeeGroup` wrote, to take back
+ * @property {{ transactionId: string, before: Record<string, any> | null, after: Record<string, any> }[]} changes
+ * @property {string} account
+ * @property {string} month
+ */
+
+/**
+ * "Übernehmen" for a wallet's network fees of a month (#1043): one account on
+ * every fee of the group in one step – each record sealed and written like any
+ * confirmation – and one event for all. `only: 'open'` leaves the fees that
+ * have an account already; `'all'` puts every fee on this one account
+ * ("Auf ein Konto vereinheitlichen"). Marked `via: 'group'`: a person
+ * confirmed it, so lifting the fee rule (fee-rule.js) leaves it.
+ *
+ * @param {MatchingStore} store
+ * @param {string[]} transactionIds the group's fees
+ * @param {{ account: string, taxKey?: string }} booking
+ * @param {{ only?: 'open' | 'all', month?: string, now?: () => Date }} [options]
+ * @returns {Promise<FeeGroupUndo>}
+ */
+export async function confirmFeeGroup(
+	store,
+	transactionIds,
+	{ account, taxKey = '' },
+	{ only = 'open', month = '', now = () => new Date() } = {}
+) {
+	const number = String(account ?? '').trim();
+	const key = String(taxKey ?? '').trim();
+	if (!isAccountNumber(number)) throw new Error(t('messages.booking.accountDigits'));
+	if (!/^\d{0,4}$/.test(key)) throw new Error(t('messages.booking.taxKeyDigits'));
+	const at = now().toISOString();
+	/** @type {FeeGroupUndo['changes']} */
+	const changes = [];
+	for (const id of transactionIds) {
+		const tx = await store.transactions.get(id);
+		if (!tx || tx.deleted) continue;
+		const has = Boolean(tx.booking?.confirmedAt) && isAccountNumber(tx.booking?.account);
+		if (has && (only === 'open' || (tx.booking.account === number && !tx.booking.privateShare)))
+			continue;
+		const booking = { account: number, taxKey: key, confirmedAt: at, via: 'group' };
+		await store.transactions.put({ ...tx, booking, importChange: null });
+		changes.push({ transactionId: id, before: tx.booking ?? null, after: booking });
+	}
+	if (changes.length) {
+		await recordEvent(store.events, 'decision', {
+			action: 'fee-group',
+			transactionId: changes[0].transactionId,
+			account: number,
+			month,
+			count: changes.length
+		});
+	}
+	return { changes, account: number, month };
+}
+
+/**
+ * "Rückgängig" after `confirmFeeGroup`: every fee back to the booking it had
+ * – no account, or the one it had before. A fee whose booking changed since
+ * (on this device or another) keeps that change.
+ *
+ * @param {MatchingStore} store
+ * @param {FeeGroupUndo} undo
+ * @returns {Promise<number>} fees put back
+ */
+export async function undoFeeGroup(store, undo) {
+	let back = 0;
+	for (const c of undo.changes) {
+		const tx = await store.transactions.get(c.transactionId);
+		if (!tx || tx.deleted) continue;
+		const now = tx.booking ?? {};
+		if (
+			now.confirmedAt !== c.after.confirmedAt ||
+			now.account !== c.after.account ||
+			now.via !== 'group'
+		)
+			continue;
+		// The repository merges a put into the stored record: null, not left out, clears it.
+		await store.transactions.put({ ...tx, booking: c.before ?? null });
+		back++;
+	}
+	if (back) {
+		await recordEvent(store.events, 'decision', {
+			action: 'fee-group-undone',
+			transactionId: undo.changes[0]?.transactionId,
+			account: undo.account,
+			month: undo.month,
+			count: back
+		});
+	}
+	return back;
+}

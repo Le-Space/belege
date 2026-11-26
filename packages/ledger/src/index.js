@@ -239,3 +239,4 @@ export function monthPeriod(month) {
 }
 
 export { derivedStatement } from './statement.js';
+export { groupNetworkFees, isNetworkFeeEntry } from './fee-groups.js';

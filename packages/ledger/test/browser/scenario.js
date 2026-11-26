@@ -7,6 +7,7 @@ import {
 	fromHex,
 	fromUtf8,
 	fromWalletEntry,
+	groupNetworkFees,
 	multiply,
 	sortEntries,
 	sum,
@@ -52,6 +53,10 @@ export default async function scenario() {
 		units: String(toUnits('-0.000000000000000000000001', 24)),
 		sum: sum(['0.1', '0.2', '-0.05']),
 		eur: multiply('-0.125', '3.8796'),
+		feeGroups: groupNetworkFees(
+			[fee, { ...fee, id: 'filecoin:f1own:H2:fee', hash: 'H2', time: '2026-10-05T08:10:00.000Z' }],
+			{ rate: () => '3.8796' }
+		).map((g) => [g.month, g.count, g.amount, g.eur]),
 		order: sortEntries([fee, fromWalletEntry(w, { chain: 'filecoin', account: 'f1own' })]).map(
 			(e) => e.id
 		)

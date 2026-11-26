@@ -3707,6 +3707,8 @@ export default {
 			'filecoin-pay-statement': 'Filecoin-Pay-Verbrauchsnachweis {number} für {month} erstellt',
 			booking: 'Konto übernommen',
 			bookings: 'Automatische Konten übernommen',
+			'fee-group': 'Netzwerkgebühren {month} auf ein Konto übernommen',
+			'fee-group-undone': 'Netzwerkgebühren {month}: Übernehmen rückgängig gemacht',
 			answer: 'Rückfrage beantwortet: {choice}'
 		},
 		source: {
@@ -4416,6 +4418,27 @@ export default {
 		changedBadge: 'beim Abruf geändert',
 		parties: 'Von {from} → An {to}',
 		noAccountBadge: 'ohne Konto',
+		feeGroup: {
+			title: 'Netzwerkgebühren · {wallet}',
+			meta: '{month} · {count} Transaktionen',
+			search: 'Netzwerkgebühren',
+			expand: 'Netzwerkgebühren {wallet} aufklappen',
+			collapse: 'Netzwerkgebühren {wallet} zuklappen',
+			openOf: '{open} von {count} ohne Konto',
+			allConfirmed: 'alle mit Konto',
+			covered: 'mit Nachweis',
+			coveredSome: 'Nachweis für {covered} von {count}',
+			mixed: 'verschiedene Konten',
+			accountTimes: '{account} ×{count}',
+			account: 'Konto für alle Netzwerkgebühren der Gruppe',
+			take: 'Übernehmen für {count}',
+			unify: 'Auf ein Konto vereinheitlichen',
+			kept: '{count} schon bestätigt bleiben',
+			taken: '{count} Netzwerkgebühren auf {account} gebucht.',
+			undo: 'Rückgängig',
+			undone: '{count} Netzwerkgebühren wieder wie vorher.',
+			failed: 'Ging nicht: {error}'
+		},
 		suggest: {
 			ask: 'Konten vorschlagen ({count})',
 			asking: 'Frage die KI … {done}/{total}',

@@ -3651,6 +3651,8 @@ export default {
 			'filecoin-pay-statement': 'Filecoin Pay usage statement {number} for {month} created',
 			booking: 'Account adopted',
 			bookings: 'Automatic accounts adopted',
+			'fee-group': 'Network fees {month} confirmed on one account',
+			'fee-group-undone': 'Network fees {month}: confirmation undone',
 			answer: 'Question answered: {choice}'
 		},
 		source: {
@@ -4352,6 +4354,27 @@ export default {
 		changedBadge: 'changed on fetch',
 		parties: 'From {from} → To {to}',
 		noAccountBadge: 'no account',
+		feeGroup: {
+			title: 'Network fees · {wallet}',
+			meta: '{month} · {count} transactions',
+			search: 'network fees',
+			expand: 'Expand network fees {wallet}',
+			collapse: 'Collapse network fees {wallet}',
+			openOf: '{open} of {count} without an account',
+			allConfirmed: 'all with an account',
+			covered: 'with statement',
+			coveredSome: 'statement for {covered} of {count}',
+			mixed: 'different accounts',
+			accountTimes: '{account} ×{count}',
+			account: 'Account for every network fee in the group',
+			take: 'Confirm for {count}',
+			unify: 'Put all on one account',
+			kept: '{count} already confirmed stay',
+			taken: '{count} network fees booked to {account}.',
+			undo: 'Undo',
+			undone: '{count} network fees back as they were.',
+			failed: 'That did not work: {error}'
+		},
 		suggest: {
 			ask: 'Suggest accounts ({count})',
 			asking: 'Asking the AI … {done}/{total}',

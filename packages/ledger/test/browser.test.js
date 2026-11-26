@@ -10,5 +10,6 @@ test('bytes, decimals and entries are the same in Chromium and in Node', async (
 	assert.equal(r.back, 'Wolkenfabrik Hosting GmbH – Überweisung €');
 	assert.deepEqual(r.lenient, [97, 98, 99]);
 	assert.equal(r.eur, '-0.48');
+	assert.deepEqual(r.feeGroups, [['2026-10', 2, '-0.0002', '-0.00']]);
 	assert.deepEqual(r.order, ['filecoin:f1own:H1:m0:e0.0:FIL', 'filecoin:f1own:H1:fee']);
 });
