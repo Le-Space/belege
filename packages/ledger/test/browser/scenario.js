@@ -55,7 +55,7 @@ export default async function scenario() {
 		eur: multiply('-0.125', '3.8796'),
 		feeGroups: groupNetworkFees(
 			[fee, { ...fee, id: 'filecoin:f1own:H2:fee', hash: 'H2', time: '2026-10-05T08:10:00.000Z' }],
-			{ rate: () => '3.8796' }
+			{ rate: () => '1000' }
 		).map((g) => [g.month, g.count, g.amount, g.eur]),
 		order: sortEntries([fee, fromWalletEntry(w, { chain: 'filecoin', account: 'f1own' })]).map(
 			(e) => e.id

@@ -34,7 +34,7 @@ test('a month with many fees is one group', () => {
 	assert.equal(g.key, 'akash|mainnet|akash1wallet|2026-04|AKT');
 	assert.equal(g.month, '2026-04');
 	assert.equal(g.count, 30);
-	assert.equal(g.amount, '-0.037020');
+	assert.equal(g.amount, '-0.03702');
 	assert.equal(g.eur, null);
 	assert.equal(g.ids.length, 30);
 	assert.equal(g.ids[0], 'akash:akash1wallet:H0:fee');

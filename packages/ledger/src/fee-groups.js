@@ -21,7 +21,7 @@ import { multiply, sum } from './decimal.js';
  * @property {string} asset
  * @property {number} count
  * @property {string} amount the sum in the asset, a negative decimal
- * @property {string | null} eur the sum in EUR, 2 places; null without a rate for every fee
+ * @property {string | null} eur the sum in EUR, rounded to cents (trailing zeros dropped); null without a rate for every fee
  * @property {number} eurMissing fees `rate` had no rate for
  * @property {string[]} ids the entries' ids, oldest first
  * @property {string} first the oldest fee's time, ISO 8601
