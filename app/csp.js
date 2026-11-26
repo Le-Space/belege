@@ -46,6 +46,14 @@ export function cspDirectives({ e2e = false } = {}) {
 		'media-src': ['self', 'blob:'],
 		// The payment page of Le Space Credits (credits/credits.js, CREDITS_URL).
 		'frame-src': ['https://credits.le-space.de', ...(e2e ? ['http://127.0.0.1:*'] : [])],
+		// Trusted Types: the places where text becomes markup or a script —
+		// innerHTML, DOMParser, a worker's URL — take only values a named policy
+		// made, so a string from a mail, a file or a synced record cannot reach
+		// them by mistake. The policies: Svelte's own for its templates,
+		// lib/trusted-xml.js for parsing XML files into a document of their own,
+		// and lib/pwa/pwa.svelte.js for the app's own service worker.
+		'require-trusted-types-for': ['script'],
+		'trusted-types': ['svelte-trusted-html', 'belege-xml', 'belege-service-worker'],
 		'object-src': ['none'],
 		'base-uri': ['self'],
 		'form-action': ['none']

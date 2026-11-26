@@ -6,6 +6,14 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Trusted Types.** The page's Content-Security-Policy now requires them: `innerHTML`, `DOMParser`, a script's text or URL and an event-handler attribute take only values from the app's own named policies – Svelte's for its templates, one for parsing XML files (e-invoices, bank statements), one for the service worker – so the browser refuses a plain string that reaches such a place, in the app's code and in a library's.
+
+### Changed
+
+- **Svelte 5.59.2** (from 5.37.2): Svelte now makes its templates through a Trusted Types policy of its own (`svelte-trusted-html`); 5.37.2 wrote them as plain strings.
+
 ## [0.60.0] – 2026-11-26
 
 ### Changed
