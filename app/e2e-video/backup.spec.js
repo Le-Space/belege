@@ -1,8 +1,8 @@
 // Backup, and back on another device, recorded (#1047): on one stage, two
-// laptops. Laptop A makes the books with a passkey, keeps the books' vault on
-// Aleph with recovery words, fetches six bookings from a bank through its
-// bridge (a fake bank with sample data) and backs them up on Aleph (a fake,
-// too). Laptop B is empty – no books, no bridge, nothing typed – and has only
+// laptops. Laptop A makes the books with a passkey, fetches six bookings from
+// a bank through its bridge (a fake bank with sample data), backs them up on
+// Aleph (a fake, too) and, asked once after the backup, keeps the books'
+// vault there (#1049). Laptop B is empty – no books, no bridge, nothing typed – and has only
 // the same passkey, as a synced passkey is. "Restore with existing passkey"
 // and two touches: the passkey's index leads to the vault, the vault's root to
 // the books' index, the index to the account the backups are kept for
@@ -36,13 +36,13 @@ const EN = {
 	intro:
 		'Le Space Belege keeps your books only on your own devices. No server holds them. So how do they get onto another laptop?',
 	passkey: 'On this laptop, a passkey makes the books and seals them.',
-	words:
-		'Belege offers recovery words. With them, the books’ vault is kept on Aleph: sealed, and only a passkey of the books or the words open it.',
 	bridge: 'A bridge on this laptop talks to the bank. Here, a fake bank with sample data.',
 	bookings: 'Six bookings, in the books, on this laptop only.',
 	backup:
 		'Backup: one sealed file, kept on Aleph. The laptop seals and signs; the account pays. Nothing on the way is readable.',
 	kept: 'Kept. Aleph holds a file it cannot open.',
+	vault:
+		'Once, Belege asks: keep the books’ vault on Aleph too? Yes. Sealed, without names, with the paying account sealed beside it.',
 	other:
 		'Now another laptop. Nothing on it: no books, no bridge, no address to type. Only the same passkey, synced as passkeys are.',
 	restore: 'Restore with existing passkey, and two touches.',
@@ -51,7 +51,7 @@ const EN = {
 	pick: 'Restore. The page reloads, and the passkey opens the books.',
 	back: 'The bookings are back, on the other laptop. Same identity, same keys.',
 	needs:
-		'All it takes: the same passkey, or a second one with its own slot; the vault kept on Aleph; and the network on. If every passkey is lost, the recovery words open the books.',
+		'All it takes: the same passkey, or a second one with its own slot; the vault kept on Aleph; and the network on. If every passkey is lost, recovery words open the books.',
 	outro: 'Backup, and back on another device: with the passkey alone.'
 };
 
@@ -59,14 +59,14 @@ const DE = {
 	intro:
 		'Le Space Belege hält deine Geschäftsbücher nur auf deinen eigenen Geräten. Kein Server hat sie. Wie kommen sie dann auf einen anderen Laptop?',
 	passkey: 'Auf diesem Laptop legt ein Passkey die Bücher an und versiegelt sie.',
-	words:
-		'Belege bietet Wiederherstellungswörter an. Mit ihnen liegt der Tresor der Geschäftsbücher auf Aleph: versiegelt, und nur ein Passkey der Bücher oder die Wörter öffnen ihn.',
 	bridge:
 		'Eine Bridge auf diesem Laptop spricht mit der Bank. Hier eine erfundene Bank mit Beispieldaten.',
 	bookings: 'Sechs Buchungen, in den Geschäftsbüchern, nur auf diesem Laptop.',
 	backup:
 		'Backup: eine versiegelte Datei, aufbewahrt auf Aleph. Der Laptop versiegelt und signiert, das Konto bezahlt. Unterwegs ist nichts lesbar.',
 	kept: 'Aufbewahrt. Aleph hält eine Datei, die es nicht öffnen kann.',
+	vault:
+		'Einmal fragt Belege: Den Tresor der Geschäftsbücher auch auf Aleph hinterlegen? Ja. Versiegelt, ohne Namen, und das zahlende Konto versiegelt daneben.',
 	other:
 		'Jetzt ein anderer Laptop. Nichts darauf: keine Bücher, keine Bridge, keine Adresse zum Eintippen. Nur derselbe Passkey, synchronisiert, wie Passkeys es sind.',
 	restore: 'Mit vorhandenem Passkey wiederherstellen, und zweimal berühren.',
@@ -75,7 +75,7 @@ const DE = {
 	pick: 'Wiederherstellen. Die Seite lädt neu, und der Passkey öffnet die Bücher.',
 	back: 'Die Buchungen sind zurück, auf dem anderen Laptop. Dieselbe Identität, dieselben Schlüssel.',
 	needs:
-		'Mehr braucht es nicht: denselben Passkey oder einen zweiten mit eigenem Fach, den Tresor auf Aleph und das Netzwerk an. Ist jeder Passkey verloren, öffnen die Wiederherstellungswörter die Bücher.',
+		'Mehr braucht es nicht: denselben Passkey oder einen zweiten mit eigenem Fach, den Tresor auf Aleph und das Netzwerk an. Ist jeder Passkey verloren, öffnen Wiederherstellungswörter die Bücher.',
 	outro: 'Backup, und zurück auf einem anderen Gerät: mit dem Passkey allein.'
 };
 
@@ -307,30 +307,6 @@ test('backup, and back on another device with the passkey alone', async ({ brows
 		const did = String(await a.page.getByTestId('own-did').getAttribute('data-did'));
 		await stage.say(LINES.passkey);
 
-		// Recovery words, and with them the vault on Aleph.
-		await expect(a.page.getByTestId('words-offer')).toBeVisible();
-		await stage.sayWhile(LINES.words, async () => {
-			await stage.click(a.page, a.page.getByTestId('words-offer-go'));
-			const keys = a.page.getByTestId('keys-card');
-			await stage.click(a.page, keys.getByTestId('words-start'));
-			const shown = keys.getByTestId('words-word');
-			await expect(shown).toHaveCount(24);
-			const words = await shown.allTextContents();
-			await stage.click(a.page, keys.getByTestId('words-written'));
-			await stage.click(a.page, keys.getByTestId('words-next'));
-			const inputs = keys.getByTestId('words-ask-input');
-			await expect(inputs).toHaveCount(3);
-			await expect(keys.getByTestId('words-publish')).toBeChecked();
-			const positions = await inputs.evaluateAll((els) =>
-				els.map((e) => Number(e.getAttribute('data-position')))
-			);
-			for (let i = 0; i < 3; i++)
-				await stage.type(a.page, inputs.nth(i), words[positions[i] - 1], { delay: 40 });
-			await stage.click(a.page, keys.getByTestId('words-confirm'));
-			await expect(keys.getByTestId('words-done')).toBeVisible({ timeout: 30_000 });
-			await keys.getByTestId('words-done').scrollIntoViewIfNeeded();
-		});
-
 		// The bridge, and the bank through it.
 		await stage.click(a.page, a.page.getByTestId('tab-integrationen'));
 		await stage.say(LINES.bridge, { after: 0 });
@@ -350,7 +326,7 @@ test('backup, and back on another device with the passkey alone', async ({ brows
 		await expect(a.page.getByTestId('transaction')).toHaveCount(6);
 		await stage.say(LINES.bookings);
 
-		// The backup; the books' index on Aleph then names the paying account.
+		// The backup, and the books' index on Aleph that names the paying account.
 		const indexBefore = JSON.stringify([...aleph.kept.values()]);
 		await openIntegration(a.page, 'backup');
 		await stage.say(LINES.backup, { after: 0 });
@@ -362,6 +338,17 @@ test('backup, and back on another device with the passkey alone', async ({ brows
 			.getByTestId('backup-made')
 			.evaluate((el) => el.scrollIntoView({ block: 'center' }));
 		await stage.say(LINES.kept);
+
+		// Asked once, after the backup: the vault on Aleph, for an empty device.
+		const offer = a.page.getByTestId('backup-card').getByTestId('vault-offer');
+		await expect(offer).toBeVisible();
+		await offer.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+		await stage.say(LINES.vault, { after: 0 });
+		await stage.click(a.page, offer.getByTestId('vault-offer-yes'));
+		await stage.cutWhile(() =>
+			expect(a.page.getByTestId('vault-offer-kept')).toBeVisible({ timeout: 30_000 })
+		);
+		await stage.beat(1200);
 		await expect
 			.poll(() => JSON.stringify([...aleph.kept.values()]), { timeout: 30_000 })
 			.not.toBe(indexBefore);
@@ -396,6 +383,7 @@ test('backup, and back on another device with the passkey alone', async ({ brows
 		// The backup, listed for the account the books' index names.
 		await openIntegration(b.page, 'backup');
 		const card = b.page.getByTestId('backup-card');
+		await stage.click(b.page, card.getByTestId('backup-restore-open'));
 		await stage.cutWhile(() =>
 			expect(card.getByTestId('backup-chain-group')).toHaveCount(1, { timeout: 30_000 })
 		);
