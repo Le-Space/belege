@@ -655,6 +655,85 @@ describe('two vaults of the same books (#555)', () => {
 	});
 });
 
+describe('a vault from before a renewal (provider 0.14.0)', () => {
+	/** A on two devices of the same books, with B and C; the laptop renews without C. */
+	async function renewedElsewhere() {
+		const laptop = memoryStorage();
+		let onLaptop = await openBooksVault({ ...A, storage: laptop });
+		onLaptop = await addPasskey(onLaptop, B, laptop);
+		onLaptop = await addPasskey(onLaptop, C, laptop);
+		const phone = memoryStorage();
+		phone.setItem(VAULTS_STORAGE_KEY, laptop.getItem(VAULTS_STORAGE_KEY) ?? '');
+		const onPhone = await openBooksVault({ ...A, storage: phone });
+		const before = structuredClone(onLaptop.record);
+		const renewed = await renewBooksVault(onLaptop, [A, B], [onLaptop.record.slots[2].kid], laptop);
+		return { laptop, phone, onPhone, before, renewed };
+	}
+
+	it('a renewal is one generation on; a vault made fresh is unchanged', async () => {
+		const { before, renewed } = await renewedElsewhere();
+		expect(before.vault.version).toBe(1);
+		expect(before.vault.generation).toBeUndefined();
+		expect(renewed.record.vault.version).toBe(2);
+		expect(renewed.record.vault.generation).toBe(1);
+		// A slot added later keeps the generation, and the next renewal counts on.
+		const withC = await addPasskey(renewed, C, memoryStorage());
+		expect(withC.record.vault.generation).toBe(1);
+		const again = await renewBooksVault(withC, [A], [], memoryStorage());
+		expect(again.record.vault.generation).toBe(2);
+		expect(again.root).toEqual(A.prfOutput);
+	});
+
+	it('a device takes the renewal, and is not moved back to the vault before it', async () => {
+		const { phone, onPhone, before, renewed } = await renewedElsewhere();
+		const adopted = await adoptNewerVault(onPhone, renewed.record.vault, A, phone);
+		expect(adopted.record.vault.id).toBe(renewed.record.vault.id);
+		expect(adopted.record.replaces).toEqual([before.vault.id]);
+		// The record from before, shown again – by the index or by sync: kept as it is.
+		const back = await adoptNewerVault(adopted, before.vault, A, phone);
+		expect(back).toBe(adopted);
+		expect(loadVaultRecords(phone).map((r) => r.vault.id)).toEqual([renewed.record.vault.id]);
+		const published = { vault: before.vault, slots: before.slots };
+		expect((await convergeOnPublished(adopted, published, A, phone)).opened).toBe(adopted);
+		expect((await openBooksVault({ ...A, storage: phone })).record.vault.id).toBe(
+			renewed.record.vault.id
+		);
+	});
+
+	it('an older generation is not taken, though this record does not name it', async () => {
+		const { before, renewed } = await renewedElsewhere();
+		const storage = memoryStorage();
+		const here = { ...renewed, record: { ...renewed.record, replaces: [] } };
+		expect(await adoptNewerVault(here, before.vault, A, storage)).toBe(here);
+		expect(
+			(await convergeOnPublished(here, { vault: before.vault, slots: before.slots }, A, storage))
+				.opened
+		).toBe(here);
+	});
+
+	it('a record that claims a later generation than it was made with does not open', async () => {
+		const { phone, onPhone, before } = await renewedElsewhere();
+		const relabelled = { ...structuredClone(before.vault), version: 2, generation: 5 };
+		await expect(adoptNewerVault(onPhone, relabelled, A, phone)).rejects.toThrow();
+		expect(loadVaultRecords(phone).map((r) => r.vault.id)).toEqual([before.vault.id]);
+	});
+
+	it('recovery words are not moved back to the vault before a renewal either', async () => {
+		const SEED = bytes(64, 0x5e);
+		const storage = memoryStorage();
+		const first = await openBooksVault({ ...A, storage });
+		const before = structuredClone(first.record);
+		// Words made after the renewal: the vault before has no slot for them.
+		const renewed = await renewBooksVault(first, [A], [], storage);
+		const withWords = await addRecoveryWords(renewed, SEED, storage);
+		const opened = await openWithWords({ seed: SEED, storage });
+		expect(opened?.record.vault.id).toBe(withWords.record.vault.id);
+		const newer = /** @type {any} */ (opened);
+		// Not refused as removed words, and not taken: the record stays.
+		expect(await newerWithWords(newer, before.vault, SEED)).toBe(newer);
+	});
+});
+
 describe('a restore that finds no books (#555)', () => {
 	it('asks before a new vault is made, and keeps nothing when the answer is no', async () => {
 		const storage = memoryStorage();

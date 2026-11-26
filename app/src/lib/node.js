@@ -53,6 +53,15 @@ import {
 } from '@le-space/orbitdb-identity-provider-webauthn-did';
 import * as dagCbor from '@ipld/dag-cbor';
 
+// Identity proofs in the provider's first format (before 0.14.0) stay
+// accepted: the passkey wrote the books before they had their own identity
+// (#496), and those databases and the backups made of them are signed by
+// passkey identities with such proofs. Refusing them would leave those books
+// unreadable. The books' own databases admit no passkey identity as a writer
+// (books-access.js), and Belege never has the passkey sign a value it did not
+// make itself. Said here, so the provider does not log it on every unlock.
+configureWebAuthn({ acceptLegacyProofs: true });
+
 import { createEphemeralPeerKey, createOfflineLibp2p } from './network.js';
 import {
 	deriveBackupKey,
