@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.62.0] – 2026-11-26
+
 ### Added
 
 - **A Bitcoin payment shows its transaction** (#1037): the flow of inputs and outputs (_1 Eingang → 8 Ausgänge_), our output marked _eigene Wallet_ with its real address and a copy button, the change back to the sender, our own change, the other recipients collapsed into _n weitere Empfänger_; who paid the fee, the block time with its time zone, the block, the confirmations at the last sync. The Bitcoin reader in `@le-space/chains` keeps each transaction's shape on its entries (`utxo`: inputs by address, the outputs that matter and the first twelve others, the rest counted), asks Esplora once per receipt's sender for its transaction count (as a power of ten) and the tip's height – the same host, said in the consent text. Doichain, read by the same code, gets the flow too.
