@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.59.0] – 2026-11-26
+
 ### Security
 
 - **`@le-space/orbitdb-identity-provider-webauthn-did` 0.14.0** (from 0.11.0), the security release for [GHSA-7j39-c465-x35x](https://github.com/advisories/GHSA-7j39-c465-x35x). The books write as their own identity (#496, members as theirs, #612), not as the passkey, so their entries are unaffected. Identity proofs in the provider's first format stay accepted (`configureWebAuthn({ acceptLegacyProofs: true })` in `node.js`, which also replaces the provider's console notice): the books from before #496 and their backups were written by passkey identities with such proofs and must still open.
