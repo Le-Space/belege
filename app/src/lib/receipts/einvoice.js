@@ -11,6 +11,8 @@
 // not matter. Pure; DOMParser from the browser (tests pass @xmldom's). The
 // browser's DOMParser loads no external entity and runs no script.
 
+import { parseXml } from '../trusted-xml.js';
+
 /** @typedef {Record<string, any>} Extraction the shape of bridge/src/llm/extract.js */
 
 const UBL_INVOICE = 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2';
@@ -99,7 +101,7 @@ function paymentOf(code, due) {
  * @returns {{ syntax: 'ubl' | 'cii', profile: string, eInvoice: boolean, extraction: Extraction }}
  */
 export function readEInvoice(xml, { DOMParser: Parser = globalThis.DOMParser } = {}) {
-	const doc = new Parser().parseFromString(xml, 'application/xml');
+	const doc = parseXml(xml, Parser);
 	const root = doc.documentElement;
 	if (!root || root.localName === 'parsererror' || doc.getElementsByTagName('parsererror').length) {
 		throw new Error('not XML');

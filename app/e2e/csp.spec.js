@@ -1,7 +1,8 @@
 // The Content-Security-Policy is in every built page and the browser holds
 // the page to it (#535, audit plan #209): an inline script does not run,
 // `eval` throws, a script from another host is not loaded – while the app's
-// own start script, named by its hash, runs.
+// own start script, named by its hash, runs. With Trusted Types, text cannot
+// even be written into a script, a handler or markup without a named policy.
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -79,10 +80,16 @@ test('the browser holds the page to it', async ({ page }) => {
 	const tried = await page.evaluate(async () => {
 		/** @type {Record<string, unknown>} */
 		const out = {};
-		// An inline script, as injected markup would bring one.
+		// An inline script, as injected markup would bring one. Trusted Types
+		// refuse the text before the script element is even in the page.
 		const inline = document.createElement('script');
-		inline.textContent = 'window.__inlineRan = true';
-		document.head.append(inline);
+		try {
+			inline.textContent = 'window.__inlineRan = true';
+			document.head.append(inline);
+			out.inlineText = 'taken';
+		} catch (e) {
+			out.inlineText = /** @type {Error} */ (e).name;
+		}
 		out.inlineRan = /** @type {any} */ (window).__inlineRan === true;
 		// Text run as code. From a timer: code a test evaluates directly is let
 		// off the policy by the browser's debugging protocol.
@@ -96,29 +103,103 @@ test('the browser holds the page to it', async ({ page }) => {
 				}
 			}, 0)
 		);
-		// A script from another host.
+		// A script from another host. Trusted Types refuse the URL itself; were
+		// it taken, script-src would refuse to load it.
 		out.foreign = await new Promise((resolve) => {
 			const foreign = document.createElement('script');
-			foreign.src = 'https://example.com/x.js';
+			try {
+				foreign.src = 'https://example.com/x.js';
+			} catch (e) {
+				resolve(/** @type {Error} */ (e).name);
+				return;
+			}
 			foreign.onload = () => resolve('loaded');
 			foreign.onerror = () => resolve('refused');
 			document.head.append(foreign);
 		});
 		// An event handler in markup.
 		const div = document.createElement('div');
-		div.setAttribute('onclick', 'window.__handlerRan = true');
+		try {
+			div.setAttribute('onclick', 'window.__handlerRan = true');
+			out.handlerText = 'taken';
+		} catch (e) {
+			out.handlerText = /** @type {Error} */ (e).name;
+		}
 		document.body.append(div);
 		div.click();
 		out.handlerRan = /** @type {any} */ (window).__handlerRan === true;
 		return out;
 	});
 	expect(tried).toEqual({
+		inlineText: 'TypeError',
 		inlineRan: false,
 		eval: 'EvalError',
-		foreign: 'refused',
+		foreign: 'TypeError',
+		handlerText: 'TypeError',
 		handlerRan: false
 	});
+	// Each attempt was reported, by Trusted Types or by script-src.
 	await expect
-		.poll(() => refused.filter((v) => /^script-src/.test(v)).length)
-		.toBeGreaterThanOrEqual(3);
+		.poll(() => refused.filter((v) => /^(script-src|require-trusted-types-for)/.test(v)).length)
+		.toBeGreaterThanOrEqual(4);
+});
+
+test('markup and parsing take only values a named policy made', async ({ page }) => {
+	/** @type {string[]} */
+	const refused = [];
+	await page.exposeFunction('noteTrustedTypes', (/** @type {string} */ v) => refused.push(v));
+	await page.addInitScript(() => {
+		document.addEventListener('securitypolicyviolation', (e) => {
+			if (e.effectiveDirective.includes('trusted-types')) {
+				/** @type {any} */ (window).noteTrustedTypes(`${e.effectiveDirective} ${e.sample}`);
+			}
+		});
+	});
+	await page.goto('/');
+	// The app itself starts and renders under the rule: Svelte's templates go
+	// through its own policy.
+	await acceptConsent(page);
+	await expect(page.getByTestId('passkey-label')).toBeVisible();
+	// A library's probe whether `eval` is allowed, `new Function('')`, is
+	// refused here first; script-src would refuse it anyway (no 'unsafe-eval'),
+	// and the probe expects that. Anything else would be a sink the app uses.
+	expect(
+		refused.filter((v) => !/^require-trusted-types-for Function\|/.test(v)),
+		'the app made no value the rule refuses'
+	).toEqual([]);
+
+	// From a timer, as in the test above: the page's own code, not the debugger's.
+	const tried = await page.evaluate(
+		() =>
+			new Promise((resolve) =>
+				setTimeout(() => {
+					/** @param {() => void} attempt */
+					const outcome = (attempt) => {
+						try {
+							attempt();
+							return 'taken';
+						} catch (e) {
+							return /** @type {Error} */ (e).name;
+						}
+					};
+					resolve({
+						// Text from outside, written into the page as markup.
+						innerHTML: outcome(() => {
+							document.createElement('div').innerHTML = '<img src=x onerror="1">';
+						}),
+						// Parsed as a document without the policy for XML.
+						parse: outcome(() => {
+							new DOMParser().parseFromString('<a/>', 'application/xml');
+						}),
+						// A policy the page does not name.
+						policy: outcome(() => {
+							/** @type {any} */ (window).trustedTypes.createPolicy('other', {
+								createHTML: (/** @type {string} */ s) => s
+							});
+						})
+					});
+				}, 0)
+			)
+	);
+	expect(tried).toEqual({ innerHTML: 'TypeError', parse: 'TypeError', policy: 'TypeError' });
 });

@@ -1,5 +1,6 @@
 import { t } from '../i18n/index.js';
 import { isWise, readWiseLine } from './wise.js';
+import { parseXml } from '../trusted-xml.js';
 // CAMT.053 (bank-to-customer statement) in the browser, with DOMParser.
 //
 // For banks Hibiscus cannot fetch (Revolut). Reads versions .001.02 to
@@ -146,7 +147,7 @@ function counterpartyIbanOf(parties, side) {
  * @returns {CamtStatement[]}
  */
 export function parseCamt053(xml, { DOMParser: Parser = globalThis.DOMParser } = {}) {
-	const doc = new Parser().parseFromString(xml, 'application/xml');
+	const doc = parseXml(xml, Parser);
 	const root = doc.documentElement;
 	if (!root || root.localName === 'parsererror' || doc.getElementsByTagName('parsererror').length) {
 		throw new Error(t('messages.camt.notXml'));
