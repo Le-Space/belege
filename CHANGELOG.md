@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.60.0] – 2026-11-26
+
 ### Changed
 
 - The last known relay, which Belege uses after those it finds on Aleph and when Aleph does not answer, is now athlete-equal-ritual-rhythm: orbitdb-relay 0.11.1 with `@libp2p/crypto` 5.1.22 ([GHSA-rvfr-cqwq-rc4j](https://github.com/advisories/GHSA-rvfr-cqwq-rc4j)) and the passkey provider 0.14.0. It replaces ocean-skate-resource-route and crazy-pluck-uncle-device, which ran 0.10.11 and are being retired, and secret-pass-wife-sentence, gone since 2026-11-20. "Bridge ausprobieren" (`bridge-try.yml`) defaults to the new relay too.
