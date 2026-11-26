@@ -41,6 +41,14 @@
 	import AiMark from '$lib/AiMark.svelte';
 	import AiCostHint from '$lib/AiCostHint.svelte';
 	import AccountSuggestRow from '$lib/booking/AccountSuggestRow.svelte';
+	import FeeGroupRow from '$lib/booking/FeeGroupRow.svelte';
+	import {
+		isFeeGroup,
+		itemConfirmed,
+		itemCovered,
+		itemMatches,
+		withFeeGroups
+	} from '$lib/booking/fee-groups.js';
 	import {
 		MAX_LIST_ASSIST,
 		askForList,
@@ -123,29 +131,63 @@
 	 * filter: its buttons count both ways. Relations and trade sides look at
 	 * every year: the other side of a transfer may lie in the one before.
 	 */
+	/** @param {Tx} tx */
+	const coveredTx = (tx) => isTxCovered(tx, app.classifications);
+	/**
+	 * A wallet's network fees of a month are one row (booking/fee-groups.js, #1043):
+	 * grouped before the search and the filters, so each counts a group once.
+	 */
 	let searched = $derived.by(() => {
 		const index = booksByYear();
 		const year = shownYear();
-		return transactions.filter(
+		const scoped = transactions.filter(
 			(tx) =>
 				index.txYear(tx) === year &&
 				(!accountId || tx.accountId === accountId) &&
-				(!flow || flowKey(tx, app.classifications[String(tx.id)]) === flow) &&
-				matchesSearch(tx, query)
+				(!flow || flowKey(tx, app.classifications[String(tx.id)]) === flow)
+		);
+		return /** @type {Tx[]} */ (
+			withFeeGroups(scoped, { covered: coveredTx }).filter((item) =>
+				itemMatches(item, query, matchesSearch, feeGroupWords(item))
+			)
 		);
 	});
+	/** What a group is called, for the search: the network fees, its wallet. @param {any} item */
+	function feeGroupWords(item) {
+		if (!isFeeGroup(item)) return [];
+		return [t('zahlungen.feeGroup.search'), feeGroupWallet(item)];
+	}
+	/** @param {any} group */
+	function feeGroupWallet(group) {
+		const account = accountsById.get(group.accountId);
+		return account ? accountLabel(account) : `${group.source} ${group.asset}`;
+	}
 	/** @param {Tx} tx */
-	const covered = (tx) => isTxCovered(tx, app.classifications);
+	const covered = (tx) => itemCovered(tx, coveredTx);
+	// What a group's "Übernehmen" wrote, for its "Rückgängig" until the page is left.
+	/** @type {Record<string, import('$lib/booking/actions.js').FeeGroupUndo>} */
+	let feeGroupUndos = $state({});
+	/** @param {string} id @param {import('$lib/booking/actions.js').FeeGroupUndo | null} undo */
+	function setFeeGroupUndo(id, undo) {
+		const rest = { ...feeGroupUndos };
+		delete rest[id];
+		feeGroupUndos = undo ? { ...rest, [id]: undo } : rest;
+	}
 	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));
 	// Bookings without a confirmed account ("Konto"): the export waits for them.
-	let withoutAccount = $derived(searched.filter((tx) => !isBookingConfirmed(tx)));
+	let withoutAccount = $derived(searched.filter((tx) => !itemConfirmed(tx, isBookingConfirmed)));
+	// Listed under "Ohne Konto": those, and a group just confirmed – with its
+	// "Rückgängig" – that the count no longer holds.
+	let listedWithoutAccount = $derived(
+		searched.filter((tx) => !itemConfirmed(tx, isBookingConfirmed) || feeGroupUndos[tx.id])
+	);
 	// Changed in what they are on a re-import, not yet looked at (bank/import.js).
 	let changed = $derived(searched.filter((tx) => tx.importChange));
 	let filtered = $derived(
 		receiptFilter === 'ohne'
 			? withoutReceipt
 			: receiptFilter === 'konto'
-				? withoutAccount
+				? listedWithoutAccount
 				: receiptFilter === 'geaendert'
 					? changed
 					: searched
@@ -174,7 +216,9 @@
 	// The model is asked through the paired bridge only; without one, no button.
 	/** @type {ReturnType<typeof createBridgeClient> | null} */
 	let bridgeClient = $state(null);
-	let listed = $derived(days.flatMap((d) => /** @type {Tx[]} */ (d.items)));
+	let listed = $derived(
+		days.flatMap((d) => /** @type {Tx[]} */ (d.items)).filter((tx) => !isFeeGroup(tx))
+	);
 	let byAccount = $derived(/** @type {string} */ (receiptFilter) === 'konto');
 	let askable = $derived(byAccount ? toAsk(listed, app, listAssist.picks) : []);
 	let accountsOut = $derived(searchAccounts('', { income: false, chart: app.chart }));
@@ -586,151 +630,164 @@
 						class="mt-1.5 divide-y divide-border rounded-lg border border-border bg-surface shadow-sm"
 					>
 						{#each day.items as tx (tx.id)}
-							{@const cover = coverageBadge(tx, app.classifications)}
-							{@const payee = payeeName(tx, book)}
-							{@const parties = walletParties(tx, accountsById.get(tx.accountId ?? ''), book)}
-							<li>
-								<button
-									type="button"
-									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-surface-2/60 sm:flex-nowrap"
-									onclick={() => (openId = tx.id)}
-									{...linkedByTx.has(tx.id)
-										? peekHandlers(peek, /** @type {any} */ (linkedByTx.get(tx.id)).receipt)
-										: {}}
-									data-tx={tx.id}
-									aria-label={`${t('zahlungen.open')}: ${payee.name}`}
-									data-testid="transaction"
-									data-covered={cover ? 'true' : 'false'}
-								>
-									<span class="min-w-0 basis-full sm:flex-1 sm:basis-0">
-										<span
-											class="block truncate font-medium {payee.from === 'unknown'
-												? 'text-faint italic'
-												: 'text-heading'}"
-											data-testid="payee">{payee.name}</span
-										>
-										{#if parties && !parties.fee}
-											<span class="block truncate text-sm text-text" data-testid="parties"
-												>{t('zahlungen.parties', {
-													from: parties.from.label,
-													to: parties.to.label
-												})}</span
-											>
-										{/if}
-										{#if tx.purpose || formatBookingTime(tx)}<span
-												class="block truncate text-sm text-faint"
-												title={tx.purpose}
-												data-testid="purpose"
-												>{#if formatBookingTime(tx)}<span
-														class="tabular-nums"
-														data-testid="booking-time">{formatBookingTime(tx)}</span
-													>{#if tx.purpose}&nbsp;·&#32;{/if}{/if}{displayPurpose(
-													tx.purpose ?? ''
-												)}</span
-											>{/if}
-										{#if sides.get(tx.id)}
-											<span class="block truncate text-sm text-text" data-testid="trade-side"
-												>{t('zahlungen.trade', {
-													arrow: tradeArrow(tx),
-													what: tradeSideWhat(sides.get(tx.id) ?? {})
-												})}</span
-											>
-										{/if}
-										{#if tx.importChange}
-											<span
-												class="mt-1 mr-1 inline-block rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
-												data-testid="changed-badge">{t('zahlungen.changedBadge')}</span
-											>
-										{/if}
-										{#if !isBookingConfirmed(tx)}
-											<span
-												class="mt-1 mr-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
-												data-testid="no-account-badge">{t('zahlungen.noAccountBadge')}</span
-											>
-										{/if}
-										{#if cover}
-											<span
-												class="mt-1 inline-block rounded border px-1.5 py-0.5 text-xs font-medium {coverageClass[
-													cover
-												]}"
-												data-testid="coverage-badge"
-												data-kind={cover}>{t(`matching.badge.${cover}`)}</span
-											>
-										{:else if waitingDays(tx) !== null}
-											{@const days = waitingDays(tx)}
-											<span
-												class="mt-1 inline-block rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs text-faint"
-												data-testid="waiting-badge"
-												>{days === 1
-													? t('matching.waitingOne')
-													: t('matching.waiting', { days: days ?? 0 })}</span
-											>
-										{:else}
-											<!-- The one state that asks for action gets a sign of its own, in every filter (#117). -->
-											<span
-												class="mt-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
-												data-testid="no-receipt-badge">{t('zahlungen.noReceiptBadge')}</span
-											>
-										{/if}
-									</span>
-									{#if relatedById.get(tx.id)?.length}
-										{@const n = relatedById.get(tx.id)?.length ?? 0}
-										<span
-											class="shrink-0 text-cyan-800 dark:text-cyan"
-											title={t('zahlungen.relatedMark', { count: n })}
-											data-testid="related-mark"
-											><svg
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												role="img"
-												aria-label={t('zahlungen.relatedMark', { count: n })}
-												><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"></path><path
-													d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"
-												></path></svg
-											></span
-										>
-									{/if}
-									{#if badge(tx)}
-										<span
-											class="min-w-0 truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text sm:shrink-0"
-											data-testid="account-badge">{badge(tx)}</span
-										>
-									{/if}
-									<!-- The euro value, and under it what moved in the asset's own unit: 0,015 NEAR, 1,04 USDC. -->
-									<span class="ml-auto flex shrink-0 flex-col items-end">
-										<span
-											class="font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
-												? 'text-red-700 dark:text-red-400'
-												: txDirection(tx) > 0
-													? 'text-emerald-700 dark:text-emerald-400'
-													: 'text-heading'}"
-											data-testid="amount"
-										>
-											{formatTxAmount(tx)}
-										</span>
-										{#if quantityText(tx)}
-											<span
-												class="font-mono text-xs whitespace-nowrap text-faint tabular-nums"
-												data-testid="amount-quantity">{quantityText(tx)}</span
-											>
-										{/if}
-									</span>
-								</button>
-								{#if byAccount && !isBookingConfirmed(tx)}
-									<AccountSuggestRow
-										{tx}
-										listId={(tx.amountCents ?? 0) > 0
-											? 'suggest-accounts-in'
-											: 'suggest-accounts-out'}
+							{#if isFeeGroup(tx)}
+								<li>
+									<FeeGroupRow
+										group={tx}
+										wallet={feeGroupWallet(tx)}
+										{byAccount}
+										undo={feeGroupUndos[tx.id] ?? null}
+										onundo={(undo) => setFeeGroupUndo(tx.id, undo)}
+										onopen={(id) => (openId = id)}
 									/>
-								{/if}
-							</li>
+								</li>
+							{:else}
+								{@const cover = coverageBadge(tx, app.classifications)}
+								{@const payee = payeeName(tx, book)}
+								{@const parties = walletParties(tx, accountsById.get(tx.accountId ?? ''), book)}
+								<li>
+									<button
+										type="button"
+										class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-surface-2/60 sm:flex-nowrap"
+										onclick={() => (openId = tx.id)}
+										{...linkedByTx.has(tx.id)
+											? peekHandlers(peek, /** @type {any} */ (linkedByTx.get(tx.id)).receipt)
+											: {}}
+										data-tx={tx.id}
+										aria-label={`${t('zahlungen.open')}: ${payee.name}`}
+										data-testid="transaction"
+										data-covered={cover ? 'true' : 'false'}
+									>
+										<span class="min-w-0 basis-full sm:flex-1 sm:basis-0">
+											<span
+												class="block truncate font-medium {payee.from === 'unknown'
+													? 'text-faint italic'
+													: 'text-heading'}"
+												data-testid="payee">{payee.name}</span
+											>
+											{#if parties && !parties.fee}
+												<span class="block truncate text-sm text-text" data-testid="parties"
+													>{t('zahlungen.parties', {
+														from: parties.from.label,
+														to: parties.to.label
+													})}</span
+												>
+											{/if}
+											{#if tx.purpose || formatBookingTime(tx)}<span
+													class="block truncate text-sm text-faint"
+													title={tx.purpose}
+													data-testid="purpose"
+													>{#if formatBookingTime(tx)}<span
+															class="tabular-nums"
+															data-testid="booking-time">{formatBookingTime(tx)}</span
+														>{#if tx.purpose}&nbsp;·&#32;{/if}{/if}{displayPurpose(
+														tx.purpose ?? ''
+													)}</span
+												>{/if}
+											{#if sides.get(tx.id)}
+												<span class="block truncate text-sm text-text" data-testid="trade-side"
+													>{t('zahlungen.trade', {
+														arrow: tradeArrow(tx),
+														what: tradeSideWhat(sides.get(tx.id) ?? {})
+													})}</span
+												>
+											{/if}
+											{#if tx.importChange}
+												<span
+													class="mt-1 mr-1 inline-block rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+													data-testid="changed-badge">{t('zahlungen.changedBadge')}</span
+												>
+											{/if}
+											{#if !isBookingConfirmed(tx)}
+												<span
+													class="mt-1 mr-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
+													data-testid="no-account-badge">{t('zahlungen.noAccountBadge')}</span
+												>
+											{/if}
+											{#if cover}
+												<span
+													class="mt-1 inline-block rounded border px-1.5 py-0.5 text-xs font-medium {coverageClass[
+														cover
+													]}"
+													data-testid="coverage-badge"
+													data-kind={cover}>{t(`matching.badge.${cover}`)}</span
+												>
+											{:else if waitingDays(tx) !== null}
+												{@const days = waitingDays(tx)}
+												<span
+													class="mt-1 inline-block rounded border border-border bg-surface-2 px-1.5 py-0.5 text-xs text-faint"
+													data-testid="waiting-badge"
+													>{days === 1
+														? t('matching.waitingOne')
+														: t('matching.waiting', { days: days ?? 0 })}</span
+												>
+											{:else}
+												<!-- The one state that asks for action gets a sign of its own, in every filter (#117). -->
+												<span
+													class="mt-1 inline-block rounded border border-coral-700/40 px-1.5 py-0.5 text-xs text-coral-800 dark:border-coral/40 dark:text-coral"
+													data-testid="no-receipt-badge">{t('zahlungen.noReceiptBadge')}</span
+												>
+											{/if}
+										</span>
+										{#if relatedById.get(tx.id)?.length}
+											{@const n = relatedById.get(tx.id)?.length ?? 0}
+											<span
+												class="shrink-0 text-cyan-800 dark:text-cyan"
+												title={t('zahlungen.relatedMark', { count: n })}
+												data-testid="related-mark"
+												><svg
+													width="16"
+													height="16"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													role="img"
+													aria-label={t('zahlungen.relatedMark', { count: n })}
+													><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"
+													></path><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"
+													></path></svg
+												></span
+											>
+										{/if}
+										{#if badge(tx)}
+											<span
+												class="min-w-0 truncate rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-text sm:shrink-0"
+												data-testid="account-badge">{badge(tx)}</span
+											>
+										{/if}
+										<!-- The euro value, and under it what moved in the asset's own unit: 0,015 NEAR, 1,04 USDC. -->
+										<span class="ml-auto flex shrink-0 flex-col items-end">
+											<span
+												class="font-mono whitespace-nowrap tabular-nums {txDirection(tx) < 0
+													? 'text-red-700 dark:text-red-400'
+													: txDirection(tx) > 0
+														? 'text-emerald-700 dark:text-emerald-400'
+														: 'text-heading'}"
+												data-testid="amount"
+											>
+												{formatTxAmount(tx)}
+											</span>
+											{#if quantityText(tx)}
+												<span
+													class="font-mono text-xs whitespace-nowrap text-faint tabular-nums"
+													data-testid="amount-quantity">{quantityText(tx)}</span
+												>
+											{/if}
+										</span>
+									</button>
+									{#if byAccount && !isBookingConfirmed(tx)}
+										<AccountSuggestRow
+											{tx}
+											listId={(tx.amountCents ?? 0) > 0
+												? 'suggest-accounts-in'
+												: 'suggest-accounts-out'}
+										/>
+									{/if}
+								</li>
+							{/if}
 						{/each}
 					</ul>
 				</div>

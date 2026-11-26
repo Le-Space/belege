@@ -1,7 +1,8 @@
 // The network fee rule (#305), end to end: a wallet's network fees each wait
 // for an account; one click in a fee's account block sets the rule, and all
 // of them – and one synced later – take it. Lifted, they are without an
-// account again. Every hash and amount is made up.
+// account again. The fees of a wallet's month are one row in the list (#1043),
+// which opens to the single fees. Every hash and amount is made up.
 import { test, expect } from '@playwright/test';
 import { addVirtualAuthenticator } from './webauthn.js';
 import { acceptConsent } from './consent.js';
@@ -51,9 +52,13 @@ test('one click puts every network fee on its account, later ones too, and can b
 	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
 	await page.getByTestId('year-switch').selectOption('2026');
 	const without = page.getByTestId('filter-without-account');
-	await expect(without).toContainText('(3)');
+	// One row for the wallet's three fees of July.
+	await expect(without).toContainText('(1)');
 	await page.getByTestId('filter-all').click();
-	await page.getByTestId('transaction').first().click();
+	const group = page.getByTestId('fee-group');
+	await expect(group.getByTestId('fee-group-meta')).toContainText('3 Transaktionen');
+	await group.getByTestId('fee-group-toggle').click();
+	await group.getByTestId('fee-group-fee').first().click();
 	const detail = page.getByTestId('tx-detail');
 	await expect(detail.getByTestId('tx-booking-account')).toHaveValue(/4970/);
 	await detail.getByTestId('tx-fee-rule-apply').click();
@@ -67,12 +72,17 @@ test('one click puts every network fee on its account, later ones too, and can b
 	// A fee synced later takes it with the next run.
 	await addFee('D');
 	await expect(without).toContainText('(0)');
-	await expect(page.getByTestId('filter-all')).toContainText('(4)');
+	await expect(page.getByTestId('filter-all')).toContainText('(1)');
+	await expect(group.getByTestId('fee-group-meta')).toContainText('4 Transaktionen');
+	await expect(group).toHaveAttribute('data-booking', 'all');
 
 	// Lifted: all four are without an account again.
-	await page.getByTestId('transaction').first().click();
+	if (!(await group.getByTestId('fee-group-fee').first().isVisible()))
+		await group.getByTestId('fee-group-toggle').click();
+	await group.getByTestId('fee-group-fee').first().click();
 	await detail.getByTestId('tx-fee-rule-lift').click();
 	await expect(detail.getByTestId('tx-fee-rule-note')).toContainText('4 Netzwerkgebühren');
 	await detail.getByTestId('tx-detail-close').click();
-	await expect(without).toContainText('(4)');
+	await expect(without).toContainText('(1)');
+	await expect(group).toHaveAttribute('data-booking', 'none');
 });
