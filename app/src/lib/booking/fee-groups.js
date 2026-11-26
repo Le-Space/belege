@@ -96,7 +96,13 @@ const share = (n, of) => (n === of ? 'all' : n === 0 ? 'none' : 'some');
  * @returns {(T | FeeGroupItem)[]}
  */
 export function withFeeGroups(txs, { covered = () => false, min = 2 } = {}) {
-	const fees = txs.filter(groupable);
+	// A swap's gas is shown with its swap ("Netzwerkgebühr für Tausch: …"): a row of its own.
+	const swaps = new Set(
+		txs.filter((tx) => tx.movement === 'trade' && tx.txRef).map((tx) => `${tx.source}|${tx.txRef}`)
+	);
+	const fees = txs.filter(
+		(tx) => groupable(tx) && !(tx.txRef && swaps.has(`${tx.source}|${tx.txRef}`))
+	);
 	if (fees.length < min) return txs;
 	const byId = new Map(fees.map((tx) => [tx.id, tx]));
 	const groups = groupNetworkFees(fees.map(asEntry), { min });

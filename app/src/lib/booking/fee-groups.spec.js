@@ -116,6 +116,19 @@ describe('withFeeGroups', () => {
 		expect(items.filter((i) => !isFeeGroup(i))).toHaveLength(2);
 	});
 
+	it('keeps a swap’s gas with its swap, a row of its own', () => {
+		const swap = {
+			id: 'swap-1',
+			source: 'akash',
+			movement: 'trade',
+			txRef: 'S1',
+			bookedOn: '2026-04-14'
+		};
+		const items = withFeeGroups([fee(), fee(), fee({ txRef: 'S1' }), swap]);
+		expect(items.filter(isFeeGroup)[0].fees).toHaveLength(2);
+		expect(items.some((i) => !isFeeGroup(i) && i.txRef === 'S1')).toBe(true);
+	});
+
 	it('says how much of a group a receipt covers', () => {
 		const a = fee();
 		const b = fee();
