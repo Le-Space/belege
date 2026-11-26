@@ -43,6 +43,13 @@ export {
 	isConsumption,
 	monthName
 } from './consumption.js';
+export {
+	CONSUMPTION_KINDS,
+	STATEMENT_KINDS,
+	consumptionDue,
+	monthOver,
+	needsEigenbeleg
+} from './needs.js';
 /** @typedef {import('./consumption.js').ConsumptionReceipt} ConsumptionReceipt */
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
 export {

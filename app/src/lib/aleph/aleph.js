@@ -322,6 +322,7 @@ export const REASON =
  * @param {string} p.address
  * @param {string} p.month YYYY-MM
  * @param {string} [p.accountName] the wallet's name, when it has one
+ * @param {AlephStatement | null} [p.statement] the month as just read (the export, #1034), so it is not asked twice
  * @param {string} [p.issuer]
  * @param {string} [p.createdBy]
  * @param {() => Date} [p.now]
@@ -333,6 +334,7 @@ export async function createAlephStatement({
 	address,
 	month,
 	accountName = '',
+	statement: shown = null,
 	issuer = '',
 	createdBy = '',
 	now = () => new Date()
@@ -342,7 +344,10 @@ export async function createAlephStatement({
 	if (existing) {
 		throw new Error(t('messages.aleph.exists', { number: existing.selfNumber }));
 	}
-	const statement = await client.alephStatement(address, month);
+	const statement =
+		shown && shown.month === month && shown.address.toLowerCase() === address.toLowerCase()
+			? shown
+			: await client.alephStatement(address, month);
 	await rememberPurchases(store.settings, statement);
 	if (!statement.usage.length && !statement.topUps.length && !statement.transfersOut.length) {
 		throw new Error(t('messages.aleph.nothing'));

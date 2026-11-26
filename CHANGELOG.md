@@ -6,6 +6,11 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Consumption Eigenbelege are created at the month's export** (#1034). The export page lists, under _Eigenbelege für Verbrauch_, every Aleph account, Filecoin Pay payer and Akash wallet of the books, reads the month's consumption through the bridge on request, says how many Eigenbelege it will create and creates them when the person confirms: the cards' own documents, made by the same functions, so the card's button and the export find each other's and give the same number. Each is a sealed receipt, linked to the month's top-ups of the account (they carry its number in Belegfeld 1) and in the ZIP with an export number, also without a top-up; a second export reuses it, and says so instead of replacing it when the month's top-ups changed. Nothing is created for a running month or while a wallet's balance check shows a gap; the page says why. A top-up the Eigenbeleg will cover shows "Eigenbeleg nötig – wird zum Monatsabschluss erstellt" with "Jetzt erstellen". Fees, rewards, swaps, deposits and own transfers stay covered by the statement.
+- **`@le-space/eigenbeleg` 0.12.0: which movement needs an Eigenbeleg** (`needs.js`): `needsEigenbeleg` – consumption only (`CONSUMPTION_KINDS`), everything in `STATEMENT_KINDS` documented by the account statement – with `monthOver` and `consumptionDue`. The same default as the Eigenbeleg agent's (Le-Space/eigenbeleg-agent#119).
+
 ## [0.60.0] – 2026-11-26
 
 ### Changed

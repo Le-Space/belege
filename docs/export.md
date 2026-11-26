@@ -9,6 +9,7 @@ DATEV_2026-09.zip
 ├── DATEV/EXTF_Buchungsstapel_2026-09.csv   Windows-1252, for the import
 ├── Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf
 ├── Belege/2026-09-002_….pdf
+├── Belege/2026-09-003_Aleph_Cloud_Eigenbeleg.pdf  a month's consumption Eigenbeleg (see below)
 ├── Kontoauszuege/KA-2026-09-1200_Konto_A.pdf     one statement per account with a booking in the month
 ├── Kontoauszuege/KA-2026-09-1340_Kraken_BTC.pdf
 └── Uebersicht_2026-09.csv                  UTF-8, for people: every booking, its account, receipt number, how the receipt was linked
@@ -106,6 +107,18 @@ The PDF is stored like an uploaded receipt and linked to the payment as your dec
 With the invoicing app paired under _Integrationen_, _Über die Rechnungs-App erstellen_ has the invoicing app write the Eigenbeleg instead, with its number range and your letterhead; Belege links it to the payment.
 
 An Eigenbeleg is not an invoice and gives no input-tax deduction.
+
+### Consumption Eigenbelege at the month's close (#1034)
+
+Where a prepaid balance pays for services and nobody invoices them – Aleph Cloud credits, a balance in Filecoin Pay, an Akash wallet's deployments – the month's **consumption** needs an Eigenbeleg. Which movements need one comes from `@le-space/eigenbeleg` (`needsEigenbeleg`, the same default as the Eigenbeleg agent's, Le-Space/eigenbeleg-agent#119): consumption only. Network fees, staking rewards, swaps, deposits and own transfers get none; the statement is their receipt, as above.
+
+What is created when:
+
+- **When the chain is read:** nothing. The month may still be open, a later sync may add bookings, rates and the confirmed account may change. A booking the consumption Eigenbeleg will cover – an Aleph credit purchase, a deposit into or withdrawal from Filecoin Pay, an Akash wallet's network fee – shows _Eigenbeleg nötig – wird zum Monatsabschluss erstellt_ while it has no receipt, with **Jetzt erstellen** for whoever wants it at once (a month that is over only).
+- **At the export:** the export page lists every Aleph account, Filecoin Pay payer and Akash wallet of the books under _Eigenbelege für Verbrauch_. _Verbrauch lesen_ asks the bridge for each account's month, as the cards under _Integrationen_ do; the page then says how many Eigenbelege it will create, with the consumption's value and the top-ups each covers, and creates them when you confirm. An account without consumption in the month gets none.
+- **Not automatically:** for a month that is not over; for an account whose wallet's balance differs from its bookings (the balance check under _Eigene Wallets_ shows a gap) – the page names the wallet; for an Aleph account whose history does not add up. The export itself is not held up: until they are created, the check list warns that they are missing from the ZIP.
+
+The document is the card's own (Aleph's, Akash's and Filecoin Pay's usage statement, `EB-YYYY-NNN`), made by the same function: whichever comes first, the card's button or the export, the other finds it and makes no second one. It is stored as a sealed receipt like any other and linked to the month's top-ups of the account, which then carry its number in _Belegfeld 1_; which bookings those were is kept on the receipt. It goes into `Belege/` with an export number, also in a month with consumption and no top-up. A second export of the month **reuses** it – the same file, the same numbers – and links a top-up booked since. When the month's top-ups are no longer those it was linked to, the export page says so and changes nothing: correct it on the card, or leave it. Code: `app/src/lib/export/consumption.js` (which accounts, which state), `consumption-run.js` (reading, creating, linking).
 
 ## Crypto movements in an open format
 
