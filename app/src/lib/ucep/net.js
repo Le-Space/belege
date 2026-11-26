@@ -91,24 +91,19 @@ export function twoN6Host(instanceHash) {
 }
 
 /**
- * The relays as they were registered on 2026-11-18, for when Aleph cannot be
- * asked. All three serve UCEP and an attest relay at /attest that knows the
- * image builders:
- *  - ocean-skate-resource-route, deployed from the orbitdb-relay account
- *    (2026-11-17);
- *  - secret-pass-wife-sentence, the same account's relay of 2026-10-23, with
- *    a new peer ID since its recovery on 2026-11-15;
- *  - relay-main-ekb (crazy-pluck-uncle-device), deployed from the
- *    relay-button account (2026-11-02).
- * Several, so that one relay going away does not leave Belege without any.
- * A relay moves when it is redeployed; the lookup is what keeps up. Retired
- * before: exhaust-tobacco-abuse-purchase (2026-10-14) and
- * job-blanket-biology-typical, silent since 2026-10-09.
+ * The relay as it was registered on 2026-11-26, for when Aleph cannot be
+ * asked, and after those it finds: athlete-equal-ritual-rhythm, orbitdb-relay
+ * 0.11.1 from the orbitdb-relay account. It serves UCEP and an attest relay at
+ * /attest that knows the image builders. A relay moves when it is redeployed;
+ * the lookup is what keeps up. Retired for it on 2026-11-26, as they ran
+ * orbitdb-relay 0.10.11 with @libp2p/crypto 5.1.21 (GHSA-rvfr-cqwq-rc4j):
+ * ocean-skate-resource-route (2026-11-17) and relay-main-ekb,
+ * crazy-pluck-uncle-device (2026-11-02). Gone before: secret-pass-wife-sentence
+ * (2026-10-23, forgotten on 2026-11-20), exhaust-tobacco-abuse-purchase
+ * (2026-10-14) and job-blanket-biology-typical, silent since 2026-10-09.
  */
 export const FALLBACK_RELAYS = Object.freeze([
-	'/dns4/ocean-skate-resource-route.2n6.me/tcp/443/tls/ws/p2p/12D3KooWLaah6yFW7ohFEZgsDNpH86xtmpztvamgyoLvLMtNyfpR',
-	'/dns4/secret-pass-wife-sentence.2n6.me/tcp/443/tls/ws/p2p/12D3KooWJz8EgU2Ffz2bq2vTy6FdmxcEe4fV816jEDCWGmBSPvKJ',
-	'/dns4/crazy-pluck-uncle-device.2n6.me/tcp/443/tls/ws/p2p/12D3KooWQu5E1ZkGC5x2dSVTEWxYvsssWjXgk2Mzc8GZHN26cYzS'
+	'/dns4/athlete-equal-ritual-rhythm.2n6.me/tcp/443/tls/ws/p2p/12D3KooWGrGmLRaKeqeMRzN9J2MPBas1CKcQiQPutXBTmoBHnVgS'
 ]);
 
 /**

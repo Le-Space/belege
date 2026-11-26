@@ -27,7 +27,7 @@ on:
       relay:
         description: An orbitdb-relay with /attest and libp2p WebSockets (host name)
         required: true
-        default: crazy-pluck-uncle-device.2n6.me
+        default: athlete-equal-ritual-rhythm.2n6.me
         type: string
       keep_minutes:
         description: Minutes to keep it running after the checks
