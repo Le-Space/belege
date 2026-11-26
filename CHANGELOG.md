@@ -6,6 +6,10 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **Trusted Types.** The page's Content-Security-Policy now requires them: `innerHTML`, `DOMParser`, a script's text or URL and an event-handler attribute take only values from the app's own named policies – Svelte's for its templates, one for parsing XML files (e-invoices, bank statements), one for the service worker – so the browser refuses a plain string that reaches such a place, in the app's code and in a library's.
+
 ### Added
 
 - **A Bitcoin payment shows its transaction** (#1037): the flow of inputs and outputs (_1 Eingang → 8 Ausgänge_), our output marked _eigene Wallet_ with its real address and a copy button, the change back to the sender, our own change, the other recipients collapsed into _n weitere Empfänger_; who paid the fee, the block time with its time zone, the block, the confirmations at the last sync. The Bitcoin reader in `@le-space/chains` keeps each transaction's shape on its entries (`utxo`: inputs by address, the outputs that matter and the first twelve others, the rest counted), asks Esplora once per receipt's sender for its transaction count (as a power of ten) and the tip's height – the same host, said in the consent text. Doichain, read by the same code, gets the flow too.
@@ -14,6 +18,7 @@ All notable changes to Le Space Belege. The format follows
 ### Changed
 
 - **The head of a Bitcoin payment** says the movement large (_Eingang +0,01234567 BTC_), the euro value and rate below it, and has one explorer link; the QR code and _Transaktions-ID kopieren_ are in a ⋯ menu. One next step (_Rechnung zuordnen_, _Als Umbuchung von Kraken · BTC buchen_ – which books it on 1360 in one click –, _Erledigt_) takes the place of the chips _Beleg fehlt_ / _Konto fehlt_. Other payments are unchanged for now.
+- **Svelte 5.59.2** (from 5.37.2): Svelte now makes its templates through a Trusted Types policy of its own (`svelte-trusted-html`); 5.37.2 wrote them as plain strings.
 
 ### Fixed
 
