@@ -3913,6 +3913,57 @@ export default {
 		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege, {statements} Kontoauszüge.',
 		blocked: 'Erst die rot markierten Punkte erledigen.',
 		failed: 'Der Export ist fehlgeschlagen: {error}',
+		consumption: {
+			title: 'Eigenbelege für Verbrauch',
+			intro:
+				'Wo ein Guthaben Leistungen bezahlt und niemand eine Rechnung schreibt – Aleph-Credits, Filecoin Pay, Akash –, braucht der Verbrauch eines Monats einen Eigenbeleg. Belege erstellt ihn zum Monatsabschluss, je Konto einen, und verknüpft ihn mit den Aufladungen des Monats.',
+			statementCovers:
+				'Gebühren, Erträge, Tausch, Einzahlungen und eigene Umbuchungen belegt der Kontoauszug – dafür entsteht kein Eigenbeleg.',
+			open: 'Der Monat läuft noch. Eigenbelege für Verbrauch entstehen erst nach dem Monatsende, wenn Buchungen, Kurse und Verbrauch feststehen.',
+			read: 'Verbrauch lesen',
+			reading: 'Lese den Verbrauch …',
+			readHint:
+				'Fragt über die Bridge dieselben Daten ab wie die Karten unter Integrationen; noch wird nichts erstellt.',
+			noBridge: 'Ohne verbundene Bridge lässt sich der Verbrauch nicht lesen.',
+			willCreate: 'Zum Monatsabschluss werden {count} Eigenbelege erstellt:',
+			willCreateOne: 'Zum Monatsabschluss wird 1 Eigenbeleg erstellt:',
+			toRead:
+				'Zu prüfen ({count}) – ob im Monat etwas verbraucht wurde, steht erst nach dem Lesen fest:',
+			usage: 'Verbrauch {amount}',
+			usageUnpriced: 'Verbrauch ohne Kurs',
+			covers: 'belegt {count} Aufladungen',
+			coversOne: 'belegt 1 Aufladung',
+			noUsage: 'kein Verbrauch – kein Eigenbeleg nötig',
+			incomplete: 'Verlauf unvollständig – nicht automatisch, erst auf der Karte prüfen',
+			failed: 'nicht gelesen: {error}',
+			notAuto: 'Nicht automatisch:',
+			gap: 'Saldo weicht von den Buchungen ab ({accounts}). Erst die Wallet abgleichen.',
+			reused: 'Schon erstellt, wird wiederverwendet:',
+			toLink: 'verknüpft noch {count} Aufladungen',
+			changed:
+				'Nach {number} haben sich die Aufladungen des Monats geändert. Belege ersetzt ihn nicht von selbst – auf der Karte berichtigen oder so lassen.',
+			create: '{count} Eigenbelege erstellen',
+			createOne: '1 Eigenbeleg erstellen',
+			link: 'Wiederverwendete verknüpfen',
+			creating: 'Erstelle …',
+			done: '{created} erstellt, {reused} wiederverwendet, {linked} Aufladungen verknüpft.',
+			cardsLink: 'zu den Verbrauchsnachweisen der Wallets',
+			check:
+				'{count} Eigenbelege für Verbrauch sind noch nicht erstellt – der Export geht, sie fehlen dann im ZIP.',
+			chain: { aleph: 'Aleph Cloud', 'filecoin-pay': 'Filecoin Pay', akash: 'Akash' },
+			hint: {
+				needed: 'Eigenbeleg nötig – wird zum Monatsabschluss erstellt',
+				neededText:
+					'Diese Aufladung bezahlt Verbrauch, für den niemand eine Rechnung schreibt ({chain}). Beim Export des Monats entsteht der Eigenbeleg für den Verbrauch des Kontos und wird mit ihr verknüpft.',
+				open: 'Der Monat läuft noch; der Eigenbeleg entsteht nach dem Monatsende.',
+				gap: 'Der Saldo der Wallet weicht von den Buchungen ab – erst abgleichen, dann entsteht er.',
+				createNow: 'Jetzt erstellen',
+				creating: 'Erstelle …',
+				noUsage: 'In diesem Monat wurde nichts verbraucht – kein Eigenbeleg nötig.',
+				made: 'Eigenbeleg {number} erstellt und verknüpft.',
+				noBridge: 'Zum Erstellen braucht es die verbundene Bridge.'
+			}
+		},
 		crypto: {
 			title: 'Kryptobewegungen',
 			intro:

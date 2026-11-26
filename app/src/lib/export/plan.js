@@ -25,6 +25,9 @@
 //     in Belegfeld 1: the statement is its receipt. Without statements (the
 //     export page's choice) there is none in the ZIP, and Belegfeld 1 of such
 //     a booking stays empty rather than name a document that is not there
+//   - a month's consumption Eigenbelege (consumption.js, #1034) go into the ZIP
+//     numbered after the bookings' receipts, also when no
+//     booking of the month carries them
 //   - optionally (#323), a booking without a confirmed account goes onto a
 //     suspense account named in the settings instead of blocking the export:
 //     no BU key, its Buchungstext starting with "Ungeklärt:", to be re-booked
@@ -47,6 +50,7 @@ import { TRANSFER_ACCOUNT } from '../booking/skr03.js';
 import { quantityText } from '../assets/valuation.js';
 import { DOCUMENT_LOCALE } from '../i18n/index.js';
 import { monthStatements } from './statement.js';
+import { consumptionReceipt } from './consumption.js';
 import { isTestBooking } from '../sample/test-bookings.js';
 
 /** @typedef {Record<string, any>} Rec */
@@ -330,8 +334,14 @@ export function planMonth({
 			return r ? [{ receipt: r, match: m }] : [];
 		});
 
+	// The month's consumption Eigenbelege (consumption.js, #1034): in the package
+	// whether or not a booking of the month carries them – a month of pure usage
+	// has no top-up to link to. After the bookings' receipts.
+	const consumption = receipts.filter(
+		(r) => !r.deleted && consumptionReceipt(r)?.month === month && !needsConfirmation(r)
+	);
 	// Receipts in booking order, numbered.
-	const ordered = bookings.flatMap((tx) => linkedOf(tx).map((x) => x.receipt));
+	const ordered = [...bookings.flatMap((tx) => linkedOf(tx).map((x) => x.receipt)), ...consumption];
 	const { numbers, fresh } = numberReceipts(month, ordered, receipts);
 
 	/** @type {Map<string, string>} */
@@ -479,6 +489,7 @@ export function planMonth({
 		unlinkedReceipts: monthReceipts.filter(
 			(r) =>
 				!activeLinked.has(r.id) &&
+				!consumption.includes(r) &&
 				r.status !== 'ignoriert' &&
 				!needsConfirmation(r) &&
 				!copiesLinked(r)

@@ -59,6 +59,7 @@
 	import { instalmentOf, settlement as invoiceSettlement } from './matching/instalments.js';
 	import { attachUpload, moveReceipt } from './receipts/attach.js';
 	import EigenbelegForm from './receipts/EigenbelegForm.svelte';
+	import ConsumptionHint from './export/ConsumptionHint.svelte';
 	import { folderSupported, savedFolder } from './receipts/folder.js';
 	import { createBridgeClient, pairedWith } from './bridge/client.js';
 	import { readBridgeRecord } from './bridge-connection/record.js';
@@ -3153,6 +3154,9 @@
 						</p>
 					{/if}
 				{/each}
+				{#if !linked.length}
+					<ConsumptionHint {tx} />
+				{/if}
 
 				<div class="mt-3 flex flex-wrap gap-2">
 					{#if linked.length || classification || tx.noReceipt}

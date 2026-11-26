@@ -61,6 +61,7 @@ export const AKASH_REASON =
  * @param {{ akashDeployments: (body: { address: string, endpoints?: Record<string, string> }) => Promise<{ deployments: any[] }>, rate: (asset: string, date: string) => Promise<any> }} p.client
  * @param {{ address: string, name?: string, endpoints?: Record<string, string> }} p.wallet
  * @param {string} p.month YYYY-MM
+ * @param {import('./usage.js').AkashMonth | null} [p.data] the month as just read (the export, #1034), so it is not asked twice
  * @param {string} [p.issuer]
  * @param {string} [p.createdBy]
  * @param {() => Date} [p.now]
@@ -71,6 +72,7 @@ export async function createAkashStatement({
 	client,
 	wallet,
 	month,
+	data: shown = null,
 	issuer = '',
 	createdBy = '',
 	now = () => new Date()
@@ -79,6 +81,43 @@ export async function createAkashStatement({
 	const existing = findAkashStatement(all, wallet.address, month);
 	if (existing) throw new Error(t('messages.akash.exists', { number: existing.selfNumber }));
 
+	const data =
+		shown && shown.month === month
+			? shown
+			: await readAkashMonth({ store, client, wallet, month, now });
+	if (!data.fees.length && !data.topUps.length && !data.usage.length) {
+		throw new Error(t('messages.akash.nothing'));
+	}
+
+	const day = lastDay(month);
+	const created = now();
+	const number = nextSelfNumber(all, month.slice(0, 4));
+	/** @type {AkashStatementDocument} */
+	const doc = {
+		number,
+		issuer,
+		walletName: wallet.name ?? '',
+		data,
+		reason: AKASH_REASON,
+		createdAt: created.toISOString(),
+		createdBy
+	};
+	return storeAkashStatement({ store, blobs, wallet, month, day, number, data, doc, createdBy });
+}
+
+/**
+ * What a wallet paid in a month, read from the bridge and the books (usage.js):
+ * what the card and the export (#1034) make the statement from.
+ *
+ * @param {object} p
+ * @param {any} p.store accounts, transactions
+ * @param {{ akashDeployments: (body: { address: string, endpoints?: Record<string, string> }) => Promise<{ deployments: any[] }>, rate: (asset: string, date: string) => Promise<any> }} p.client
+ * @param {{ address: string, endpoints?: Record<string, string> }} p.wallet
+ * @param {string} p.month YYYY-MM
+ * @param {() => Date} [p.now]
+ * @returns {Promise<import('./usage.js').AkashMonth>}
+ */
+export async function readAkashMonth({ store, client, wallet, month, now = () => new Date() }) {
 	const { deployments } = await client.akashDeployments({
 		address: wallet.address,
 		endpoints: wallet.endpoints ?? {}
@@ -102,22 +141,32 @@ export async function createAkashStatement({
 		deployments,
 		eurPerUsd
 	});
-	if (!data.fees.length && !data.topUps.length && !data.usage.length) {
-		throw new Error(t('messages.akash.nothing'));
-	}
+	return data;
+}
 
-	const created = now();
-	const number = nextSelfNumber(all, month.slice(0, 4));
-	/** @type {AkashStatementDocument} */
-	const doc = {
-		number,
-		issuer,
-		walletName: wallet.name ?? '',
-		data,
-		reason: AKASH_REASON,
-		createdAt: created.toISOString(),
-		createdBy
-	};
+/**
+ * @param {object} p
+ * @param {any} p.store
+ * @param {import('../receipts/blob-store.js').BlobStore} p.blobs
+ * @param {{ address: string }} p.wallet
+ * @param {string} p.month
+ * @param {string} p.day the month's last day
+ * @param {string} p.number
+ * @param {import('./usage.js').AkashMonth} p.data
+ * @param {AkashStatementDocument} p.doc
+ * @param {string} p.createdBy
+ */
+async function storeAkashStatement({
+	store,
+	blobs,
+	wallet,
+	month,
+	day,
+	number,
+	data,
+	doc,
+	createdBy
+}) {
 	const { akashStatementPdf } = await import('./statement-pdf.js');
 	const bytes = await akashStatementPdf(doc, { issuerLogo: await issuerLogoOf(store) });
 	const { record } = await importFile({

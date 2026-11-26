@@ -3854,6 +3854,56 @@ export default {
 		done: 'Downloaded: {file} – {bookings} bookings, {receipts} receipts, {statements} bank statements.',
 		blocked: 'Sort out the items marked in red first.',
 		failed: 'The export failed: {error}',
+		consumption: {
+			title: 'Self-issued receipts for consumption',
+			intro:
+				'Where a prepaid balance pays for services and nobody writes an invoice – Aleph credits, Filecoin Pay, Akash –, a month’s consumption needs a self-issued receipt (Eigenbeleg). Belege creates it at the month’s close, one per account, and links it to the month’s top-ups.',
+			statementCovers:
+				'Fees, rewards, swaps, deposits and own transfers are covered by the account statement – they get no self-issued receipt.',
+			open: 'The month is still running. Receipts for consumption are created only after the month has ended, when bookings, rates and usage are settled.',
+			read: 'Read consumption',
+			reading: 'Reading consumption …',
+			readHint:
+				'Asks the bridge for the same data as the cards under Integrations; nothing is created yet.',
+			noBridge: 'Without a connected bridge the consumption cannot be read.',
+			willCreate: 'At the month’s close {count} self-issued receipts will be created:',
+			willCreateOne: 'At the month’s close 1 self-issued receipt will be created:',
+			toRead: 'To check ({count}) – whether anything was consumed is known only after reading:',
+			usage: 'Consumption {amount}',
+			usageUnpriced: 'Consumption without a rate',
+			covers: 'covers {count} top-ups',
+			coversOne: 'covers 1 top-up',
+			noUsage: 'no consumption – no receipt needed',
+			incomplete: 'History incomplete – not automatic, check it on the card first',
+			failed: 'not read: {error}',
+			notAuto: 'Not automatic:',
+			gap: 'Balance differs from the bookings ({accounts}). Reconcile the wallet first.',
+			reused: 'Already created, reused:',
+			toLink: 'still links {count} top-ups',
+			changed:
+				'The month’s top-ups changed after {number}. Belege does not replace it by itself – correct it on the card or leave it.',
+			create: 'Create {count} self-issued receipts',
+			createOne: 'Create 1 self-issued receipt',
+			link: 'Link the reused ones',
+			creating: 'Creating …',
+			done: '{created} created, {reused} reused, {linked} top-ups linked.',
+			cardsLink: 'to the wallets’ usage statements',
+			check:
+				'{count} self-issued receipts for consumption are not created yet – the export works, but they are missing from the ZIP.',
+			chain: { aleph: 'Aleph Cloud', 'filecoin-pay': 'Filecoin Pay', akash: 'Akash' },
+			hint: {
+				needed: 'Self-issued receipt needed – created at the month’s close',
+				neededText:
+					'This top-up pays for consumption nobody invoices ({chain}). The month’s export creates the self-issued receipt for the account’s consumption and links it here.',
+				open: 'The month is still running; the receipt is created after the month has ended.',
+				gap: 'The wallet’s balance differs from the bookings – reconcile it first, then it is created.',
+				createNow: 'Create now',
+				creating: 'Creating …',
+				noUsage: 'Nothing was consumed this month – no receipt needed.',
+				made: 'Self-issued receipt {number} created and linked.',
+				noBridge: 'Creating it needs the connected bridge.'
+			}
+		},
 		crypto: {
 			title: 'Crypto movements',
 			intro:

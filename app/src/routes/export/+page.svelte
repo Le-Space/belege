@@ -31,6 +31,7 @@
 	import { receiptVendor } from '$lib/receipts/view.js';
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
+	import ConsumptionEigenbelege from '$lib/export/ConsumptionEigenbelege.svelte';
 
 	const monthFormat = $derived(
 		new Intl.DateTimeFormat(intlLocale(), {
@@ -186,6 +187,9 @@
 				: [];
 		})
 	);
+
+	/** Consumption Eigenbelege of the month not made yet (#1034): a warning, no blocker. */
+	let consumptionPending = $state(0);
 
 	let busy = $state(false);
 	/** @type {string | null} */
@@ -553,6 +557,10 @@
 		</p>
 	</section>
 
+	{#key month}
+		<ConsumptionEigenbelege {month} onpending={(n) => (consumptionPending = n)} />
+	{/key}
+
 	<section
 		class="mt-4 rounded-lg border border-border bg-surface px-5 py-4 shadow-sm"
 		data-testid="export-checks"
@@ -665,6 +673,14 @@
 					receipt: r
 				}))
 			)}
+			{#if consumptionPending}
+				{@render item(
+					'consumption',
+					'warning',
+					t('export.consumption.check', { count: consumptionPending }),
+					[]
+				)}
+			{/if}
 			{#if plan.checks.copies.length}
 				{@render item(
 					'copies',
