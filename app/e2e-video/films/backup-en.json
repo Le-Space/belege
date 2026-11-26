@@ -7,9 +7,9 @@
 		{
 			"card": "scene",
 			"n": 1,
-			"eyebrow": "Backup and back",
-			"title": "One sealed file on Aleph, and the books come back",
-			"sub": "Backup, a device that forgets, and the passkey that brings everything back."
+			"eyebrow": "Backup, and back on another device",
+			"title": "One sealed file on Aleph, the books on another device",
+			"sub": "A backup on one laptop. On another, the same passkey and two touches bring everything back: no bridge, nothing typed."
 		},
 		{
 			"scene": "backup.en"
