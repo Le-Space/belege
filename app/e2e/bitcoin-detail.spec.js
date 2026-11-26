@@ -329,7 +329,8 @@ test('an own send with change, and a transfer between two own wallets', async ({
 	await expect(detail.getByTestId('tx-head-direction')).toHaveText('Umbuchung');
 	await expect(detail.getByTestId('tx-payout')).toHaveCount(0);
 	const next = detail.getByTestId('tx-next-step');
-	await expect(next).toContainText('Konto B · BTC');
+	// Either side of the pair may come first: each names the other wallet.
+	await expect(next).toContainText(/Umbuchung (von|an) Konto [AB] · BTC/);
 	await next.getByTestId('tx-next-step-book').click();
 	await expect(next).toHaveAttribute('data-state', 'done');
 	await shot(page, 'own-transfer');
