@@ -184,6 +184,8 @@ async function seed(page) {
 /** @param {import('@playwright/test').Page} page @param {string} amount */
 async function open(page, amount) {
 	await page.getByRole('navigation').getByRole('link', { name: 'Zahlungen' }).click();
+	// An own transfer needs no receipt: "Nur ohne Beleg" would hide it.
+	await page.getByTestId('filter-all').click();
 	await page.getByTestId('transaction').filter({ hasText: amount }).first().click();
 	await expect(page.getByTestId('tx-detail')).toBeVisible();
 }
