@@ -175,8 +175,10 @@
 	}
 	let withoutReceipt = $derived(searched.filter((tx) => !covered(tx)));
 	// Bookings without a confirmed account ("Konto"): the export waits for them.
-	// A group just confirmed stays, with its "Rückgängig".
-	let withoutAccount = $derived(
+	let withoutAccount = $derived(searched.filter((tx) => !itemConfirmed(tx, isBookingConfirmed)));
+	// Listed under "Ohne Konto": those, and a group just confirmed – with its
+	// "Rückgängig" – that the count no longer holds.
+	let listedWithoutAccount = $derived(
 		searched.filter((tx) => !itemConfirmed(tx, isBookingConfirmed) || feeGroupUndos[tx.id])
 	);
 	// Changed in what they are on a re-import, not yet looked at (bank/import.js).
@@ -185,7 +187,7 @@
 		receiptFilter === 'ohne'
 			? withoutReceipt
 			: receiptFilter === 'konto'
-				? withoutAccount
+				? listedWithoutAccount
 				: receiptFilter === 'geaendert'
 					? changed
 					: searched
