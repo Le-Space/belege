@@ -261,6 +261,53 @@ export async function sendMessage(
 	throw new Error(`Aleph did not process the ${what} in time`);
 }
 
+/** A message's `time` as Aleph gives it (seconds, or an ISO date) as an ISO date; null otherwise. @param {unknown} time */
+function isoOfAlephTime(time) {
+	const ms =
+		typeof time === 'number' ? time * 1000 : typeof time === 'string' ? Date.parse(time) : NaN;
+	return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
+}
+
+/**
+ * @typedef {{ status: string, forgottenBy: string[], forgottenAt: string | null }} InstanceStatus
+ */
+
+/**
+ * What Aleph says of an INSTANCE now (#1036): its status (`processed`,
+ * `forgotten`, …, `unknown` for one Aleph does not know), and for a forgotten
+ * one the FORGETs that did it and when the first of them was sent – the VM's
+ * real end, not the moment this browser noticed. Throws when Aleph does not
+ * answer, so a caller can say so instead of guessing.
+ *
+ * @param {string} hash
+ * @param {{ apiHost: string, fetch?: typeof fetch }} p
+ * @returns {Promise<InstanceStatus>}
+ */
+export async function instanceStatus(hash, { apiHost, fetch: f = fetch }) {
+	if (!HASH.test(String(hash ?? ''))) throw new Error('not an INSTANCE hash');
+	const res = await f(`${apiHost}/api/v0/messages/${hash}`, { cache: 'no-store' });
+	if (res.status === 404) return { status: 'unknown', forgottenBy: [], forgottenAt: null };
+	if (!res.ok) throw new Error(`Aleph answered ${res.status} for the INSTANCE`);
+	const body = /** @type {any} */ (await res.json().catch(() => null));
+	const status = String(body?.status ?? 'unknown');
+	if (status !== 'forgotten') return { status, forgottenBy: [], forgottenAt: null };
+	/** @type {string[]} */
+	const forgottenBy = (Array.isArray(body?.forgotten_by) ? body.forgotten_by : [])
+		.map(String)
+		.filter((/** @type {string} */ h) => HASH.test(h));
+	/** @type {string | null} */
+	let forgottenAt = null;
+	for (const forget of forgottenBy.slice(0, 4)) {
+		const r = await f(`${apiHost}/api/v0/messages/${forget}`, { cache: 'no-store' }).catch(
+			() => null
+		);
+		const m = r?.ok ? /** @type {any} */ (await r.json().catch(() => null)) : null;
+		const at = isoOfAlephTime(m?.message?.time ?? m?.message?.content?.time);
+		if (at && (!forgottenAt || at < forgottenAt)) forgottenAt = at;
+	}
+	return { status, forgottenBy, forgottenAt };
+}
+
 /**
  * The owner's credits.
  *

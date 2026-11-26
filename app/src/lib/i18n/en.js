@@ -5264,6 +5264,10 @@ export default {
 			usageHours: '{hours} h',
 			stop: 'Stop',
 			stopped: 'Stopped {date}',
+			alreadyStopped:
+				'The VM was already stopped on {date}: Aleph had forgotten it before, nothing more went to Aleph.',
+			alephUnknown:
+				'Aleph does not answer right now: whether the VM is still running is not confirmed. Runtime and credits are counted from the start until now.',
 			resume: 'Unlock',
 			download: {
 				of: '{received} of {total} MB · {seconds} s · {host}',
