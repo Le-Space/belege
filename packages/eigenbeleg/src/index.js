@@ -54,6 +54,8 @@ export {
 export { eigenbelegPdf, CREATOR, PRODUCER } from './pdf.js';
 export {
 	buildStatement,
+	feeGroupLabel,
+	feeGroupsOf,
 	isDust,
 	monthly,
 	reconciled,
@@ -64,6 +66,7 @@ export {
 	usageNote
 } from './statement.js';
 /** @typedef {import('./statement.js').MonthlyLine} MonthlyLine */
+/** @typedef {import('./statement.js').FeeGroupLine} FeeGroupLine */
 export { statementPdf } from './statement-pdf.js';
 export { statementChart } from './statement-chart.js';
 export { drawScene, sceneMeasure } from './chart-pdf.js';

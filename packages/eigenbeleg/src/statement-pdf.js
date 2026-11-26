@@ -9,7 +9,9 @@
 // bookings a small diagram (#889, statement-chart.js): the balance over the
 // period, or what was consumed per day. A token not in the chain's list (#93)
 // is named by its contract, its symbol the contract's own claim; a section
-// that does not fit on the rest of the page starts on a new one.
+// that does not fit on the rest of the page starts on a new one. A wallet's
+// network fees of a month stand as one collective line (#1044), each fee in
+// the annex after the sections with its time, hash, amount, value and rate.
 
 import { asset, createPdfA, LOGOS, savePdfA, wrapText } from '@le-space/pdf';
 import { round } from '@le-space/ledger';
@@ -91,7 +93,13 @@ export async function statementPdf(
 	const L = st.language ?? 'de';
 	/** @param {string} de @param {string} en */
 	const t = (de, en) => say(L, de, en);
-	const { number: deNumber, fixed: deFixed, money: fmtMoney, date: deDate } = formats(L);
+	const {
+		number: deNumber,
+		fixed: deFixed,
+		money: fmtMoney,
+		date: deDate,
+		rate: deRate
+	} = formats(L);
 	/** Quantities in the table: at most 12 decimals, the CSV keeps them all. @param {string} q */
 	const qty = (q) => (q ? deNumber(round(q, 12)) : '');
 	const COLS = columns(cur, L);
@@ -175,15 +183,19 @@ export async function statementPdf(
 
 	/** A booking's two lines of text, and the height of its row. @param {import('./statement.js').StatementRow} r */
 	const rowText = (r) => {
-		const detail = [
-			r.counterparty && `${r.debit ? t('an', 'to') : t('von', 'from')} ${r.counterparty}`,
-			r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
-			r.beleg && `${t('Eigenbeleg', 'Receipt')} ${r.beleg}`
-		]
-			.filter(Boolean)
-			.join(' · ');
+		const detail = r.collective
+			? [
+					`${t('Sammelposten', 'Collective line')} ${r.collective.label}`,
+					t('jede Gebühr im Anhang', 'each fee in the annex')
+				]
+			: [
+					r.counterparty && `${r.debit ? t('an', 'to') : t('von', 'from')} ${r.counterparty}`,
+					r.hash && `${r.hashLabel} ${r.hash.slice(0, 10)}…${r.hash.slice(-6)}`,
+					r.beleg && `${t('Eigenbeleg', 'Receipt')} ${r.beleg}`
+				];
+		const detailText = detail.filter(Boolean).join(' · ');
 		const lines = wrapText(r.text, regular, 8, COLS[1].width - 6);
-		const sub = wrapText(detail, regular, 6.5, COLS[1].width - 6);
+		const sub = wrapText(detailText, regular, 6.5, COLS[1].width - 6);
 		return { lines, sub, h: lines.length * 10 + sub.length * 8.5 + 6 };
 	};
 	/** What a page holds below its running head, above the footer. */
@@ -191,6 +203,8 @@ export async function statementPdf(
 
 	// ---- one section per asset
 	for (const [i, s] of st.sections.entries()) {
+		// What the table shows: each collective line of network fees in place of its fees (#1044).
+		const shown = s.lines ?? s.rows;
 		// The diagram, above the list of bookings (#889); every figure in it is in the tables.
 		const drawn = chart ? statementChart(st, s, { width, measure: sceneMeasure(fonts) }) : null;
 		const monthLines =
@@ -207,7 +221,7 @@ export async function statementPdf(
 			(monthLines ? 14 + monthLines * 12 + 15 : 0) +
 			(drawn ? drawn.scene.height + 14 : 0) +
 			30 +
-			(s.rows.length ? s.rows.reduce((h, r) => h + rowText(r).h, 0) : 13) +
+			(shown.length ? shown.reduce((h, r) => h + rowText(r).h, 0) : 13) +
 			110;
 		if (i > 0 && l.y - (M + 16) < Math.min(tall, pageRoom)) l.newPage();
 		else l.ensure(90);
@@ -297,7 +311,7 @@ export async function statementPdf(
 		l.y -= 13;
 		l.rule();
 		l.y -= 2;
-		for (const r of s.rows) {
+		for (const r of shown) {
 			const { lines, sub, h } = rowText(r);
 			if (l.ensure(h)) head();
 			const y = l.y;
@@ -439,6 +453,75 @@ export async function statementPdf(
 			{ size: TYPE.small, color: GREY }
 		);
 		l.y -= 20;
+	}
+	// ---- the annex: every network fee of every collective line (#1044), each checkable on its own
+	const groups = st.sections.flatMap((s) => (s.feeGroups ?? []).map((g) => ({ s, g })));
+	if (groups.length) {
+		const ANNEX = [
+			{ title: t('Datum, Uhrzeit (UTC)', 'Date, time (UTC)'), width: 78 },
+			{ title: t('Transaktions-Hash', 'Transaction hash'), width: 237 },
+			{ title: t('Menge', 'Amount'), width: 70, right: true },
+			{ title: `${t('Wert', 'Value')} ${cur}`, width: 54, right: true },
+			{ title: `${t('Kurs', 'Rate')} ${cur}`, width: 60, right: true }
+		];
+		const annexEnds = ANNEX.reduce(
+			(a, c) => [...a, (a[a.length - 1] ?? 0) + c.width],
+			/** @type {number[]} */ ([])
+		);
+		const annexHead = () => {
+			for (const [k, c] of ANNEX.entries()) {
+				if (c.right) l.right(c.title, M + annexEnds[k] - 4, TYPE.label, regular, GREY);
+				else l.at(c.title, M + (annexEnds[k - 1] ?? 0), TYPE.label, regular, GREY);
+			}
+			l.y -= 11;
+			l.strong();
+			l.y -= 4;
+		};
+		l.ensure(120);
+		l.y -= 6;
+		text(t('Anhang: Netzwerkgebühren', 'Annex: network fees'), {
+			face: bold,
+			size: TYPE.lead
+		});
+		l.y -= 3;
+		l.rule();
+		l.y -= 8;
+		text(
+			t(
+				'Jede Gebühr einer Sammelzeile oben, einzeln über ihren Transaktions-Hash nachprüfbar. Der Wert ist der Tageskurs mal Menge; die Sammelzeile summiert die Werte ungerundet.',
+				'Every fee of a collective line above, each checkable by its transaction hash. The value is the rate of the day times the amount; the collective line sums the values unrounded.'
+			),
+			{ size: TYPE.small, color: GREY }
+		);
+		l.y -= 8;
+		for (const { s, g } of groups) {
+			l.ensure(60);
+			text(
+				`${g.label} · ${s.asset} · ${g.count} ${t('Transaktionen', 'transactions')} · ${qty(g.amount)} ${s.asset}${g.eur ? ` · ${money(round(g.eur, 2))}` : ''}`,
+				{ face: bold, size: TYPE.body }
+			);
+			l.y -= 4;
+			annexHead();
+			for (const r of g.rows) {
+				if (l.ensure(12)) annexHead();
+				l.at(`${deDate(r.date)} ${r.time}`, M, 7, regular);
+				l.at(r.hash, M + annexEnds[0], 5.5, mono);
+				l.right(qty(r.debit || r.credit), M + annexEnds[2] - 4, 7, regular);
+				l.right(
+					r.eur ? deFixed(r.eur, 4) : '—',
+					M + annexEnds[3] - 4,
+					7,
+					regular,
+					r.eur ? BLACK : GREY
+				);
+				const rate = r.eur ? (r.rate ?? '') : '';
+				l.right(rate ? deRate(rate) : '—', M + annexEnds[4] - 4, 7, regular, rate ? BLACK : GREY);
+				l.y -= 11;
+			}
+			l.y -= 1;
+			l.rule();
+			l.y -= 12;
+		}
 	}
 	if (st.unlisted)
 		text(

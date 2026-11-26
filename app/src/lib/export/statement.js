@@ -8,6 +8,13 @@
 // statement's number in Belegfeld 1 (plan.js). For a bank account it does not
 // replace the bank's own statement; it lists what Belege holds.
 //
+// A wallet's network fees of the month stand as one collective line from two
+// fees on (#1044, booking/fee-groups.js – the grouping of @le-space/ledger,
+// as the payment list and Eigenbeleg's statement have it), each fee in the
+// annex with its time, hash, quantity, rate and value. `lines` keeps every
+// booking; `shown` is what the table shows. The statement number and each
+// fee's Belegfeld 1 stay as they are.
+//
 // Pure: from the records the export already has. statement-pdf.js draws it.
 
 /* eslint-disable belege/no-german -- the monthly export for German bookkeeping stays German (#192) */
@@ -17,6 +24,8 @@ import { ledgerOf } from '../booking/settings.js';
 import { toUnits, valueCents } from '../assets/quantity.js';
 import { hasQuantity } from '../assets/valuation.js';
 import { coverageBadge } from '../matching/view.js';
+import { withFeeGroups, isFeeGroup } from '../booking/fee-groups.js';
+import { amount } from './datev.js';
 
 /** What stands in the Beleg column for a booking without a receipt, by its kind. */
 const STANDS_IN = /** @type {Record<string, string>} */ ({
@@ -53,6 +62,16 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @property {string | null} asset
  * @property {Rec | null} valuation
  * @property {string} receipt a receipt number, or what stands in for one
+ * @property {string} group the collective line a network fee is in (`NG-<month>-<asset>`), '' when none
+ * @property {FeeGroup} [collective] on a collective line only: what it sums
+ */
+
+/**
+ * @typedef {object} FeeGroup one collective line for a wallet's network fees of the month (#1044)
+ * @property {string} label `NG-<month>-<asset>`
+ * @property {string} asset
+ * @property {number} count
+ * @property {StatementLine[]} lines every fee it sums, oldest first
  */
 
 /**
@@ -62,7 +81,10 @@ const STANDS_IN = /** @type {Record<string, string>} */ ({
  * @property {Rec} account
  * @property {string} label
  * @property {string} ledger '' when none is set
- * @property {StatementLine[]} lines by date
+ * @property {StatementLine[]} lines by date, every booking
+ * @property {StatementLine[]} shown what the table shows: each collective line of network fees in
+ *   place of its fees, on the last fee's day
+ * @property {FeeGroup[]} feeGroups the collective lines, each fee listed in the annex
  * @property {{ inCents: number, outCents: number, netCents: number, quantity: string | null }} totals
  * @property {Balances | null} balances only when the account knows its balance
  */
@@ -128,6 +150,7 @@ function lineText(tx) {
  * @param {Rec[]} params.transactions all of them; the account's month is taken out
  * @param {Record<string, any>} params.classifications
  * @param {Map<string, string>} params.receiptNumbers transaction id → its first receipt's number
+ * @param {boolean} [params.collectFees] network fees as one collective line, from two (#1044); on by default
  * @returns {Statement}
  */
 export function buildStatement({
@@ -136,7 +159,8 @@ export function buildStatement({
 	index,
 	transactions,
 	classifications,
-	receiptNumbers
+	receiptNumbers,
+	collectFees = true
 }) {
 	const number = statementNumber(month, account, index);
 	const own = transactions.filter((tx) => !tx.deleted && tx.accountId === account.id);
@@ -160,9 +184,11 @@ export function buildStatement({
 			decimals: crypto ? Number(tx.decimals) : null,
 			asset: crypto ? String(tx.asset) : null,
 			valuation: crypto ? (tx.valuation ?? null) : null,
-			receipt
+			receipt,
+			group: ''
 		};
 	});
+	const { shown, feeGroups } = collectFeeLines(lines, collectFees);
 
 	const inCents = lines.filter((l) => l.amountCents > 0).reduce((s, l) => s + l.amountCents, 0);
 	const outCents = lines.filter((l) => l.amountCents < 0).reduce((s, l) => s + l.amountCents, 0);
@@ -178,10 +204,72 @@ export function buildStatement({
 		label: accountLabel(account),
 		ledger: String(ledgerOf(account) ?? ''),
 		lines,
+		shown,
+		feeGroups,
 		totals: { inCents, outCents, netCents: inCents + outCents, quantity },
 		balances: balancesOf(account, own, month)
 	};
 }
+
+/**
+ * The table with each wallet's network fees of the month folded into one
+ * line (#1044): their sum, on the last fee's day, after the bookings before
+ * it. The receipt column names what all its fees name (the statement's
+ * stand-in, or the usage statement's number), else every one of them.
+ *
+ * @param {StatementLine[]} lines by date
+ * @param {boolean} collect
+ * @returns {{ shown: StatementLine[], feeGroups: FeeGroup[] }}
+ */
+function collectFeeLines(lines, collect) {
+	if (!collect) return { shown: lines, feeGroups: [] };
+	const items = withFeeGroups(lines.map((l) => /** @type {any} */ (l.tx)));
+	/** @type {Map<string, StatementLine>} */
+	const byId = new Map(lines.map((l) => [String(l.tx.id), l]));
+	/** @type {FeeGroup[]} */
+	const feeGroups = [];
+	/** @type {Map<string, StatementLine>} the last fee's id → the collective line */
+	const at = new Map();
+	for (const item of items) {
+		if (!isFeeGroup(item)) continue;
+		const label = `NG-${item.month}-${item.asset}`;
+		const members = item.fees.map((tx) => /** @type {StatementLine} */ (byId.get(String(tx.id))));
+		for (const m of members) m.group = label;
+		const group = { label, asset: item.asset, count: members.length, lines: members };
+		feeGroups.push(group);
+		const last = members[members.length - 1];
+		const receipts = [...new Set(members.map((m) => m.receipt))];
+		const crypto = members.every((m) => m.quantity !== null);
+		const amountCents = members.reduce((n, m) => n + m.amountCents, 0);
+		at.set(String(last.tx.id), {
+			tx: last.tx,
+			date: last.date,
+			text: `Netzwerkgebühren · ${members.length} Transaktionen · ${euroText(amountCents)}`,
+			amountCents,
+			quantity: crypto
+				? members.reduce((n, m) => n + BigInt(/** @type {string} */ (m.quantity)), 0n).toString()
+				: null,
+			decimals: last.decimals,
+			asset: last.asset,
+			valuation: null,
+			receipt: receipts.join(', '),
+			group: label,
+			collective: group
+		});
+	}
+	if (!feeGroups.length) return { shown: lines, feeGroups };
+	/** @type {StatementLine[]} */
+	const shown = [];
+	for (const l of lines) {
+		const collective = at.get(String(l.tx.id));
+		if (collective) shown.push(collective);
+		else if (!l.group) shown.push(l);
+	}
+	return { shown, feeGroups };
+}
+
+/** `−0,27 €` @param {number} cents */
+const euroText = (cents) => `${cents < 0 ? '−' : ''}${amount(cents)} €`;
 
 /**
  * The balance at the start and the end of the month.
@@ -367,6 +455,7 @@ function derived(account, own, month) {
  * @param {Rec[]} params.transactions
  * @param {Record<string, any>} params.classifications
  * @param {Map<string, string>} params.receiptNumbers
+ * @param {boolean} [params.collectFees] network fees as one collective line (#1044); on by default
  * @returns {Statement[]}
  */
 export function monthStatements({
@@ -374,7 +463,8 @@ export function monthStatements({
 	accounts,
 	transactions,
 	classifications,
-	receiptNumbers
+	receiptNumbers,
+	collectFees = true
 }) {
 	const used = new Set(
 		transactions
@@ -389,6 +479,14 @@ export function monthStatements({
 			return la === lb ? (a.name < b.name ? -1 : 1) : la < lb ? -1 : 1;
 		});
 	return sorted.map((account, index) =>
-		buildStatement({ month, account, index, transactions, classifications, receiptNumbers })
+		buildStatement({
+			month,
+			account,
+			index,
+			transactions,
+			classifications,
+			receiptNumbers,
+			collectFees
+		})
 	);
 }

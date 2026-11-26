@@ -118,7 +118,7 @@ test('Aleph: the month’s usage in sums per resource, the same as the Verbrauch
 	const usage = csv.filter((l) => l.includes('Verbrauch (aus Guthaben abgerechnet)'));
 	assert.equal(usage.length, 2);
 	assert.ok(
-		usage.every((l) => l.startsWith('EB-2026-007;') && /;ja;$/.test(l)),
+		usage.every((l) => l.startsWith('EB-2026-007;') && /;ja;;$/.test(l)),
 		usage.join('\n')
 	);
 });
