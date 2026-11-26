@@ -39,7 +39,7 @@ vi.mock('$lib/backup/aleph-signer.js', () => ({
 /** What the mocked Aleph says of each message, and what it does with a POST. */
 /** @type {Record<string, any>} */
 let said;
-/** @type {(message: any) => { status: number, body: any }} */
+/** @type {(message: any) => Response} */
 let onPost;
 /** @type {Array<{ method: string, url: string, body?: any }>} */
 let asked;
@@ -56,7 +56,17 @@ const context = /** @type {any} */ ({
 const json = (/** @type {number} */ status, /** @type {any} */ body) =>
 	new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
+/** @type {Map<string, string>} */
+let stored;
+
 beforeEach(() => {
+	// The network pause is kept in localStorage (network-pause.js).
+	stored = new Map();
+	/** @type {any} */ (globalThis).localStorage = {
+		getItem: (/** @type {string} */ k) => stored.get(k) ?? null,
+		setItem: (/** @type {string} */ k, /** @type {string} */ v) => stored.set(k, String(v)),
+		removeItem: (/** @type {string} */ k) => stored.delete(k)
+	};
 	settings.clear();
 	settings.set(VM_SETTING, {
 		instance: VM,
@@ -85,8 +95,7 @@ beforeEach(() => {
 			const body = init.body ? JSON.parse(init.body) : undefined;
 			asked.push({ method, url, body });
 			if (method === 'POST' && url === `${API}/api/v0/messages`) {
-				const { status, body: answer } = onPost(body.message);
-				return json(status, answer);
+				return onPost(body.message);
 			}
 			const hash = /\/api\/v0\/messages\/([0-9a-f]{64})$/.exec(url)?.[1];
 			if (method === 'GET' && hash) {
@@ -102,6 +111,7 @@ beforeEach(() => {
 afterEach(() => {
 	vi.unstubAllGlobals();
 	setNetworkPause(null);
+	delete (/** @type {any} */ (globalThis).localStorage);
 });
 
 const forgottenVm = () => ({ status: 'forgotten', item_hash: VM, forgotten_by: [FORGET] });
