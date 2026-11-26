@@ -4,7 +4,8 @@
 // MIME type. Parsed as XML, the text runs no script and never becomes part of
 // the page, so this policy passes it through unchanged; it exists so that
 // parsing XML is the one thing it can be used for.
-const policy = globalThis.trustedTypes?.createPolicy?.('belege-xml', {
+// The bundled DOM types do not know `trustedTypes` yet.
+const policy = /** @type {any} */ (globalThis).trustedTypes?.createPolicy?.('belege-xml', {
 	createHTML: (/** @type {string} */ xml) => xml
 });
 
