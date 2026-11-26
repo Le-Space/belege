@@ -21,6 +21,7 @@
 	import RecoveryWords from './RecoveryWords.svelte';
 	import OtherBooksOffer from './OtherBooksOffer.svelte';
 	import PasskeyStepDialog from '$lib/PasskeyStepDialog.svelte';
+	import { keysOffersVaultIndex } from './vault-offer.js';
 
 	let label = $state('');
 	let publish = $state(true);
@@ -59,6 +60,15 @@
 	});
 	// One passkey and no recovery words: its loss is the books' loss.
 	const single = $derived(app.vault.slots.length < 2 && !app.vault.words);
+	// The vault on Aleph, offered with one passkey too (#1049): an empty device
+	// then finds the books and their backups with it alone.
+	const offerIndex = $derived(
+		keysOffersVaultIndex({
+			owner: !app.member && app.vault.slots.length > 0,
+			indexOn: app.vault.indexOn,
+			paused
+		})
+	);
 
 	/** @param {string} iso */
 	const when = (iso) =>
@@ -228,7 +238,7 @@
 		</p>
 	{/if}
 
-	{#if !app.vault.indexOn && !single && !paused}
+	{#if offerIndex}
 		<p class="mt-3 text-sm text-text" data-testid="keys-not-published">
 			{t('settings.keys.notPublished')}
 			<button

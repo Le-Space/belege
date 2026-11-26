@@ -154,7 +154,10 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 62: Le Space Credits also receives cancellations ("Verträge hier kündigen")
 //     and withdrawals ("Vertrag widerrufen") from the app, and uses the e-mail
 //     Stripe has to confirm them too, not only a purchase.
-export const CONSENT_VERSION = '62';
+// 63: the books' vault on Aleph is offered with a single passkey too, asked
+//     once after the first backup (#1049); the sealed pointer to the paying
+//     account beside it at the root's address is named.
+export const CONSENT_VERSION = '63';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

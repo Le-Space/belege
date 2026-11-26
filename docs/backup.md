@@ -6,10 +6,12 @@ A backup holds everything Belege keeps in this browser: the databases of the boo
 
 ## What you need to restore
 
-On an empty device, two things:
+On an empty device, a passkey of these books – and, unless the vault is kept on Aleph, the paying account's address:
 
 1. **A passkey of these books.** The backup's key is derived from the books' root, which every passkey with a slot in the vault opens – also backups made before it had one. A passkey of other books does not open it ("gehört zu anderen Büchern").
 2. **The address of the Aleph account that pays**, or the backup's CID. Belege finds the backups through the account: it asks Aleph for that account's STORE messages on the channel `BELEGE-BACKUP`. The address is public; write it down. `pnpm setup:aleph` shows it, a paired bridge names it by itself, and once the vault is kept on Aleph an empty device learns it from there.
+
+**One passkey is enough once the vault is on Aleph** ([#1049](https://github.com/Le-Space/belege/issues/1049)). After the first backup the card asks once: "Tresor bei Aleph hinterlegen?". Yes publishes the books' vault, sealed: at an address from the passkey's PRF answer (index P) the vault record, and at an address from the books' root (index M) the current record and the paying account, sealed under a key from the root. No names, no labels, no wallet. Every later backup keeps index M current. Then "Mit vorhandenem Passkey wiederherstellen" on an empty device goes passkey → index P → vault → root → index M → account → the account's backups, and the backup card lists them without anything typed. No keeps the vault in this browser and on your own devices, and the empty device asks for the address as before; Einstellungen → Schlüssel still offers "Jetzt hinterlegen". Nothing of this is asked or published while the network is paused. Where index P lies is in [keys.md](keys.md).
 
 ## Set up once
 
@@ -76,11 +78,11 @@ This browser's key is made here and kept sealed in the settings, as the bridge t
 
 A full backup comes back together with all its increments: the card lists each full backup with how many there are (Aleph's `refs=`, and the history here), fetches them all, and refuses a chain with a hole – its newer heads would point at entries nobody has. An increment alone is not restored; its full backup is.
 
-_Integrationen → Backup_, in the "Backups" list, **"Wiederherstellen"** on a full backup, after unlocking with **a passkey of these books**. On a new device that means "Mit vorhandenem Passkey wiederherstellen", then entering the paying account's address if the card does not know it yet.
+_Integrationen → Backup_, in the "Backups" list, **"Wiederherstellen"** on a full backup, after unlocking with **a passkey of these books**. On a new device that means "Mit vorhandenem Passkey wiederherstellen"; with the vault on Aleph the card knows the account from there, otherwise you enter the paying account's address.
 
 The list shows, grouped by chain – a full backup with its increments, the current chain first, deleted ones folded away –:
 
-- the backups kept for the account, whether the bridge or an allowed key sent them. The browser asks Aleph directly, without the bridge. The address comes from the settings or the paired bridge, or you enter it;
+- the backups kept for the account, whether the bridge or an allowed key sent them. The browser asks Aleph directly, without the bridge. The address comes from the settings, the paired bridge or the books' vault on Aleph, or you enter it;
 - the backups made from this browser.
 
 A CID can also be typed ("Per CID wiederherstellen"). After a question, the browser fetches the sealed file from Aleph's gateway, opens it with the key from the passkey as it arrives, and puts every database and receipt file back. It **merges**: what is in the books here stays, what the backup holds is added, nothing is deleted. The page then reloads, and the passkey opens the books again.

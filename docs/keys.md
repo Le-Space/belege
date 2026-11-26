@@ -42,7 +42,7 @@ In this browser the vault record is in `localStorage`, and the same record is in
 
 **An empty device with a passkey of its own** gets the vault from a device with the books, by QR, after "Zulassen" there – no server involved ([device-proof.md](device-proof.md#a-device-with-a-passkey-of-its-own-962)). If the books keep their vault on Aleph, that device later publishes its passkey's own index there too, since only it has that passkey's answer.
 
-On an empty device, a passkey finds it on Aleph, if it was kept there (_Einstellungen → Schlüssel_, and after each backup from then on):
+On an empty device, a passkey finds it on Aleph, if it was kept there (_Einstellungen → Schlüssel_, or the question asked once after the first backup – with a single passkey too, [#1049](https://github.com/Le-Space/belege/issues/1049) –, and after each backup from then on):
 
 - **at its own index** – an address derived from that passkey's PRF output, where the vault was put when the passkey got its slot;
 - **at the words' index** – an address derived from the recovery words' seed, likewise;

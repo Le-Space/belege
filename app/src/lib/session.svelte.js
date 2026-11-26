@@ -93,9 +93,11 @@ export const app = $state({
 	 * `words`: the recovery words' slot, when there is one (stage 2).
 	 * `lost`: the names of passkeys only this browser's vault had, after it
 	 * took the one published on Aleph (#555) – added again to be in it.
-	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean, words: { addedAt: string } | null, lost: string[] }}
+	 * `answered`: the backup card's question whether to keep the vault on
+	 * Aleph was answered, yes or no (#1049, keys/vault-offer.js).
+	 * @type {{ slots: { kid: string, label: string, addedAt: string, mine: boolean }[], indexOn: boolean, answered: boolean, words: { addedAt: string } | null, lost: string[] }}
 	 */
-	vault: { slots: [], indexOn: false, words: null, lost: [] },
+	vault: { slots: [], indexOn: false, answered: false, words: null, lost: [] },
 	/** Books just made: recovery words are offered once (keys/WordsOffer.svelte). */
 	offerWords: false,
 	/**
@@ -849,6 +851,8 @@ function ownerVault() {
 
 /** The setting that says the vault is published on Aleph (#406). */
 const VAULT_INDEX_SETTING = 'vault/index';
+/** The answer to the backup card's question to publish it (#1049): 'declined'. */
+const VAULT_OFFER_SETTING = 'vault/index-offer';
 
 /** What the keys page shows of the open vault. */
 async function showVault() {
@@ -870,6 +874,7 @@ async function showVault() {
 				mine: v.kid === kid
 			})),
 		indexOn: (await getSetting(session.store.settings, VAULT_INDEX_SETTING)) === true,
+		answered: (await getSetting(session.store.settings, VAULT_OFFER_SETTING)) === 'declined',
 		words: words ? { addedAt: known.get(wordsKid)?.addedAt ?? '' } : null,
 		lost: lostSlots
 	};
@@ -1038,6 +1043,19 @@ export async function openOtherBooks() {
 	session = null;
 	location.reload();
 	return new Promise(() => {});
+}
+
+/**
+ * "Nein" to the backup card's question to keep the vault on Aleph (#1049):
+ * kept in the books' sealed settings, so it is not asked again. The vault
+ * stays in this browser and on the own devices; Einstellungen → Schlüssel
+ * still offers it.
+ */
+export async function declineVaultIndex() {
+	if (!session) throw new Error('The books are not open.');
+	ownerVault();
+	await setSetting(session.store.settings, VAULT_OFFER_SETTING, 'declined');
+	await showVault();
 }
 
 /**
