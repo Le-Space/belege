@@ -6,6 +6,8 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+## [0.65.0] – 2026-11-27
+
 ### Added
 
 - **Acknowledgments where they matter** (#1053). Texts are drafts, to be reviewed by the lawyer before they are final.
