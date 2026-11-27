@@ -397,3 +397,90 @@ describe('statement PDF', () => {
 		expect(pdfText('\u22121 日本')).toBe('\u22121 日本');
 	});
 });
+
+describe('network fees on the statement (#1044)', () => {
+	/** A made-up Akash wallet. */
+	const AKT = {
+		id: 'W-AKT',
+		name: 'Wallet AKT Test',
+		source: 'akash',
+		kind: 'wallet',
+		asset: 'AKT',
+		decimals: 6,
+		ledgerAccount: '1365'
+	};
+	/** A fee of 0.005 AKT, 1 cent, with a made-up hash. @param {number} n @param {string} bookedOn */
+	const fee = (n, bookedOn) => ({
+		id: `W-AKT:fee${n}`,
+		accountId: 'W-AKT',
+		source: 'akash',
+		movement: 'fee',
+		bookedOn,
+		bookedAt: `${bookedOn}T10:0${n % 10}:00.000Z`,
+		amountCents: -1,
+		currency: 'EUR',
+		counterparty: 'Akash-Netzwerk',
+		purpose: 'Netzwerkgebühr (Gas)',
+		asset: 'AKT',
+		quantity: '-5000',
+		decimals: 6,
+		txRef: String(n).padStart(4, '0').repeat(16),
+		valuation: { rate: '2', currency: 'EUR', source: 'coingecko', at: `${bookedOn}T00:00:00Z` }
+	});
+	const sent = {
+		...fee(9, '2026-09-04'),
+		id: 'W-AKT:send',
+		movement: 'transfer',
+		amountCents: -200,
+		quantity: '-1000000',
+		counterparty: 'Konto B',
+		purpose: 'Gesendet'
+	};
+	const txs = [fee(1, '2026-09-02'), fee(2, '2026-09-03'), sent, fee(3, '2026-09-07')];
+	const build = (/** @type {Record<string, any>} */ over = {}) =>
+		buildStatement({
+			month: '2026-09',
+			account: AKT,
+			index: 0,
+			transactions: txs,
+			classifications: {},
+			receiptNumbers: new Map(),
+			...over
+		});
+
+	it('folds a month’s fees into one line on the last fee’s day; every booking stays in lines', () => {
+		const s = build();
+		expect(s.number).toBe('KA-2026-09-1365');
+		expect(s.lines).toHaveLength(4);
+		expect(s.lines.filter((l) => l.group === 'NG-2026-09-AKT')).toHaveLength(3);
+		expect(s.shown.map((l) => [l.date, l.text, l.amountCents, l.quantity, l.receipt])).toEqual([
+			['2026-09-04', 'Konto B · Gesendet', -200, '-1000000', '—'],
+			['2026-09-07', 'Netzwerkgebühren · 3 Transaktionen · −0,03 €', -3, '-15000', '—']
+		]);
+		expect(s.feeGroups.map((g) => [g.label, g.count])).toEqual([['NG-2026-09-AKT', 3]]);
+		expect(s.totals).toMatchObject({ outCents: -203, quantity: '-1015000' });
+		// Switched off, or a single fee: a line each.
+		expect(build({ collectFees: false }).shown).toHaveLength(4);
+		const single = build({ transactions: [fee(1, '2026-09-02'), sent] });
+		expect(single.feeGroups).toEqual([]);
+		expect(single.shown).toHaveLength(2);
+	});
+
+	it('draws the collective line and, after the totals, each fee with its hash', async () => {
+		const bytes = await statementPdf(build(), { created: new Date('2026-10-05T12:00:00Z') });
+		const { text } = await extractText(await getDocumentProxy(bytes), { mergePages: true });
+		const flat = text.replace(/\s+/g, ' ');
+		for (const part of [
+			'Auszug-Nr. KA-2026-09-1365',
+			'07.09.2026 Netzwerkgebühren · 3 Transaktionen -0,015 -0,03 —',
+			'−0,03 € · Sammelposten NG-2026-09-AKT · jede Gebühr im Anhang',
+			'Anhang: Netzwerkgebühren',
+			'NG-2026-09-AKT · 3 Transaktionen',
+			'02.09.2026 10:01:00 UTC -0,005 2,00 CG -0,01',
+			`Tx ${'0001'.repeat(16)}`,
+			`Tx ${'0003'.repeat(16)}`
+		])
+			expect(flat).toContain(part);
+		expect(flat.indexOf('Summe des Monats')).toBeLessThan(flat.indexOf('Anhang: Netzwerkgebühren'));
+	});
+});

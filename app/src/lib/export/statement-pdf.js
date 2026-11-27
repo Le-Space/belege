@@ -1,6 +1,8 @@
 // Draws a monthly statement (statement.js) as an A4 PDF, in the browser, with
 // pdf-lib. Loaded lazily by build.js. Text in any script the fonts have
-// (@le-space/pdf): a Russian counterparty, a Turkish purpose.
+// (@le-space/pdf): a Russian counterparty, a Turkish purpose. A wallet's
+// network fees stand as one collective line (#1044); the annex after the
+// totals lists each fee with its time, transaction hash, quantity, rate and value.
 
 /* eslint-disable belege/no-german -- a PDF for German bookkeeping stays German (#192) */
 
@@ -192,10 +194,15 @@ export async function statementPdf(statement, { created }) {
 			bold
 		);
 	}
-	for (const l of statement.lines) {
+	for (const l of statement.shown ?? statement.lines) {
+		// A collective line (#1044): its count on the line, the sum and where each fee stands below it.
+		const [name, sum] = l.collective
+			? [l.text.slice(0, l.text.lastIndexOf(' · ')), l.text.slice(l.text.lastIndexOf(' · ') + 3)]
+			: [l.text, ''];
+		if (l.collective) newPageIfNeeded(2);
 		row({
 			date: formatDate(l.date, DOCUMENT_LOCALE),
-			text: l.text,
+			text: name,
 			quantity:
 				l.quantity === null
 					? ''
@@ -206,6 +213,15 @@ export async function statementPdf(statement, { created }) {
 			amount: euros(l.amountCents),
 			receipt: l.receipt
 		});
+		if (l.collective) {
+			y += 2;
+			regular.draw(
+				page,
+				pdfText(`${sum} · Sammelposten ${l.collective.label} · jede Gebühr im Anhang`),
+				{ x: MARGIN + columns[0].width, y, size: 6, color: GREY }
+			);
+			y -= ROW - 2;
+		}
 	}
 	if (!statement.lines.length) row({ text: 'Keine Buchungen in diesem Monat.' });
 	if (statement.balances) {
@@ -281,6 +297,53 @@ export async function statementPdf(statement, { created }) {
 		for (const text of wrapped) {
 			bold.draw(page, text, { x: MARGIN, y, size: SIZE });
 			y -= ROW;
+		}
+	}
+
+	// The annex (#1044): every fee of every collective line, each checkable by its hash.
+	for (const [i, g] of (statement.feeGroups ?? []).entries()) {
+		newPageIfNeeded(6);
+		y -= ROW;
+		if (i === 0) {
+			cell('Anhang: Netzwerkgebühren', MARGIN, 400, 'left', bold, 10);
+			y -= ROW + 2;
+		}
+		cell(
+			`${g.label} · ${g.count} Transaktionen – jede Gebühr einzeln, nachprüfbar über ihren Transaktions-Hash`,
+			MARGIN,
+			A4[0] - 2 * MARGIN,
+			'left',
+			bold
+		);
+		y -= ROW;
+		tableHeader();
+		for (const l of g.lines) {
+			newPageIfNeeded(2);
+			const time = /^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})/.exec(String(l.tx.bookedAt ?? ''))?.[1];
+			row({
+				date: formatDate(l.date, DOCUMENT_LOCALE),
+				text: time ? `${time} UTC` : '',
+				quantity:
+					l.quantity === null
+						? ''
+						: formatQuantity(l.quantity, l.decimals ?? decimals, '', { locale: DOCUMENT_LOCALE }),
+				rate: l.valuation?.rate
+					? `${formatRate(String(l.valuation.rate), DOCUMENT_LOCALE)} ${SOURCE_MARK[l.valuation.source] ?? ''}`.trim()
+					: '',
+				amount: euros(l.amountCents),
+				receipt: l.receipt
+			});
+			// The full hash under it, small: the text column is too narrow for it.
+			if (l.tx.txRef) {
+				y += 2;
+				regular.draw(page, pdfText(`Tx ${String(l.tx.txRef)}`), {
+					x: MARGIN + columns[0].width,
+					y,
+					size: 6,
+					color: GREY
+				});
+				y -= ROW - 2;
+			}
 		}
 	}
 

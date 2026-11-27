@@ -3,9 +3,15 @@
 // it paid its providers) and a fake indexer on 127.0.0.1, the real bridge in
 // test mode with fixed rates, and the app. Sync the wallet, make the month's
 // statement on its card – it covers both fees –, and the export books them as
-// one collective line; the ACT account adds up. Every address, hash, dseq
-// and amount is made up.
+// one collective line; the ACT account adds up. The ZIP's account statement
+// shows the two fees as one collective line with its annex (#1044), and
+// Belegfeld 1 of the collective booking – and of each fee, collected or not –
+// names the receipt that line names. Every address, hash, dseq and amount is
+// made up.
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { unzipSync } from 'fflate';
+import { extractText, getDocumentProxy } from 'unpdf';
 
 import {
 	akashDeployment,
@@ -127,8 +133,53 @@ test('an Akash month: the statement covers its fees, the export books them as on
 	await expect(page.getByTestId('export-summary')).toContainText(
 		'2 Buchungen · 1 im Buchungsstapel'
 	);
+	const collected = await exported(page);
+	expect(collected.bookings).toHaveLength(1);
+	const [belegfeld] = collected.bookings[0];
+	expect(belegfeld).toMatch(/^2026-09-\d{3}$/);
+	// The statement: one collective line naming that receipt, each fee in the annex.
+	expect(collected.statement).toContain('Auszug-Nr. KA-2026-09-1365');
+	expect(collected.statement).toContain(
+		`Netzwerkgebühren · 2 Transaktionen -0,01 -0,02 ${belegfeld}`
+	);
+	expect(collected.statement).toContain('Sammelposten NG-2026-09-AKT');
+	expect(collected.statement).toContain('Anhang: Netzwerkgebühren');
+	expect(collected.statement.match(/Tx [0-9A-F]{64}/g)).toHaveLength(2);
+
 	await page.getByTestId('export-collect-fees').uncheck();
 	await expect(page.getByTestId('export-summary')).toContainText(
 		'2 Buchungen · 2 im Buchungsstapel'
 	);
+	// A booking per fee: the same Belegfeld 1, the statement as before.
+	const single = await exported(page);
+	expect(single.bookings.map(([b]) => b)).toEqual([belegfeld, belegfeld]);
+	expect(single.statement).toContain(`Netzwerkgebühren · 2 Transaktionen -0,01 -0,02 ${belegfeld}`);
 });
+
+/**
+ * Downloads the month's ZIP: Belegfeld 1 and Buchungstext of each booking in
+ * the Buchungsstapel, and the text of the wallet's account statement.
+ *
+ * @param {import('@playwright/test').Page} page
+ */
+async function exported(page) {
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByTestId('export-download').click()
+	]);
+	const zip = unzipSync(new Uint8Array(await readFile(await download.path())));
+	const csv = new TextDecoder('windows-1252').decode(zip['DATEV/EXTF_Buchungsstapel_2026-09.csv']);
+	const bookings = csv
+		.split('\r\n')
+		.slice(2)
+		.filter(Boolean)
+		.map((line) => line.split(';'))
+		.map((f) => [f[10].replace(/"/g, ''), f[13].replace(/"/g, '')]);
+	const name = Object.keys(zip).find((f) => f.startsWith('Kontoauszuege/KA-2026-09-1365'));
+	expect(name).toBeTruthy();
+	const { text } = await extractText(
+		await getDocumentProxy(zip[/** @type {string} */ (name)].slice()),
+		{ mergePages: true }
+	);
+	return { bookings, statement: text.replace(/\s+/g, ' ') };
+}

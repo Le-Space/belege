@@ -21,13 +21,15 @@
 // 1 yoctoNEAR a token transfer attaches as its security deposit (no payment,
 // 10⁻²⁴ NEAR), so an account that moved tokens is off by a few yocto.
 
-import { normalize, sum } from '@le-space/ledger';
+import { groupNetworkFees, normalize, round, sum } from '@le-space/ledger';
 import {
 	CHAIN_NAMES,
 	dataSourceOf,
 	checkValued,
 	conversionText,
+	currencyPlaces,
 	documentCurrency,
+	formats,
 	kindText,
 	sourceName
 } from './document.js';
@@ -156,13 +158,60 @@ export const STATEMENT_NOTE_EN =
  * @property {string} balance running balance after it
  * @property {string} eur signed value at the day's rate, in the statement's currency (EUR unless another), or ''
  * @property {string} [rateSource] where that value's rate came from (`eur.source`), '' or absent when unknown
+ * @property {string} [rate] that rate, per unit of the asset (`eur.rate`), '' or absent when unknown
  * @property {string} beleg the Eigenbeleg's number, when the booking has one
  * @property {boolean} fee
  * @property {boolean} usage consumption billed from the balance (Aleph credits, a Filecoin Pay settlement)
  * @property {boolean} purchase credits bought from Aleph (the payment is on another chain, with its own Eigenbeleg)
  * @property {string} label the counterparty's label alone (the resource's name, for usage)
  * @property {string} hashLabel what the hash is: `Tx`, or `Ressource` for Aleph's usage
+ * @property {string} [group] the collective line a network fee is in (`feeGroupLabel`), '' or absent when none
+ * @property {FeeGroupLine} [collective] on a collective line only: what it sums
  */
+
+/**
+ * @typedef {object} FeeGroupLine one collective line for a wallet's network fees of a month (#1044)
+ * @property {string} label `NG-<month>-<asset>`: names it on the statement, in its annex and in the CSV
+ * @property {string} month YYYY-MM
+ * @property {number} count
+ * @property {string} amount in the asset, positive
+ * @property {string} eur signed, in the statement's currency, unrounded; '' when a fee had no rate
+ * @property {StatementRow[]} rows every fee it sums, oldest first, as the rows above have them
+ */
+
+/**
+ * The name of a wallet's collective line for its network fees of a month: the
+ * statement prints it on the line and above its annex, the CSV in its column.
+ *
+ * @param {string} month YYYY-MM
+ * @param {string} asset
+ */
+export const feeGroupLabel = (month, asset) => `NG-${month}-${asset}`;
+
+/**
+ * The network fees of a list of entries that a statement folds into one line
+ * per wallet, month and asset (`@le-space/ledger`'s groupNetworkFees, from two
+ * fees on): entry index → its group's label. A failed transaction's fee is in
+ * no statement (its rows leave it out), so it is in no group either.
+ *
+ * @param {Partial<import('@le-space/ledger').LedgerEntry>[]} entries
+ * @returns {Map<number, string>}
+ */
+export function feeGroupsOf(entries) {
+	// Indices as ids: the grouping hands back its members by id, and an entry may lack one.
+	const width = String(entries.length).length;
+	const keyed = entries.map((e, i) => ({ ...e, id: String(i).padStart(width, '0') }));
+	/** @type {Map<number, string>} */
+	const out = new Map();
+	for (const g of groupNetworkFees(
+		keyed.filter((e) => e.success !== false),
+		{ min: 2 }
+	)) {
+		const label = feeGroupLabel(g.month, g.asset);
+		for (const id of g.ids) out.set(Number(id), label);
+	}
+	return out;
+}
 
 /**
  * @typedef {object} MonthlyLine one line of the month's summary
@@ -234,6 +283,83 @@ export function monthly(rows, language = 'de') {
 }
 
 /**
+ * The table of a section with each collective line of network fees in place
+ * of its fees (#1044): on the last fee's day, after the rows before it. The
+ * running balance is counted again along the table, so every line's balance
+ * is the one above it plus the line; a row between two fees of a group
+ * shows its balance before the group's fees, which the collective line then
+ * takes. From the collective line on, and at the end, the balance is the
+ * chain's to the last unit.
+ *
+ * @param {StatementRow[]} rows every booking, `group` set on the fees to collect
+ * @param {string} opening
+ * @param {string} currency
+ * @param {import('./language.js').DocumentLanguage} L
+ * @returns {{ lines: StatementRow[], feeGroups: FeeGroupLine[] }}
+ */
+function collectFeeRows(rows, opening, currency, L) {
+	if (!rows.some((r) => r.group)) return { lines: rows, feeGroups: [] };
+	/** @type {Map<string, StatementRow[]>} */
+	const members = new Map();
+	for (const r of rows) if (r.group) members.set(r.group, [...(members.get(r.group) ?? []), r]);
+	/** @type {FeeGroupLine[]} */
+	const feeGroups = [...members].map(([label, rs]) => ({
+		label,
+		month: rs[0].date.slice(0, 7),
+		count: rs.length,
+		amount: sum(rs.map((r) => r.debit || `-${r.credit || '0'}`)),
+		eur: rs.every((r) => r.eur) ? sum(rs.map((r) => r.eur)) : '',
+		rows: rs
+	}));
+	const { money } = formats(L);
+	/** @type {StatementRow[]} */
+	const lines = [];
+	let balance = normalize(opening);
+	for (const r of rows) {
+		const g = r.group ? feeGroups.find((x) => x.label === r.group) : undefined;
+		if (!g) {
+			balance = sum([balance, r.credit || '0', r.debit ? `-${r.debit}` : '0']);
+			lines.push({ ...r, balance });
+			continue;
+		}
+		if (r !== g.rows[g.rows.length - 1]) continue;
+		balance = sum([balance, g.amount.startsWith('-') ? g.amount.slice(1) : `-${g.amount}`]);
+		const value = g.eur
+			? money(round(g.eur, currencyPlaces(currency)), currency).replace(/^-/, '−')
+			: '';
+		lines.push({
+			date: r.date,
+			time: r.time,
+			text: [
+				say(L, 'Netzwerkgebühren', 'Network fees'),
+				`${g.count} ${say(L, 'Transaktionen', 'transactions')}`,
+				value
+			]
+				.filter(Boolean)
+				.join(' · '),
+			counterparty: '',
+			hash: '',
+			explorerUrl: '',
+			debit: g.amount.startsWith('-') ? '' : g.amount,
+			credit: g.amount.startsWith('-') ? g.amount.slice(1) : '',
+			balance,
+			eur: g.eur,
+			rateSource: '',
+			rate: '',
+			beleg: '',
+			fee: true,
+			usage: false,
+			purchase: false,
+			label: '',
+			hashLabel: '',
+			group: g.label,
+			collective: g
+		});
+	}
+	return { lines, feeGroups };
+}
+
+/**
  * @param {object} p
  * @param {{ name: string, address: string }} p.payer the account holder
  * @param {string} p.account the own address
@@ -255,6 +381,9 @@ export function monthly(rows, language = 'de') {
  *   chain's list whose balance is in `opening`/`closing` (the reader's balances, #93);
  *   for one that moved in the period its entries name it already
  * @param {import('./language.js').DocumentLanguage} [p.language] `de` (the default) or `en` (language.js)
+ * @param {boolean} [p.collectFees] a wallet's network fees of a month as one line, from two fees on,
+ *   each listed in the annex (#1044); on unless switched off. `rows` keeps every fee either way,
+ *   `lines` is what the table shows
  */
 export function buildStatement({
 	payer,
@@ -273,7 +402,8 @@ export function buildStatement({
 	dataSource,
 	currency: asked,
 	contracts = {},
-	language: askedLanguage
+	language: askedLanguage,
+	collectFees = true
 }) {
 	const currency = documentCurrency(asked);
 	const L = documentLanguage(askedLanguage);
@@ -298,7 +428,9 @@ export function buildStatement({
 		let balance = normalize(opening[asset] ?? '0');
 		/** @type {StatementRow[]} */
 		const rows = [];
-		for (const e of own.filter((x) => x.asset === asset)) {
+		const list = own.filter((x) => x.asset === asset);
+		const groupOf = collectFees ? feeGroupsOf(list) : new Map();
+		for (const [i, e] of list.entries()) {
 			balance = sum([balance, e.amount]);
 			const out = e.amount.startsWith('-');
 			rows.push({
@@ -316,6 +448,7 @@ export function buildStatement({
 				balance,
 				eur: e.eur?.value ?? '',
 				rateSource: e.eur?.value ? e.eur.source : '',
+				rate: e.eur?.value ? e.eur.rate : '',
 				beleg: belege.get(e.hash) ?? '',
 				fee: e.type === 'fee',
 				usage: e.kind === 'usage',
@@ -323,9 +456,11 @@ export function buildStatement({
 				label: e.counterpartyLabel,
 				// Aleph's usage names a resource; a Filecoin Pay settlement is a transaction.
 				hashLabel:
-					e.kind === 'usage' && e.chain === 'aleph' ? say(L, 'Ressource', 'Resource') : 'Tx'
+					e.kind === 'usage' && e.chain === 'aleph' ? say(L, 'Ressource', 'Resource') : 'Tx',
+				group: groupOf.get(i) ?? ''
 			});
 		}
+		const { lines, feeGroups } = collectFeeRows(rows, opening[asset] ?? '0', currency, L);
 		const debit = sum(rows.map((r) => r.debit || '0'));
 		const credit = sum(rows.map((r) => r.credit || '0'));
 		const reported = closing[asset];
@@ -343,6 +478,8 @@ export function buildStatement({
 			debit,
 			credit,
 			rows,
+			lines,
+			feeGroups,
 			monthly: monthly(rows, L),
 			eurOut: sum(rows.filter((r) => r.debit && r.eur).map((r) => r.eur.replace(/^-/, ''))),
 			eurIn: sum(rows.filter((r) => r.credit && r.eur).map((r) => r.eur)),
@@ -387,6 +524,7 @@ export function buildStatement({
 		testnet: network !== 'mainnet',
 		period,
 		currency,
+		collectFees,
 		method,
 		at,
 		sections,

@@ -10,10 +10,15 @@
 //
 // In English (`doc.language`, language.js): English heads and words, decimal
 // points; still semicolons, since texts hold commas.
+//
+// A wallet's network fees of a month that the statement folds into one
+// collective line (#1044) stay a line each here; the last column names that
+// collective line (`NG-<month>-<asset>`, as the statement and its annex do).
 
 import { round } from '@le-space/ledger';
 import { currencyPlaces, kindText } from './document.js';
 import { localizeLabel, localizeSource } from './language.js';
+import { feeGroupsOf } from './statement.js';
 
 /** The head; rate and value name the document's currency. @param {string} currency */
 const header = (currency) => [
@@ -36,7 +41,8 @@ const header = (currency) => [
 	'Transaktions-Hash',
 	'Explorer',
 	'Auf Eigenbeleg',
-	'Hinweis'
+	'Hinweis',
+	'Sammelposten'
 ];
 
 /** The head in English. @param {string} currency */
@@ -60,7 +66,8 @@ const headerEn = (currency) => [
 	'Transaction hash',
 	'Explorer',
 	'On receipt',
-	'Note'
+	'Note',
+	'Group'
 ];
 
 const DIRECTION = { sent: 'Ausgang', received: 'Eingang', fee: 'Gebühr' };
@@ -78,9 +85,11 @@ function cell(v) {
 
 /**
  * @param {import('./document.js').EigenbelegDocument} doc
+ * @param {{ collectFees?: boolean }} [o] collectFees: name each network fee's collective line in the
+ *   last column, as the statement folds them (#1044); on unless switched off, as the statement's own
  * @returns {string}
  */
-export function eigenbelegCsv(doc) {
+export function eigenbelegCsv(doc, { collectFees = true } = {}) {
 	const currency = doc.currency ?? 'EUR';
 	const en = doc.language === 'en';
 	/** A plain number in the document's language: a decimal comma, or a point. @param {string} x */
@@ -91,6 +100,24 @@ export function eigenbelegCsv(doc) {
 	const places = currencyPlaces(currency);
 	const numberOf = (/** @type {number | string} */ pos) =>
 		doc.layout === 'single' ? (doc.transactions[Number(pos) - 1]?.number ?? '') : doc.number;
+	// The collective lines of the statement (#1044): each account's network fees of a month, from two on.
+	/** @type {Map<import('./value.js').ValuedEntry, string>} */
+	const groupOf = new Map();
+	if (collectFees) {
+		const all = [...doc.positions.map((p) => p.entry), ...doc.excluded.map((x) => x.entry)];
+		/** @type {Map<string, import('./value.js').ValuedEntry[]>} */
+		const byAccount = new Map();
+		for (const e of all)
+			byAccount.set(`${e.chain}|${e.network}|${e.account}`, [
+				...(byAccount.get(`${e.chain}|${e.network}|${e.account}`) ?? []),
+				e
+			]);
+		for (const list of byAccount.values()) {
+			// In time order, as the statement reads them.
+			const sorted = [...list].sort((a, b) => String(a.time).localeCompare(String(b.time)));
+			for (const [i, label] of feeGroupsOf(sorted)) groupOf.set(sorted[i], label);
+		}
+	}
 	/** @param {import('./value.js').ValuedEntry} e @param {string | number} pos @param {boolean} on @param {string} why */
 	const line = (e, pos, on, why) => [
 		on ? numberOf(pos) : '',
@@ -114,7 +141,8 @@ export function eigenbelegCsv(doc) {
 		e.hash,
 		e.explorerUrl,
 		on ? yes : en ? 'no' : 'nein',
-		why
+		why,
+		groupOf.get(e) ?? ''
 	];
 	for (const p of doc.positions) rows.push(line(p.entry, p.pos, true, ''));
 	// A month's consumption (consumption.js): every usage entry it sums, under its own number; the position is its line.
@@ -155,6 +183,7 @@ export function eigenbelegCsv(doc) {
 		'',
 		'',
 		yes,
+		'',
 		''
 	]);
 	return '\uFEFF' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
