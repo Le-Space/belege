@@ -50,6 +50,10 @@ test('recovery words open the same books when every passkey is gone', async ({ p
 	await page.getByTestId('words-offer-go').click();
 	const keys = page.getByTestId('keys-card');
 	await expect(keys.getByTestId('keys-single')).toBeVisible();
+	// Nobody can restore it, and Le Space takes no liability (#1053).
+	await expect(keys.getByTestId('keys-single-no-restore')).toContainText(
+		'Le Space kennt deinen Passkey nicht und kann ihn nicht wiederherstellen'
+	);
 	await expect(keys.getByTestId('words-none')).toBeVisible();
 	await expect(page.getByTestId('words-offer')).toHaveCount(0);
 
@@ -59,8 +63,23 @@ test('recovery words open the same books when every passkey is gone', async ({ p
 	await expect(shown).toHaveCount(24);
 	const words = await shown.allTextContents();
 	await expect(keys.getByTestId('words-next')).toBeDisabled();
+	await expect(keys.getByTestId('words-no-restore')).toContainText(
+		'die Le Space UG haftet nicht für ihren Verlust'
+	);
+	await expect(keys.getByTestId('words-written').locator('..')).toContainText(
+		'Ich habe die Wörter aufgeschrieben und weiß, dass niemand sie wiederherstellen kann.'
+	);
 	await keys.getByTestId('words-written').check();
 	await keys.getByTestId('words-next').click();
+	// Kept with the text's version in the sealed settings.
+	await expect
+		.poll(() =>
+			page.evaluate(async () => {
+				const r = await /** @type {any} */ (window).__belegeE2E.acknowledgment('recovery-words');
+				return r?.entries?.[0]?.text;
+			})
+		)
+		.toBe('keys-1');
 
 	// Three asked back: a wrong one is refused, then the right ones.
 	const inputs = keys.getByTestId('words-ask-input');

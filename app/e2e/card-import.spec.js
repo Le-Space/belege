@@ -48,6 +48,7 @@ test('a credit card statement read from CSV, shown, imported once, among the pay
 		});
 	});
 
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-file').click();
 	const cards = page.getByTestId('cards-card');
 	await cards.getByTestId('card-add').click();

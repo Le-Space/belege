@@ -24,6 +24,7 @@ test('look around with sample data, marked everywhere, never mixed, removed with
 	const tab = (name) => page.getByRole('link', { name, exact: true });
 	const banner = page.getByTestId('sample-banner');
 	await expect(banner).toHaveCount(0);
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-look').click();
 	await expect(banner).toBeVisible({ timeout: 60_000 });
 

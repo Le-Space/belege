@@ -157,7 +157,12 @@ export const CONSENT_STORAGE_KEY = 'belege.consent';
 // 63: the books' vault on Aleph is offered with a single passkey too, asked
 //     once after the first backup (#1049); the sealed pointer to the paying
 //     account beside it at the root's address is named.
-export const CONSENT_VERSION = '63';
+// 64: "Nutzung und Haftung" says that Belege is not a cloud app and Le Space
+//     can restore nothing, that nobody but the person keeps passkeys and
+//     recovery words, and that the DATEV export is still in development;
+//     "Verstanden" needs "gelesen" ticked, and the acceptance is also kept in
+//     the books' sealed settings (#1053).
+export const CONSENT_VERSION = '64';
 
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} FlagStorage */
 

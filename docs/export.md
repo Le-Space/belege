@@ -6,6 +6,7 @@ Once a month, Belege makes one ZIP for the bookkeeping: the month's bookings as 
 
 ```
 DATEV_2026-09.zip
+├── HINWEIS.txt                             the notice confirmed before the download (NOTICE.txt in English)
 ├── DATEV/EXTF_Buchungsstapel_2026-09.csv   Windows-1252, for the import
 ├── Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf
 ├── Belege/2026-09-002_….pdf
@@ -55,6 +56,14 @@ Pre-assignment stays the default. Where a booking is still unclear at the month'
   - bookings without a receipt stay a warning.
 
 The suspense account carries no input VAT and no expense account: the VAT return and the profit are right only once it is re-booked, and it must be empty by the year-end. Which account, and who re-books, is to be agreed with the tax adviser. This is no tax advice.
+
+### The notice before every download (#1053)
+
+The export is still in development: it is not checked for every constellation and not certified by DATEV. Above the download button the page says so, and asks for every export: _Ich prüfe den Export selbst, bevor ich ihn weitergebe._ Without the tick the button stays disabled; after a download the tick is gone again. Check the ZIP, and after the import into DATEV the bookings, for completeness and correctness yourself, or have your tax adviser check them.
+
+Each confirmation is kept in the books' sealed settings with the version of the text, the time, the month and the app's release – never in this browser's storage – and so goes into every backup and to every own device. Le Space has no server and keeps no copy. The copy that travels with the export is `HINWEIS.txt` (`NOTICE.txt` in English) in the ZIP: the same text, the month, when the ZIP was made, the app's release and when the notice was confirmed.
+
+**Report an error**: _Fehler melden_ beside the button opens your mail program with a mail to belege@le-space.de. Filled in are only the month, the app's release and how many bookings and receipts each check counted. No amount, name or purpose goes in by itself; what you add is up to you.
 
 ## Import into your bookkeeping
 

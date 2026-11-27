@@ -39,6 +39,7 @@
 	import NeedsCard from '$lib/integrations/NeedsCard.svelte';
 	import SetupChecklist from '$lib/setup/SetupChecklist.svelte';
 	import SafetyCard from '$lib/storage/SafetyCard.svelte';
+	import CloudBanner from '$lib/storage/CloudBanner.svelte';
 	import TotalsCard from '$lib/dashboard/TotalsCard.svelte';
 	import { integrationFacts, loadIntegrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { integrationsOverview } from '$lib/integrations/overview.js';
@@ -233,6 +234,8 @@
 		}
 	}
 </script>
+
+<CloudBanner />
 
 <h1 class="text-2xl font-bold text-heading">{greeting}!</h1>
 <p class="mt-1 text-sm text-faint">{t('home.intro')}</p>

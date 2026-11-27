@@ -28,6 +28,7 @@ async function start(page, label) {
 
 test('what the books take, and a reset that leaves nothing behind', async ({ page }) => {
 	await start(page, 'E2E Speicher');
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-look').click();
 	await expect(page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 

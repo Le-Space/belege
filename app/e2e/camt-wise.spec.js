@@ -17,6 +17,7 @@ test('a Wise statement imports: merchants, fees, the original currency', async (
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
 
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-file').click();
 	await page.getByTestId('camt-file').setInputFiles(WISE);
 	await expect(page.getByTestId('camt-error')).toHaveCount(0);

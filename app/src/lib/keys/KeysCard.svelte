@@ -143,6 +143,9 @@
 		>
 			<strong class="text-danger">{t('settings.keys.singleHeading')}</strong>
 			{t('settings.keys.single')}
+			<span class="mt-1 block" data-testid="keys-single-no-restore"
+				>{t('settings.keys.singleNoRestore')}</span
+			>
 		</p>
 	{/if}
 

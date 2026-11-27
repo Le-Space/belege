@@ -112,6 +112,7 @@ test('through the outage: the phone books an account the laptop’s model sugges
 		await laptop.page.getByTestId('passkey-label').fill('E2E Laptop');
 		await laptop.page.getByRole('button', { name: 'Passkey anlegen' }).click();
 		await expect(laptop.page.getByTestId('own-did')).toBeVisible();
+		await laptop.page.getByTestId('setup-start-ack').check();
 		await laptop.page.getByTestId('setup-start-look').click();
 		await expect(laptop.page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 		// A payment that waits for its receipt: the sample's Stromwerk invoice, paid

@@ -4,6 +4,14 @@ _Deutsch: [backup.de.md](backup.de.md)_
 
 A backup holds everything Belege keeps in this browser: the databases of the books and every receipt file, including those that came by mail. It is one file, sealed with a key from the books' vault ([keys.md](keys.md)). Aleph Cloud keeps it. Only a passkey of these books can open it, not even Aleph.
 
+## Without a backup, nothing can be restored
+
+Belege is not a cloud app. The books live in this browser and on your own devices; Le Space has no copy and cannot restore anything. A lost device or cleared site data takes the books along, unless there is a backup or a second own device.
+
+So while there is neither, Home shows a banner at the top ([#1053](https://github.com/Le-Space/belege/issues/1053)): _Belege ist keine Cloud-App._ with _Backup einrichten_ and _Verstanden_. After _Verstanden_ it shrinks to one line, but stays until there is a backup or an own device. The first start asks the same once, as a box to tick before the first step. Both confirmations are kept with the text's version and time in the books' sealed settings, never in this browser's storage.
+
+The same holds for the keys: Le Space knows neither your passkeys nor your recovery words and cannot restore them. If every passkey and the words are lost, the books and every backup can never be read again ([keys.md](keys.md)).
+
 ## What you need to restore
 
 On an empty device, a passkey of these books – and, unless the vault is kept on Aleph, the paying account's address:

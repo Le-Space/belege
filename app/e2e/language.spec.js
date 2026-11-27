@@ -16,6 +16,7 @@ test('the consent screen switches the language, and the choice is kept', async (
 	await expect(dialog.getByTestId('consent-proceed')).toHaveText('Verstanden');
 	await expect(dialog.getByTestId('consent-language-de')).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+	await dialog.getByTestId('consent-read').check();
 	await dialog.getByTestId('consent-proceed').click();
 	await expect(dialog).toBeHidden();
 

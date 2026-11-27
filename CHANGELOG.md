@@ -6,6 +6,15 @@ All notable changes to Le Space Belege. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Acknowledgments where they matter** (#1053). Texts are drafts, to be reviewed by the lawyer before they are final.
+  - **DATEV export:** a notice above the download – still in development, not checked for every constellation, not certified by DATEV; check the ZIP and the bookings after the import yourself or with the tax adviser; errors to belege@le-space.de – and a box to tick for every export (_Ich prüfe den Export selbst, bevor ich ihn weitergebe_), without which the download stays disabled. The ZIP carries `HINWEIS.txt` / `NOTICE.txt` with the text, the month, the export time, the app's release and when the notice was confirmed. _Fehler melden_ opens a mail prefilled only with the month, the release and the counts of the checks – never an amount, a name or a purpose.
+  - **No backup, no own device:** a banner at the top of Home – Belege is not a cloud app, a lost device or cleared site data takes the books, Le Space has no copy and cannot restore anything – with _Backup einrichten_ and _Verstanden_; small after _Verstanden_, gone once there is a backup or an own device. The first start asks the same once, before the first step.
+  - **Keys and recovery words:** the words dialog and the single-passkey hint say that Le Space knows neither passkey nor words, cannot restore them, and takes no liability for their loss; the box reads _Ich habe die Wörter aufgeschrieben und weiß, dass niemand sie wiederherstellen kann._
+  - **Consent screen:** one sentence for each under _Nutzung und Haftung_, and _Ich habe Nutzung und Haftung gelesen_ before _Verstanden_ (version 64).
+  - Every confirmation is kept with its text's version and time in the books' sealed settings – never in this browser's storage – and so travels with backups and own devices.
+
 ## [0.64.0] – 2026-11-26
 
 ### Added

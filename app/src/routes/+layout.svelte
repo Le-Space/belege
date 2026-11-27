@@ -35,6 +35,8 @@
 	import { captureReturn } from '$lib/enablebanking/return.js';
 	import { pendingInvite, takeLinkedInvite } from '$lib/sync/qr-link-url.js';
 	import { resetPending, wipeBrowser } from '$lib/storage/reset.js';
+	import { consent } from '$lib/consent.js';
+	import { recordConsent } from '$lib/acknowledgments.svelte.js';
 
 	// The language before the first word is drawn (i18n/, #192).
 	startLocale();
@@ -45,6 +47,12 @@
 	const shortDid = (did) => (did.length > 24 ? `${did.slice(0, 14)}…${did.slice(-6)}` : did);
 
 	let ready = $derived(app.status === 'ready');
+	const consentAccepted = consent.accepted;
+	// The consent screen comes before the books exist: once they are open, its
+	// acceptance goes into their sealed settings too (#1053), once per version.
+	$effect(() => {
+		if (ready && $consentAccepted && app.did) recordConsent().catch(() => {});
+	});
 
 	// A factory reset asked for before the reload (storage/reset.js): nothing of
 	// the app is drawn or opened until this page has wiped the browser.

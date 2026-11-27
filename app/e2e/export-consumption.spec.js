@@ -79,6 +79,7 @@ test.afterAll(async () => {
 
 /** @param {import('@playwright/test').Page} page */
 async function download(page) {
+	await page.getByTestId('export-ack').check();
 	const [file] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()

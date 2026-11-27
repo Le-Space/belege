@@ -10,6 +10,8 @@ import { expect } from '@playwright/test';
 export async function acceptConsent(page) {
 	const dialog = page.getByTestId('consent-modal');
 	await expect(dialog).toBeVisible();
+	// "Ich habe Nutzung und Haftung gelesen" (#1053).
+	await dialog.getByTestId('consent-read').check();
 	await dialog.getByTestId('consent-proceed').click();
 	await expect(dialog).toBeHidden();
 }

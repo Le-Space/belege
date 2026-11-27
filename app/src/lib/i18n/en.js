@@ -237,6 +237,8 @@ export default {
 		settingsHint: 'The setup leaves Home once nothing is open; here it stays.',
 		start: {
 			title: 'How do you want to start?',
+			// Draft (#1053): for the lawyer's review before it is final.
+			ack: 'I know: Belege is not a cloud app. My books live only in this browser. If the device is lost or the site data is cleared, they are gone. Le Space has no copy and cannot restore anything.',
 			intro:
 				'You can change the choice while the books are still empty. Everything can be set up later too.',
 			look: {
@@ -772,10 +774,15 @@ export default {
 				'Le Space Belege is provided free of charge by Le Space UG (haftungsbeschränkt), as free software (AGPL-3.0). There is no warranty that the app works without errors or stays available.',
 				'Le Space UG is liable only for intent and gross negligence. Statutory liability for injury to life, body and health and under the Product Liability Act is not affected.',
 				'Your books are only on your devices, not with us. Keeping them safe is up to you: make backups, connect a second device, and keep your bank statements and receipts elsewhere too.',
-				'Le Space Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.'
+				'Belege is not a cloud app: without a backup and without a second device, a lost device or cleared site data takes the books with it. Le Space has no copy and cannot restore anything.',
+				'Le Space knows neither your passkeys nor your recovery words and cannot restore them. If all of them are lost, the books and the backups can never be read again. Keeping them safe is up to you alone.',
+				'Le Space Belege prepares your bookkeeping; it replaces neither bookkeeping nor tax advice. Check matches, amounts read and every export before you pass it on – the AI can be wrong too.',
+				'The DATEV export is still in development, not checked for every constellation and not certified by DATEV. Check every export yourself or with your tax adviser; please report errors to belege@le-space.de.'
 			],
 			imprint: 'Imprint',
-			privacy: 'Privacy policy of Le Space UG'
+			privacy: 'Privacy policy of Le Space UG',
+			// Draft (#1053): for the lawyer's review before it is final.
+			read: 'I have read Use and liability.'
 		},
 		technicalHeading: 'Under the hood',
 		integrationNames: {
@@ -2157,6 +2164,14 @@ export default {
 			backup: 'Make a backup',
 			device: 'Connect an own device',
 			snooze: 'Again in a week',
+			// Draft (#1053): for the lawyer's review before it is final.
+			cloud: {
+				title: 'Belege is not a cloud app.',
+				text: 'Your books live only in this browser. If the device is lost or the site data is cleared, they are gone. Le Space has no copy and cannot restore anything.',
+				setup: 'Set up a backup',
+				ok: 'Understood',
+				short: 'No backup, no second device – Le Space cannot restore anything.'
+			},
 			refused:
 				'The browser said no. Chrome is more likely to agree when Belege is installed as an app or bookmarked. Only a backup or a second device makes the books safe.'
 		},
@@ -2781,7 +2796,10 @@ export default {
 				new: 'Make new words',
 				writeDown: 'Write these 24 words on paper, in this order. They are shown only now.',
 				paper: 'No photo, no notes app, no clipboard: whoever has the words opens the books.',
-				written: 'I have written down the 24 words.',
+				// Draft (#1053): noRestore and written for the lawyer's review before they are final.
+				noRestore:
+					'Le Space knows neither your passkey nor these words and cannot restore them. If every passkey and the words are lost, the books and the backups can never be read again. Keeping the words safe is up to you alone; Le Space UG takes no liability for their loss.',
+				written: 'I have written down the words and know that nobody can restore them.',
 				next: 'Next',
 				askBack: 'To check: which words are at these places?',
 				confirm: 'Confirm the words',
@@ -2804,6 +2822,9 @@ export default {
 			},
 			intro:
 				'Which passkeys open your books. Each has a slot of its own in the books’ vault; every slot opens the same books and every backup.',
+			// Draft (#1053): for the lawyer's review before it is final.
+			singleNoRestore:
+				'Le Space does not know your passkey and cannot restore it. Keeping it and the recovery words safe is up to you alone; Le Space UG takes no liability for their loss.',
 			singleHeading: 'Only one key:',
 			single:
 				'One passkey opens these books. If it is lost, the books and the backups can no longer be read. Add a second one, such as a security key you keep somewhere safe.',
@@ -3864,6 +3885,29 @@ export default {
 		done: 'Downloaded: {file} – {bookings} bookings, {receipts} receipts, {statements} bank statements.',
 		blocked: 'Sort out the items marked in red first.',
 		failed: 'The export failed: {error}',
+		// Draft (#1053): notice and noticeFile for the lawyer's review before they are final.
+		notice: {
+			title: 'The DATEV export is still in development.',
+			text: 'It is not checked for every constellation and not certified by DATEV. Check the ZIP and, after the import into DATEV, the bookings for completeness and correctness yourself, or have your tax adviser check them. Please report errors to {mail}.',
+			ack: 'I will check the export myself before I pass it on.',
+			needed: 'First confirm that you will check the export yourself.'
+		},
+		report: {
+			button: 'Report an error',
+			hint: 'Opens your mail program with the month, the app version and the counts of the checks – no amounts, names or purposes. What you add is up to you.',
+			subject: 'DATEV export {month} – error',
+			body: 'Month: {month}\nApp version: {app}\nBookings: {bookings}\nChecks: {unassigned} without an account, {unpriced} without a rate, {missingReceipt} without a receipt, {unlinked} receipts left over, {unverified} senders unconfirmed, {suspense} on the suspense account\n\nWhat is wrong?\n'
+		},
+		noticeFile: {
+			name: 'NOTICE.txt',
+			heading: 'NOTICE ON THE DATEV EXPORT',
+			month: 'Month',
+			exported: 'Exported at',
+			app: 'App version',
+			acknowledged: 'Notice confirmed at',
+			version: 'Notice version',
+			unknown: 'unknown'
+		},
 		consumption: {
 			title: 'Self-issued receipts for consumption',
 			intro:

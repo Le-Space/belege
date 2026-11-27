@@ -18,6 +18,7 @@ import { payloadEncryption } from '../entry-encryption.js';
 import { openStore } from './repository.js';
 import { isUlid } from './ids.js';
 import SealedDocuments from './sealed-documents.js';
+import { readAcknowledgment, recordAcknowledgment } from '../acknowledgments.js';
 
 const MARKER = 'Stadtwerke-Marker-7f3a9c';
 
@@ -169,6 +170,17 @@ describe('store (real OrbitDB + Helia, sealed)', () => {
 		const text = await blockstoreText();
 		expect(text).not.toContain(reason);
 		expect(text).not.toContain('Question-Marker-4a7e');
+	});
+
+	it('seals an acknowledgment in the settings like every other record (#1053)', async () => {
+		const { entry } = await recordAcknowledgment(store.settings, 'export', {
+			month: '2026-10',
+			app: 'v9.8.7-Ack-Marker'
+		});
+		expect((await readAcknowledgment(store.settings, 'export')).entries[0]).toEqual(entry);
+		const text = await blockstoreText();
+		expect(text).not.toContain('Ack-Marker');
+		expect(text).not.toContain('ack/export');
 	});
 
 	it('the index: newest version per id, copies out, and a rebuild for what came from elsewhere', async () => {

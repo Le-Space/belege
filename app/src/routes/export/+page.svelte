@@ -3,7 +3,9 @@
 	// ZIP made here in the browser (export/build.js, loaded on the click with
 	// fflate) and downloaded. Before that, the check list (export/plan.js):
 	// without a confirmed account for every booking and a ledger account for
-	// every bank account there is no export.
+	// every bank account there is no export. And for every export the person
+	// confirms that they check it themselves (#1053): kept with the text's
+	// version in the sealed settings, and as HINWEIS.txt in the ZIP.
 	import { saveFile } from '$lib/ui/save-file.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -32,6 +34,9 @@
 	import { intlLocale, list, t } from '$lib/i18n/index.js';
 	import { releaseName } from '$lib/build-info.js';
 	import ConsumptionEigenbelege from '$lib/export/ConsumptionEigenbelege.svelte';
+	import { acknowledge } from '$lib/acknowledgments.svelte.js';
+	import { ACK_TEXTS } from '$lib/acknowledgments.js';
+	import { REPORT_ADDRESS, reportMailto } from '$lib/export/report.js';
 
 	const monthFormat = $derived(
 		new Intl.DateTimeFormat(intlLocale(), {
@@ -197,11 +202,23 @@
 	/** @type {string | null} */
 	let error = $state(null);
 
+	/** The notice confirmed for this export; asked again for every one. */
+	let checked = $state(false);
+
 	$effect(() => {
 		void month;
 		done = null;
 		error = null;
+		checked = false;
 	});
+
+	// "Fehler melden": the month, the app and the counts of the checks – never an
+	// amount, a name or a purpose (export/report.js).
+	let reportHref = $derived(
+		plan
+			? reportMailto({ month: plan.month, app: releaseName(), plan })
+			: `mailto:${REPORT_ADDRESS}`
+	);
 
 	/** @param {unknown} e */
 	const failed = (e) => t('export.failed', { error: e instanceof Error ? e.message : String(e) });
@@ -224,11 +241,13 @@
 	async function download() {
 		const store = currentStore();
 		const blobs = currentBlobs();
-		if (!store || !blobs || !plan || plan.blocked) return;
+		if (!store || !blobs || !plan || plan.blocked || !checked) return;
 		busy = true;
 		done = null;
 		error = null;
 		try {
+			const release = releaseName();
+			const confirmed = await acknowledge('export', { month: plan.month, app: release });
 			const { runMonthExport } = await import('$lib/export/build.js');
 			const counts = {
 				bookings: plan.lines.length,
@@ -241,8 +260,11 @@
 				plan,
 				settings,
 				accounts: app.accounts,
-				classifications: app.classifications
+				classifications: app.classifications,
+				notice: { acknowledgedAt: confirmed.at, version: ACK_TEXTS.export, app: release }
 			});
+			// Asked again for the next one.
+			checked = false;
 			saveFile(new Blob([/** @type {BlobPart} */ (zip)], { type: 'application/zip' }), fileName);
 			done = t('export.done', { file: fileName, ...counts });
 			await refreshNow();
@@ -709,16 +731,40 @@
 			)}
 		</ul>
 
+		<div
+			class="mt-4 rounded-md border border-l-4 border-border border-l-warning p-3 text-sm"
+			data-testid="export-notice"
+		>
+			<p class="font-medium text-heading">{t('export.notice.title')}</p>
+			<p class="mt-1 text-text">
+				{t('export.notice.text', { mail: REPORT_ADDRESS })}
+			</p>
+			<label class="mt-2 flex items-start gap-2 text-heading">
+				<input type="checkbox" class="mt-1" bind:checked disabled={busy} data-testid="export-ack" />
+				<span>{t('export.notice.ack')}</span>
+			</label>
+		</div>
+
 		<div class="mt-4 flex flex-wrap items-center gap-3">
 			<button
 				type="button"
 				class="rounded-md bg-coral-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
 				onclick={download}
-				disabled={busy || plan.blocked}
+				disabled={busy || plan.blocked || !checked}
 				data-testid="export-download">{busy ? t('export.building') : t('export.download')}</button
+			>
+			<a
+				class="text-sm text-link underline"
+				href={reportHref}
+				title={t('export.report.hint')}
+				data-testid="export-report">{t('export.report.button')}</a
 			>
 			{#if plan.blocked}
 				<p class="text-sm text-faint" data-testid="export-blocked">{t('export.blocked')}</p>
+			{:else if !checked && !busy}
+				<p class="text-sm text-faint" data-testid="export-ack-needed">
+					{t('export.notice.needed')}
+				</p>
 			{/if}
 		</div>
 		{#if done}

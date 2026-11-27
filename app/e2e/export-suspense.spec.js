@@ -63,8 +63,10 @@ test('a booking without an account goes onto the suspense account, when asked', 
 	await expect(page.getByTestId('export-suspense-hint')).toContainText('zum Jahresende');
 	await expect(check).toHaveAttribute('data-state', 'warning');
 	await expect(check).toContainText('1 Buchungen gehen auf das Sammelkonto 1590');
+	// Not blocked any more; the notice is still to be confirmed (#1053).
+	await expect(page.getByTestId('export-download')).toBeDisabled();
+	await page.getByTestId('export-ack').check();
 	await expect(page.getByTestId('export-download')).toBeEnabled();
-
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()

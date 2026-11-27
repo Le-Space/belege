@@ -2,13 +2,15 @@
 	// On Home: whether the books would survive this browser (storage/safety.js).
 	// A warning while the browser may clear them and there is no other copy –
 	// not to be put away; a reminder, for a week at a time, when the browser
-	// keeps them but no recent backup or own device does.
+	// keeps them but no recent backup or own device does. While there has never
+	// been a backup nor an own device, the reminder is the cloud banner's
+	// (CloudBanner.svelte, #1053); the warning stays, with its button.
 	import { resolve } from '$app/paths';
 	import { app } from '$lib/session.svelte.js';
 	import { integrationFacts } from '$lib/integrations/facts.svelte.js';
 	import { btn } from '$lib/ui/styles.js';
 	import { t } from '$lib/i18n/index.js';
-	import { booksSafety, requestPersistence } from './safety.js';
+	import { booksSafety, noCopy, requestPersistence } from './safety.js';
 
 	const SNOOZE_KEY = 'belege.safety-snooze';
 	const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -53,8 +55,16 @@
 				? t('home.safety.backupToday')
 				: t('home.safety.backupAge', { days: safety.backupAgeDays })
 	);
+	let bannerShown = $derived(
+		noCopy({
+			lastBackup: safety.lastBackup,
+			devices: safety.devices,
+			empty: !app.transactions.length && !app.receipts.length
+		})
+	);
 	let shown = $derived(
-		safety.level === 'warn' || (safety.level === 'remind' && Date.now() >= snoozedUntil)
+		safety.level === 'warn' ||
+			(safety.level === 'remind' && !bannerShown && Date.now() >= snoozedUntil)
 	);
 </script>
 
