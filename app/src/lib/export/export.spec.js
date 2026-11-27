@@ -19,7 +19,7 @@ import {
 	monthRange,
 	text
 } from './datev.js';
-import { fileSlug, runMonthExport } from './build.js';
+import { exportNotice, fileSlug, runMonthExport } from './build.js';
 import { bookingText, numberReceipts, planMonth, transferCounterpart } from './plan.js';
 import { overviewCsv } from './overview.js';
 
@@ -785,6 +785,7 @@ describe('the ZIP', () => {
 		});
 		expect(fileName).toBe('DATEV_2026-09.zip');
 		expect(paths).toEqual([
+			'HINWEIS.txt',
 			'DATEV/EXTF_Buchungsstapel_2026-09.csv',
 			'Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf',
 			'Belege/2026-09-002_Kabelnetz_Beispiel_GmbH.pdf',
@@ -889,5 +890,30 @@ describe('the ZIP', () => {
 		).rejects.toThrow('nicht bereit');
 		expect(fileSlug('Müller & Söhne GmbH / Straße')).toBe('Mueller_Soehne_GmbH_Strasse');
 		expect(fileSlug('***')).toBe('Beleg');
+	});
+});
+
+describe('the notice in the ZIP (#1053)', () => {
+	it('carries the text, the month, the export time, the app and the confirmation', () => {
+		const { name, text } = exportNotice({
+			month: '2026-09',
+			created: CREATED,
+			notice: { acknowledgedAt: '2026-10-02T08:30:00.000Z', version: 'export-1', app: 'v0.64.0' }
+		});
+		expect(name).toBe('HINWEIS.txt');
+		expect(text).toContain('noch in Entwicklung');
+		expect(text).toContain('nicht von DATEV zertifiziert');
+		expect(text).toContain('belege@le-space.de');
+		expect(text).toMatch(/Monat:\s+2026-09/);
+		expect(text).toMatch(/Exportiert am:\s+2026-10-02T08:30:15.123Z/);
+		expect(text).toMatch(/App-Version:\s+v0.64.0/);
+		expect(text).toMatch(/Hinweis bestätigt am:\s+2026-10-02T08:30:00.000Z/);
+		expect(text).toMatch(/Hinweis-Version:\s+export-1/);
+	});
+
+	it('says what it does not know instead of leaving it out', () => {
+		const { text } = exportNotice({ month: '2026-09', created: CREATED });
+		expect(text).toMatch(/App-Version:\s+unbekannt/);
+		expect(text).toMatch(/Hinweis bestätigt am:\s+unbekannt/);
 	});
 });

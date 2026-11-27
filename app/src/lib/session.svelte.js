@@ -1543,6 +1543,18 @@ function installE2EHooks() {
 			};
 		},
 		addTransaction: (/** @type {Record<string, any>} */ tx) => session?.store.transactions.put(tx),
+		/** A backup in the books' history, as one made with Aleph leaves it (#1053). */
+		rememberBackup: async (/** @type {Record<string, any>} */ record) => {
+			if (!session?.store) return;
+			const { rememberBackup } = await import('./backup/history.js');
+			await rememberBackup(session.store.settings, /** @type {any} */ (record));
+		},
+		/** What the books hold of a confirmation (acknowledgments.js, #1053). */
+		acknowledgment: async (/** @type {string} */ kind) => {
+			if (!session?.store) return null;
+			const { readAcknowledgment } = await import('./acknowledgments.js');
+			return readAcknowledgment(session.store.settings, /** @type {any} */ (kind));
+		},
 		/** The record of a built own bridge image (#777), as "Bridge-Image bauen" leaves it. */
 		setOwnImage: async (/** @type {Record<string, any>} */ record) => {
 			const { IMAGE_SETTING } = await import('./integrations/hosted-image.js');

@@ -86,6 +86,7 @@ test('an XRechnung: kept as XML, read without AI, matched, exported', async ({ p
 	// Exported as the XML it came as.
 	await page.getByRole('navigation').getByRole('link', { name: 'Export' }).click();
 	await page.getByTestId('export-month-select').selectOption('2026-09');
+	await page.getByTestId('export-ack').check();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()
@@ -168,6 +169,7 @@ test('a ZUGFeRD PDF: read from its embedded XML, exported with it', async ({ pag
 	await page.evaluate(() => /** @type {any} */ (window).__belegeE2E.runMatching());
 	await page.getByRole('navigation').getByRole('link', { name: 'Export' }).click();
 	await page.getByTestId('export-month-select').selectOption('2026-09');
+	await page.getByTestId('export-ack').check();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()

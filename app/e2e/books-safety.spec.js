@@ -35,6 +35,7 @@ async function startWithSample(page, label) {
 	await page.getByTestId('passkey-label').fill(label);
 	await page.getByRole('button', { name: 'Passkey anlegen' }).click();
 	await expect(page.getByTestId('own-did')).toBeVisible();
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-look').click();
 	await expect(page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 }
@@ -51,8 +52,29 @@ test('warns while the browser may clear the books, until it agrees', async ({ pa
 	await expect(card.getByTestId('home-safety-backup')).toHaveText('Noch kein Backup.');
 	await expect(card.getByTestId('home-safety-snooze')).toHaveCount(0);
 
-	// Kept now: a reminder, which can be put away for a week.
+	// Kept now, but never a backup: the cloud banner on top says it (#1053), not a second card.
 	await card.getByTestId('home-safety-persist').click();
+	await expect(card).toHaveCount(0);
+	await expect(page.getByTestId('cloud-banner')).toBeVisible();
+
+	// An old backup: no banner any more, and a reminder, which can be put away for a week.
+	const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+	await page.evaluate(
+		(at) =>
+			/** @type {any} */ (window).__belegeE2E.rememberBackup({
+				at,
+				provider: 'aleph',
+				cid: 'bafyexamplebackup',
+				size: 1,
+				status: 'processed',
+				entries: 1
+			}),
+		monthAgo
+	);
+	const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
+	await nav.getByRole('link', { name: 'Export' }).click();
+	await nav.getByRole('link', { name: 'Home' }).click();
+	await expect(page.getByTestId('cloud-banner')).toHaveCount(0);
 	await expect(card).toHaveAttribute('data-level', 'remind');
 	await expect(card).toContainText('Zeit für ein Backup');
 	await card.getByTestId('home-safety-snooze').click();

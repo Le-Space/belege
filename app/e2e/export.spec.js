@@ -267,6 +267,25 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	);
 	await page.screenshot({ path: test.info().outputPath('export-phone.png'), fullPage: true });
 	await page.setViewportSize({ width: 1280, height: 720 });
+	// The notice comes first (#1053): no download until it is confirmed, and a
+	// report link that carries only the month, the app and the counts.
+	const notice = page.getByTestId('export-notice');
+	await expect(notice).toContainText('noch in Entwicklung');
+	await expect(notice).toContainText('nicht von DATEV zertifiziert');
+	await expect(notice).toContainText('belege@le-space.de');
+	await expect(page.getByTestId('export-download')).toBeDisabled();
+	await expect(page.getByTestId('export-ack-needed')).toBeVisible();
+	const report = decodeURIComponent(
+		String(await page.getByTestId('export-report').getAttribute('href'))
+	);
+	expect(report.startsWith('mailto:belege@le-space.de?')).toBe(true);
+	expect(report).toContain(`Monat: ${MONTH}`);
+	expect(report).toContain('Buchungen: 4');
+	for (const leak of [KABEL.vendor, CUSTOMER, '39,99', '119,00', 'MUSTER UG']) {
+		expect(report).not.toContain(leak);
+	}
+	await page.getByTestId('export-ack').check();
+	await expect(page.getByTestId('export-download')).toBeEnabled();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()
@@ -279,10 +298,19 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 	expect(Object.keys(zip).sort()).toEqual([
 		`Belege/${MONTH}-001_Kabelnetz_Beispiel_GmbH.pdf`,
 		`DATEV/EXTF_Buchungsstapel_${MONTH}.csv`,
+		'HINWEIS.txt',
 		`Kontoauszuege/KA-${MONTH}-1200_Konto_A_Test.pdf`,
 		`Kontoauszuege/KA-${MONTH}-1210_Konto_B_Test.pdf`,
 		`Uebersicht_${MONTH}.csv`
 	]);
+	const readMe = strFromU8(zip['HINWEIS.txt']);
+	expect(readMe).toContain('nicht von DATEV zertifiziert');
+	expect(readMe).toMatch(new RegExp(`Monat:\\s+${MONTH}`));
+	expect(readMe).toMatch(/Hinweis bestätigt am:\s+\d{4}-\d{2}-\d{2}T/);
+	expect(readMe).toMatch(/Hinweis-Version:\s+export-1/);
+	// Asked again for the next export.
+	await expect(page.getByTestId('export-ack')).not.toBeChecked();
+	await expect(page.getByTestId('export-download')).toBeDisabled();
 	expect(strFromU8(zip[`Kontoauszuege/KA-${MONTH}-1200_Konto_A_Test.pdf`].slice(0, 5))).toBe(
 		'%PDF-'
 	);
@@ -331,6 +359,7 @@ test('assign accounts, export a month as DATEV Buchungsstapel with its receipts'
 		'Belegfeld bei Buchungen ohne eigenen Beleg leer'
 	);
 	await expect(page.getByTestId('export-summary')).toContainText('0 Kontoauszüge');
+	await page.getByTestId('export-ack').check();
 	const [again] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()

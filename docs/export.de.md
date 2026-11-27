@@ -13,6 +13,7 @@ Die ZIP-Datei entsteht in deinem Browser, und du lädst sie herunter. Nichts geh
 
 ```
 DATEV_2026-09.zip
+├── HINWEIS.txt                             der Hinweis, den du vor dem Download bestätigt hast (englisch: NOTICE.txt)
 ├── DATEV/EXTF_Buchungsstapel_2026-09.csv   Windows-1252, für den Import
 ├── Belege/2026-09-001_Kabelnetz_Beispiel_GmbH.pdf
 ├── Belege/2026-09-002_….pdf
@@ -191,6 +192,16 @@ Der Normalfall bleibt: Jede Buchung bekommt vorher ihr Konto. Manchmal ist eine 
 - Buchungen ohne Beleg bleiben ein Hinweis.
 
 **Wichtig:** Auf dem Sammelkonto gibt es keine Vorsteuer und kein Aufwandskonto. Deine Umsatzsteuer-Voranmeldung und dein Gewinn stimmen deshalb erst, wenn die Buchungen umgebucht sind. Zum Jahresende muss das Sammelkonto leer sein. Welches Konto ihr nehmt und wer umbucht, legt ihr mit dem Steuerberater fest. Das hier ist keine Steuerberatung.
+
+### Der Hinweis vor jedem Download (#1053)
+
+Der Export ist noch in Entwicklung. Er ist nicht für jede Konstellation geprüft und nicht von DATEV zertifiziert. Das steht über dem Download-Knopf, und bei jedem Export fragt die Seite: _Ich prüfe den Export selbst, bevor ich ihn weitergebe._ Ohne Häkchen bleibt der Knopf gesperrt. Nach dem Download ist das Häkchen wieder leer.
+
+Prüfe das ZIP und nach dem Import in DATEV die Buchungen selbst auf Vollständigkeit und Richtigkeit, oder lass sie von deiner Steuerberatung prüfen.
+
+Jede Bestätigung kommt in die versiegelten Einstellungen der Bücher: mit der Version des Textes, der Zeit, dem Monat und der Version der App. Sie liegt nie im Speicher des Browsers. So ist sie in jedem Backup und auf jedem eigenen Gerät. Le Space hat keinen Server und keine Kopie. Was mit dem Export mitgeht, ist `HINWEIS.txt` im ZIP: derselbe Text, der Monat, wann das ZIP entstand, die Version der App und wann der Hinweis bestätigt wurde.
+
+**Fehler melden:** Der Link neben dem Knopf öffnet dein Mailprogramm mit einer Mail an belege@le-space.de. Darin stehen nur der Monat, die Version der App und wie viele Buchungen und Belege jede Prüfung gezählt hat. Kein Betrag, kein Name und kein Verwendungszweck kommt von selbst hinein. Was du dazuschreibst, entscheidest du.
 
 ## Import in deine Buchhaltung
 

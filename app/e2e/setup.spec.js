@@ -76,6 +76,7 @@ test('a fresh start: the checklist, "later", and the bridge step that guides', a
 	// First the question; the full path puts the bridge first – and nothing answers yet.
 	await expect(page.getByTestId('setup-start')).toBeVisible();
 	await expect(card).toHaveCount(0);
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-bridge').click();
 	await expect(card).toBeVisible();
 	await expect(card.getByTestId('setup-progress')).toHaveText('0 von 5 erledigt');
@@ -142,6 +143,7 @@ test('how to start: look around, change it, then a bank statement file without t
 		card.locator(`[data-testid="setup-step"][data-step="${id}"]`);
 
 	// Looking around: the list in its own order.
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-look').click();
 	await expect(step('passkey').getByTestId('setup-step-detail')).toBeVisible();
 

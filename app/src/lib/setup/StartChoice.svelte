@@ -2,7 +2,8 @@
 	// The first run (issue #200): how to start – look around, a bank statement
 	// file (no bridge needed), or the full path with the bridge. Shown on Home
 	// in place of the checklist until one is chosen; the checklist then puts
-	// the matching step first (steps.js).
+	// the matching step first (steps.js). Before any of them, once: that
+	// Belege is not a cloud app (#1053), kept in the sealed settings.
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { t } from '$lib/i18n/index.js';
@@ -11,14 +12,30 @@
 	import { app } from '$lib/session.svelte.js';
 	import { hasSample } from '$lib/sample/sample.js';
 	import { clearSampleData, loadSampleData } from '$lib/sample/actions.js';
+	import { onMount } from 'svelte';
+	import {
+		acknowledge,
+		acknowledged,
+		acks,
+		loadAcknowledgments
+	} from '$lib/acknowledgments.svelte.js';
+
+	onMount(() => {
+		loadAcknowledgments();
+	});
+	/** Asked once: not again once the books hold it. */
+	let asked = $derived(acks.loaded && !acknowledged('onboarding'));
+	let ticked = $state(false);
 
 	/** @type {import('./steps.js').Start | null} the way being set up */
 	let busy = $state(null);
 
 	/** @param {import('./steps.js').Start} start */
 	async function choose(start) {
+		if (asked && !ticked) return;
 		busy = start;
 		try {
+			if (asked) await acknowledge('onboarding');
 			// Looking around comes with sample books; a real start leaves none behind.
 			if (start === 'look') await loadSampleData();
 			else if (hasSample(app)) await clearSampleData();
@@ -38,12 +55,20 @@
 >
 	<h2 id="start-h" class="text-lg font-semibold text-heading">{t('setup.start.title')}</h2>
 	<p class="mt-1 text-sm text-faint">{t('setup.start.intro')}</p>
+	{#if asked}
+		<label
+			class="mt-3 flex items-start gap-2 rounded-md border border-l-4 border-border border-l-warning p-3 text-sm text-heading"
+		>
+			<input type="checkbox" class="mt-1" bind:checked={ticked} data-testid="setup-start-ack" />
+			<span>{t('setup.start.ack')}</span>
+		</label>
+	{/if}
 	<div class="mt-3 grid gap-3 sm:grid-cols-3">
 		{#each STARTS as start (start)}
 			<button
 				type="button"
 				class="flex min-h-11 flex-col rounded-lg border border-border bg-surface px-4 py-3 text-left hover:border-cyan-800 hover:bg-surface-2 disabled:opacity-60 dark:hover:border-cyan"
-				disabled={busy !== null}
+				disabled={busy !== null || !acks.loaded || (asked && !ticked)}
 				aria-busy={busy === start}
 				onclick={() => choose(start)}
 				data-testid="setup-start-{start}"

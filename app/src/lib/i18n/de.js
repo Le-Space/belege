@@ -250,6 +250,8 @@ export default {
 			'Die Einrichtung verschwindet von Home, sobald nichts mehr offen ist; hier bleibt sie.',
 		start: {
 			title: 'Wie willst du anfangen?',
+			// Draft (#1053): for the lawyer's review before it is final.
+			ack: 'Ich weiß: Belege ist keine Cloud-App. Meine Bücher liegen nur in diesem Browser. Geht das Gerät verloren oder werden die Websitedaten gelöscht, sind sie weg. Le Space hat keine Kopie und kann nichts wiederherstellen.',
 			intro:
 				'Die Wahl lässt sich ändern, solange die Bücher noch leer sind. Einrichten kannst du alles auch später.',
 			look: {
@@ -798,10 +800,15 @@ export default {
 				'Le Space Belege wird von der Le Space UG (haftungsbeschränkt) kostenlos zur Verfügung gestellt, als freie Software (AGPL-3.0). Es gibt keine Gewähr, dass die App fehlerfrei arbeitet oder dauerhaft erreichbar ist.',
 				'Die Le Space UG haftet nur für Vorsatz und grobe Fahrlässigkeit. Die gesetzliche Haftung für Schäden an Leben, Körper und Gesundheit und nach dem Produkthaftungsgesetz bleibt unberührt.',
 				'Deine Bücher liegen nur auf deinen Geräten, nicht bei uns. Ihre Sicherung liegt bei dir: Mach Backups, verbinde ein zweites Gerät und bewahre Kontoauszüge und Belege auch anderswo auf.',
-				'Belege bereitet deine Buchhaltung vor; es ersetzt weder Buchführung noch Steuerberatung. Prüfe Zuordnungen, ausgelesene Beträge und jeden Export, bevor du ihn weitergibst – auch die KI kann sich irren.'
+				'Belege ist keine Cloud-App: Ohne Backup und ohne zweites Gerät nehmen ein verlorenes Gerät oder gelöschte Websitedaten die Bücher mit. Le Space hat keine Kopie und kann nichts wiederherstellen.',
+				'Le Space kennt weder deine Passkeys noch deine Wiederherstellungswörter und kann sie nicht wiederherstellen. Gehen alle verloren, sind Bücher und Backups für immer unlesbar. Sie sicher aufzubewahren liegt allein bei dir.',
+				'Belege bereitet deine Buchhaltung vor; es ersetzt weder Buchführung noch Steuerberatung. Prüfe Zuordnungen, ausgelesene Beträge und jeden Export, bevor du ihn weitergibst – auch die KI kann sich irren.',
+				'Der DATEV-Export ist noch in Entwicklung, nicht für jede Konstellation geprüft und nicht von DATEV zertifiziert. Prüfe jeden Export selbst oder mit deiner Steuerberatung; Fehler bitte an belege@le-space.de.'
 			],
 			imprint: 'Impressum',
-			privacy: 'Datenschutzerklärung der Le Space UG'
+			privacy: 'Datenschutzerklärung der Le Space UG',
+			// Draft (#1053): for the lawyer's review before it is final.
+			read: 'Ich habe Nutzung und Haftung gelesen.'
 		},
 		technicalHeading: 'Unter der Haube',
 		// The names of what Belege works with, where they carry words (consent/integrations.js).
@@ -2195,6 +2202,14 @@ export default {
 			backup: 'Backup machen',
 			device: 'Eigenes Gerät verbinden',
 			snooze: 'In einer Woche wieder',
+			// Draft (#1053): for the lawyer's review before it is final.
+			cloud: {
+				title: 'Belege ist keine Cloud-App.',
+				text: 'Deine Bücher liegen nur in diesem Browser. Geht das Gerät verloren oder werden die Websitedaten gelöscht, sind sie weg. Le Space hat keine Kopie und kann nichts wiederherstellen.',
+				setup: 'Backup einrichten',
+				ok: 'Verstanden',
+				short: 'Kein Backup, kein zweites Gerät – Le Space kann nichts wiederherstellen.'
+			},
 			refused:
 				'Der Browser hat abgelehnt. Chrome sagt eher zu, wenn Belege als App installiert ist oder ein Lesezeichen hat. Sicher bist du erst mit einem Backup oder einem zweiten Gerät.'
 		},
@@ -2825,7 +2840,11 @@ export default {
 					'Schreib diese 24 Wörter in dieser Reihenfolge auf Papier. Sie werden nur jetzt gezeigt.',
 				paper:
 					'Kein Foto, keine Notiz-App, keine Zwischenablage: Wer die Wörter hat, öffnet die Bücher.',
-				written: 'Ich habe die 24 Wörter aufgeschrieben.',
+				// Draft (#1053): noRestore and written for the lawyer's review before they are final.
+				noRestore:
+					'Le Space kennt weder deinen Passkey noch diese Wörter und kann sie nicht wiederherstellen. Gehen alle Passkeys und die Wörter verloren, sind Bücher und Backups für immer unlesbar. Die Wörter sicher aufzubewahren liegt allein bei dir; die Le Space UG haftet nicht für ihren Verlust.',
+				written:
+					'Ich habe die Wörter aufgeschrieben und weiß, dass niemand sie wiederherstellen kann.',
 				next: 'Weiter',
 				askBack: 'Zur Probe: Welche Wörter stehen an diesen Stellen?',
 				confirm: 'Wörter bestätigen',
@@ -2850,6 +2869,9 @@ export default {
 			},
 			intro:
 				'Welche Passkeys deine Bücher öffnen. Jeder hat ein eigenes Fach im Tresor der Bücher; jedes Fach öffnet dieselben Bücher und jede Sicherung.',
+			// Draft (#1053): for the lawyer's review before it is final.
+			singleNoRestore:
+				'Le Space kennt deinen Passkey nicht und kann ihn nicht wiederherstellen. Ihn und die Wiederherstellungswörter sicher aufzubewahren liegt allein bei dir; die Le Space UG haftet nicht für ihren Verlust.',
 			singleHeading: 'Einziger Schlüssel:',
 			single:
 				'Diese Bücher öffnet nur ein Passkey. Geht er verloren, sind Bücher und Sicherungen nicht mehr lesbar. Leg einen zweiten an, etwa einen Sicherheitsschlüssel, den du sicher aufbewahrst.',
@@ -3923,6 +3945,29 @@ export default {
 		done: 'Heruntergeladen: {file} – {bookings} Buchungen, {receipts} Belege, {statements} Kontoauszüge.',
 		blocked: 'Erst die rot markierten Punkte erledigen.',
 		failed: 'Der Export ist fehlgeschlagen: {error}',
+		// Draft (#1053): notice and noticeFile for the lawyer's review before they are final.
+		notice: {
+			title: 'Der DATEV-Export ist noch in Entwicklung.',
+			text: 'Er ist nicht für jede Konstellation geprüft und nicht von DATEV zertifiziert. Prüfe das ZIP und nach dem Import in DATEV die Buchungen selbst auf Vollständigkeit und Richtigkeit, oder lass sie von deiner Steuerberatung prüfen. Fehler bitte an {mail}.',
+			ack: 'Ich prüfe den Export selbst, bevor ich ihn weitergebe.',
+			needed: 'Erst bestätigen, dass du den Export selbst prüfst.'
+		},
+		report: {
+			button: 'Fehler melden',
+			hint: 'Öffnet dein Mailprogramm mit Monat, App-Version und den Anzahlen der Prüfungen – ohne Beträge, Namen oder Verwendungszwecke. Was du dazuschreibst, entscheidest du.',
+			subject: 'DATEV-Export {month} – Fehler',
+			body: 'Monat: {month}\nApp-Version: {app}\nBuchungen: {bookings}\nPrüfungen: {unassigned} ohne Konto, {unpriced} ohne Kurs, {missingReceipt} ohne Beleg, {unlinked} Belege übrig, {unverified} Absender unbestätigt, {suspense} auf dem Sammelkonto\n\nWas stimmt nicht?\n'
+		},
+		noticeFile: {
+			name: 'HINWEIS.txt',
+			heading: 'HINWEIS ZUM DATEV-EXPORT',
+			month: 'Monat',
+			exported: 'Exportiert am',
+			app: 'App-Version',
+			acknowledged: 'Hinweis bestätigt am',
+			version: 'Hinweis-Version',
+			unknown: 'unbekannt'
+		},
 		consumption: {
 			title: 'Eigenbelege für Verbrauch',
 			intro:

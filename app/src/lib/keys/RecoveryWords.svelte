@@ -5,9 +5,11 @@
 	// books-vault.js). The words are never stored: closing this before the
 	// last step leaves nothing behind. With them an empty device opens the
 	// books without any passkey (the lock screen's "Mit Wiederherstellungswörtern
-	// öffnen").
+	// öffnen"). Before the words are asked back, the person confirms that
+	// nobody can restore them (#1053), kept in the sealed settings.
 	import { addBooksRecoveryWords, app, removeBooksRecoveryWords } from '$lib/session.svelte.js';
 	import { intlLocale, t } from '$lib/i18n/index.js';
+	import { acknowledge } from '$lib/acknowledgments.svelte.js';
 
 	/** @type {'idle' | 'show' | 'ask'} */
 	let step = $state('idle');
@@ -51,6 +53,12 @@
 		answers = {};
 		written = false;
 		step = 'show';
+	}
+
+	async function wordsWritten() {
+		if (!written) return;
+		await acknowledge('recovery-words');
+		step = 'ask';
 	}
 
 	async function confirm() {
@@ -157,6 +165,12 @@
 				{/each}
 			</ol>
 			<p class="mt-2 text-xs text-faint">{t('settings.keys.words.paper')}</p>
+			<p
+				class="mt-2 rounded-md border border-l-4 border-border border-l-warning px-3 py-2 text-sm text-heading"
+				data-testid="words-no-restore"
+			>
+				{t('settings.keys.words.noRestore')}
+			</p>
 			<label class="mt-2 flex items-start gap-2 text-sm text-text">
 				<input type="checkbox" class="mt-1" bind:checked={written} data-testid="words-written" />
 				<span>{t('settings.keys.words.written')}</span>
@@ -166,7 +180,7 @@
 					type="button"
 					class={button}
 					disabled={!written}
-					onclick={() => (step = 'ask')}
+					onclick={wordsWritten}
 					data-testid="words-next">{t('settings.keys.words.next')}</button
 				>
 				<button type="button" class={button} onclick={forget} data-testid="words-cancel"

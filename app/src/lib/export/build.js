@@ -3,6 +3,7 @@
 // Nothing leaves the browser; the page hands the bytes to a download.
 // Loaded lazily by the export page, with fflate.
 //
+//   HINWEIS.txt / NOTICE.txt                         the notice confirmed before the download (#1053)
 //   DATEV/EXTF_Buchungsstapel_<YYYY-MM>.csv
 //   Belege/<receipt number>_<vendor>.pdf            a mail without an attachment: a PDF of its text
 //   Kontoauszuege/<statement number>_<account>.pdf   one per account (statement.js)
@@ -32,8 +33,49 @@ import { statementPdf } from './statement-pdf.js';
 import { mailReceiptPdf } from './mail-pdf.js';
 import { isMailText } from './plan.js';
 import { t } from '../i18n/index.js';
+import { REPORT_ADDRESS } from './report.js';
 
 /** @typedef {Record<string, any>} Rec */
+
+/**
+ * @typedef {object} ExportNotice
+ * @property {string} [acknowledgedAt] ISO, when the person confirmed it
+ * @property {string} [version] the text's version (acknowledgments.js)
+ * @property {string} [app] the app's release
+ */
+
+/**
+ * The notice the person confirmed, as a file for the ZIP (#1053): the text,
+ * the month, when it was made, with which app, and when it was confirmed –
+ * the copy of the confirmation that travels with the export. In the app's
+ * language; nothing of the books in it.
+ *
+ * @param {{ month: string, created: Date, notice?: ExportNotice }} p
+ * @returns {{ name: string, text: string }}
+ */
+export function exportNotice({ month, created, notice = {} }) {
+	const unknown = t('export.noticeFile.unknown');
+	const rows = [
+		[t('export.noticeFile.month'), month],
+		[t('export.noticeFile.exported'), created.toISOString()],
+		[t('export.noticeFile.app'), notice.app || unknown],
+		[t('export.noticeFile.acknowledged'), notice.acknowledgedAt || unknown],
+		[t('export.noticeFile.version'), notice.version || unknown]
+	];
+	const width = Math.max(...rows.map(([k]) => k.length)) + 2;
+	return {
+		name: t('export.noticeFile.name'),
+		text: [
+			t('export.noticeFile.heading'),
+			'',
+			t('export.notice.title'),
+			t('export.notice.text', { mail: REPORT_ADDRESS }),
+			'',
+			...rows.map(([k, v]) => `${`${k}:`.padEnd(width)}${v}`),
+			''
+		].join('\n')
+	};
+}
 
 const EXTENSION = /** @type {Record<string, string>} */ ({
 	'application/pdf': 'pdf',
@@ -97,9 +139,18 @@ export function statementPath(statement) {
  * @param {Record<string, any>} params.classifications
  * @param {{ get: (cid: string) => Promise<Uint8Array> }} params.blobs
  * @param {Date} params.created
+ * @param {ExportNotice} [params.notice] the confirmation before the download
  * @returns {Promise<{ zip: Uint8Array, fileName: string, paths: string[], csv: string }>}
  */
-export async function buildMonthZip({ plan, settings, accounts, classifications, blobs, created }) {
+export async function buildMonthZip({
+	plan,
+	settings,
+	accounts,
+	classifications,
+	blobs,
+	created,
+	notice
+}) {
 	if (plan.blocked) throw new Error(t('messages.export.notReady'));
 	const csv = buchungsstapel({
 		settings,
@@ -107,8 +158,10 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
 		created,
 		lines: plan.lines.map((l) => l.line)
 	});
+	const readMe = exportNotice({ month: plan.month, created, notice });
 	/** @type {Record<string, Uint8Array>} */
 	const files = {
+		[readMe.name]: strToU8(readMe.text),
 		[`DATEV/EXTF_Buchungsstapel_${plan.month}.csv`]: encodeWindows1252(csv)
 	};
 	for (const r of plan.receipts) {
@@ -163,6 +216,7 @@ export async function buildMonthZip({ plan, settings, accounts, classifications,
  * @param {import('../booking/settings.js').DatevSettings} params.settings
  * @param {Rec[]} params.accounts
  * @param {Record<string, any>} params.classifications
+ * @param {ExportNotice} [params.notice]
  * @param {() => Date} [params.now]
  */
 export async function runMonthExport({
@@ -172,6 +226,7 @@ export async function runMonthExport({
 	settings,
 	accounts,
 	classifications,
+	notice,
 	now = () => new Date()
 }) {
 	const built = await buildMonthZip({
@@ -180,7 +235,8 @@ export async function runMonthExport({
 		accounts,
 		classifications,
 		blobs,
-		created: now()
+		created: now(),
+		notice
 	});
 	for (const { receiptId, number } of plan.newNumbers) {
 		const r = await store.receipts.get(receiptId);

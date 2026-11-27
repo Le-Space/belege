@@ -4,6 +4,14 @@ _English: [backup.md](backup.md)_
 
 Ein Backup enthält alles, was Belege in diesem Browser hält: die Datenbanken der Bücher und jede Belegdatei, auch die, die per Mail kamen. Es ist eine einzige Datei. Belege versiegelt sie mit einem Schlüssel aus dem Tresor der Bücher ([keys.de.md](keys.de.md)), und Aleph Cloud bewahrt sie auf. Öffnen kann sie nur ein Passkey dieser Bücher. Aleph kann es nicht.
 
+## Ohne Backup lässt sich nichts wiederherstellen
+
+Belege ist keine Cloud-App. Die Bücher liegen in diesem Browser und auf deinen eigenen Geräten. Le Space hat keine Kopie und kann nichts wiederherstellen. Ein verlorenes Gerät oder gelöschte Websitedaten nehmen die Bücher mit, wenn es kein Backup und kein zweites eigenes Gerät gibt.
+
+Solange es beides nicht gibt, steht deshalb oben auf der Startseite ein Hinweis ([#1053](https://github.com/Le-Space/belege/issues/1053)): _Belege ist keine Cloud-App._ mit _Backup einrichten_ und _Verstanden_. Nach _Verstanden_ wird er zu einer Zeile. Er bleibt aber, bis es ein Backup oder ein eigenes Gerät gibt. Beim ersten Start fragt Belege dasselbe einmal als Häkchen vor dem ersten Schritt. Beide Bestätigungen kommen mit Version des Textes und Zeit in die versiegelten Einstellungen der Bücher, nie in den Speicher des Browsers.
+
+Für die Schlüssel gilt dasselbe: Le Space kennt weder deine Passkeys noch deine Wiederherstellungswörter und kann sie nicht wiederherstellen. Gehen alle Passkeys und die Wörter verloren, sind die Bücher und jedes Backup für immer unlesbar ([keys.de.md](keys.de.md)).
+
 ## Was du zum Wiederherstellen brauchst
 
 Auf einem leeren Gerät brauchst du zwei Dinge:

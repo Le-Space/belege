@@ -57,6 +57,8 @@
 	// Device sync is this device's choice, kept in this browser (sync/device-sync.js).
 	let syncOn = $state(deviceSyncOn());
 	const { open, accepted, section } = consent;
+	/** "Ich habe Nutzung und Haftung gelesen" (#1053): needed before the first "Verstanden" of a version. */
+	let read = $state(false);
 	/** @type {HTMLDetailsElement | undefined} */
 	let networkSection = $state();
 
@@ -474,11 +476,18 @@
 
 	<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
 		<p class="max-w-md text-xs text-faint">{t('consent.reopenHint')}</p>
+		{#if !$accepted}
+			<label class="flex items-start gap-2 text-sm text-heading">
+				<input type="checkbox" class="mt-1" bind:checked={read} data-testid="consent-read" />
+				<span>{t('consent.terms.read')}</span>
+			</label>
+		{/if}
 		<button
 			type="button"
 			onclick={() => consent.accept()}
+			disabled={!$accepted && !read}
 			data-testid="consent-proceed"
-			class="rounded-md bg-coral-700 px-6 py-3 font-medium text-white transition-colors hover:bg-coral-800"
+			class="rounded-md bg-coral-700 px-6 py-3 font-medium text-white transition-colors hover:bg-coral-800 disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			{t('consent.proceed')}
 		</button>

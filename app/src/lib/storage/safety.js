@@ -61,3 +61,16 @@ export function booksSafety({ persisted, lastBackup, devices, empty = false, now
 	if (!empty && !copied) level = persisted === true ? 'remind' : 'warn';
 	return { level, persisted, lastBackup: lastBackup ?? null, backupAgeDays, devices };
 }
+
+/**
+ * Neither a backup, ever, nor a second own device (#1053): Le Space has no
+ * copy either, and a lost device or cleared site data takes the books.
+ *
+ * @param {object} p
+ * @param {string | null} p.lastBackup ISO, the newest backup
+ * @param {number} p.devices own devices the books are synced with
+ * @param {boolean} [p.empty] no records yet: nothing to lose
+ */
+export function noCopy({ lastBackup, devices, empty = false }) {
+	return !empty && !lastBackup && devices === 0;
+}
