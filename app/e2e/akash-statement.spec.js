@@ -163,6 +163,8 @@ test('an Akash month: the statement covers its fees, the export books them as on
  * @param {import('@playwright/test').Page} page
  */
 async function exported(page) {
+	// The export asks for its acknowledgment before every download (#1053).
+	await page.getByTestId('export-ack').check();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByTestId('export-download').click()
