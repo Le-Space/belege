@@ -81,6 +81,7 @@ test('no test hook, and no key or booking at rest', async ({ page, context }) =>
 	expect(await testGlobals(page)).toEqual({ hook: 'undefined', byTheApp: [] });
 
 	// Books with something in them, through the page: a bank statement.
+	await page.getByTestId('setup-start-ack').check();
 	await page.getByTestId('setup-start-file').click();
 	await page.getByTestId('camt-file').setInputFiles(STATEMENT);
 	await expect(page.getByTestId('camt-result')).toContainText('Neu: 5');

@@ -77,6 +77,7 @@ test('what Le Space Belege is: a tour through the sample books', async ({
 
 	// Sample data.
 	await scene.say(LINES.sample, { after: 0 });
+	await scene.click(page.getByTestId('setup-start-ack'));
 	await scene.click(page.getByTestId('setup-start-look'));
 	await expect(page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 	await expect(page.getByTestId('coverage-percent')).toBeVisible({ timeout: 60_000 });

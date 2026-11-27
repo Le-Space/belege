@@ -368,6 +368,7 @@ test('through a cloud outage: three devices, three passkeys, one vault by QR', a
 		await laptop.page.getByTestId('passkey-label').fill(W.laptop);
 		await laptop.page.getByRole('button', { name: W.create }).click();
 		await expect(laptop.page.getByTestId('own-did')).toBeVisible();
+		await laptop.page.getByTestId('setup-start-ack').check();
 		await laptop.page.getByTestId('setup-start-look').click();
 		await expect(laptop.page.getByTestId('sample-banner')).toBeVisible({ timeout: 60_000 });
 		// A payment that waits for its receipt: the sample's Stromwerk invoice,
