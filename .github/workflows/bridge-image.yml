@@ -181,7 +181,7 @@ jobs:
       - name: Confidential, encrypted, published
         id: rootfs
         if: inputs.publish
-        uses: NiKrause/relay-button/.github/actions/aleph-confidential-rootfs@fcdf41e6b8d16725e75b75401527de201dce836f # v0.12.9
+        uses: NiKrause/relay-button/.github/actions/aleph-confidential-rootfs@846a77825106a26d634dff3cefae14dee9577e01 # v0.12.13
         with:
           image_path: ${{ runner.temp }}/bridge.ext4
           # No key in the image: a test sends its own with the unlock; the app never does.
