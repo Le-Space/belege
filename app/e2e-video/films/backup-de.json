@@ -7,9 +7,9 @@
 		{
 			"card": "scene",
 			"n": 1,
-			"eyebrow": "Backup und zurück",
-			"title": "Eine versiegelte Datei auf Aleph, und die Geschäftsbücher kommen zurück",
-			"sub": "Backup, ein Gerät, das alles vergisst, und der Passkey, der alles zurückholt."
+			"eyebrow": "Backup, und zurück auf einem anderen Gerät",
+			"title": "Eine versiegelte Datei auf Aleph, die Geschäftsbücher auf einem anderen Gerät",
+			"sub": "Ein Backup auf einem Laptop. Auf einem anderen holen derselbe Passkey und zweimal Berühren alles zurück: ohne Bridge, ohne Eintippen."
 		},
 		{
 			"scene": "backup.de"
