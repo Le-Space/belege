@@ -47,6 +47,29 @@ describe('taxKeyFor: the BU key from the receipt', () => {
 			via: 'reverse-charge-income'
 		});
 	});
+	it('reverse charge with its own 0 % or computed line keeps the §13b key', () => {
+		const zero = vat([{ rate: 0, amount: 0, category: 'reverse_charge' }], {
+			reverse_charge: true
+		});
+		expect(taxKeyFor(zero, { income: false }).via).toBe('reverse-charge');
+		const computed = vat([{ rate: 19, amount: 3.8, category: 'reverse_charge' }], {
+			reverse_charge: true
+		});
+		expect(taxKeyFor(computed, { income: false }).via).toBe('reverse-charge');
+		const noAmount = vat([{ rate: 19, amount: null }], { reverse_charge: true });
+		expect(taxKeyFor(noAmount, { income: false }).via).toBe('reverse-charge');
+	});
+	it('reverse charge next to a line that charges VAT: no single key (mixed)', () => {
+		const both = vat(
+			[
+				{ rate: 0, amount: 0, category: 'reverse_charge' },
+				{ rate: 19, amount: 1.9, category: 'standard' }
+			],
+			{ reverse_charge: true }
+		);
+		expect(taxKeyFor(both, { income: false })).toEqual({ taxKey: '', via: 'mixed' });
+		expect(taxKeyFor(both, { income: true })).toEqual({ taxKey: '', via: 'mixed' });
+	});
 	it('no VAT, a foreign rate, several rates, no receipt: empty', () => {
 		expect(taxKeyFor(vat([]), { income: false })).toEqual({ taxKey: '', via: 'no-vat' });
 		expect(taxKeyFor(vat([{ rate: 20, amount: 2 }]), { income: false }).via).toBe('other-rate');

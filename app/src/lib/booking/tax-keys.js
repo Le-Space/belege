@@ -9,6 +9,8 @@
 //   money in,  VAT  7 %   → output7   (2, Umsatzsteuer 7 %)
 //   money out, §13b       → reverseCharge (94, to be checked with the tax adviser)
 //   no VAT, another rate, several rates, an Automatikkonto → empty
+//   §13b next to a line that carries VAT → empty ('mixed'): one key would
+//                           book the taxed part as reverse charge too
 
 import { catalogueAccount } from './skr03.js';
 import { DEFAULT_TAX_KEYS } from './settings.js';
@@ -37,6 +39,28 @@ export function vatRates(receipt) {
 }
 
 /**
+ * Whether a receipt charges VAT on some line: a line with a rate and an amount
+ * that is not the reverse-charge line itself (which carries no VAT, or a
+ * computed one).
+ *
+ * @param {Record<string, any> | null | undefined} receipt
+ */
+function chargesVat(receipt) {
+	const vat = receipt?.extraction?.vat;
+	if (!Array.isArray(vat)) return false;
+	return vat.some(
+		(/** @type {any} */ v) =>
+			v &&
+			v.category !== 'reverse_charge' &&
+			typeof v.rate === 'number' &&
+			v.rate > 0 &&
+			typeof v.amount === 'number' &&
+			Number.isFinite(v.amount) &&
+			v.amount !== 0
+	);
+}
+
+/**
  * @param {Record<string, any> | null | undefined} receipt the booking's (first) receipt
  * @param {object} context
  * @param {boolean} context.income money came in
@@ -48,6 +72,7 @@ export function taxKeyFor(receipt, { income, keys = DEFAULT_TAX_KEYS, account = 
 	if (account && catalogueAccount(account)?.automatic) return { taxKey: '', via: 'automatic' };
 	if (!receipt) return { taxKey: '', via: 'no-receipt' };
 	if (receipt.extraction?.reverse_charge === true) {
+		if (chargesVat(receipt)) return { taxKey: '', via: 'mixed' };
 		return income
 			? { taxKey: '', via: 'reverse-charge-income' }
 			: { taxKey: keys.reverseCharge, via: 'reverse-charge' };
