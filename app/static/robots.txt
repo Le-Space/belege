@@ -1,14 +1,10 @@
-# No search engine indexes the app; link previews may read the start pages
-# and their images (issue #343). Everything behind the passkey is in the
-# browser and never on the server anyway.
-User-agent: Twitterbot
-User-agent: LinkedInBot
-User-agent: TelegramBot
-User-agent: facebookexternalhit
-User-agent: Slackbot-LinkExpanding
-User-agent: Discordbot
-User-agent: Mastodon
-Allow: /
-
+# No search engine indexes the app: every page says `noindex` (app.html,
+# static/en/index.html). A crawler has to fetch a page to read that, so
+# nothing is disallowed here. Until November 2026 this file shut every
+# crawler but the link previews out, Google never read the noindex and
+# listed the start page anyway ("Indexed, though blocked by robots.txt").
+# Link previews read the start pages and their images (issue #343).
+# Everything behind the passkey is in the browser and never on the server
+# anyway.
 User-agent: *
-Disallow: /
+Allow: /
