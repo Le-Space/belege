@@ -1,7 +1,7 @@
 // Link previews (issue #343): the static tags X/Twitter, LinkedIn and
 // Telegram read, in app.html (German) and static/en/index.html (English),
 // carry the catalogue's `social` texts; the images are there at 1200×630;
-// robots.txt lets the preview crawlers in and search engines not.
+// robots.txt lets every crawler in, so search engines read the noindex.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -84,11 +84,10 @@ describe('link previews (#343)', () => {
 		expect(script).toContain("location.replace('../')");
 	});
 
-	it('robots.txt: the preview crawlers in, everyone else out', () => {
+	it('robots.txt: every crawler in, so search engines read the noindex', () => {
+		// A Disallow would keep the noindex unread, and Google lists the page anyway.
 		const robots = String(read('static/robots.txt'));
-		for (const bot of ['Twitterbot', 'LinkedInBot', 'TelegramBot', 'facebookexternalhit']) {
-			expect(robots).toMatch(new RegExp(`User-agent: ${bot}\\n(User-agent: .*\\n)*Allow: /`));
-		}
-		expect(robots).toMatch(/User-agent: \*\nDisallow: \/\n?$/);
+		expect(robots).toMatch(/User-agent: \*\nAllow: \/\n?$/);
+		expect(robots).not.toMatch(/^Disallow/m);
 	});
 });
